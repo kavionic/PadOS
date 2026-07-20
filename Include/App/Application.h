@@ -40,7 +40,6 @@ public:
 
     static PApplication* GetCurrentApplication() { return dynamic_cast<PApplication*>(GetCurrentThread()); }
 
-    virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
     static PIRect    GetScreenIFrame();
     static PRect     GetScreenFrame() { return PRect(GetScreenIFrame()); }
@@ -51,9 +50,6 @@ public:
     
     Ptr<PView> FindView(handler_id handle);
 
-
-    void SetFocusView(PPointerID pointerID, Ptr<PView> view, bool focus);
-    Ptr<PView> GetFocusView(PPointerID pointerID) const;
 
     void SetKeyboardFocus(Ptr<PView> view, bool focus, bool notifyServer);
     Ptr<PView> GetKeyboardFocus() const;
@@ -74,6 +70,11 @@ public:
 private:
     friend class PView;
  
+    struct PointerCaptureState
+    {
+        PView*               View = nullptr;
+        PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
+    };
     
     void DetachView(Ptr<PView> view);
     
@@ -82,8 +83,15 @@ private:
     bool CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index);
     void RegisterViewForLayout(Ptr<PView> view, bool recursive = false);
 
-    void      SetPointerDownView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent);
-    Ptr<PView> GetPointerDownView(PPointerID pointerID) const;
+    void      SetLongPressView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent);
+    Ptr<PView> GetLongPressView(PPointerID pointerID) const;
+    bool      SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureMode mode);
+    void      ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureLostReason reason);
+    void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
+    Ptr<PView> GetPointerCaptureView(PPointerID pointerID) const;
+    void      SetLastPointerEvent(const PPointerEvent& pointerEvent);
+    void      ClearLastPointerEvent(PPointerID pointerID);
+    PPointerEvent GetLastPointerEvent(PPointerID pointerID) const;
 
     void LayoutViews();
 
@@ -97,8 +105,9 @@ private:
     uint8_t m_SendBuffer[PAPPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
 
-    std::map<PPointerID, PView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
-    std::map<PPointerID, PView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
+    std::map<PPointerID, PView*> m_LongPressViewMap;
+    std::map<PPointerID, PointerCaptureState> m_PointerCaptureMap;
+    std::map<PPointerID, PPointerEvent> m_LastPointerEventMap;
     PPointerEvent               m_LastClickEvent;
     PView*                   m_KeyboardFocusView = nullptr;
 

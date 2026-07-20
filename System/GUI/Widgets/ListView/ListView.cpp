@@ -219,12 +219,12 @@ void PListView::SetHasColumnHeader(bool value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListView::HasFocus(PPointerID pointerID) const
+bool PListView::HasPointerCapture(PPointerID pointerID) const
 {
-    if (PView::HasFocus(pointerID)) {
+    if (PView::HasPointerCapture(pointerID)) {
         return true;
     }
-    return m_HeaderView->HasFocus(pointerID);
+    return m_HeaderView->HasPointerCapture(pointerID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -639,7 +639,7 @@ size_t PListView::GetRowIndex(Ptr<PListViewRow> row) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t PListView::HitTest(const PPoint& pos) const
+size_t PListView::GetRowIndexAtPosition(const PPoint& pos) const
 {
     const PPoint parentPos = ConvertToRoot(m_ScrolledContainerView->ConvertFromRoot(pos));
     return m_ScrolledContainerView->GetRowIndex(parentPos.y);

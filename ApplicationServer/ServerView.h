@@ -37,6 +37,7 @@ public:
         const PPoint&        scrollOffset,
         PViewDockType        dockType,
         uint32_t            flags,
+        PViewHitMode        hitMode,
         int32_t             hideCount,
         PFocusKeyboardMode   focusKeyboardMode,
         PDrawingMode         drawingMode,
@@ -71,6 +72,7 @@ public:
     bool        HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     bool        HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     bool        HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool        HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
 
     void        AddChild(Ptr<PServerView> child, size_t index);
     void        RemoveChild(Ptr<PServerView> child, bool removeAsHandler);
@@ -109,6 +111,7 @@ public:
     void                SetFocusKeyboardMode(PFocusKeyboardMode mode);
     PFocusKeyboardMode   GetFocusKeyboardMode() const                 { return m_FocusKeyboardMode; }
 
+    void        SetHitMode(PViewHitMode mode) { m_HitMode = mode; }
     void        SetDrawingMode(PDrawingMode mode) { m_DrawingMode = mode; }
     void        SetEraseColor(PColor color) { m_EraseColor = color; }
     void        SetBgColor(PColor color)    { m_BgColor = color; }

@@ -343,6 +343,7 @@ void PMVCBaseView::AddItemWidget(size_t index)
 
             if (itemNode.ItemWidget != nullptr)
             {
+                itemNode.ItemWidget->SetHitMode(PViewHitMode::IgnoreRecursive);
                 m_ContentView->AddChild(itemNode.ItemWidget);
                 if (!VFUpdateItemWidget.Empty()) VFUpdateItemWidget(itemNode.ItemWidget, itemNode.ItemData, itemNode.IsSelected, index == m_HighlightedItem);
             }
@@ -390,13 +391,13 @@ void PMVCBaseView::Construct()
     m_ContentView->VFCalculateContentSize.Connect(this, &PView::GetContentSize);
     m_ContentView->SignalFrameSized.Connect(this, &PMVCBaseView::OnContentViewFrameSized);
     m_ContentView->SignalViewScrolled.Connect(this, &PMVCBaseView::SlotContentScrolled);
+    m_ContentView->VFPointerDown.Connect(this, &PMVCBaseView::SlotContentViewPointerDown);
+    m_ContentView->VFPointerUp.Connect(this, &PMVCBaseView::SlotContentViewPointerUp);
+    m_ContentView->VFPointerMove.Connect(this, &PMVCBaseView::SlotContentViewPointerMove);
+    m_ContentView->VFPointerCancel.Connect(this, &PMVCBaseView::SlotContentViewPointerCancel);
 
     m_ScrollView->SetScrolledView(m_ContentView);
     m_ScrollView->SetStartScrollThreshold(BEGIN_DRAG_OFFSET);
-
-    m_ScrollView->VFPointerDown.Connect(this, &PMVCBaseView::SlotScrollViewPointerDown);
-    m_ScrollView->VFPointerUp.Connect(this, &PMVCBaseView::SlotScrollViewPointerUp);
-    m_ScrollView->VFPointerMove.Connect(this, &PMVCBaseView::SlotScrollViewPointerMove);
 
     AddChild(m_ScrollView);
     SetLayoutNode(ptr_new<PLayoutNode>());
@@ -418,45 +419,79 @@ void PMVCBaseView::ItemClicked(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMVCBaseView::SlotScrollViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent)
+bool PMVCBaseView::SlotContentViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
-    const PPoint& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
+    if (phase != PEventPhase::Target) {
+        return false;
+    }
 
-    const size_t index = GetItemIndexAtPosition(itemPosition);
+    const size_t index = GetItemIndexAtPosition(position);
+    m_PressedItem = index;
     SetHighlightedItem(index);
-
-    view->OnPointerDown(pointerID, position, motionEvent);
+    return index != INVALID_INDEX;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMVCBaseView::SlotScrollViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent)
+bool PMVCBaseView::SlotContentViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
-    if (m_ScrollView->GetInertialScrollerState() == PInertialScroller::State::WaitForThreshold)
-    {
-        const PPoint& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
+    if (phase != PEventPhase::Target) {
+        return false;
+    }
 
-        const size_t index = GetItemIndexAtPosition(itemPosition);
-        if (index != INVALID_INDEX && index == m_HighlightedItem)
-        {
-            SetHighlightedItem(INVALID_INDEX);
-            ItemClicked(index);
+    const bool handled = m_PressedItem != INVALID_INDEX;
+
+    if (m_HighlightedItem != INVALID_INDEX)
+    {
+        const size_t clickedItem = m_HighlightedItem;
+        SetHighlightedItem(INVALID_INDEX);
+
+        if (clickedItem < GetItemCount()) {
+            ItemClicked(clickedItem);
         }
     }
-    view->OnPointerUp(pointerID, position, motionEvent);
+    m_PressedItem = INVALID_INDEX;
+    return handled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMVCBaseView::SlotScrollViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent)
+bool PMVCBaseView::SlotContentViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
-    if (m_HighlightedItem != INVALID_INDEX && m_ScrollView->GetInertialScrollerState() == PInertialScroller::State::Dragging)
+    if (phase != PEventPhase::Target) {
+        return false;
+    }
+    if (m_PressedItem == INVALID_INDEX) {
+        return false;
+    }
+
+    const size_t itemIndex = GetItemIndexAtPosition(position);
+    const size_t highlightedItem = (itemIndex == m_PressedItem) ? m_PressedItem : INVALID_INDEX;
+    SetHighlightedItem(highlightedItem);
+
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PMVCBaseView::SlotContentViewPointerCancel(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
+{
+    if (phase != PEventPhase::Target) {
+        return false;
+    }
+
+    const bool handled = m_PressedItem != INVALID_INDEX || m_HighlightedItem != INVALID_INDEX;
+    m_PressedItem = INVALID_INDEX;
+
+    if (m_HighlightedItem != INVALID_INDEX)
     {
         SetHighlightedItem(INVALID_INDEX);
     }
-    view->OnPointerMove(pointerID, position, motionEvent);
+    return handled;
 }

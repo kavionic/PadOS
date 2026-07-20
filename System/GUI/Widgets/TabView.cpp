@@ -373,7 +373,7 @@ void PTabView::SetSelection(size_t index, bool notify)
             Ptr<PView> view = m_TabList[m_SelectedTab].m_View;
             view->SetFrame(GetClientFrame());
             view->Show(true);
-//            view->MakeFocus(true);
+//            view->SetPointerCapture(pointerID);
         }
         Invalidate();
         m_TopView->Invalidate();
@@ -508,7 +508,7 @@ void PTabView::OnFrameSized(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (m_HitPointerID != PInvalidPointerID || m_TabList.empty() || position.y >= m_TabHeight) {
         return false;
@@ -527,7 +527,7 @@ bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const
         }
         x += width;
     }
-    MakeFocus(pointerID, true);
+    SetPointerCapture(pointerID);
     return true;
 }
 
@@ -535,12 +535,12 @@ bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
         return false;
     }
-    MakeFocus(pointerID, false);
+    ReleasePointerCapture(pointerID);
     m_HitPointerID = PInvalidPointerID;
     return true;
 }
@@ -549,7 +549,7 @@ bool PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID == m_HitPointerID)
     {

@@ -52,15 +52,15 @@ private:
 
     virtual void    OnFrameSized(const PPoint& delta) override;
 
-    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
-    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
-    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
 
     //    virtual void  WheelMoved(const Point& cDelta);
     virtual void    OnPaint(const PRect& updateRect) override;
     //    virtual void  TimerTick( int nID );
     virtual void    DetachedFromWindow();
-    virtual bool    HasFocus(PPointerID pointerID) const override;
+    virtual bool    HasPointerCapture(PPointerID pointerID) const override;
 
     //    bool      HandleKey( char nChar, uint32_t nQualifiers );
     void        LayoutColumns();

@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <assert.h>
+#include <cmath>
 #include <stdio.h>
 #include <GUI/Widgets/Slider.h>
 #include <GUI/Widgets/TextView.h>
@@ -460,8 +461,9 @@ void PSlider::OnEnableStatusChanged(bool isEnabled)
 {
     if (m_HitPointerID != PInvalidPointerID)
     {
-        MakeFocus(m_HitPointerID, false);
+        ReleasePointerCapture(m_HitPointerID);
         m_HitPointerID = PInvalidPointerID;
+        m_PointerCaptureLocked = false;
         if (m_Changed)
         {
             SignalValueChanged(m_Value, true, this);
@@ -475,8 +477,9 @@ void PSlider::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (phase != PEventPhase::Target) return false;
     if (!IsEnabled()) return false;
     if (m_HitPointerID == PInvalidPointerID)
     {
@@ -485,7 +488,7 @@ bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const 
         m_HitPos = position; // (position - ValToPos(m_HitValue));
         m_SmoothedPos = position;
         m_Changed = false;
-        MakeFocus(pointerID, true);
+        m_PointerCaptureLocked = false;
         Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
 
         SignalBeginDrag(m_Value, this, pointerID);
@@ -497,13 +500,14 @@ bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (phase != PEventPhase::Target) return false;
     if (!IsEnabled()) return false;
     if (pointerID == m_HitPointerID)
     {
-        MakeFocus(m_HitPointerID, false);
         m_HitPointerID = PInvalidPointerID;
+        m_PointerCaptureLocked = false;
         if (m_Changed)
         {
             SignalValueChanged(m_Value, true, this);
@@ -520,11 +524,23 @@ bool PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PP
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (phase != PEventPhase::Target) return false;
     if (!IsEnabled()) return false;
     if (pointerID == m_HitPointerID)
     {
+        if (!m_PointerCaptureLocked)
+        {
+            const PPoint dragDelta = position - m_HitPos;
+            const float primaryDelta = (m_Orientation == POrientation::Horizontal) ? std::abs(dragDelta.x) : std::abs(dragDelta.y);
+            const float crossDelta = (m_Orientation == POrientation::Horizontal) ? std::abs(dragDelta.y) : std::abs(dragDelta.x);
+            if (primaryDelta >= POINTER_CAPTURE_LOCK_THRESHOLD && primaryDelta >= crossDelta && SetPointerCapture(pointerID))
+            {
+                m_PointerCaptureLocked = true;
+            }
+        }
+
         PPoint distance(fabsf(m_SmoothedPos.x - position.x), fabsf(m_SmoothedPos.y - position.y));
         PPoint scale = distance * 0.1f;  // Divide by smoothing range.
         scale = scale * scale * 0.5f;   // Exponential growth from 0 -> 0.5
@@ -561,13 +577,33 @@ bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool PSlider::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase != PEventPhase::Target) return false;
+    if (pointerID == m_HitPointerID)
+    {
+        SetValue(m_HitValue, false);
+        m_HitPointerID = PInvalidPointerID;
+        m_PointerCaptureLocked = false;
+        m_Changed = false;
+        Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
+        SignalEndDrag(m_Value, this, pointerID);
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PSlider::OnLabelChanged(const PString& label)
 {
     if (m_Orientation == POrientation::Horizontal && (!m_ValueFormat.empty() || !label.empty()))
     {
         if (m_ValueView == nullptr)
         {
-            m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this), PViewFlags::IgnorePointer);
+            m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this));
+            m_ValueView->SetHitMode(PViewHitMode::IgnoreThis);
             m_ValueView->SignalPreferredSizeChanged.Connect(this, &PSlider::LayoutValueView);
         }
         UpdateValueView();

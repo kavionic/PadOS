@@ -136,27 +136,27 @@ void PTextBox::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextBox::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTextBox::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    return m_Editor->OnPointerDown(pointerID, m_Editor->ConvertFromParent(position), event);
+    return m_Editor->OnPointerDown(pointerID, m_Editor->ConvertFromParent(position), event, phase);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextBox::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTextBox::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    return m_Editor->OnPointerUp(pointerID, m_Editor->ConvertFromParent(position), event);
+    return m_Editor->OnPointerUp(pointerID, m_Editor->ConvertFromParent(position), event, phase);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextBox::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTextBox::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    return m_Editor->OnPointerMove(pointerID, m_Editor->ConvertFromParent(position), event);
+    return m_Editor->OnPointerMove(pointerID, m_Editor->ConvertFromParent(position), event, phase);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

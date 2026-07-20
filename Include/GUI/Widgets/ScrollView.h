@@ -31,15 +31,23 @@ public:
 
     // From View:
     virtual void    OnLayoutChanged() override;
-    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
-    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
-    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool    OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
     // From ViewScroller:
     virtual Ptr<PView>   SetScrolledView(Ptr<PView> view) override;
 
 private:
+    bool CanScrollHorizontally() const;
+    bool CanScrollVertically() const;
+    bool ShouldCaptureScroll(const PPoint& position) const;
+    bool BeginPointerScrollTracking(PPointerID pointerID, const PPoint& position);
+    void EndPointerScrollTracking(PPointerID pointerID);
+
     PPointerID   m_HitPointerID = PInvalidPointerID;
+    PPoint       m_HitPos;
 
 };

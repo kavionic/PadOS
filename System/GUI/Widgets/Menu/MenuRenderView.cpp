@@ -48,7 +48,7 @@ void PMenuRenderView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
@@ -72,7 +72,7 @@ bool PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position
     }
 
     if (m_HitPointerID != PInvalidPointerID) {
-        return PView::OnPointerDown(pointerID, position, event);
+        return PView::OnPointerDown(pointerID, position, event, phase);
     }
 
     if (m_Menu->m_HasOpenChildren)
@@ -100,7 +100,7 @@ bool PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position
         m_Menu->SelectItem(item);
     }
 
-    MakeFocus(pointerID, true);
+    SetPointerCapture(pointerID);
     return true;
 }
 
@@ -108,7 +108,7 @@ bool PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PMenuRenderView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
@@ -129,7 +129,7 @@ bool PMenuRenderView::OnPointerUp(PPointerID pointerID, const PPoint& position, 
     }
 
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerUp(pointerID, position, event);
+        return PView::OnPointerUp(pointerID, position, event, phase);
     }
 
     m_HitPointerID = PInvalidPointerID;
@@ -148,7 +148,7 @@ bool PMenuRenderView::OnPointerUp(PPointerID pointerID, const PPoint& position, 
             m_Menu->Close(false, true, item);
         }
     }
-    MakeFocus(pointerID, false);
+    ReleasePointerCapture(pointerID);
     return true;
 }
 
@@ -156,7 +156,7 @@ bool PMenuRenderView::OnPointerUp(PPointerID pointerID, const PPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PMenuRenderView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
@@ -179,7 +179,7 @@ bool PMenuRenderView::OnPointerMove(PPointerID pointerID, const PPoint& position
     }
 
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerMove(pointerID, position, event);
+        return PView::OnPointerMove(pointerID, position, event, phase);
     }
     if (m_MouseMoved)
     {

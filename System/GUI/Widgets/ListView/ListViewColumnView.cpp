@@ -30,6 +30,7 @@ PListViewColumnView::PListViewColumnView(Ptr<PListViewScrolledView> parent, cons
     : PView("_lv_column", parent, PViewFlags::WillDraw)
     , m_Title(title)
 {
+    SetHitMode(PViewHitMode::IgnoreThis);
     m_ContentWidth = 0.0f;
 }
 
@@ -78,7 +79,7 @@ void PListViewColumnView::Refresh(const PRect& updateRect)
         size_t column = std::find(parent->m_ColumnViews.begin(), parent->m_ColumnViews.end(), this) - parent->m_ColumnViews.begin();
 
         std::vector<Ptr<PListViewRow>>& rowList = parent->m_Rows;
-        bool hasFocus = false; // parent->m_ListView->HasFocus();
+        bool hasFocus = false; // parent->m_ListView->HasPointerCapture();
 
 
         for (size_t i = firstRow; i < rowList.size(); ++i)
@@ -128,5 +129,4 @@ void PListViewColumnView::OnPaint(const PRect& updateRect)
         parent->SetDrawingMode(PDrawingMode::Copy);
     }
 }
-
 

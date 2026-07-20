@@ -55,6 +55,7 @@ private:
                         const PRect& frame,
                         const PPoint& scrollOffset,
                         uint32_t flags,
+                        PViewHitMode hitMode,
                         int32_t hideCount,
                         PFocusKeyboardMode focusKeyboardMode,
                         PDrawingMode drawingMode,
@@ -69,7 +70,8 @@ private:
                         PColor bgColor,
                         PColor fgColor);
     void SlotDeleteView(handler_id clientHandle);
-    void SlotFocusView(handler_id clientHandle, PPointerID pointerID, bool focus);
+    void SlotSetPointerCapture(port_id replyPort, handler_id clientHandle, PPointerID pointerID, PPointerCaptureMode mode);
+    void SlotReleasePointerCapture(handler_id clientHandle, PPointerID pointerID, PPointerCaptureLostReason reason);
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
@@ -83,6 +85,7 @@ private:
     void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &PServerView::BeginUpdate); }
     void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &PServerView::EndUpdate); }
     void SlotViewShow(handler_id viewHandle, bool show);
+    void SlotViewSetHitMode(handler_id viewHandle, PViewHitMode mode)                       { ForwardToView(viewHandle, &PServerView::SetHitMode, mode); }
     void SlotViewSetFgColor(handler_id viewHandle, PColor color)                             { ForwardToView(viewHandle, &PServerView::SetFgColor, color); }
     void SlotViewSetBgColor(handler_id viewHandle, PColor color)                             { ForwardToView(viewHandle, &PServerView::SetBgColor, color); }
     void SlotViewSetEraseColor(handler_id viewHandle, PColor color)                          { ForwardToView(viewHandle, &PServerView::SetEraseColor, color); }
@@ -139,7 +142,8 @@ private:
     ASSync                      RSSync;
     ASCreateView                RSCreateView;
     ASDeleteView                RSDeleteView;
-    ASFocusView                 RSFocusView;
+    ASSetPointerCapture         RSSetPointerCapture;
+    ASReleasePointerCapture     RSReleasePointerCapture;
     ASSetKeyboardFocus          RSSetKeyboardFocus;
     ASCreateBitmap              RSCreateBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
@@ -152,6 +156,7 @@ private:
     ASViewBeginUpdate           RSViewBeginUpdate;
     ASViewEndUpdate             RSViewEndUpdate;
     ASViewShow                  RSViewShow;
+    ASViewSetHitMode            RSViewSetHitMode;
     ASViewSetFgColor            RSViewSetFgColor;
     ASViewSetBgColor            RSViewSetBgColor;
     ASViewSetEraseColor         RSViewSetEraseColor;

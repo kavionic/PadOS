@@ -34,6 +34,7 @@ class PString;
 class PRect;
 
 enum class PViewDockType : int32_t;
+enum class PViewHitMode : uint8_t;
 enum class PFocusKeyboardMode : uint8_t;
 
 enum class PFontID : uint8_t;
@@ -61,7 +62,8 @@ namespace PAppserverProtocol
         SYNC,
         CREATE_VIEW,
         DELETE_VIEW,
-        FOCUS_VIEW,
+        SET_POINTER_CAPTURE,
+        RELEASE_POINTER_CAPTURE,
         SET_KEYBOARD_FOCUS,
         CREATE_BITMAP,
         DELETE_BITMAP,
@@ -79,6 +81,7 @@ namespace PAppserverProtocol
         VIEW_BEGIN_UPDATE,
         VIEW_END_UPDATE,
         VIEW_SHOW,
+        VIEW_SET_HIT_MODE,
         VIEW_SET_FOCUS_KEYBOARD_MODE,
         VIEW_SET_DRAWING_MODE,
         VIEW_SET_FG_COLOR,
@@ -115,6 +118,7 @@ namespace PAppserverProtocol
         // Appserver -> view reply messages:
         REGISTER_APPLICATION_REPLY,
         CREATE_VIEW_REPLY,
+        SET_POINTER_CAPTURE_REPLY,
         CREATE_BITMAP_REPLY,
         PAINT_VIEW,
         VIEW_FRAME_CHANGED,
@@ -131,7 +135,8 @@ namespace PAppserverProtocol
         HANDLE_POINTER_DOWN,
         HANDLE_POINTER_UP,
         HANDLE_POINTER_MOVE,
-        HANDLE_POINTER_CANCEL
+        HANDLE_POINTER_CANCEL,
+        HANDLE_POINTER_CAPTURE_LOST
     };
 }
 
@@ -152,6 +157,11 @@ struct MsgRegisterApplicationReply
 struct MsgCreateViewReply
 {
     handler_id m_ViewHandle;
+};
+
+struct MsgSetPointerCaptureReply
+{
+    bool m_Succeeded;
 };
 
 struct MsgCreateBitmapReply
@@ -176,6 +186,7 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         const PRect&       frame,
         const PPoint&      scrollOffset,
         uint32_t          flags,
+        PViewHitMode      hitMode,
         int32_t           hideCount,
         PFocusKeyboardMode focusKeyboardMode,
         PDrawingMode       drawingMode,
@@ -191,10 +202,18 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         PColor             fgColor
     )
 >;
-                                                               
+
 using ASDeleteView = PRemoteSignal<PAppserverProtocol::DELETE_VIEW, void(handler_id viewHandle)>;
 
-using ASFocusView = PRemoteSignal<PAppserverProtocol::FOCUS_VIEW , void(handler_id viewHandle, PPointerID pointerID, bool)>; // 'true' for set, 'false' for clear focus.
+using ASSetPointerCapture = PRemoteSignal<PAppserverProtocol::SET_POINTER_CAPTURE,
+    void(
+        port_id              replyPort,
+        handler_id           viewHandle,
+        PPointerID           pointerID,
+        PPointerCaptureMode  mode
+        )
+>;
+using ASReleasePointerCapture = PRemoteSignal<PAppserverProtocol::RELEASE_POINTER_CAPTURE, void(handler_id viewHandle, PPointerID pointerID, PPointerCaptureLostReason reason)>;
 
 using ASSetKeyboardFocus = PRemoteSignal<PAppserverProtocol::SET_KEYBOARD_FOCUS,
     void(
@@ -225,6 +244,7 @@ using ASViewToggleDepth     = PRemoteSignal<PAppserverProtocol::VIEW_TOGGLE_DEPT
 using ASViewBeginUpdate     = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_UPDATE,    void(handler_id viewHandle)>;
 using ASViewEndUpdate       = PRemoteSignal<PAppserverProtocol::VIEW_END_UPDATE,      void(handler_id viewHandle)>;
 using ASViewShow            = PRemoteSignal<PAppserverProtocol::VIEW_SHOW,            void(handler_id viewHandle, bool show)>;
+using ASViewSetHitMode      = PRemoteSignal<PAppserverProtocol::VIEW_SET_HIT_MODE,    void(handler_id viewHandle, PViewHitMode mode)>;
 using ASViewSetFocusKeyboardMode= PRemoteSignal<PAppserverProtocol::VIEW_SET_FOCUS_KEYBOARD_MODE, void(handler_id viewHandle, PFocusKeyboardMode mode)>;
 using ASViewSetDrawingMode  = PRemoteSignal<PAppserverProtocol::VIEW_SET_DRAWING_MODE,    void(handler_id viewHandle, PDrawingMode Mode)>;
 using ASViewSetFgColor      = PRemoteSignal<PAppserverProtocol::VIEW_SET_FG_COLOR,        void(handler_id viewHandle, PColor color)>;
@@ -262,10 +282,11 @@ using ASWindowManagerDisableVKeyboard   = PRemoteSignal<PAppserverProtocol::WIND
 
 using ASSyncReply = PRemoteSignal<PAppserverProtocol::SYNC_REPLY>;
                                         
-using ASHandlePointerDown   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_DOWN,   void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerUp     = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_UP,     void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerMove   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_MOVE,   void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerCancel = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CANCEL, void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerDown   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_DOWN,   void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerUp     = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_UP,     void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerMove   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_MOVE,   void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerCancel = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CANCEL, void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureLostReason reason)>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
 using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;

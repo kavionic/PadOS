@@ -239,9 +239,9 @@ void PScrollBar::SlotTimerTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-	MakeFocus(pointerID, true);
+	SetPointerCapture(pointerID);
 	m_HitState = HIT_NONE;
 	m_Changed = false;
 
@@ -299,7 +299,7 @@ bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -350,7 +350,7 @@ bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 	}
 
 	m_HitState = HIT_NONE;
-	MakeFocus(pointerID, false);
+	ReleasePointerCapture(pointerID);
 
 	return true;
 }
@@ -359,7 +359,7 @@ bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
 	if (m_HitState == HIT_ARROW)
 	{

@@ -100,7 +100,7 @@ public:
     Ptr<PListViewRow>    GetRow(const PPoint& pos) const;
     Ptr<PListViewRow>    GetRow(size_t index) const;
     size_t              GetRowIndex(Ptr<PListViewRow> row) const;
-    size_t              HitTest(const PPoint& pos) const;
+    size_t              GetRowIndexAtPosition(const PPoint& pos) const;
     float               GetRowPos(size_t row);
     void                Clear();
     bool                IsSelected(size_t row) const;
@@ -118,7 +118,7 @@ public:
     virtual void        OnFrameSized(const PPoint& delta) override;
     //    virtual void      KeyDown( const char* pzString, const char* pzRawString, uint32_t nQualifiers );
     //    virtual void      AllAttachedToScreen() override;
-    virtual bool        HasFocus(PPointerID pointerID) const override;
+    virtual bool        HasPointerCapture(PPointerID pointerID) const override;
 
     // STL iterator interface to the rows.
     const_iterator begin() const;

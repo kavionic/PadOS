@@ -150,13 +150,13 @@ void PTextEditView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (HasFlags(PTextBoxFlags::ReadOnly) || m_HitPointerID != PInvalidPointerID) {
         return false;
     }
 
-    MakeFocus(pointerID, true);
+    SetPointerCapture(pointerID);
 
     m_HitPointerID = pointerID;
     m_HitPos    = position;
@@ -175,7 +175,7 @@ bool PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
         return false;
@@ -200,7 +200,7 @@ bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
     m_CursorFrozen      = false;
     m_HitPointerID         = PInvalidPointerID;
 
-    MakeFocus(pointerID, false);
+    ReleasePointerCapture(pointerID);
 
     UpdateCursorTimer();
     return true;
@@ -210,7 +210,7 @@ bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
         return false;

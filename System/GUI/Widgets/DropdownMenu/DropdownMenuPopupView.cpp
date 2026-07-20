@@ -191,12 +191,12 @@ void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxS
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
         if (m_HitPointerID != PInvalidPointerID) {
-            return PView::OnPointerDown(pointerID, position, event);
+            return PView::OnPointerDown(pointerID, position, event, phase);
         }
         m_HitPointerID = pointerID;
 
@@ -212,7 +212,7 @@ bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
     }
 
     if (m_HitPointerID != PInvalidPointerID) {
-        return PView::OnPointerDown(pointerID, position, event);
+        return PView::OnPointerDown(pointerID, position, event, phase);
     }
     m_HitPos = position;
     m_HitPointerID = pointerID;
@@ -225,7 +225,7 @@ bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
     itemFrame.bottom = itemFrame.top + m_GlyphHeight;
     Invalidate(itemFrame);
 
-    MakeFocus(pointerID, true);
+    SetPointerCapture(pointerID);
     return true;
 }
 
@@ -233,7 +233,7 @@ bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
@@ -245,7 +245,7 @@ bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
     }
 
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerUp(pointerID, position, event);
+        return PView::OnPointerUp(pointerID, position, event, phase);
     }
 
     m_HitPointerID = PInvalidPointerID;
@@ -262,7 +262,7 @@ bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
     {
         SignalSelectionChanged(PositionToIndex(position), true);
     }
-    MakeFocus(pointerID, false);
+    ReleasePointerCapture(pointerID);
     return true;
 }
 
@@ -270,7 +270,7 @@ bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
@@ -299,7 +299,7 @@ bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
     }
 
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerMove(pointerID, position, event);
+        return PView::OnPointerMove(pointerID, position, event, phase);
     }
     if (m_MouseMoved)
     {

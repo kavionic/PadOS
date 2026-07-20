@@ -66,7 +66,7 @@ public:
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    OnFrameSized(const PPoint& cDelta) override;
     virtual void    OnScreenFrameMoved(const PPoint& delta) override;
-    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPaint(const PRect& cUpdateRect) override;
 
     // From Control:

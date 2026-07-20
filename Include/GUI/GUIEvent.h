@@ -60,6 +60,33 @@ static constexpr PPointerID PMousePointerID = 0;
 static constexpr PPointerID PFirstTouchPointerID = 1;
 static constexpr PPointerButtonMask PPointerButtonMaskNone = 0;
 
+enum class PPointerCaptureMode : uint8_t
+{
+    Preemptible,
+    Locked
+};
+
+enum class PPointerCaptureLostReason : uint8_t
+{
+    Released,
+    PointerUp,
+    PointerCancel,
+    Stolen,
+    ViewDetached
+};
+
+enum class PEventPhase : uint8_t
+{
+    Capture,
+    Target,
+    Bubble
+};
+
+static constexpr uint8_t PEventPhaseMask(PEventPhase phase)
+{
+    return uint8_t(1U << std::to_underlying(phase));
+}
+
 static constexpr PPointerID GetPointerID(PMouseButton button)
 {
     return (button < PMouseButton::FirstTouchID)
@@ -144,6 +171,14 @@ struct PTouchEvent : PInputEvent
     PPoint              Position;
 };
 
+enum class PPointerEventType
+{
+    Down,
+    Up,
+    Move,
+    Cancel
+};
+
 struct PPointerEvent
 {
     PPointerID          PointerID = PInvalidPointerID;
@@ -152,7 +187,8 @@ struct PPointerEvent
     PMouseButton        Button = PMouseButton::None;
     PPointerButtonMask  Buttons = PPointerButtonMaskNone;
     float               Pressure = 0.0f;
-    PPoint              Position;
+    PPoint              ScreenPosition;
+    PPoint              ViewPosition;
 };
 
 struct PKeyEvent : PInputEvent

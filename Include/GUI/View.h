@@ -118,10 +118,12 @@ public:
 
     virtual void OnPaint(const PRect& updateRect) { EraseRect(updateRect); }
 
-    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    virtual bool OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual bool OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerCaptureGained(PPointerID pointerID);
+    virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
     virtual bool OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
 
     virtual void OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent);
@@ -164,9 +166,15 @@ public:
     void       Show(bool visible = true);
     void       Hide() { Show(false); }
     bool       IsVisible() const;
-    bool       IsVisibleToPointer() const { return IsVisible() && !HasFlags(PViewFlags::IgnorePointer); }
-    virtual void MakeFocus(PPointerID pointerID, bool focus = true);
-    virtual bool HasFocus(PPointerID pointerID) const;
+    bool       IsVisibleToPointer() const { return IsVisible() && m_HitMode == PViewHitMode::HitTest; }
+    void       SetHitMode(PViewHitMode mode);
+    PViewHitMode GetHitMode() const { return m_HitMode; }
+    virtual bool HitTest(const PPoint& position) const;
+    void       EnableEventPhase(PEventPhase phase, bool enable);
+    bool       IsEventPhaseEnabled(PEventPhase phase) const;
+    bool       SetPointerCapture(PPointerID pointerID, PPointerCaptureMode mode = PPointerCaptureMode::Locked);
+    void       ReleasePointerCapture(PPointerID pointerID);
+    virtual bool HasPointerCapture(PPointerID pointerID) const;
 
     void SetKeyboardFocus(bool focus = true);
     bool HasKeyboardFocus() const;
@@ -198,19 +206,18 @@ public:
     void                Invalidate();
 
     void                SetFocusKeyboardMode(PFocusKeyboardMode mode);
-    PFocusKeyboardMode   GetFocusKeyboardMode() const { return m_FocusKeyboardMode; }
+    PFocusKeyboardMode  GetFocusKeyboardMode() const { return m_FocusKeyboardMode; }
 
     void                SetDrawingMode(PDrawingMode mode);
-    PDrawingMode         GetDrawingMode() const;
+    PDrawingMode        GetDrawingMode() const;
     void                SetFont(Ptr<PFont> font);
-    Ptr<PFont>           GetFont() const;
+    Ptr<PFont>          GetFont() const;
 
-    bool            SlotHandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-
-    bool            HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    void            HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    void            HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    void            HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    bool            HandlePointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void            HandlePointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void            HandlePointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void            HandlePointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void            HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
     
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(PColor(red, green, blue, alpha)); }
     void            SetFgColor(PColor color)                                                     { if (color != m_FgColor) { m_FgColor = color; Post<ASViewSetFgColor>(color); } }
@@ -330,10 +337,10 @@ public:
 
     VFConnector<void (PView* view, const PRect& updateRect)> VFPaint;
 
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerDown;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerUp;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerMove;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerCancel;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerDown;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerUp;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerMove;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerCancel;
     VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFLongPress;
 
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyDown;
@@ -387,13 +394,20 @@ private:
     void SetFrameInternal(const PRect& frame, bool notifyServer);
 
     enum class UpdatePositionNotifyServer { Never, Always, IfChanged };
+    using PointerEventPath = std::vector<Ptr<PView>>;
+
     void UpdatePosition(UpdatePositionNotifyServer notifyMode);
 
-    bool DispatchPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    bool DispatchPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    bool DispatchPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    bool DispatchPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
-    bool DispatchLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    Ptr<PView> FindPointerTarget(const PPoint& position);
+    void BuildPointerEventPath(PointerEventPath& path);
+    bool DispatchPointerEvent(PPointerEventType eventType, PPointerID pointerID, const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled);
+    bool DispatchPointerEventPhase(PPointerEventType eventType, PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    bool ShouldStopPointerEventDispatch(PPointerID pointerID, Ptr<PView> originalCaptureView) const;
+    bool DispatchPointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    bool DispatchPointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    bool DispatchPointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    bool DispatchPointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    bool DispatchLongPress(PPointerID pointerID, const PPointerEvent& pointerEvent);
     void DispatchKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
     void DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
 
@@ -420,6 +434,7 @@ private:
     PSizeOverride        m_HeightOverrideType[int(PPrefSizeType::Count)] = {PSizeOverride::None, PSizeOverride::None};
 
     PFocusKeyboardMode   m_FocusKeyboardMode = PFocusKeyboardMode::None;
+    uint8_t             m_EventPhaseMask = PEventPhaseMask(PEventPhase::Target);
     bool                m_IsPrefSizeValid = false;
     bool                m_IsLayoutValid   = true;
     bool                m_IsLayoutPending = false;
@@ -444,4 +459,5 @@ private:
     ASHandlePointerUp     RSHandlePointerUp;
     ASHandlePointerMove   RSHandlePointerMove;
     ASHandlePointerCancel RSHandlePointerCancel;
+    ASHandlePointerCaptureLost RSHandlePointerCaptureLost;
 };

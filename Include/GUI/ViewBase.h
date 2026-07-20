@@ -29,11 +29,12 @@ class PViewBase : public PEventHandler, public SignalTarget
 public:
     typedef std::vector<Ptr<ViewType>> ChildList_t;
 
-    PViewBase(const PString& name, const PRect& frame, const PPoint& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, PColor eraseColor, PColor bgColor, PColor fgColor, PCapStyle capStyle = PCapStyle::Flat, PJointStyle jointStyle = PJointStyle::Bevel, float miterLimit = 4.0f, const std::vector<float>& dashPattern = {}, float dashOffset = 0.0f)
+    PViewBase(const PString& name, const PRect& frame, const PPoint& scrollOffset, uint32_t flags, PViewHitMode hitMode, int32_t hideCount, float penWidth, PColor eraseColor, PColor bgColor, PColor fgColor, PCapStyle capStyle = PCapStyle::Flat, PJointStyle jointStyle = PJointStyle::Bevel, float miterLimit = 4.0f, const std::vector<float>& dashPattern = {}, float dashOffset = 0.0f)
         : PEventHandler(name)
         , m_Frame(frame)
         , m_ScrollOffset(scrollOffset)
         , m_Flags(flags)
+        , m_HitMode(hitMode)
         , m_PenWidth(penWidth)
         , m_CapStyle(capStyle)
         , m_JointStyle(jointStyle)
@@ -158,9 +159,9 @@ public:
     PRect        ConvertToParent(const PRect& rect) const     { return rect + GetTopLeft() + m_ScrollOffset; }
     void        ConvertToParent(PRect* rect) const           { *rect += GetTopLeft() + m_ScrollOffset; }
     PPoint       ConvertFromParent(const PPoint& point) const { return point - GetTopLeft() - m_ScrollOffset; }
-    void        ConvertFromParent(PPoint* point) const       { *point -= GetTopLeft() - m_ScrollOffset; }
+    void        ConvertFromParent(PPoint* point) const       { *point -= GetTopLeft() + m_ScrollOffset; }
     PRect        ConvertFromParent(const PRect& rect) const   { return rect - GetTopLeft() - m_ScrollOffset; }
-    void        ConvertFromParent(PRect* rect) const         { *rect -= GetTopLeft() - m_ScrollOffset; }
+    void        ConvertFromParent(PRect* rect) const         { *rect -= GetTopLeft() + m_ScrollOffset; }
     PPoint       ConvertToRoot(const PPoint& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
     void        ConvertToRoot(PPoint* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
     PRect        ConvertToRoot(const PRect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
@@ -204,11 +205,12 @@ protected:
         }
     }
 
-    PRect        m_Frame = PRect(0.0f, 0.0f, 0.0f, 0.0f);
-    PPoint       m_ScrollOffset;
-    uint32_t    m_Flags = 0;    
+    PRect           m_Frame = PRect(0.0f, 0.0f, 0.0f, 0.0f);
+    PPoint          m_ScrollOffset;
+    uint32_t        m_Flags = 0;    
+    PViewHitMode    m_HitMode = PViewHitMode::HitTest;
 
-    PPoint       m_ScreenPos = PPoint(0.0f, 0.0f);
+    PPoint          m_ScreenPos = PPoint(0.0f, 0.0f);
 
     WeakPtr<ViewType>   m_Parent;
     std::vector<Ptr<ViewType>>  m_ChildrenList;

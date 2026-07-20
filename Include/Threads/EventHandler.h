@@ -51,7 +51,8 @@ public:
         m_RemoteSignalMap[SIGNAL::GetID()] = &signal->ReceiverObj;
         signal->ReceiverObj.Connect(this, callback);
     }
-    PRemoteSignalRXBase* GetSignalForMessage(int32_t code) {
+    PRemoteSignalRXBase* GetSignalForMessage(int32_t code)
+    {
         auto i = m_RemoteSignalMap.find(code);
         if (i != m_RemoteSignalMap.end()) {
             return i->second;

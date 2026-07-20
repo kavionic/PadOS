@@ -473,6 +473,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
         PPoint(0.0f, 0.0f),
         PViewDockType::TopLevelView,
         0,
+        PViewHitMode::HitTest,
         0,
         PFocusKeyboardMode::None,
         PDrawingMode::Copy,
@@ -584,19 +585,19 @@ void ApplicationServer::Idle()
             case PInputEventID::MouseDown:
             case PInputEventID::TouchDown:
             {
-                HandlePointerDown(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent.Position, queuedEvent.PointerEvent);
+                HandlePointerDown(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent);
                 break;
             }            
             case PInputEventID::MouseUp:
             case PInputEventID::TouchUp:
             {
-                HandlePointerUp(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent.Position, queuedEvent.PointerEvent);
+                HandlePointerUp(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent);
                 break;
             }            
             case PInputEventID::MouseMove:
             case PInputEventID::TouchMove:
             {
-                HandlePointerMove(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent.Position, queuedEvent.PointerEvent);
+                HandlePointerMove(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent);
                 break;
             }
             default:
@@ -666,18 +667,10 @@ Ptr<PServerView> ApplicationServer::FindView(handler_id handle) const
 
 void ApplicationServer::ViewDestructed(PServerView* view)
 {
-    for (auto i = m_PointerViewMap.begin(); i != m_PointerViewMap.end(); )
+    for (auto i = m_PointerCaptureMap.begin(); i != m_PointerCaptureMap.end(); )
     {
-        if (i->second == view) {
-            i = m_PointerViewMap.erase(i);
-        } else {
-            ++i;
-        }
-    }
-    for (auto i = m_PointerFocusMap.begin(); i != m_PointerFocusMap.end(); )
-    {
-        if (i->second == view) {
-            i = m_PointerFocusMap.erase(i);
+        if (i->second.View == view) {
+            i = m_PointerCaptureMap.erase(i);
         } else {
             ++i;
         }
@@ -1002,7 +995,8 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEven
     pointerEvent.Button = mouseEvent.Button;
     pointerEvent.Buttons = mouseEvent.Buttons;
     pointerEvent.Pressure = (mouseEvent.Buttons != PPointerButtonMaskNone) ? 1.0f : 0.0f;
-    pointerEvent.Position = position;
+    pointerEvent.ScreenPosition = position;
+    pointerEvent.ViewPosition = position;
     return pointerEvent;
 }
 
@@ -1019,7 +1013,8 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PTouchEvent& touchEven
     pointerEvent.Button = GetTouchPointerButton(touchEvent);
     pointerEvent.Buttons = GetTouchPointerButtons(touchEvent);
     pointerEvent.Pressure = touchEvent.Pressure;
-    pointerEvent.Position = touchEvent.Position;
+    pointerEvent.ScreenPosition = touchEvent.Position;
+    pointerEvent.ViewPosition = touchEvent.Position;
     return pointerEvent;
 }
 
@@ -1076,11 +1071,12 @@ void ApplicationServer::UpdateMouseCursor()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+void ApplicationServer::HandlePointerDown(PPointerID pointerID, const PPointerEvent& event)
 {
-    m_TopView->HandlePointerDown(pointerID, position, event);
+    m_LastPointerEventMap[pointerID] = event;
+    m_TopView->HandlePointerDown(pointerID, event.ScreenPosition, event);
 //    if (m_KeyboardFocusView != nullptr) {
-//        m_KeyboardFocusView->HandlePointerDown(pointerID, m_KeyboardFocusView->ConvertFromRoot(position), event);
+//        m_KeyboardFocusView->HandlePointerDown(pointerID, m_KeyboardFocusView->ConvertFromRoot(event.ScreenPosition), event);
 //    }
 }
 
@@ -1088,19 +1084,33 @@ void ApplicationServer::HandlePointerDown(PPointerID pointerID, const PPoint& po
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+void ApplicationServer::HandlePointerUp(PPointerID pointerID, const PPointerEvent& event)
 {
-    Ptr<PServerView> pointerDownView = GetPointerDownView(pointerID);
+    m_LastPointerEventMap[pointerID] = event;
+    Ptr<PServerView> captureView = GetPointerCaptureView(pointerID);
 
-    if (pointerDownView != nullptr)
+    if (captureView != nullptr)
     {
-        pointerDownView->HandlePointerUp(pointerID, pointerDownView->ConvertFromRoot(position), event);
-        SetPointerDownView(pointerID, nullptr);
+        captureView->HandlePointerUp(pointerID, captureView->ConvertFromRoot(event.ScreenPosition), event);
+        ReleasePointerCapture(pointerID, captureView, PPointerCaptureLostReason::PointerUp);
     }
-    Ptr<PServerView> focusView = GetFocusView(pointerID);
-    if (focusView != nullptr && focusView != pointerDownView)
+    m_LastPointerEventMap.erase(pointerID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::HandlePointerMove(PPointerID pointerID, const PPointerEvent& event)
+{
+    m_LastPointerEventMap[pointerID] = event;
+    Ptr<PServerView> captureView = GetPointerCaptureView(pointerID);
+    if (captureView != nullptr)
     {
-        focusView->HandlePointerUp(pointerID, focusView->ConvertFromRoot(position), event);
+        captureView->HandlePointerMove(pointerID, captureView->ConvertFromRoot(event.ScreenPosition), event);
+    }
+    else if (m_KeyboardFocusView != nullptr) {
+        m_KeyboardFocusView->HandlePointerMove(pointerID, m_KeyboardFocusView->ConvertFromRoot(event.ScreenPosition), event);
     }
 }
 
@@ -1108,81 +1118,73 @@ void ApplicationServer::HandlePointerUp(PPointerID pointerID, const PPoint& posi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+PPointerEvent ApplicationServer::GetLastPointerEvent(PPointerID pointerID) const
 {
-//    Ptr<ServerView> pointerDownView = GetPointerDownView(pointerID);
-//    if (mouseView != nullptr)
-//    {
-//        pointerDownView->HandlePointerMove(pointerID, pointerDownView->ConvertFromRoot(position));
-//    }
-    Ptr<PServerView> focusView = GetFocusView(pointerID);
-    if (focusView != nullptr /*&& focusView != mouseView*/)
-    {
-        focusView->HandlePointerMove(pointerID, focusView->ConvertFromRoot(position), event);
+    auto iterator = m_LastPointerEventMap.find(pointerID);
+    if (iterator != m_LastPointerEventMap.end()) {
+        return iterator->second;
     }
-    if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView != ptr_raw_pointer_cast(focusView)) {
-        m_KeyboardFocusView->HandlePointerMove(pointerID, m_KeyboardFocusView->ConvertFromRoot(position), event);
-    }
+    PPointerEvent pointerEvent;
+    pointerEvent.PointerID = pointerID;
+    return pointerEvent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SetPointerDownView(PPointerID pointerID, Ptr<PServerView> view)
+bool ApplicationServer::SetPointerCapture(PPointerID pointerID, Ptr<PServerView> view, PPointerCaptureMode mode)
 {
-    if (view != nullptr)
-    {
-        m_PointerViewMap[pointerID] = ptr_raw_pointer_cast(view);
+    if (view == nullptr) {
+        return false;
     }
-    else
+
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator != m_PointerCaptureMap.end())
     {
-        auto iterator = m_PointerViewMap.find(pointerID);
-        if (iterator != m_PointerViewMap.end()) {
-            m_PointerViewMap.erase(iterator);
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<PServerView> ApplicationServer::GetPointerDownView(PPointerID pointerID) const
-{
-    auto iterator = m_PointerViewMap.find(pointerID);
-    if (iterator != m_PointerViewMap.end()) {
-        return ptr_tmp_cast(iterator->second);
-    }
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ApplicationServer::SetFocusView(PPointerID pointerID, Ptr<PServerView> view, bool focus)
-{
-    if (view != nullptr)
-    {
-        if (focus)
+        if (view == iterator->second.View)
         {
-            m_PointerFocusMap[pointerID] = ptr_raw_pointer_cast(view);
+            iterator->second.Mode = mode;
+            return true;
         }
-        else
-        {
-            auto iterator = m_PointerFocusMap.find(pointerID);
-            if (iterator != m_PointerFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view)) {
-                m_PointerFocusMap.erase(iterator);
-            }
+        if (iterator->second.Mode == PPointerCaptureMode::Locked) {
+            return false;
+        }
+        Ptr<PServerView> previousView = ptr_tmp_cast(iterator->second.View);
+        const PPointerEvent pointerEvent = GetLastPointerEvent(pointerID);
+        if (previousView != nullptr) {
+            previousView->HandlePointerCancel(pointerID, previousView->ConvertFromRoot(pointerEvent.ScreenPosition), pointerEvent);
+            previousView->HandlePointerCaptureLost(pointerID, PPointerCaptureLostReason::Stolen);
         }
     }
-    else
+
+    m_PointerCaptureMap[pointerID] = PointerCaptureState
     {
-        auto iterator = m_PointerFocusMap.find(pointerID);
-        if (iterator != m_PointerFocusMap.end()) {
-            m_PointerFocusMap.erase(iterator);
-        }
+        .View = ptr_raw_pointer_cast(view),
+        .Mode = mode
+    };
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::ReleasePointerCapture(PPointerID pointerID, Ptr<PServerView> view, PPointerCaptureLostReason reason)
+{
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    if (view != nullptr && view != iterator->second.View) {
+        return;
+    }
+
+    Ptr<PServerView> captureView = ptr_tmp_cast(iterator->second.View);
+    m_PointerCaptureMap.erase(iterator);
+
+    if (captureView != nullptr) {
+        captureView->HandlePointerCaptureLost(pointerID, reason);
     }
 }
 
@@ -1190,11 +1192,11 @@ void ApplicationServer::SetFocusView(PPointerID pointerID, Ptr<PServerView> view
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PServerView> ApplicationServer::GetFocusView(PPointerID pointerID) const
+Ptr<PServerView> ApplicationServer::GetPointerCaptureView(PPointerID pointerID) const
 {
-    auto iterator = m_PointerFocusMap.find(pointerID);
-    if (iterator != m_PointerFocusMap.end()) {
-        return ptr_tmp_cast(iterator->second);
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator != m_PointerCaptureMap.end()) {
+        return ptr_tmp_cast(iterator->second.View);
     }
     return nullptr;
 }

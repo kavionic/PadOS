@@ -87,7 +87,7 @@ Ptr<PButtonGroup> PButtonBase::FindButtonGroup(Ptr<PView> root, const PString& n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     //    printf("Button: Mouse down %d, %.1f/%.1f\n", int(pointerID), position.x, position.y);
 
@@ -117,7 +117,7 @@ bool PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PButtonBase::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PButtonBase::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (!IsEnabled()) {
         return false;
@@ -142,7 +142,7 @@ bool PButtonBase::OnPointerUp(PPointerID pointerID, const PPoint& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PButtonBase::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PButtonBase::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID == m_HitPointerID)
     {

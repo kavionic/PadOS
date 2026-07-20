@@ -116,9 +116,10 @@ public:
     
     // From View
     virtual void AttachedToScreen() override;
-    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
-    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
-    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual bool OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
@@ -157,6 +158,7 @@ private:
     std::vector<float>  m_ShadowArrows;
 
     bool            m_Changed = false;
+    bool            m_PointerCaptureLocked = false;
     PPointerID   m_HitPointerID = PInvalidPointerID;
     PPoint           m_HitPos;
     float           m_HitValue = 0.0f;

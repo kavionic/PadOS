@@ -182,10 +182,10 @@ void PDropdownMenu::OnScreenFrameMoved(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PDropdownMenu::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PDropdownMenu::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (!m_EditBox->IsEnabled()) {
-        return PView::OnPointerDown(pointerID, position, event);
+        return PView::OnPointerDown(pointerID, position, event, phase);
     }
     if (m_MenuWindow == nullptr)
     {

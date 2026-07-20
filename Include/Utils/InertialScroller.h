@@ -92,7 +92,7 @@ private:
     float           m_MaxHOverscroll = 0.0f;
     PRect            m_ScrollBounds = PRect(-COORD_MAX, -COORD_MAX, COORD_MAX, COORD_MAX);
 
-    float           m_StartScrollThreshold = 0.0f;
+    float           m_StartScrollThreshold = POINTER_CAPTURE_LOCK_THRESHOLD;
 
     PEventTimer      m_Timer;
     TimeValNanos    m_BeginDragTime;

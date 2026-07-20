@@ -119,6 +119,43 @@ bool parse(const char* text, Ptr<PLayoutNode>& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool parse(const char* text, PViewHitMode& value)
+{
+    if (*text != '\0')
+    {
+        if (strcmp(text, "HitTest") == 0)
+        {
+            value = PViewHitMode::HitTest;
+            return true;
+        }
+        else if (strcmp(text, "IgnoreThis") == 0)
+        {
+            value = PViewHitMode::IgnoreThis;
+            return true;
+        }
+        else if (strcmp(text, "IgnoreRecursive") == 0)
+        {
+            value = PViewHitMode::IgnoreRecursive;
+            return true;
+        }
+        else
+        {
+            p_system_log<PLogSeverity::ERROR>(LogCat_General, "View - invalid hit mode '{}'", text);
+            value = PViewHitMode::HitTest;
+            return false;
+        }
+    }
+    else
+    {
+        value = PViewHitMode::HitTest;
+        return true;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool parse(const char* text, PAlignment& value)
 {
 	if (*text != '\0')

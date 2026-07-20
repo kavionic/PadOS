@@ -45,13 +45,18 @@ namespace PViewFlags
     static constexpr uint32_t ClearBackground     = 0x0020;   ///< Automatically clear new areas when windows are moved/resized
     static constexpr uint32_t DrawOnChildren      = 0x0040;   ///< Setting this flag allows the view to render atop of all its children.
     static constexpr uint32_t Eavesdropper        = 0x0080;   ///< Client-side view that is connected to a foreign server-side view.
-    static constexpr uint32_t IgnorePointer       = 0x0100;   ///< Make the view invisible to pointer events.
-    static constexpr uint32_t ForceHandlePointer  = 0x0200;   ///< Handle the pointer event even if a child view is under the pointer.
-    static constexpr uint32_t IsAttachedToScreen  = 0x0400;   ///< Set while the view is registered with the server.
+    static constexpr uint32_t IsAttachedToScreen  = 0x0100;   ///< Set while the view is registered with the server.
     static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
 
     extern const std::map<PString, uint32_t> FlagMap;
 }
+
+enum class PViewHitMode : uint8_t
+{
+    HitTest,
+    IgnoreThis,
+    IgnoreRecursive
+};
 
 namespace PViewDebugDrawFlags
 {
@@ -316,3 +321,4 @@ static constexpr float KEYREPEAT_REPEAT = 0.08f;
 
 static constexpr float LONG_PRESS_DELAY = 0.5f;
 static constexpr float BEGIN_DRAG_OFFSET = 20.0f;
+static constexpr float POINTER_CAPTURE_LOCK_THRESHOLD = 8.0f;

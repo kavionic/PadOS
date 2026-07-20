@@ -38,7 +38,8 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSSync,               &ServerApplication::SlotSync);
     RegisterRemoteSignal(&RSCreateView,         &ServerApplication::SlotCreateView);
     RegisterRemoteSignal(&RSDeleteView,         &ServerApplication::SlotDeleteView);
-    RegisterRemoteSignal(&RSFocusView,          &ServerApplication::SlotFocusView);
+    RegisterRemoteSignal(&RSSetPointerCapture,  &ServerApplication::SlotSetPointerCapture);
+    RegisterRemoteSignal(&RSReleasePointerCapture, &ServerApplication::SlotReleasePointerCapture);
     RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
@@ -50,8 +51,9 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewToggleDepth,    &ServerApplication::SlotViewToggleDepth);
     RegisterRemoteSignal(&RSViewBeginUpdate,    &ServerApplication::SlotViewBeginUpdate);
     RegisterRemoteSignal(&RSViewEndUpdate,      &ServerApplication::SlotViewEndUpdate);
-    
+
     RegisterRemoteSignal(&RSViewShow,                   &ServerApplication::SlotViewShow);
+    RegisterRemoteSignal(&RSViewSetHitMode,             &ServerApplication::SlotViewSetHitMode);
     RegisterRemoteSignal(&RSViewSetFgColor,             &ServerApplication::SlotViewSetFgColor);
     RegisterRemoteSignal(&RSViewSetBgColor,             &ServerApplication::SlotViewSetBgColor);
     RegisterRemoteSignal(&RSViewSetEraseColor,          &ServerApplication::SlotViewSetEraseColor);
@@ -263,6 +265,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        const PRect&          frame,
                                        const PPoint&         scrollOffset,
                                        uint32_t             flags,
+                                       PViewHitMode         hitMode,
                                        int32_t              hideCount,
                                        PFocusKeyboardMode    focusKeyboardMode,
                                        PDrawingMode          drawingMode,
@@ -298,7 +301,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         }
     }
     
-    Ptr<PServerView> view = ptr_new<PServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, penWidth, capStyle, jointStyle, miterLimit, dashPattern, dashOffset, fontID, eraseColor, bgColor, fgColor);
+    Ptr<PServerView> view = ptr_new<PServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hitMode, hideCount, focusKeyboardMode, drawingMode, penWidth, capStyle, jointStyle, miterLimit, dashPattern, dashOffset, fontID, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view, index);
@@ -357,12 +360,31 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotFocusView(handler_id clientHandle, PPointerID pointerID, bool focus)
+void ServerApplication::SlotSetPointerCapture(port_id replyPort, handler_id clientHandle, PPointerID pointerID, PPointerCaptureMode mode)
+{
+    const Ptr<PServerView> view = m_Server->FindView(clientHandle);
+    MsgSetPointerCaptureReply reply;
+    reply.m_Succeeded = false;
+    if (view != nullptr)
+    {
+        reply.m_Succeeded = m_Server->SetPointerCapture(pointerID, view, mode);
+    }
+    const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, PAppserverProtocol::SET_POINTER_CAPTURE_REPLY, &reply, sizeof(reply), 0);
+    if (result != PErrorCode::Success) {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotReleasePointerCapture(handler_id clientHandle, PPointerID pointerID, PPointerCaptureLostReason reason)
 {
     const Ptr<PServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
-        m_Server->SetFocusView(pointerID, view, focus);
+        m_Server->ReleasePointerCapture(pointerID, view, reason);
     }
 }
 

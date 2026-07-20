@@ -385,10 +385,10 @@ void PKeyboardView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (m_HitPointerID != PInvalidPointerID) {
-        return PView::OnPointerDown(pointerID, position, event);
+        return PView::OnPointerDown(pointerID, position, event, phase);
     }
     m_HitPointerID = pointerID;
     m_HitPos = position;
@@ -406,7 +406,7 @@ bool PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, 
             m_RepeatTimer.Start(true);
         }
     }
-    MakeFocus(pointerID, true);
+    SetPointerCapture(pointerID);
     return true;
 }
 
@@ -465,7 +465,7 @@ bool PKeyboardView::OnLongPress(PPointerID pointerID, const PPoint& position, co
     {
         SetPressedButton(INVALID_INDEX);
         m_HitPointerID = PInvalidPointerID;
-        MakeFocus(pointerID, false);
+        ReleasePointerCapture(pointerID);
         Invalidate();
     }
     return true;
@@ -475,10 +475,10 @@ bool PKeyboardView::OnLongPress(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerUp(pointerID, position, event);
+        return PView::OnPointerUp(pointerID, position, event, phase);
     }
 
     if (m_PressedButton != INVALID_INDEX)
@@ -545,7 +545,7 @@ bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
     m_RepeatTimer.Stop();
     m_IsDraggingCursor = false;
     m_HitPointerID = PInvalidPointerID;
-    MakeFocus(pointerID, false);
+    ReleasePointerCapture(pointerID);
     return true;
 }
 
@@ -553,10 +553,10 @@ bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerMove(pointerID, position, event);
+        return PView::OnPointerMove(pointerID, position, event, phase);
     }
 
     if (m_IsDraggingCursor)

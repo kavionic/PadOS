@@ -21,6 +21,8 @@
 #include <GUI/Widgets/ScrollableView.h>
 #include <GUI/ViewFactory.h>
 
+#include <cmath>
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -28,6 +30,7 @@
 
 PScrollView::PScrollView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
+    EnableEventPhase(PEventPhase::Capture, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -37,6 +40,7 @@ PScrollView::PScrollView(const PString& name, Ptr<PView> parent, uint32_t flags)
 PScrollView::PScrollView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
     MergeFlags(PViewFlags::WillDraw);
+    EnableEventPhase(PEventPhase::Capture, true);
 
     for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
     {
@@ -88,16 +92,24 @@ void PScrollView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PScrollView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (m_HitPointerID != PInvalidPointerID) {
-        return true;
+    if (phase == PEventPhase::Capture)
+    {
+        BeginPointerScrollTracking(pointerID, position);
+        return false;
     }
-    m_HitPointerID = pointerID;
-
-    BeginSwipe(position);
-
-    MakeFocus(pointerID, true);
+    if (phase != PEventPhase::Target) {
+        return false;
+    }
+    if (!BeginPointerScrollTracking(pointerID, position)) {
+        return false;
+    }
+    if (!SetPointerCapture(pointerID))
+    {
+        EndPointerScrollTracking(pointerID);
+        return false;
+    }
     return true;
 }
 
@@ -105,30 +117,49 @@ bool PScrollView::OnPointerDown(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PScrollView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (pointerID != m_HitPointerID) {
-        return true;
+    if (phase != PEventPhase::Target && phase != PEventPhase::Capture) {
+        return false;
     }
-    m_HitPointerID = PInvalidPointerID;
-    MakeFocus(pointerID, false);
-
-    EndSwipe();
-
-    return true;
+    EndPointerScrollTracking(pointerID);
+    return phase == PEventPhase::Target;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (phase == PEventPhase::Capture)
+    {
+        if (pointerID == m_HitPointerID && !HasPointerCapture(pointerID) && ShouldCaptureScroll(position)) {
+            SetPointerCapture(pointerID);
+        }
+        return false;
+    }
+    if (phase != PEventPhase::Target) {
+        return false;
+    }
     if (pointerID != m_HitPointerID) {
         return true;
     }
     SwipeMove(position);
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PScrollView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase != PEventPhase::Target && phase != PEventPhase::Capture) {
+        return false;
+    }
+    EndPointerScrollTracking(pointerID);
+    return phase == PEventPhase::Target;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -172,4 +203,85 @@ Ptr<PView> PScrollView::SetScrolledView(Ptr<PView> view)
     }
     InvalidateLayout();
     return prevClient;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PScrollView::CanScrollHorizontally() const
+{
+    Ptr<PView> clientView = GetScrolledView();
+    if (clientView == nullptr) {
+        return false;
+    }
+    return clientView->GetContentSize().x > clientView->GetBounds().Width();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PScrollView::CanScrollVertically() const
+{
+    Ptr<PView> clientView = GetScrolledView();
+    if (clientView == nullptr) {
+        return false;
+    }
+    return clientView->GetContentSize().y > clientView->GetBounds().Height();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PScrollView::ShouldCaptureScroll(const PPoint& position) const
+{
+    const bool canScrollHorizontally = CanScrollHorizontally();
+    const bool canScrollVertically = CanScrollVertically();
+    if (!canScrollHorizontally && !canScrollVertically) {
+        return false;
+    }
+
+    const PPoint delta = position - m_HitPos;
+    const float absoluteX = std::abs(delta.x);
+    const float absoluteY = std::abs(delta.y);
+    const float threshold = GetStartScrollThreshold();
+
+    const bool horizontalIntent = canScrollHorizontally && absoluteX >= threshold && (!canScrollVertically || absoluteX >= absoluteY);
+    const bool verticalIntent = canScrollVertically && absoluteY >= threshold && (!canScrollHorizontally || absoluteY > absoluteX);
+
+    return horizontalIntent || verticalIntent;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PScrollView::BeginPointerScrollTracking(PPointerID pointerID, const PPoint& position)
+{
+    if (m_HitPointerID != PInvalidPointerID) {
+        return pointerID == m_HitPointerID;
+    }
+    if (!CanScrollHorizontally() && !CanScrollVertically()) {
+        return false;
+    }
+    m_HitPointerID = pointerID;
+    m_HitPos = position;
+
+    BeginSwipe(position);
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollView::EndPointerScrollTracking(PPointerID pointerID)
+{
+    if (pointerID == m_HitPointerID)
+    {
+        m_HitPointerID = PInvalidPointerID;
+        EndSwipe();
+    }
 }

@@ -65,10 +65,9 @@ public:
     void PopMouseCursor(ServerApplication* owner, PMouseCursorToken token);
     void RemoveMouseCursorStackEntries(ServerApplication* owner);
 
-    void            SetFocusView(PPointerID pointerID, Ptr<PServerView> view, bool focus);
-    Ptr<PServerView> GetFocusView(PPointerID pointerID) const;
-    void            SetPointerDownView(PPointerID pointerID, Ptr<PServerView> view);
-    Ptr<PServerView> GetPointerDownView(PPointerID pointerID) const;
+    bool            SetPointerCapture(PPointerID pointerID, Ptr<PServerView> view, PPointerCaptureMode mode);
+    void            ReleasePointerCapture(PPointerID pointerID, Ptr<PServerView> view, PPointerCaptureLostReason reason);
+    Ptr<PServerView> GetPointerCaptureView(PPointerID pointerID) const;
 
     void            SetKeyboardFocus(Ptr<PServerView> view, bool focus);
     Ptr<PServerView> GetKeyboardFocus() const;
@@ -92,6 +91,12 @@ private:
         PMouseCursorID     CursorID = ToMouseCursorID(PStandardMouseCursor::Pointer);
     };
 
+    struct PointerCaptureState
+    {
+        PServerView*         View = nullptr;
+        PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
+    };
+
     void ReadInputEvents();
     void ReadInputEvents(int inputDevice, PInputClass inputClass, const char* deviceName);
     void QueuePointerEvent(PInputEventID eventID, const PPointerEvent& event);
@@ -108,9 +113,10 @@ private:
     bool ApplyMouseCursor(PMouseCursorID cursorID);
     void UpdateMouseCursor();
 
-    void HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
-    void HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
-    void HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    void HandlePointerDown(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerUp(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerMove(PPointerID pointerID, const PPointerEvent& event);
+    PPointerEvent GetLastPointerEvent(PPointerID pointerID) const;
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
 
@@ -128,8 +134,8 @@ private:
     
     Ptr<PServerView> m_TopView;
 
-    std::map<PPointerID, PServerView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
-    std::map<PPointerID, PServerView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
+    std::map<PPointerID, PointerCaptureState> m_PointerCaptureMap;
+    std::map<PPointerID, PPointerEvent> m_LastPointerEventMap;
     PServerView*                 m_KeyboardFocusView = nullptr;
 
     std::vector<MouseCursorStackEntry> m_MouseCursorStack;

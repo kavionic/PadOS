@@ -32,6 +32,7 @@ class PLayoutNode;
 class PPoint;
 class PRect;
 
+enum class PViewHitMode : uint8_t;
 enum class PAlignment : uint8_t;
 enum class POrientation : uint8_t;
 enum class PKeyCodes : uint32_t;
@@ -53,6 +54,7 @@ bool parse(const char* text, PString& value);
 bool parse(const char* text, PPoint& value);
 bool parse(const char* text, PRect& value);
 bool parse(const char* text, Ptr<PLayoutNode>& value);
+bool parse(const char* text, PViewHitMode& value);
 bool parse(const char* text, PAlignment& value);
 bool parse(const char* text, POrientation& value);
 bool parse(const char* text, PKeyCodes& value);
@@ -111,4 +113,3 @@ T parse_flags_attribute(const pugi::xml_node& xmlNode, const std::map<PString, T
 }
 
 } // namespace xml_object_parser
-

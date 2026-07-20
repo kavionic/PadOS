@@ -101,7 +101,7 @@ void PWindow::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool incl
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PWindow::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PWindow::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (m_DragHitPointerID != PInvalidPointerID) {
         return false;
@@ -110,8 +110,8 @@ bool PWindow::OnPointerDown(PPointerID pointerID, const PPoint& position, const 
         return false;
     }
     m_DragHitPointerID = pointerID;
-    m_DragHitPos = event.Position;
-    MakeFocus(pointerID, true);
+    m_DragHitPos = event.ScreenPosition;
+    SetPointerCapture(pointerID);
     return true;
 }
 
@@ -119,12 +119,12 @@ bool PWindow::OnPointerDown(PPointerID pointerID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PWindow::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PWindow::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_DragHitPointerID) {
         return false;
     }
-    MakeFocus(pointerID, false);
+    ReleasePointerCapture(pointerID);
     m_DragHitPointerID = PInvalidPointerID;
     return true;
 }
@@ -133,14 +133,14 @@ bool PWindow::OnPointerUp(PPointerID pointerID, const PPoint& position, const PP
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PWindow::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PWindow::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_DragHitPointerID) {
         return false;
     }
 
-    PPoint delta = event.Position - m_DragHitPos;
-    m_DragHitPos = event.Position;
+    PPoint delta = event.ScreenPosition - m_DragHitPos;
+    m_DragHitPos = event.ScreenPosition;
     MoveBy(delta);
     return true;
 }

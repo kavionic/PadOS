@@ -151,14 +151,16 @@ private:
 
     void SlotContentScrolled() { InvalidateLayout(); }
 
-    void SlotScrollViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent);
-    void SlotScrollViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent);
-    void SlotScrollViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent);
+    bool SlotContentViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    bool SlotContentViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    bool SlotContentViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    bool SlotContentViewPointerCancel(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
 
     Ptr<PScrollView>         m_ScrollView;
 
     std::set<size_t>        m_SelectedItems;
     size_t                  m_HighlightedItem = INVALID_INDEX;
+    size_t                  m_PressedItem = INVALID_INDEX;
 
     mutable std::map<uint32_t, std::vector<Ptr<PView>>> m_CachedItemWidgets;
 };

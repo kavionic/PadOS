@@ -26,6 +26,14 @@
 		</xs:restriction>
 	</xs:simpleType>
 
+	<xs:simpleType name="HitMode">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="HitTest"/>
+			<xs:enumeration value="IgnoreThis"/>
+			<xs:enumeration value="IgnoreRecursive"/>
+		</xs:restriction>
+	</xs:simpleType>
+
 	<xs:simpleType name="Point">
 		<xs:restriction base="xs:string">
 			<xs:pattern value="Point\([ \t]*[0-9]+\.?[0-9]*[ \t]*,[ \t]*[0-9]+\.?[0-9]*[ \t]*\)"></xs:pattern>
@@ -41,6 +49,7 @@
 	<xs:complexType name="View">
 		<xs:attribute name="name"		type="xs:string"	use="optional" />
 		<xs:attribute name="flags"		type="xs:string"	use="optional" />
+		<xs:attribute name="hit_mode"	type="HitMode"		use="optional" />
 
 		<xs:attribute name="h_alignment"	type="Alignment"	use="optional" />
 		<xs:attribute name="v_alignment"	type="Alignment"	use="optional" />

@@ -355,8 +355,6 @@ private:
     friend class PViewBase<PView>;
     friend class PScrollBar;
 
-    void Initialize();
-
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args)
     {
@@ -412,8 +410,7 @@ private:
     void DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
 
 
-    void SlotFrameChanged(const PRect& frame);
-    void SlotKeyboardFocusChanged(bool hasFocus);
+    void HandleFrameChanged(const PRect& frame);
 
     handler_id          m_ServerHandle = INVALID_HANDLE;
     
@@ -450,8 +447,4 @@ private:
     PScrollBar*          m_VScrollBar = nullptr;
 
     Ptr<PFont>           m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
-    
-    ASPaintView         RSPaintView;
-    ASViewFrameChanged  RSViewFrameChanged;
-    ASViewFocusChanged  RSViewFocusChanged;
 };

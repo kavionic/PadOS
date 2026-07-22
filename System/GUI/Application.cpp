@@ -54,6 +54,9 @@ void PApplication::SetDefaultApplication(PApplication* application)
 
 PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
+    RegisterRemoteSignal(&m_RSPaintView, &PApplication::HandlePaint);
+    RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
+    RegisterRemoteSignal(&m_RSViewFocusChanged, &PApplication::HandleViewFocusChanged);
     RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
 
@@ -643,6 +646,42 @@ void PApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, 
         if (root != nullptr && root->m_ServerHandle != INVALID_HANDLE) {
             Post<ASReleasePointerCapture>(root->m_ServerHandle, pointerID, iterator->second.CaptureID, reason);
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandlePaint(handler_id viewHandle, const PRect& updateRect)
+{
+    Ptr<PView> view = FindView(viewHandle);
+    if (view != nullptr) {
+        view->HandlePaint(updateRect);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleViewFrameChanged(handler_id viewHandle, const PRect& frame)
+{
+    Ptr<PView> view = FindView(viewHandle);
+    if (view != nullptr) {
+        view->HandleFrameChanged(frame);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleViewFocusChanged(handler_id viewHandle, bool hasFocus)
+{
+    Ptr<PView> view = FindView(viewHandle);
+    if (view != nullptr) {
+        SetKeyboardFocus(view, hasFocus, false);
     }
 }
 

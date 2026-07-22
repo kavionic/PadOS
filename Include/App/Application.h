@@ -88,6 +88,9 @@ private:
     Ptr<PView> GetLongPressView(PPointerID pointerID) const;
     bool      SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureMode mode);
     void      ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureLostReason reason);
+    void      HandlePaint(handler_id viewHandle, const PRect& updateRect);
+    void      HandleViewFrameChanged(handler_id viewHandle, const PRect& frame);
+    void      HandleViewFocusChanged(handler_id viewHandle, bool hasFocus);
     void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent);
     void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
     Ptr<PView> GetPointerCaptureView(PPointerID pointerID) const;
@@ -114,6 +117,9 @@ private:
     PView*                   m_KeyboardFocusView = nullptr;
 
     PEventTimer              m_LongPressTimer;
+    ASPaintView              m_RSPaintView;
+    ASViewFrameChanged       m_RSViewFrameChanged;
+    ASViewFocusChanged       m_RSViewFocusChanged;
     ASHandlePointerEvent     m_RSHandlePointerEvent;
     ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;
 

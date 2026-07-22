@@ -625,13 +625,13 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
             {
                 ApplicationServer* const server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
-                    p_post_to_window_manager<ASViewFrameChanged>(m_ManagerHandle, m_Frame);
+                    p_post_to_window_manager<ASViewFrameChanged>(INVALID_HANDLE, m_ManagerHandle, m_Frame);
                 }                    
             }
         }
         else
         {
-            if (!p_post_to_remotesignal<ASViewFrameChanged>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, m_Frame)) {
+            if (!p_post_to_remotesignal<ASViewFrameChanged>(GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, m_Frame)) {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SetFrame() failed to send message: {}", strerror(get_last_error()));
             }            
         }
@@ -1217,7 +1217,7 @@ void PServerView::Paint(const PIRect& updateRect)
     if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == INVALID_HANDLE) {
         return;
     }
-    if (!p_post_to_remotesignal<ASPaintView>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, updateRect - PIPoint(m_ScrollOffset))) {
+    if (!p_post_to_remotesignal<ASPaintView>(GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, updateRect - PIPoint(m_ScrollOffset))) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::Paint() failed to send message: {}", strerror(get_last_error()));
     }
 }

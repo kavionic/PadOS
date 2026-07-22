@@ -132,7 +132,6 @@ static PColor Tint(const PColor& color, float tint)
 
 PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags) : PViewBase(name, PRect(), PPoint(), flags, PViewHitMode::HitTest, 0, 1.0f, pget_standard_color(PStandardColorID::DefaultBackground), pget_standard_color(PStandardColorID::DefaultBackground), PColor(0))
 {
-    Initialize();
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
     }
@@ -168,8 +167,6 @@ PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_no
                pget_standard_color(PStandardColorID::DefaultBackground),
                PColor(0))
 {
-    Initialize();
-
     SetHAlignment(context.GetAttribute(xmlData, "h_alignment", PAlignment::Center));
     SetVAlignment(context.GetAttribute(xmlData, "v_alignment", PAlignment::Center));
 
@@ -281,27 +278,11 @@ PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_no
 
 PView::PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, const PRect& frame) : PViewBase(name, frame, PPoint(), PViewFlags::Eavesdropper | PViewFlags::WillDraw, PViewHitMode::HitTest, 0, 1.0f, PColor(0xffffffff), PColor(0xffffffff), PColor(0))
 {
-    Initialize();
     m_ServerHandle = serverHandle;
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
     }
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PView::Initialize()
-{
-    RegisterRemoteSignal(&RSPaintView, &PView::HandlePaint);
-    RegisterRemoteSignal(&RSViewFrameChanged, &PView::SlotFrameChanged);
-    RegisterRemoteSignal(&RSViewFocusChanged, &PView::SlotKeyboardFocusChanged);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
 PView::~PView()
 {
@@ -2270,19 +2251,7 @@ void PView::DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEven
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::SlotFrameChanged(const PRect& frame)
+void PView::HandleFrameChanged(const PRect& frame)
 {
     SetFrameInternal(frame, false);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PView::SlotKeyboardFocusChanged(bool hasFocus)
-{
-    PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->SetKeyboardFocus(ptr_tmp_cast(this), hasFocus, false);
-    }
 }

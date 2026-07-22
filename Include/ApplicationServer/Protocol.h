@@ -266,9 +266,9 @@ using ASViewCopyRect        = PRemoteSignal<PAppserverProtocol::VIEW_COPY_RECT, 
 using ASViewDrawBitmap      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_BITMAP,         void(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PPoint& dstPos)>;
 using ASViewDrawScaledBitmap= PRemoteSignal<PAppserverProtocol::VIEW_DRAW_SCALED_BITMAP,  void (handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PRect& dstRect)>;
 using ASViewDebugDraw       = PRemoteSignal<PAppserverProtocol::VIEW_DEBUG_DRAW,          void(handler_id viewHandle, PColor renderColor, uint32_t drawFlags)>;
-using ASPaintView           = PRemoteSignal<PAppserverProtocol::PAINT_VIEW,               void(const PRect& frame)>;
-using ASViewFrameChanged    = PRemoteSignal<PAppserverProtocol::VIEW_FRAME_CHANGED,       void(const PRect& frame)>;
-using ASViewFocusChanged    = PRemoteSignal<PAppserverProtocol::VIEW_FOCUS_CHANGED,       void(bool hasFocus)>;
+using ASPaintView           = PRemoteSignal<PAppserverProtocol::PAINT_VIEW,               void(handler_id viewHandle, const PRect& updateRect)>;
+using ASViewFrameChanged    = PRemoteSignal<PAppserverProtocol::VIEW_FRAME_CHANGED,       void(handler_id viewHandle, const PRect& frame)>;
+using ASViewFocusChanged    = PRemoteSignal<PAppserverProtocol::VIEW_FOCUS_CHANGED,       void(handler_id viewHandle, bool hasFocus)>;
 
 
 using ASWindowManagerRegisterView       = PRemoteSignal<PAppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW,     void(handler_id viewHandle, PViewDockType dockType, const PString& name, const PRect& frame)>;

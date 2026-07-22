@@ -26,6 +26,7 @@
 #include "Thread.h"
 #include "Mutex.h"
 #include "Ptr/Ptr.h"
+#include "Signals/RemoteSignal.h"
 #include "Utils/MessagePort.h"
 #include "ConditionVariable.h"
 #include "ObjectWaitGroup.h"
@@ -64,6 +65,18 @@ public:
 
     Ptr<PEventHandler> FindHandler(handler_id handle) const;
 
+    template<typename SIGNAL, typename CALLBACK>
+    void RegisterRemoteSignal(SIGNAL* signal, CALLBACK callback)
+    {
+        m_RemoteSignalRegistry.Register(signal, this, callback);
+    }
+
+    template<typename SIGNAL, typename CALLBACK>
+    void UnregisterRemoteSignal(CALLBACK callback)
+    {
+        m_RemoteSignalRegistry.Unregister<SIGNAL>(this, callback);
+    }
+
     virtual void ThreadStarted() {}
     virtual void ThreadStopping() {}
     virtual void QuitRequested() {}
@@ -93,6 +106,7 @@ private:
     std::multimap<TimeValNanos, PEventTimer*>    m_TimerMap;
     std::map<handler_id, Ptr<PEventHandler>>     m_HandlerMap;
     std::vector<std::pair<int32_t,int32_t>>     m_WaitingCodes;
+    PRemoteSignalRegistry                       m_RemoteSignalRegistry;
     static int32_t                              s_NextReplyToken;
 
     PLooper(const PLooper &) = delete;

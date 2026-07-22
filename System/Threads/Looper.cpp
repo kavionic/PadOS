@@ -340,14 +340,15 @@ void PLooper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msg
         QuitRequested();
         Stop();
     }
-    if (!HandleMessage(targetHandler, code, m_ReceiveBuffer.data(), msgLength))
+    bool wasHandled = HandleMessage(targetHandler, code, m_ReceiveBuffer.data(), msgLength);
+    if (!wasHandled && targetHandler == INVALID_HANDLE) {
+        wasHandled = m_RemoteSignalRegistry.Dispatch(code, m_ReceiveBuffer.data(), msgLength);
+    }
+    if (!wasHandled && targetHandler != INVALID_HANDLE)
     {
-        if (targetHandler != INVALID_HANDLE)
-        {
-            auto i = m_HandlerMap.find(targetHandler);
-            if (i != m_HandlerMap.end()) {
-                i->second->HandleMessage(code, m_ReceiveBuffer.data(), msgLength);
-            }
+        auto iterator = m_HandlerMap.find(targetHandler);
+        if (iterator != m_HandlerMap.end()) {
+            iterator->second->HandleMessage(code, m_ReceiveBuffer.data(), msgLength);
         }
     }
 }

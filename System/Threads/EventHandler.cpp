@@ -33,11 +33,5 @@ PEventHandler::~PEventHandler()
 
 bool PEventHandler::HandleMessage(int32_t code, const void* data, size_t length)
 {
-    auto i = m_RemoteSignalMap.find(code);
-    if (i != m_RemoteSignalMap.end()) {
-//        printf("EventHandler::HandleMessage() '%s' handline event %d (%d)\n", m_Name.c_str(), code, length);
-        i->second->Dispatch(data, length);
-        return true;
-    }
-    return false;
+    return m_RemoteSignalRegistry.Dispatch(code, data, length);
 }

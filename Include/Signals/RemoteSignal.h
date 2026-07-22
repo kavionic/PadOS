@@ -19,6 +19,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <map>
 #include <string>
 
 #include "Signal.h"
@@ -174,6 +175,58 @@ class PRemoteSignalRXBase
 {
 public:
     virtual bool Dispatch(const void* data, size_t length) = 0;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+class PRemoteSignalRegistry
+{
+public:
+    // The registry does not own signal. It must remain alive for as long as
+    // there are active handlers associated with it.
+    template<typename SIGNAL, typename TARGET, typename CALLBACK>
+    void Register(SIGNAL* signal, TARGET* target, CALLBACK callback)
+    {
+        m_RemoteSignalMap[SIGNAL::GetID()] = &signal->ReceiverObj;
+        signal->ReceiverObj.Connect(target, callback);
+    }
+
+    template<typename SIGNAL, typename TARGET, typename CALLBACK>
+    void Unregister(TARGET* target, CALLBACK callback)
+    {
+        auto iterator = m_RemoteSignalMap.find(SIGNAL::GetID());
+        if (iterator != m_RemoteSignalMap.end())
+        {
+            typename SIGNAL::Receiver* const receiver = static_cast<typename SIGNAL::Receiver*>(iterator->second);
+            receiver->Disconnect(target, callback);
+            if (receiver->Empty()) {
+                m_RemoteSignalMap.erase(iterator);
+            }
+        }
+    }
+
+    PRemoteSignalRXBase* GetSignal(int32_t signalID) const
+    {
+        auto iterator = m_RemoteSignalMap.find(signalID);
+        if (iterator != m_RemoteSignalMap.end()) {
+            return iterator->second;
+        }
+        return nullptr;
+    }
+
+    bool Dispatch(int32_t signalID, const void* data, size_t length) const
+    {
+        PRemoteSignalRXBase* const signal = GetSignal(signalID);
+        if (signal != nullptr) {
+            return signal->Dispatch(data, length);
+        }
+        return false;
+    }
+
+private:
+    std::map<int32_t, PRemoteSignalRXBase*> m_RemoteSignalMap;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

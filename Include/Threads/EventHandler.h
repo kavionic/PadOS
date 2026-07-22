@@ -19,15 +19,12 @@
 
 #pragma once
 
-#include <map>
-
-#include "Signals/Signal.h"
+#include "Signals/RemoteSignal.h"
 #include "Ptr/PtrTarget.h"
 #include "Utils/String.h"
 
 
 class PLooper;
-class PRemoteSignalRXBase;
 
 
 class PEventHandler : public PtrTarget
@@ -48,16 +45,18 @@ public:
     template<typename SIGNAL, typename CALLBACK>
     void RegisterRemoteSignal(SIGNAL* signal, CALLBACK callback)
     {
-        m_RemoteSignalMap[SIGNAL::GetID()] = &signal->ReceiverObj;
-        signal->ReceiverObj.Connect(this, callback);
+        m_RemoteSignalRegistry.Register(signal, this, callback);
     }
+
+    template<typename SIGNAL, typename CALLBACK>
+    void UnregisterRemoteSignal(CALLBACK callback)
+    {
+        m_RemoteSignalRegistry.Unregister<SIGNAL>(this, callback);
+    }
+
     PRemoteSignalRXBase* GetSignalForMessage(int32_t code)
     {
-        auto i = m_RemoteSignalMap.find(code);
-        if (i != m_RemoteSignalMap.end()) {
-            return i->second;
-        }
-        return nullptr;            
+        return m_RemoteSignalRegistry.GetSignal(code);
     }
 
 private:
@@ -67,8 +66,8 @@ private:
 
     PLooper*    m_Looper = nullptr;
     handler_id m_Handle;
-    
-    std::map<int, PRemoteSignalRXBase*> m_RemoteSignalMap;
+
+    PRemoteSignalRegistry m_RemoteSignalRegistry;
     
     PEventHandler(const PEventHandler &) = delete;
     PEventHandler& operator=(const PEventHandler &) = delete;

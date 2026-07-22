@@ -78,12 +78,6 @@ private:
     static constexpr size_t INPUT_EVENT_BUFFER_SIZE = 8192;
     static constexpr PMouseButton TOUCH_POINTER_BUTTON = PMouseButton::Left;
 
-    struct QueuedPointerEvent
-    {
-        PInputEventID EventID;
-        PPointerEvent PointerEvent;
-    };
-
     struct MouseCursorStackEntry
     {
         ServerApplication* Owner = nullptr;
@@ -100,7 +94,7 @@ private:
 
     void ReadInputEvents();
     void ReadInputEvents(int inputDevice, PInputClass inputClass, const char* deviceName);
-    void QueuePointerEvent(PInputEventID eventID, const PPointerEvent& event);
+    void QueuePointerEvent(const PPointerEvent& event);
     void QueueMouseEvent(const PMouseEvent& event);
     void QueueTouchEvent(const PTouchEvent& event);
     PPoint UpdateMousePosition(const PMouseEvent& event);
@@ -108,15 +102,14 @@ private:
 
     static PMouseButton GetTouchPointerButton(const PTouchEvent& touchEvent);
     static PPointerButtonMask GetTouchPointerButtons(const PTouchEvent& touchEvent);
+    static PPointerEventType GetPointerEventType(PInputEventID eventID);
     static PPointerEvent CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position);
     static PPointerEvent CreatePointerEvent(const PTouchEvent& touchEvent);
 
     bool ApplyMouseCursor(PMouseCursorID cursorID);
     void UpdateMouseCursor();
 
-    void HandlePointerDown(PPointerID pointerID, const PPointerEvent& event);
-    void HandlePointerUp(PPointerID pointerID, const PPointerEvent& event);
-    void HandlePointerMove(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerEvent(const PPointerEvent& event);
     PPointerEvent GetLastPointerEvent(PPointerID pointerID) const;
     PPointerCaptureID AllocatePointerCaptureID();
 
@@ -128,7 +121,7 @@ private:
     PMessagePort m_ReplyPort;
     PEventTimer m_PollTouchDriverTimer;
 
-    std::queue<QueuedPointerEvent> m_PointerEventQueue;
+    std::queue<PPointerEvent> m_PointerEventQueue;
 
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 

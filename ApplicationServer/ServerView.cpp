@@ -449,12 +449,36 @@ void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 ///////////////////////////////////////////////////////////////////////////////
 
     
-bool PServerView::HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+bool PServerView::HandlePointerEvent(const PPoint& position, const PPointerEvent& event)
 {
-    if (!IsVisible() || m_HitMode == PViewHitMode::IgnoreRecursive)
-    {
+    if (event.EventType == PPointerEventType::Down) {
+        return HandlePointerDown(position, event);
+    }
+
+    if (m_ClientHandle == INVALID_HANDLE) {
         return false;
     }
+
+    PPointerEvent clientEvent = event;
+    clientEvent.ScreenPosition = position;
+    clientEvent.ViewPosition = position;
+
+    if (!p_post_to_remotesignal<ASHandlePointerEvent>(GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent)) {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerEvent() failed to send message: {}", strerror(get_last_error()));
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PServerView::HandlePointerDown(const PPoint& position, const PPointerEvent& event)
+{
+    if (!IsVisible() || m_HitMode == PViewHitMode::IgnoreRecursive) {
+        return false;
+    }
+
     if (m_ClientHandle != INVALID_HANDLE && m_HitMode == PViewHitMode::HitTest)
     {
         PPointerEvent clientEvent = event;
@@ -463,94 +487,33 @@ bool PServerView::HandlePointerDown(PPointerID pointerID, const PPoint& position
 
         if (m_ManagerHandle != INVALID_HANDLE)
         {
-            if (!p_post_to_window_manager<ASHandlePointerDown>(m_ManagerHandle, pointerID, clientEvent))
+            if (!p_post_to_window_manager<ASHandlePointerEvent>(INVALID_HANDLE, m_ManagerHandle, clientEvent))
             {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
                 return false;
             }            
         }
                     
-        if (!p_post_to_remotesignal<ASHandlePointerDown>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent))
+        if (!p_post_to_remotesignal<ASHandlePointerEvent>(GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent))
         {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
             return false;
         }
         if (m_OwnerApplication != nullptr) {
-            m_OwnerApplication->SetPointerCapture(pointerID, GetOwnerRootView(), PPointerCaptureMode::Preemptible);
+            m_OwnerApplication->SetPointerCapture(event.PointerID, GetOwnerRootView(), PPointerCaptureMode::Preemptible);
         }
         return true;
     }
-    
+
     for (Ptr<PServerView> child : p_reverse_ranged(m_ChildrenList))
     {
         if (child->m_Frame.DoIntersect(position))
         {
             const PPoint childPos = child->ConvertFromParent(position);
-            if (child->HandlePointerDown(pointerID, childPos, event))
-            {
+            if (child->HandlePointerDown(childPos, event)) {
                 return true;
             }
         }
-    }
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PServerView::HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
-{
-    if (m_ClientHandle != INVALID_HANDLE)
-    {
-        PPointerEvent clientEvent = event;
-        clientEvent.ScreenPosition = position;
-        clientEvent.ViewPosition = position;
-
-        if (!p_post_to_remotesignal<ASHandlePointerUp>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerUp() failed to send message: {}", strerror(get_last_error()));
-        }
-        return true;
-    }
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PServerView::HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
-{
-    if (m_ClientHandle != INVALID_HANDLE)
-    {
-        PPointerEvent clientEvent = event;
-        clientEvent.ScreenPosition = position;
-        clientEvent.ViewPosition = position;
-
-        if (!p_post_to_remotesignal<ASHandlePointerMove>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerMove() failed to send message: {}", strerror(get_last_error()));
-        }
-        return true;
-    }
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PServerView::HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
-{
-    if (m_ClientHandle != INVALID_HANDLE)
-    {
-        PPointerEvent clientEvent = event;
-        clientEvent.ScreenPosition = position;
-        clientEvent.ViewPosition = position;
-
-        if (!p_post_to_remotesignal<ASHandlePointerCancel>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerCancel() failed to send message: {}", strerror(get_last_error()));
-        }
-        return true;
     }
     return false;
 }

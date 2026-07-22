@@ -234,47 +234,15 @@ void ServerApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PServerV
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::HandlePointerUp(PPointerID pointerID, const PPointerEvent& event)
+void ServerApplication::HandlePointerEvent(const PPointerEvent& event)
 {
-    auto iterator = m_PointerCaptureMap.find(pointerID);
+    auto iterator = m_PointerCaptureMap.find(event.PointerID);
     if (iterator == m_PointerCaptureMap.end()) {
         return;
     }
     Ptr<PServerView> rootView = ptr_tmp_cast(iterator->second.RootView);
     if (rootView != nullptr) {
-        rootView->HandlePointerUp(pointerID, rootView->ConvertFromRoot(event.ScreenPosition), event);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ServerApplication::HandlePointerMove(PPointerID pointerID, const PPointerEvent& event)
-{
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-    if (iterator == m_PointerCaptureMap.end()) {
-        return;
-    }
-    Ptr<PServerView> rootView = ptr_tmp_cast(iterator->second.RootView);
-    if (rootView != nullptr) {
-        rootView->HandlePointerMove(pointerID, rootView->ConvertFromRoot(event.ScreenPosition), event);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ServerApplication::HandlePointerCancel(PPointerID pointerID, const PPointerEvent& event)
-{
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-    if (iterator == m_PointerCaptureMap.end()) {
-        return;
-    }
-    Ptr<PServerView> rootView = ptr_tmp_cast(iterator->second.RootView);
-    if (rootView != nullptr) {
-        rootView->HandlePointerCancel(pointerID, rootView->ConvertFromRoot(event.ScreenPosition), event);
+        rootView->HandlePointerEvent(rootView->ConvertFromRoot(event.ScreenPosition), event);
     }
 }
 

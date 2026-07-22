@@ -297,10 +297,6 @@ void PView::Initialize()
     RegisterRemoteSignal(&RSPaintView, &PView::HandlePaint);
     RegisterRemoteSignal(&RSViewFrameChanged, &PView::SlotFrameChanged);
     RegisterRemoteSignal(&RSViewFocusChanged, &PView::SlotKeyboardFocusChanged);
-    RegisterRemoteSignal(&RSHandlePointerDown, &PView::HandlePointerDown);
-    RegisterRemoteSignal(&RSHandlePointerUp, &PView::HandlePointerUp);
-    RegisterRemoteSignal(&RSHandlePointerMove, &PView::HandlePointerMove);
-    RegisterRemoteSignal(&RSHandlePointerCancel, &PView::HandlePointerCancel);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1297,55 +1293,83 @@ Ptr<PFont> PView::GetFont() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::HandlePointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent)
+void PView::HandlePointerEvent(const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
     if (app != nullptr) {
         app->SetLastPointerEvent(pointerEvent);
     }
 
-    const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
-    Ptr<PView> targetView = FindPointerTarget(position);
-    if (targetView == nullptr) {
-        return false;
-    }
-
-    bool targetHandled = false;
-    const bool handled = targetView->DispatchPointerEvent(PPointerEventType::Down, pointerID, pointerEvent, nullptr, &targetHandled);
-    if (targetHandled && app != nullptr)
+    switch (pointerEvent.EventType)
     {
-        app->SetLongPressView(pointerID, targetView, pointerEvent);
-        if (app->GetPointerCaptureView(pointerID) == nullptr && !app->SetPointerCapture(pointerID, targetView, PPointerCaptureMode::Preemptible))
-        {
-            targetView->DispatchPointerEvent(PPointerEventType::Cancel, pointerID, pointerEvent, nullptr, nullptr);
-            app->SetLongPressView(pointerID, nullptr, pointerEvent);
-            return false;
-        }
+        case PPointerEventType::Invalid:
+            break;
+
+        case PPointerEventType::Down:
+            HandlePointerDown(pointerEvent);
+            break;
+
+        case PPointerEventType::Up:
+            HandlePointerUp(pointerEvent);
+            break;
+
+        case PPointerEventType::Move:
+            HandlePointerMove(pointerEvent);
+            break;
+
+        case PPointerEventType::Cancel:
+            HandlePointerCancel(pointerEvent);
+            break;
     }
-    return handled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandlePointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent)
+void PView::HandlePointerDown(const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->SetLastPointerEvent(pointerEvent);
+    const PPointerID pointerID = pointerEvent.PointerID;
+    const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
+    Ptr<PView> targetView = FindPointerTarget(position);
+    if (targetView != nullptr)
+    {
+        bool targetHandled = false;
+        targetView->DispatchPointerEvent(pointerEvent, nullptr, &targetHandled);
+        if (targetHandled && app != nullptr)
+        {
+            app->SetLongPressView(pointerID, targetView, pointerEvent);
+            if (app->GetPointerCaptureView(pointerID) == nullptr && !app->SetPointerCapture(pointerID, targetView, PPointerCaptureMode::Preemptible))
+            {
+                PPointerEvent cancelEvent = pointerEvent;
+                cancelEvent.EventType = PPointerEventType::Cancel;
+                targetView->DispatchPointerEvent(cancelEvent, nullptr, nullptr);
+                app->SetLongPressView(pointerID, nullptr, pointerEvent);
+            }
+        }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::HandlePointerUp(const PPointerEvent& pointerEvent)
+{
+    PApplication* app = GetApplication();
+    const PPointerID pointerID = pointerEvent.PointerID;
     Ptr<PView> captureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
     if (captureView != nullptr)
     {
-        captureView->DispatchPointerEvent(PPointerEventType::Up, pointerID, pointerEvent, captureView, nullptr);
+        captureView->DispatchPointerEvent(pointerEvent, captureView, nullptr);
     }
     else
     {
         const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
         Ptr<PView> targetView = FindPointerTarget(position);
         if (targetView != nullptr) {
-            targetView->DispatchPointerEvent(PPointerEventType::Up, pointerID, pointerEvent, nullptr, nullptr);
+            targetView->DispatchPointerEvent(pointerEvent, nullptr, nullptr);
         }
     }
     if (app != nullptr)
@@ -1359,22 +1383,20 @@ void PView::HandlePointerUp(PPointerID pointerID, const PPointerEvent& pointerEv
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandlePointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent)
+void PView::HandlePointerMove(const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->SetLastPointerEvent(pointerEvent);
-    }
+    const PPointerID pointerID = pointerEvent.PointerID;
     Ptr<PView> captureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
     if (captureView != nullptr)
     {
         Ptr<PView> originalCaptureView = captureView;
-        captureView->DispatchPointerEvent(PPointerEventType::Move, pointerID, pointerEvent, originalCaptureView, nullptr);
+        captureView->DispatchPointerEvent(pointerEvent, originalCaptureView, nullptr);
 
         captureView = app->GetPointerCaptureView(pointerID);
         if (captureView != nullptr && captureView != originalCaptureView)
         {
-            captureView->DispatchPointerEvent(PPointerEventType::Move, pointerID, pointerEvent, captureView, nullptr);
+            captureView->DispatchPointerEvent(pointerEvent, captureView, nullptr);
         }
     }
     else
@@ -1382,32 +1404,30 @@ void PView::HandlePointerMove(PPointerID pointerID, const PPointerEvent& pointer
         const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
         Ptr<PView> targetView = FindPointerTarget(position);
         if (targetView != nullptr) {
-            targetView->DispatchPointerEvent(PPointerEventType::Move, pointerID, pointerEvent, nullptr, nullptr);
+            targetView->DispatchPointerEvent(pointerEvent, nullptr, nullptr);
         }
-    }        
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandlePointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent)
+void PView::HandlePointerCancel(const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->SetLastPointerEvent(pointerEvent);
-    }
+    const PPointerID pointerID = pointerEvent.PointerID;
     Ptr<PView> captureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
     if (captureView != nullptr)
     {
-        captureView->DispatchPointerEvent(PPointerEventType::Cancel, pointerID, pointerEvent, captureView, nullptr);
+        captureView->DispatchPointerEvent(pointerEvent, captureView, nullptr);
     }
     else
     {
         const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
         Ptr<PView> targetView = FindPointerTarget(position);
         if (targetView != nullptr) {
-            targetView->DispatchPointerEvent(PPointerEventType::Cancel, pointerID, pointerEvent, nullptr, nullptr);
+            targetView->DispatchPointerEvent(pointerEvent, nullptr, nullptr);
         }
     }
     if (app != nullptr)
@@ -2066,7 +2086,7 @@ void PView::BuildPointerEventPath(PointerEventPath& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::DispatchPointerEvent(PPointerEventType eventType, PPointerID pointerID, const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled)
+bool PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled)
 {
     if (targetHandled != nullptr) {
         *targetHandled = false;
@@ -2079,27 +2099,27 @@ bool PView::DispatchPointerEvent(PPointerEventType eventType, PPointerID pointer
     for (size_t index = path.size(); index > 1; --index)
     {
         Ptr<PView> view = path[index - 1];
-        handled = view->DispatchPointerEventPhase(eventType, pointerID, pointerEvent, PEventPhase::Capture) || handled;
-        if (ShouldStopPointerEventDispatch(pointerID, originalCaptureView)) {
+        handled = view->DispatchPointerEventPhase(pointerEvent, PEventPhase::Capture) || handled;
+        if (ShouldStopPointerEventDispatch(pointerEvent.PointerID, originalCaptureView)) {
             return handled;
         }
     }
 
-    const bool targetPhaseHandled = DispatchPointerEventPhase(eventType, pointerID, pointerEvent, PEventPhase::Target);
+    const bool targetPhaseHandled = DispatchPointerEventPhase(pointerEvent, PEventPhase::Target);
     if (targetHandled != nullptr) {
         *targetHandled = targetPhaseHandled;
     }
     handled = targetPhaseHandled || handled;
 
-    if (ShouldStopPointerEventDispatch(pointerID, originalCaptureView)) {
+    if (ShouldStopPointerEventDispatch(pointerEvent.PointerID, originalCaptureView)) {
         return handled;
     }
 
     for (size_t index = 1; index < path.size(); ++index)
     {
         Ptr<PView> view = path[index];
-        handled = view->DispatchPointerEventPhase(eventType, pointerID, pointerEvent, PEventPhase::Bubble) || handled;
-        if (ShouldStopPointerEventDispatch(pointerID, originalCaptureView)) {
+        handled = view->DispatchPointerEventPhase(pointerEvent, PEventPhase::Bubble) || handled;
+        if (ShouldStopPointerEventDispatch(pointerEvent.PointerID, originalCaptureView)) {
             return handled;
         }
     }
@@ -2110,7 +2130,7 @@ bool PView::DispatchPointerEvent(PPointerEventType eventType, PPointerID pointer
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::DispatchPointerEventPhase(PPointerEventType eventType, PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+bool PView::DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventPhase phase)
 {
     if (!IsEventPhaseEnabled(phase)) {
         return false;
@@ -2119,19 +2139,22 @@ bool PView::DispatchPointerEventPhase(PPointerEventType eventType, PPointerID po
     PPointerEvent viewPointerEvent = pointerEvent;
     viewPointerEvent.ViewPosition = ConvertFromScreen(pointerEvent.ScreenPosition);
 
-    switch (eventType)
+    switch (pointerEvent.EventType)
     {
+        case PPointerEventType::Invalid:
+            break;
+
         case PPointerEventType::Down:
-            return DispatchPointerDown(pointerID, viewPointerEvent, phase);
+            return DispatchPointerDown(pointerEvent.PointerID, viewPointerEvent, phase);
 
         case PPointerEventType::Up:
-            return DispatchPointerUp(pointerID, viewPointerEvent, phase);
+            return DispatchPointerUp(pointerEvent.PointerID, viewPointerEvent, phase);
 
         case PPointerEventType::Move:
-            return DispatchPointerMove(pointerID, viewPointerEvent, phase);
+            return DispatchPointerMove(pointerEvent.PointerID, viewPointerEvent, phase);
 
         case PPointerEventType::Cancel:
-            return DispatchPointerCancel(pointerID, viewPointerEvent, phase);
+            return DispatchPointerCancel(pointerEvent.PointerID, viewPointerEvent, phase);
     }
     return false;
 }

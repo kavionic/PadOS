@@ -54,6 +54,7 @@ void PApplication::SetDefaultApplication(PApplication* application)
 
 PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
+    RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
 
     p_post_to_remotesignal<ASRegisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
@@ -590,7 +591,6 @@ bool PApplication::SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPoi
     }
 
     Ptr<PView> previousCaptureView = GetPointerCaptureView(pointerID);
-    const PPointerEvent pointerEvent = GetLastPointerEvent(pointerID);
 
     m_PointerCaptureMap[pointerID] = PointerCaptureState
     {
@@ -601,7 +601,9 @@ bool PApplication::SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPoi
 
     if (previousCaptureView != nullptr && previousCaptureView != view)
     {
-        previousCaptureView->DispatchPointerEventPhase(PPointerEventType::Cancel, pointerID, pointerEvent, PEventPhase::Target);
+        PPointerEvent pointerEvent = GetLastPointerEvent(pointerID);
+        pointerEvent.EventType = PPointerEventType::Cancel;
+        previousCaptureView->DispatchPointerEventPhase(pointerEvent, PEventPhase::Target);
         previousCaptureView->OnPointerCaptureLost(pointerID, PPointerCaptureLostReason::Stolen);
 
         Ptr<PView> longPressView = GetLongPressView(pointerID);
@@ -641,6 +643,20 @@ void PApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, 
         if (root != nullptr && root->m_ServerHandle != INVALID_HANDLE) {
             Post<ASReleasePointerCapture>(root->m_ServerHandle, pointerID, iterator->second.CaptureID, reason);
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    Ptr<PView> view = FindView(viewHandle);
+    if (view != nullptr) {
+        view->HandlePointerEvent(pointerEvent);
     }
 }
 

@@ -70,10 +70,7 @@ public:
     void HandleAddedToParent(Ptr<PServerView> parent, size_t index);
     void HandleRemovedFromParent(Ptr<PServerView> parent);
 
-    bool        HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
-    bool        HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
-    bool        HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
-    bool        HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool        HandlePointerEvent(const PPoint& position, const PPointerEvent& event);
 
     void        AddChild(Ptr<PServerView> child, size_t index);
     void        RemoveChild(Ptr<PServerView> child, bool removeAsHandler);
@@ -157,6 +154,7 @@ public:
 private:
     friend class PViewBase<PServerView>;
 
+    bool HandlePointerDown(const PPoint& position, const PPointerEvent& event);
     void UpdateScreenPos();
     void DebugDrawRect(const PIRect& frame, PColor color);
     void FillPolygon(std::span<const PPoint> points, PColor fillColor);

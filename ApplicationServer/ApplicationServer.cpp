@@ -577,32 +577,9 @@ void ApplicationServer::Idle()
 {
     ReadInputEvents();
 
-    while(!m_PointerEventQueue.empty())
+    while (!m_PointerEventQueue.empty())
     {
-        const QueuedPointerEvent& queuedEvent = m_PointerEventQueue.front();
-        switch(queuedEvent.EventID)
-        {
-            case PInputEventID::MouseDown:
-            case PInputEventID::TouchDown:
-            {
-                HandlePointerDown(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent);
-                break;
-            }            
-            case PInputEventID::MouseUp:
-            case PInputEventID::TouchUp:
-            {
-                HandlePointerUp(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent);
-                break;
-            }            
-            case PInputEventID::MouseMove:
-            case PInputEventID::TouchMove:
-            {
-                HandlePointerMove(queuedEvent.PointerEvent.PointerID, queuedEvent.PointerEvent);
-                break;
-            }
-            default:
-                break;
-        }
+        HandlePointerEvent(m_PointerEventQueue.front());
         m_PointerEventQueue.pop();
     }
 }
@@ -902,20 +879,24 @@ void ApplicationServer::ReadInputEvents(int inputDevice, PInputClass inputClass,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::QueuePointerEvent(PInputEventID eventID, const PPointerEvent& event)
+void ApplicationServer::QueuePointerEvent(const PPointerEvent& event)
 {
-    const bool isMoveEvent = eventID == PInputEventID::MouseMove || eventID == PInputEventID::TouchMove;
+    if (event.EventType == PPointerEventType::Invalid) {
+        return;
+    }
+
+    const bool isMoveEvent = event.EventType == PPointerEventType::Move;
 
     if (isMoveEvent && !m_PointerEventQueue.empty())
     {
-        QueuedPointerEvent& queuedEvent = m_PointerEventQueue.back();
-        if (queuedEvent.EventID == eventID && queuedEvent.PointerEvent.PointerID == event.PointerID)
+        PPointerEvent& queuedEvent = m_PointerEventQueue.back();
+        if (queuedEvent.EventType == event.EventType && queuedEvent.PointerID == event.PointerID)
         {
-            queuedEvent.PointerEvent = event;
+            queuedEvent = event;
             return;
         }
     }
-    m_PointerEventQueue.push(QueuedPointerEvent{ .EventID = eventID, .PointerEvent = event });
+    m_PointerEventQueue.push(event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -925,7 +906,7 @@ void ApplicationServer::QueuePointerEvent(PInputEventID eventID, const PPointerE
 void ApplicationServer::QueueMouseEvent(const PMouseEvent& event)
 {
     const PPoint position = UpdateMousePosition(event);
-    QueuePointerEvent(event.EventID, CreatePointerEvent(event, position));
+    QueuePointerEvent(CreatePointerEvent(event, position));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -934,7 +915,7 @@ void ApplicationServer::QueueMouseEvent(const PMouseEvent& event)
 
 void ApplicationServer::QueueTouchEvent(const PTouchEvent& event)
 {
-    QueuePointerEvent(event.EventID, CreatePointerEvent(event));
+    QueuePointerEvent(CreatePointerEvent(event));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -996,10 +977,36 @@ PPointerButtonMask ApplicationServer::GetTouchPointerButtons(const PTouchEvent& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PPointerEventType ApplicationServer::GetPointerEventType(PInputEventID eventID)
+{
+    switch (eventID)
+    {
+        case PInputEventID::MouseDown:
+        case PInputEventID::TouchDown:
+            return PPointerEventType::Down;
+
+        case PInputEventID::MouseUp:
+        case PInputEventID::TouchUp:
+            return PPointerEventType::Up;
+
+        case PInputEventID::MouseMove:
+        case PInputEventID::TouchMove:
+            return PPointerEventType::Move;
+
+        default:
+            return PPointerEventType::Invalid;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position)
 {
     PPointerEvent pointerEvent;
     pointerEvent.PointerID = PMousePointerID;
+    pointerEvent.EventType = GetPointerEventType(mouseEvent.EventID);
     pointerEvent.Timestamp = mouseEvent.Timestamp;
     pointerEvent.ToolType = PMotionToolType::Mouse;
     pointerEvent.Button = mouseEvent.Button;
@@ -1018,6 +1025,7 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PTouchEvent& touchEven
 {
     PPointerEvent pointerEvent;
     pointerEvent.PointerID = GetTouchPointerID(touchEvent.TouchID);
+    pointerEvent.EventType = GetPointerEventType(touchEvent.EventID);
     pointerEvent.Timestamp = touchEvent.Timestamp;
     pointerEvent.ToolType = touchEvent.ToolType;
     pointerEvent.Button = GetTouchPointerButton(touchEvent);
@@ -1081,48 +1089,32 @@ void ApplicationServer::UpdateMouseCursor()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandlePointerDown(PPointerID pointerID, const PPointerEvent& event)
+void ApplicationServer::HandlePointerEvent(const PPointerEvent& event)
 {
+    const PPointerID pointerID = event.PointerID;
     m_LastPointerEventMap[pointerID] = event;
-    m_TopView->HandlePointerDown(pointerID, event.ScreenPosition, event);
-//    if (m_KeyboardFocusView != nullptr) {
-//        m_KeyboardFocusView->HandlePointerDown(pointerID, m_KeyboardFocusView->ConvertFromRoot(event.ScreenPosition), event);
-//    }
-}
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ApplicationServer::HandlePointerUp(PPointerID pointerID, const PPointerEvent& event)
-{
-    m_LastPointerEventMap[pointerID] = event;
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-
-    if (iterator != m_PointerCaptureMap.end())
+    if (event.EventType == PPointerEventType::Down)
     {
-        ServerApplication* captureApplication = iterator->second.Application;
-        const PPointerCaptureID captureID = iterator->second.CaptureID;
-        captureApplication->HandlePointerUp(pointerID, event);
-        ReleasePointerCapture(pointerID, captureApplication, captureID, PPointerCaptureLostReason::PointerUp);
+        m_TopView->HandlePointerEvent(event.ScreenPosition, event);
     }
-    m_LastPointerEventMap.erase(pointerID);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ApplicationServer::HandlePointerMove(PPointerID pointerID, const PPointerEvent& event)
-{
-    m_LastPointerEventMap[pointerID] = event;
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-    if (iterator != m_PointerCaptureMap.end())
+    else
     {
-        iterator->second.Application->HandlePointerMove(pointerID, event);
+        auto iterator = m_PointerCaptureMap.find(pointerID);
+        if (iterator != m_PointerCaptureMap.end())
+        {
+            ServerApplication* captureApplication = iterator->second.Application;
+            captureApplication->HandlePointerEvent(event);
+            if (event.EventType == PPointerEventType::Up)
+            {
+                const PPointerCaptureID captureID = iterator->second.CaptureID;
+                ReleasePointerCapture(pointerID, captureApplication, captureID, PPointerCaptureLostReason::PointerUp);
+            }
+        }
     }
-    else if (m_KeyboardFocusView != nullptr) {
-        m_KeyboardFocusView->HandlePointerMove(pointerID, m_KeyboardFocusView->ConvertFromRoot(event.ScreenPosition), event);
+
+    if (event.EventType == PPointerEventType::Up) {
+        m_LastPointerEventMap.erase(pointerID);
     }
 }
 
@@ -1164,8 +1156,9 @@ PPointerCaptureID ApplicationServer::SetPointerCapture(PPointerID pointerID, Ser
         }
         ServerApplication* previousApplication = iterator->second.Application;
         const PPointerCaptureID previousCaptureID = iterator->second.CaptureID;
-        const PPointerEvent pointerEvent = GetLastPointerEvent(pointerID);
-        previousApplication->HandlePointerCancel(pointerID, pointerEvent);
+        PPointerEvent pointerEvent = GetLastPointerEvent(pointerID);
+        pointerEvent.EventType = PPointerEventType::Cancel;
+        previousApplication->HandlePointerEvent(pointerEvent);
         previousApplication->HandlePointerCaptureLost(pointerID, previousCaptureID, PPointerCaptureLostReason::Stolen);
     }
 

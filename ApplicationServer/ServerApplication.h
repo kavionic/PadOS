@@ -41,9 +41,7 @@ public:
     Ptr<PSrvBitmap> GetBitmap(handle_id bitmapHandle) const;
     PPointerCaptureID SetPointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureMode mode);
     void ReleasePointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
-    void HandlePointerUp(PPointerID pointerID, const PPointerEvent& event);
-    void HandlePointerMove(PPointerID pointerID, const PPointerEvent& event);
-    void HandlePointerCancel(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerEvent(const PPointerEvent& event);
     void HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
     void ViewDestructed(PServerView* view);
 

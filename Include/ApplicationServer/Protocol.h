@@ -132,10 +132,7 @@ namespace PAppserverProtocol
         
         // Appserver -> application messages:
         SYNC_REPLY,
-        HANDLE_POINTER_DOWN,
-        HANDLE_POINTER_UP,
-        HANDLE_POINTER_MOVE,
-        HANDLE_POINTER_CANCEL,
+        HANDLE_POINTER_EVENT,
         HANDLE_POINTER_CAPTURE_LOST
     };
 }
@@ -281,10 +278,7 @@ using ASWindowManagerDisableVKeyboard   = PRemoteSignal<PAppserverProtocol::WIND
 
 using ASSyncReply = PRemoteSignal<PAppserverProtocol::SYNC_REPLY>;
                                         
-using ASHandlePointerDown   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_DOWN,   void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerUp     = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_UP,     void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerMove   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_MOVE,   void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerCancel = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CANCEL, void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerEvent = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_EVENT, void(handler_id viewHandle, const PPointerEvent& pointerEvent)>;
 using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;

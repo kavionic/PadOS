@@ -213,10 +213,7 @@ public:
     void                SetFont(Ptr<PFont> font);
     Ptr<PFont>          GetFont() const;
 
-    bool            HandlePointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent);
-    void            HandlePointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent);
-    void            HandlePointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent);
-    void            HandlePointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void            HandlePointerEvent(const PPointerEvent& pointerEvent);
     
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(PColor(red, green, blue, alpha)); }
     void            SetFgColor(PColor color)                                                     { if (color != m_FgColor) { m_FgColor = color; Post<ASViewSetFgColor>(color); } }
@@ -399,8 +396,12 @@ private:
 
     Ptr<PView> FindPointerTarget(const PPoint& position);
     void BuildPointerEventPath(PointerEventPath& path);
-    bool DispatchPointerEvent(PPointerEventType eventType, PPointerID pointerID, const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled);
-    bool DispatchPointerEventPhase(PPointerEventType eventType, PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void HandlePointerDown(const PPointerEvent& pointerEvent);
+    void HandlePointerUp(const PPointerEvent& pointerEvent);
+    void HandlePointerMove(const PPointerEvent& pointerEvent);
+    void HandlePointerCancel(const PPointerEvent& pointerEvent);
+    bool DispatchPointerEvent(const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled);
+    bool DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventPhase phase);
     bool ShouldStopPointerEventDispatch(PPointerID pointerID, Ptr<PView> originalCaptureView) const;
     bool DispatchPointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     bool DispatchPointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
@@ -453,9 +454,4 @@ private:
     ASPaintView         RSPaintView;
     ASViewFrameChanged  RSViewFrameChanged;
     ASViewFocusChanged  RSViewFocusChanged;
-
-    ASHandlePointerDown   RSHandlePointerDown;
-    ASHandlePointerUp     RSHandlePointerUp;
-    ASHandlePointerMove   RSHandlePointerMove;
-    ASHandlePointerCancel RSHandlePointerCancel;
 };

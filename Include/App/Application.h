@@ -88,6 +88,7 @@ private:
     Ptr<PView> GetLongPressView(PPointerID pointerID) const;
     bool      SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureMode mode);
     void      ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureLostReason reason);
+    void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent);
     void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
     Ptr<PView> GetPointerCaptureView(PPointerID pointerID) const;
     void      SetLastPointerEvent(const PPointerEvent& pointerEvent);
@@ -113,6 +114,7 @@ private:
     PView*                   m_KeyboardFocusView = nullptr;
 
     PEventTimer              m_LongPressTimer;
+    ASHandlePointerEvent     m_RSHandlePointerEvent;
     ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;
 
     std::set<Ptr<PView>>     m_ViewsNeedingLayout;

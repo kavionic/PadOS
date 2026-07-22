@@ -176,6 +176,7 @@ struct PTouchEvent : PInputEvent
 
 enum class PPointerEventType
 {
+    Invalid,
     Down,
     Up,
     Move,
@@ -185,6 +186,7 @@ enum class PPointerEventType
 struct PPointerEvent
 {
     PPointerID          PointerID = PInvalidPointerID;
+    PPointerEventType   EventType = PPointerEventType::Invalid;
     TimeValNanos        Timestamp;
     PMotionToolType     ToolType = PMotionToolType::Mouse;
     PMouseButton        Button = PMouseButton::None;

@@ -36,17 +36,31 @@ public:
     
     virtual bool HandleMessage(int32_t code, const void* data, size_t length) override;
     
+    port_id         GetClientPort() const { return m_ClientPort; }
+
     Ptr<PSrvBitmap> GetBitmap(handle_id bitmapHandle) const;
+    PPointerCaptureID SetPointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureMode mode);
+    void ReleasePointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
+    void HandlePointerUp(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerMove(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerCancel(PPointerID pointerID, const PPointerEvent& event);
+    void HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
+    void ViewDestructed(PServerView* view);
 
 private:
+    struct PointerCaptureState
+    {
+        PServerView*       RootView = nullptr;
+        PPointerCaptureID  CaptureID = PInvalidPointerCaptureID;
+    };
+
     void ProcessMessage(int32_t code, const void* data, size_t length);
     bool CanDeferRegionUpdate(int32_t messageCode) const;
     void UpdateRegions();
     Ptr<PServerView> GetCommonInvalidView(Ptr<PServerView> currentInvalidRoot, Ptr<PServerView> newInvalidView) const;
     void UpdateLowestInvalidView(Ptr<PServerView> view);
 
-    void SlotCreateView(port_id clientPort,
-                        port_id replyPort,
+    void SlotCreateView(port_id replyPort,
                         handler_id replyTarget,
                         handler_id parentHandle,
                         PViewDockType dockType,
@@ -71,7 +85,7 @@ private:
                         PColor fgColor);
     void SlotDeleteView(handler_id clientHandle);
     void SlotSetPointerCapture(port_id replyPort, handler_id clientHandle, PPointerID pointerID, PPointerCaptureMode mode);
-    void SlotReleasePointerCapture(handler_id clientHandle, PPointerID pointerID, PPointerCaptureLostReason reason);
+    void SlotReleasePointerCapture(handler_id clientHandle, PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
@@ -135,6 +149,8 @@ private:
     
     Ptr<PServerView> m_LowestInvalidView;
     bool            m_HaveInvalidRegions = false;
+
+    std::map<PPointerID, PointerCaptureState> m_PointerCaptureMap;
 
     handle_id                           m_NextBitmapHandle = 1;
     std::map<handle_id, Ptr<PSrvBitmap>> m_BitmapMap;

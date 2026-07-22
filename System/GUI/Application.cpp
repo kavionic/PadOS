@@ -54,6 +54,8 @@ void PApplication::SetDefaultApplication(PApplication* application)
 
 PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
+    RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
+
     p_post_to_remotesignal<ASRegisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
 
     m_LongPressTimer.Set(LONG_PRESS_DELAY, true);
@@ -422,8 +424,7 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    Post<ASCreateView>(GetPortID()
-        , m_ReplyPort.GetHandle()
+    Post<ASCreateView>(m_ReplyPort.GetHandle()
         , view->GetHandle()
         , parentHandle
         , dockType
@@ -571,7 +572,7 @@ bool PApplication::SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPoi
         {
             if (code == PAppserverProtocol::SET_POINTER_CAPTURE_REPLY)
             {
-                if (!reply.m_Succeeded) {
+                if (reply.m_CaptureID == PInvalidPointerCaptureID) {
                     return false;
                 }
                 break;
@@ -594,6 +595,7 @@ bool PApplication::SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPoi
     m_PointerCaptureMap[pointerID] = PointerCaptureState
     {
         .View = ptr_raw_pointer_cast(view),
+        .CaptureID = reply.m_CaptureID,
         .Mode = mode
     };
 
@@ -637,7 +639,7 @@ void PApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, 
     {
         Ptr<PView> root = captureView->GetRoot();
         if (root != nullptr && root->m_ServerHandle != INVALID_HANDLE) {
-            Post<ASReleasePointerCapture>(root->m_ServerHandle, pointerID, reason);
+            Post<ASReleasePointerCapture>(root->m_ServerHandle, pointerID, iterator->second.CaptureID, reason);
         }
     }
 }
@@ -646,12 +648,15 @@ void PApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
+void PApplication::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
     auto iterator = m_PointerCaptureMap.find(pointerID);
     if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    if (captureID != iterator->second.CaptureID) {
         return;
     }
 

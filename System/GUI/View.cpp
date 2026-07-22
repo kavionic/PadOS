@@ -301,7 +301,6 @@ void PView::Initialize()
     RegisterRemoteSignal(&RSHandlePointerUp, &PView::HandlePointerUp);
     RegisterRemoteSignal(&RSHandlePointerMove, &PView::HandlePointerMove);
     RegisterRemoteSignal(&RSHandlePointerCancel, &PView::HandlePointerCancel);
-    RegisterRemoteSignal(&RSHandlePointerCaptureLost, &PView::HandlePointerCaptureLost);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1415,18 +1414,6 @@ void PView::HandlePointerCancel(PPointerID pointerID, const PPointerEvent& point
     {
         app->SetLongPressView(pointerID, nullptr, pointerEvent);
         app->ClearLastPointerEvent(pointerID);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PView::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
-{
-    PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->HandlePointerCaptureLost(pointerID, reason);
     }
 }
 

@@ -53,12 +53,15 @@ enum class PMouseButton : uint32_t
 };
 
 using PPointerID = uint32_t;
+using PPointerCaptureID = uint32_t;
 using PPointerButtonMask = uint32_t;
 
 static constexpr PPointerID PInvalidPointerID = UINT32_MAX;
 static constexpr PPointerID PMousePointerID = 0;
 static constexpr PPointerID PFirstTouchPointerID = 1;
 static constexpr PPointerButtonMask PPointerButtonMaskNone = 0;
+static constexpr PPointerCaptureID PInvalidPointerCaptureID = 0;
+static constexpr PPointerCaptureID PFirstPointerCaptureID = 1;
 
 enum class PPointerCaptureMode : uint8_t
 {

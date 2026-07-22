@@ -95,7 +95,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
 ServerApplication::~ServerApplication()
 {
     if (m_Server != nullptr) {
-        m_Server->RemoveMouseCursorStackEntries(this);
+        m_Server->ServerApplicationDestructed(this);
     }
 }
 
@@ -189,6 +189,145 @@ Ptr<PSrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PPointerCaptureID ServerApplication::SetPointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureMode mode)
+{
+    if (m_Server == nullptr || rootView == nullptr) {
+        return PInvalidPointerCaptureID;
+    }
+
+    const PPointerCaptureID captureID = m_Server->SetPointerCapture(pointerID, this, mode);
+    if (captureID == PInvalidPointerCaptureID) {
+        return PInvalidPointerCaptureID;
+    }
+
+    m_PointerCaptureMap[pointerID] = PointerCaptureState
+    {
+        .RootView = ptr_raw_pointer_cast(rootView),
+        .CaptureID = captureID
+    };
+    return captureID;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureLostReason reason)
+{
+    if (m_Server == nullptr) {
+        return;
+    }
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    if (rootView != nullptr && rootView != iterator->second.RootView) {
+        return;
+    }
+    if (captureID != iterator->second.CaptureID) {
+        return;
+    }
+    m_Server->ReleasePointerCapture(pointerID, this, captureID, reason);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::HandlePointerUp(PPointerID pointerID, const PPointerEvent& event)
+{
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    Ptr<PServerView> rootView = ptr_tmp_cast(iterator->second.RootView);
+    if (rootView != nullptr) {
+        rootView->HandlePointerUp(pointerID, rootView->ConvertFromRoot(event.ScreenPosition), event);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::HandlePointerMove(PPointerID pointerID, const PPointerEvent& event)
+{
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    Ptr<PServerView> rootView = ptr_tmp_cast(iterator->second.RootView);
+    if (rootView != nullptr) {
+        rootView->HandlePointerMove(pointerID, rootView->ConvertFromRoot(event.ScreenPosition), event);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::HandlePointerCancel(PPointerID pointerID, const PPointerEvent& event)
+{
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    Ptr<PServerView> rootView = ptr_tmp_cast(iterator->second.RootView);
+    if (rootView != nullptr) {
+        rootView->HandlePointerCancel(pointerID, rootView->ConvertFromRoot(event.ScreenPosition), event);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)
+{
+    auto iterator = m_PointerCaptureMap.find(pointerID);
+    if (iterator == m_PointerCaptureMap.end()) {
+        return;
+    }
+    if (captureID != iterator->second.CaptureID) {
+        return;
+    }
+
+    m_PointerCaptureMap.erase(iterator);
+
+    if (!p_post_to_remotesignal<ASHandlePointerCaptureLost>(m_ClientPort, INVALID_HANDLE, TimeValNanos::zero, pointerID, captureID, reason)) {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerApplication::HandlePointerCaptureLost() failed to send message: {}", strerror(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::ViewDestructed(PServerView* view)
+{
+    if (m_Server == nullptr) {
+        return;
+    }
+    for (auto iterator = m_PointerCaptureMap.begin(); iterator != m_PointerCaptureMap.end(); )
+    {
+        if (iterator->second.RootView == view)
+        {
+            const PPointerID pointerID = iterator->first;
+            const PPointerCaptureID captureID = iterator->second.CaptureID;
+            iterator = m_PointerCaptureMap.erase(iterator);
+            m_Server->ReleasePointerCapture(pointerID, this, captureID, PPointerCaptureLostReason::ViewDetached);
+        }
+        else
+        {
+            ++iterator;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerApplication::UpdateRegions()
 {
     Ptr<PServerView> updateView = (m_LowestInvalidView != nullptr) ? m_LowestInvalidView : m_Server->GetTopView();
@@ -255,8 +394,7 @@ void ServerApplication::UpdateLowestInvalidView(Ptr<PServerView> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateView(port_id              clientPort,
-                                       port_id              replyPort,
+void ServerApplication::SlotCreateView(port_id              replyPort,
                                        handler_id           replyTarget,
                                        handler_id           parentHandle,
                                        PViewDockType         dockType,
@@ -309,7 +447,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         view->SetIsWindowManagerControlled(true);
         p_post_to_window_manager<ASWindowManagerRegisterView>(INVALID_HANDLE, view->GetHandle(), dockType, view->GetName(), frame);
     }
-    view->SetClientHandle(clientPort, replyTarget);
+    view->SetClientHandle(replyTarget, this);
         
     MsgCreateViewReply reply;
     reply.m_ViewHandle = view->GetHandle();
@@ -364,10 +502,9 @@ void ServerApplication::SlotSetPointerCapture(port_id replyPort, handler_id clie
 {
     const Ptr<PServerView> view = m_Server->FindView(clientHandle);
     MsgSetPointerCaptureReply reply;
-    reply.m_Succeeded = false;
     if (view != nullptr)
     {
-        reply.m_Succeeded = m_Server->SetPointerCapture(pointerID, view, mode);
+        reply.m_CaptureID = SetPointerCapture(pointerID, view, mode);
     }
     const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, PAppserverProtocol::SET_POINTER_CAPTURE_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
@@ -379,12 +516,12 @@ void ServerApplication::SlotSetPointerCapture(port_id replyPort, handler_id clie
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotReleasePointerCapture(handler_id clientHandle, PPointerID pointerID, PPointerCaptureLostReason reason)
+void ServerApplication::SlotReleasePointerCapture(handler_id clientHandle, PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)
 {
     const Ptr<PServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
-        m_Server->ReleasePointerCapture(pointerID, view, reason);
+        ReleasePointerCapture(pointerID, view, captureID, reason);
     }
 }
 

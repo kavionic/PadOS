@@ -60,14 +60,14 @@ public:
     Ptr<PServerView> FindView(handler_id handle) const;
 
     void ViewDestructed(PServerView* view);
+    void ServerApplicationDestructed(ServerApplication* application);
 
     void PushMouseCursor(ServerApplication* owner, PMouseCursorToken token, PMouseCursorID cursorID);
     void PopMouseCursor(ServerApplication* owner, PMouseCursorToken token);
     void RemoveMouseCursorStackEntries(ServerApplication* owner);
 
-    bool            SetPointerCapture(PPointerID pointerID, Ptr<PServerView> view, PPointerCaptureMode mode);
-    void            ReleasePointerCapture(PPointerID pointerID, Ptr<PServerView> view, PPointerCaptureLostReason reason);
-    Ptr<PServerView> GetPointerCaptureView(PPointerID pointerID) const;
+    PPointerCaptureID SetPointerCapture(PPointerID pointerID, ServerApplication* application, PPointerCaptureMode mode);
+    void              ReleasePointerCapture(PPointerID pointerID, ServerApplication* application, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
 
     void            SetKeyboardFocus(Ptr<PServerView> view, bool focus);
     Ptr<PServerView> GetKeyboardFocus() const;
@@ -93,7 +93,8 @@ private:
 
     struct PointerCaptureState
     {
-        PServerView*         View = nullptr;
+        ServerApplication*   Application = nullptr;
+        PPointerCaptureID    CaptureID = PInvalidPointerCaptureID;
         PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
     };
 
@@ -117,6 +118,7 @@ private:
     void HandlePointerUp(PPointerID pointerID, const PPointerEvent& event);
     void HandlePointerMove(PPointerID pointerID, const PPointerEvent& event);
     PPointerEvent GetLastPointerEvent(PPointerID pointerID) const;
+    PPointerCaptureID AllocatePointerCaptureID();
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
 
@@ -135,6 +137,7 @@ private:
     Ptr<PServerView> m_TopView;
 
     std::map<PPointerID, PointerCaptureState> m_PointerCaptureMap;
+    PPointerCaptureID m_NextPointerCaptureID = PFirstPointerCaptureID;
     std::map<PPointerID, PPointerEvent> m_LastPointerEventMap;
     PServerView*                 m_KeyboardFocusView = nullptr;
 

@@ -31,6 +31,7 @@
 #include <Utils/Utils.h>
 
 #include "ServerView.h"
+#include "ServerApplication.h"
 
 
 static int g_ServerViewCount = 0;
@@ -393,6 +394,31 @@ PServerView::~PServerView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+port_id PServerView::GetClientPort() const
+{
+    return (m_OwnerApplication != nullptr) ? m_OwnerApplication->GetClientPort() : INVALID_HANDLE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PServerView> PServerView::GetOwnerRootView()
+{
+    Ptr<PServerView> rootView = ptr_tmp_cast(this);
+    Ptr<PServerView> parent = GetParent();
+    while (parent != nullptr && parent->m_OwnerApplication == m_OwnerApplication)
+    {
+        rootView = parent;
+        parent = parent->GetParent();
+    }
+    return rootView;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 {
     if (!parent->IsVisible()) {
@@ -406,6 +432,9 @@ void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 
 void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 {
+    if (m_OwnerApplication != nullptr) {
+        m_OwnerApplication->ViewDestructed(this);
+    }
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr) {
         server->ViewDestructed(this);
@@ -441,14 +470,13 @@ bool PServerView::HandlePointerDown(PPointerID pointerID, const PPoint& position
             }            
         }
                     
-        if (!p_post_to_remotesignal<ASHandlePointerDown>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent))
+        if (!p_post_to_remotesignal<ASHandlePointerDown>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent))
         {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
             return false;
         }
-        ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
-        if (server !=  nullptr) {
-            server->SetPointerCapture(pointerID, ptr_tmp_cast(this), PPointerCaptureMode::Preemptible);
+        if (m_OwnerApplication != nullptr) {
+            m_OwnerApplication->SetPointerCapture(pointerID, GetOwnerRootView(), PPointerCaptureMode::Preemptible);
         }
         return true;
     }
@@ -479,7 +507,7 @@ bool PServerView::HandlePointerUp(PPointerID pointerID, const PPoint& position, 
         clientEvent.ScreenPosition = position;
         clientEvent.ViewPosition = position;
 
-        if (!p_post_to_remotesignal<ASHandlePointerUp>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
+        if (!p_post_to_remotesignal<ASHandlePointerUp>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerUp() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
@@ -499,7 +527,7 @@ bool PServerView::HandlePointerMove(PPointerID pointerID, const PPoint& position
         clientEvent.ScreenPosition = position;
         clientEvent.ViewPosition = position;
 
-        if (!p_post_to_remotesignal<ASHandlePointerMove>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
+        if (!p_post_to_remotesignal<ASHandlePointerMove>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerMove() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
@@ -519,24 +547,8 @@ bool PServerView::HandlePointerCancel(PPointerID pointerID, const PPoint& positi
         clientEvent.ScreenPosition = position;
         clientEvent.ViewPosition = position;
 
-        if (!p_post_to_remotesignal<ASHandlePointerCancel>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
+        if (!p_post_to_remotesignal<ASHandlePointerCancel>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, pointerID, clientEvent)) {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerCancel() failed to send message: {}", strerror(get_last_error()));
-        }
-        return true;
-    }
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PServerView::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
-{
-    if (m_ClientHandle != INVALID_HANDLE)
-    {
-        if (!p_post_to_remotesignal<ASHandlePointerCaptureLost>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, reason)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerCaptureLost() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
     }
@@ -656,7 +668,7 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
         }
         else
         {
-            if (!p_post_to_remotesignal<ASViewFrameChanged>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, m_Frame)) {
+            if (!p_post_to_remotesignal<ASViewFrameChanged>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, m_Frame)) {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SetFrame() failed to send message: {}", strerror(get_last_error()));
             }            
         }
@@ -1242,7 +1254,7 @@ void PServerView::Paint(const PIRect& updateRect)
     if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == INVALID_HANDLE) {
         return;
     }
-    if (!p_post_to_remotesignal<ASPaintView>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, updateRect - PIPoint(m_ScrollOffset))) {
+    if (!p_post_to_remotesignal<ASPaintView>(GetClientPort(), m_ClientHandle, TimeValNanos::zero, updateRect - PIPoint(m_ScrollOffset))) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::Paint() failed to send message: {}", strerror(get_last_error()));
     }
 }

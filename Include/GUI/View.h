@@ -217,7 +217,6 @@ public:
     void            HandlePointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent);
     void            HandlePointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent);
     void            HandlePointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent);
-    void            HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
     
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(PColor(red, green, blue, alpha)); }
     void            SetFgColor(PColor color)                                                     { if (color != m_FgColor) { m_FgColor = color; Post<ASViewSetFgColor>(color); } }
@@ -459,5 +458,4 @@ private:
     ASHandlePointerUp     RSHandlePointerUp;
     ASHandlePointerMove   RSHandlePointerMove;
     ASHandlePointerCancel RSHandlePointerCancel;
-    ASHandlePointerCaptureLost RSHandlePointerCaptureLost;
 };

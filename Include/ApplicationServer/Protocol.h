@@ -161,7 +161,7 @@ struct MsgCreateViewReply
 
 struct MsgSetPointerCaptureReply
 {
-    bool m_Succeeded;
+    PPointerCaptureID m_CaptureID = PInvalidPointerCaptureID;
 };
 
 struct MsgCreateBitmapReply
@@ -176,7 +176,6 @@ using ASSync                = PRemoteSignal<PAppserverProtocol::SYNC,           
 
 using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
     void(
-        port_id           clientPort,
         port_id           replyPort,
         handler_id        replyTarget,
         handler_id        parent,
@@ -213,7 +212,7 @@ using ASSetPointerCapture = PRemoteSignal<PAppserverProtocol::SET_POINTER_CAPTUR
         PPointerCaptureMode  mode
         )
 >;
-using ASReleasePointerCapture = PRemoteSignal<PAppserverProtocol::RELEASE_POINTER_CAPTURE, void(handler_id viewHandle, PPointerID pointerID, PPointerCaptureLostReason reason)>;
+using ASReleasePointerCapture = PRemoteSignal<PAppserverProtocol::RELEASE_POINTER_CAPTURE, void(handler_id viewHandle, PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
 
 using ASSetKeyboardFocus = PRemoteSignal<PAppserverProtocol::SET_KEYBOARD_FOCUS,
     void(
@@ -286,7 +285,7 @@ using ASHandlePointerDown   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_D
 using ASHandlePointerUp     = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_UP,     void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
 using ASHandlePointerMove   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_MOVE,   void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
 using ASHandlePointerCancel = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CANCEL, void(PPointerID pointerID, const PPointerEvent& pointerEvent)>;
-using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureLostReason reason)>;
+using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
 using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;

@@ -26,6 +26,7 @@
 
 
 class PSrvBitmap;
+class ServerApplication;
 
 class PServerView : public PViewBase<PServerView>
 {
@@ -54,9 +55,10 @@ public:
     );
 
     virtual ~PServerView();
-    void        SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
-    port_id     GetClientPort() const   { return m_ClientPort; }
+    void        SetClientHandle(handler_id handle, ServerApplication* ownerApplication) { m_ClientHandle = handle; m_OwnerApplication = ownerApplication; }
+    port_id     GetClientPort() const;
     handler_id  GetClientHandle() const { return m_ClientHandle; }
+    Ptr<PServerView> GetOwnerRootView();
 
     PViewDockType   GetDockType() const { return m_DockType; }
 
@@ -72,7 +74,6 @@ public:
     bool        HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     bool        HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     bool        HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
-    bool        HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
 
     void        AddChild(Ptr<PServerView> child, size_t index);
     void        RemoveChild(Ptr<PServerView> child, bool removeAsHandler);
@@ -241,15 +242,15 @@ private:
                                            const PPoint& outerNext,
                                            float crossZ, float halfWidth);
 
-    PSrvBitmap*  m_Bitmap        = nullptr;
-    port_id     m_ClientPort    = INVALID_HANDLE;
-    handler_id  m_ClientHandle  = INVALID_HANDLE;
-    handler_id  m_ManagerHandle = INVALID_HANDLE;
+    PSrvBitmap*         m_Bitmap        = nullptr;
+    ServerApplication*  m_OwnerApplication = nullptr;
+    handler_id          m_ClientHandle  = INVALID_HANDLE;
+    handler_id          m_ManagerHandle = INVALID_HANDLE;
     
-    PViewDockType    m_DockType;
+    PViewDockType       m_DockType;
 
-    PFocusKeyboardMode   m_FocusKeyboardMode = PFocusKeyboardMode::None;
-    PDrawingMode         m_DrawingMode  = PDrawingMode::Copy;
+    PFocusKeyboardMode  m_FocusKeyboardMode = PFocusKeyboardMode::None;
+    PDrawingMode        m_DrawingMode  = PDrawingMode::Copy;
     
     Ptr<PFont>   m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
     

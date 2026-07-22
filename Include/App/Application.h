@@ -73,6 +73,7 @@ private:
     struct PointerCaptureState
     {
         PView*               View = nullptr;
+        PPointerCaptureID    CaptureID = PInvalidPointerCaptureID;
         PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
     };
     
@@ -87,7 +88,7 @@ private:
     Ptr<PView> GetLongPressView(PPointerID pointerID) const;
     bool      SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureMode mode);
     void      ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureLostReason reason);
-    void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
+    void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
     Ptr<PView> GetPointerCaptureView(PPointerID pointerID) const;
     void      SetLastPointerEvent(const PPointerEvent& pointerEvent);
     void      ClearLastPointerEvent(PPointerID pointerID);
@@ -112,6 +113,7 @@ private:
     PView*                   m_KeyboardFocusView = nullptr;
 
     PEventTimer              m_LongPressTimer;
+    ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;
 
     std::set<Ptr<PView>>     m_ViewsNeedingLayout;
 

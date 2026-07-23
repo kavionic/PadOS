@@ -66,6 +66,8 @@ enum class PFocusKeyboardMode : uint8_t
 class PView : public PViewBase<PView>
 {
 public:
+    static uint32_t GetInstanceCount();
+
     PView(const PString& name, Ptr<PView> parent = nullptr, uint32_t flags = 0);
     PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
     PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, const PRect& frame);
@@ -412,39 +414,41 @@ private:
 
     void HandleFrameChanged(const PRect& frame);
 
+    static uint32_t s_InstanceCount;
+
     handler_id          m_ServerHandle = INVALID_HANDLE;
     
-    Ptr<PLayoutNode>     m_LayoutNode;
+    Ptr<PLayoutNode>    m_LayoutNode;
     
-    PRect                m_Borders = PRect(0.0f, 0.0f, 0.0f, 0.0f);
+    PRect               m_Borders = PRect(0.0f, 0.0f, 0.0f, 0.0f);
     float               m_Wheight = 1.0f;
-    PDrawingMode         m_DrawingMode = PDrawingMode::Overlay;
-    PAlignment           m_HAlign = PAlignment::Center;
-    PAlignment           m_VAlign = PAlignment::Center;
-    PPoint               m_LocalPrefSize[int(PPrefSizeType::Count)];
-    PPoint               m_PreferredSizes[int(PPrefSizeType::Count)];
+    PDrawingMode        m_DrawingMode = PDrawingMode::Overlay;
+    PAlignment          m_HAlign = PAlignment::Center;
+    PAlignment          m_VAlign = PAlignment::Center;
+    PPoint              m_LocalPrefSize[int(PPrefSizeType::Count)];
+    PPoint              m_PreferredSizes[int(PPrefSizeType::Count)];
 
     float               m_WidthOverride[int(PPrefSizeType::Count)]  = {0.0f, 0.0f};
     float               m_HeightOverride[int(PPrefSizeType::Count)] = {0.0f, 0.0f};
     
-    PSizeOverride        m_WidthOverrideType[int(PPrefSizeType::Count)]  = {PSizeOverride::None, PSizeOverride::None};
-    PSizeOverride        m_HeightOverrideType[int(PPrefSizeType::Count)] = {PSizeOverride::None, PSizeOverride::None};
+    PSizeOverride       m_WidthOverrideType[int(PPrefSizeType::Count)]  = {PSizeOverride::None, PSizeOverride::None};
+    PSizeOverride       m_HeightOverrideType[int(PPrefSizeType::Count)] = {PSizeOverride::None, PSizeOverride::None};
 
-    PFocusKeyboardMode   m_FocusKeyboardMode = PFocusKeyboardMode::None;
+    PFocusKeyboardMode  m_FocusKeyboardMode = PFocusKeyboardMode::None;
     uint8_t             m_EventPhaseMask = PEventPhaseMask(PEventPhase::Target);
     bool                m_IsPrefSizeValid = false;
     bool                m_IsLayoutValid   = true;
     bool                m_IsLayoutPending = false;
     bool                m_SyncOnNextPaint   = false;
     
-    PView*               m_WidthRing  = nullptr;
-    PView*               m_HeightRing = nullptr;
+    PView*              m_WidthRing  = nullptr;
+    PView*              m_HeightRing = nullptr;
     
-    PPoint               m_PositionOffset; // Offset relative to first parent that is not client only.
+    PPoint              m_PositionOffset; // Offset relative to first parent that is not client only.
     int                 m_BeginPainCount = 0;
 
-    PScrollBar*          m_HScrollBar = nullptr;
-    PScrollBar*          m_VScrollBar = nullptr;
+    PScrollBar*         m_HScrollBar = nullptr;
+    PScrollBar*         m_VScrollBar = nullptr;
 
-    Ptr<PFont>           m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
+    Ptr<PFont>          m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
 };

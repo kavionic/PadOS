@@ -126,6 +126,17 @@ static PColor Tint(const PColor& color, float tint)
     return PColor(uint8_t(r), uint8_t(g), uint8_t(b), color.GetAlpha());
 }
 
+uint32_t PView::s_InstanceCount = 0;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t PView::GetInstanceCount()
+{
+    return s_InstanceCount;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -136,6 +147,7 @@ PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags) : PViewBase
         parent->AddChild(ptr_tmp_cast(this));
     }
 //    SetFont(ptr_new<Font>(GfxDriver::e_Font7Seg));
+    ++s_InstanceCount;
 }
 
 template< typename T>
@@ -270,6 +282,7 @@ PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_no
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
     }
+    ++s_InstanceCount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -282,6 +295,7 @@ PView::PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, co
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
     }
+    ++s_InstanceCount;
 }
 
 PView::~PView()
@@ -300,6 +314,7 @@ PView::~PView()
     {
         RemoveChild(m_ChildrenList[m_ChildrenList.size()-1]);
     }
+    --s_InstanceCount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

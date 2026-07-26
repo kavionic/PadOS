@@ -669,6 +669,42 @@ bool PView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool PView::OnPointerEnter(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::OnPointerLeave(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PView::OnPointerCaptureGained(PPointerID pointerID)
 {
 }
@@ -1025,6 +1061,7 @@ void PView::Show(bool visible)
                 parent->InvalidateLayout();
             }
         }
+        InvalidatePointerHitTest();
     }
 }
 
@@ -1047,6 +1084,7 @@ void PView::SetHitMode(PViewHitMode mode)
     {
         m_HitMode = mode;
         Post<ASViewSetHitMode>(mode);
+        InvalidatePointerHitTest();
     }
 }
 
@@ -1057,6 +1095,18 @@ void PView::SetHitMode(PViewHitMode mode)
 bool PView::HitTest(const PPoint& position) const
 {
     return GetBounds().DoIntersect(position);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::InvalidatePointerHitTest()
+{
+    PApplication* app = GetApplication();
+    if (app != nullptr) {
+        app->InvalidatePointerPaths();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1292,9 +1342,11 @@ Ptr<PFont> PView::GetFont() const
 void PView::HandlePointerEvent(const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->SetLastPointerEvent(pointerEvent);
+    if (app == nullptr) {
+        return;
     }
+
+    Ptr<PView> targetView = app->UpdateEffectivePointerPath(ptr_tmp_cast(this), pointerEvent);
 
     switch (pointerEvent.EventType)
     {
@@ -1302,19 +1354,25 @@ void PView::HandlePointerEvent(const PPointerEvent& pointerEvent)
             break;
 
         case PPointerEventType::Down:
-            HandlePointerDown(pointerEvent);
+            HandlePointerDown(pointerEvent, targetView);
             break;
 
         case PPointerEventType::Up:
-            HandlePointerUp(pointerEvent);
+            HandlePointerUp(pointerEvent, targetView);
             break;
 
         case PPointerEventType::Move:
-            HandlePointerMove(pointerEvent);
+            HandlePointerMove(pointerEvent, targetView);
             break;
 
         case PPointerEventType::Cancel:
-            HandlePointerCancel(pointerEvent);
+            HandlePointerCancel(pointerEvent, targetView);
+            break;
+
+        case PPointerEventType::Enter:
+        case PPointerEventType::Leave:
+        case PPointerEventType::Over:
+        case PPointerEventType::Out:
             break;
     }
 }
@@ -1323,25 +1381,34 @@ void PView::HandlePointerEvent(const PPointerEvent& pointerEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandlePointerDown(const PPointerEvent& pointerEvent)
+void PView::HandlePointerDown(const PPointerEvent& pointerEvent, Ptr<PView> targetView)
 {
     PApplication* app = GetApplication();
     const PPointerID pointerID = pointerEvent.PointerID;
-    const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
-    Ptr<PView> targetView = FindPointerTarget(position);
     if (targetView != nullptr)
     {
         bool targetHandled = false;
-        targetView->DispatchPointerEvent(pointerEvent, nullptr, &targetHandled);
-        if (targetHandled && app != nullptr)
+        Ptr<PView> originalCaptureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
+        targetView->DispatchPointerEvent(pointerEvent, originalCaptureView, &targetHandled);
+
+        const bool implicitCapture =
+            !pointerEvent.SupportsHover
+            && app != nullptr
+            && app->HasConfirmedPointerCapture(pointerID);
+        if ((targetHandled || implicitCapture) && app != nullptr)
         {
-            app->SetLongPressView(pointerID, targetView, pointerEvent);
+            if (targetHandled) {
+                app->SetLongPressView(pointerID, targetView, pointerEvent);
+            }
             if (app->GetPointerCaptureView(pointerID) == nullptr && !app->SetPointerCapture(pointerID, targetView, PPointerCaptureMode::Preemptible))
             {
                 PPointerEvent cancelEvent = pointerEvent;
                 cancelEvent.EventType = PPointerEventType::Cancel;
                 targetView->DispatchPointerEvent(cancelEvent, nullptr, nullptr);
                 app->SetLongPressView(pointerID, nullptr, pointerEvent);
+                if (!pointerEvent.SupportsHover) {
+                    app->ClearEffectivePointerPath(pointerID, cancelEvent);
+                }
             }
         }
     }
@@ -1351,56 +1418,19 @@ void PView::HandlePointerDown(const PPointerEvent& pointerEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandlePointerUp(const PPointerEvent& pointerEvent)
+void PView::HandlePointerUp(const PPointerEvent& pointerEvent, Ptr<PView> targetView)
 {
     PApplication* app = GetApplication();
     const PPointerID pointerID = pointerEvent.PointerID;
-    Ptr<PView> captureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
-    if (captureView != nullptr)
-    {
-        captureView->DispatchPointerEvent(pointerEvent, captureView, nullptr);
-    }
-    else
-    {
-        const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
-        Ptr<PView> targetView = FindPointerTarget(position);
-        if (targetView != nullptr) {
-            targetView->DispatchPointerEvent(pointerEvent, nullptr, nullptr);
-        }
+    Ptr<PView> originalCaptureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
+    if (targetView != nullptr) {
+        targetView->DispatchPointerEvent(pointerEvent, originalCaptureView, nullptr);
     }
     if (app != nullptr)
     {
         app->SetLongPressView(pointerID, nullptr, pointerEvent);
-        app->ClearLastPointerEvent(pointerID);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PView::HandlePointerMove(const PPointerEvent& pointerEvent)
-{
-    PApplication* app = GetApplication();
-    const PPointerID pointerID = pointerEvent.PointerID;
-    Ptr<PView> captureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
-    if (captureView != nullptr)
-    {
-        Ptr<PView> originalCaptureView = captureView;
-        captureView->DispatchPointerEvent(pointerEvent, originalCaptureView, nullptr);
-
-        captureView = app->GetPointerCaptureView(pointerID);
-        if (captureView != nullptr && captureView != originalCaptureView)
-        {
-            captureView->DispatchPointerEvent(pointerEvent, captureView, nullptr);
-        }
-    }
-    else
-    {
-        const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
-        Ptr<PView> targetView = FindPointerTarget(position);
-        if (targetView != nullptr) {
-            targetView->DispatchPointerEvent(pointerEvent, nullptr, nullptr);
+        if (!pointerEvent.SupportsHover && app->GetPointerCaptureView(pointerID) == nullptr) {
+            app->ClearEffectivePointerPath(pointerID, pointerEvent);
         }
     }
 }
@@ -1409,27 +1439,34 @@ void PView::HandlePointerMove(const PPointerEvent& pointerEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandlePointerCancel(const PPointerEvent& pointerEvent)
+void PView::HandlePointerMove(const PPointerEvent& pointerEvent, Ptr<PView> targetView)
 {
     PApplication* app = GetApplication();
     const PPointerID pointerID = pointerEvent.PointerID;
-    Ptr<PView> captureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
-    if (captureView != nullptr)
-    {
-        captureView->DispatchPointerEvent(pointerEvent, captureView, nullptr);
+    Ptr<PView> originalCaptureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
+    if (targetView != nullptr) {
+        targetView->DispatchPointerEvent(pointerEvent, originalCaptureView, nullptr);
     }
-    else
-    {
-        const PPoint position = ConvertFromScreen(pointerEvent.ScreenPosition);
-        Ptr<PView> targetView = FindPointerTarget(position);
-        if (targetView != nullptr) {
-            targetView->DispatchPointerEvent(pointerEvent, nullptr, nullptr);
-        }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::HandlePointerCancel(const PPointerEvent& pointerEvent, Ptr<PView> targetView)
+{
+    PApplication* app = GetApplication();
+    const PPointerID pointerID = pointerEvent.PointerID;
+    Ptr<PView> originalCaptureView = (app != nullptr) ? app->GetPointerCaptureView(pointerID) : nullptr;
+    if (targetView != nullptr) {
+        targetView->DispatchPointerEvent(pointerEvent, originalCaptureView, nullptr);
     }
     if (app != nullptr)
     {
         app->SetLongPressView(pointerID, nullptr, pointerEvent);
-        app->ClearLastPointerEvent(pointerID);
+        if (!pointerEvent.SupportsHover && app->GetPointerCaptureView(pointerID) == nullptr) {
+            app->ClearEffectivePointerPath(pointerID, pointerEvent);
+        }
     }
 }
 
@@ -1485,6 +1522,7 @@ void PView::ScrollBy(const PPoint& offset)
     m_ScrollOffset += offset;
     UpdatePosition(PView::UpdatePositionNotifyServer::IfChanged);
     Post<ASViewScrollBy>(offset);
+    InvalidatePointerHitTest();
 
     if (offset.x != 0 && m_HScrollBar != nullptr) {
         m_HScrollBar->SetValue(-m_ScrollOffset.x);
@@ -1705,6 +1743,8 @@ void PView::HandleAddedToParent(Ptr<PView> parent, size_t index)
 
             if (!HasFlags(PViewFlags::Eavesdropper)) {
                 app->AddChildView(parent, ptr_tmp_cast(this), index);
+            } else {
+                app->InvalidatePointerPaths();
             }
             HandleAttachedToScreen(app);
             app->LayoutViews();
@@ -1725,10 +1765,17 @@ void PView::HandleRemovedFromParent(Ptr<PView> parent)
         Show(true);
     }
     OnDetachedFromParent(parent);
-    if (!HasFlags(PViewFlags::Eavesdropper))
+    PApplication* const app = GetApplication();
+    if (HasFlags(PViewFlags::Eavesdropper))
     {
-        PApplication* const app = GetApplication();
         if (app != nullptr) {
+            app->InvalidatePointerPaths();
+        }
+    }
+    else
+    {
+        if (app != nullptr)
+        {
             app->RemoveView(ptr_tmp_cast(this));
         }
         UpdatePosition(PView::UpdatePositionNotifyServer::IfChanged);
@@ -1994,6 +2041,9 @@ void PView::SetFrameInternal(const PRect& frame, bool notifyServer)
     m_Frame = frame;
 
     UpdatePosition(notifyServer ? PView::UpdatePositionNotifyServer::Always : PView::UpdatePositionNotifyServer::Never);
+    if (deltaSize != PPoint(0.0f, 0.0f) || deltaPos != PPoint(0.0f, 0.0f)) {
+        InvalidatePointerHitTest();
+    }
     if (deltaSize != PPoint(0.0f, 0.0f))
     {
         OnFrameSized(deltaSize);
@@ -2082,14 +2132,82 @@ void PView::BuildPointerEventPath(PointerEventPath& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PView::DispatchPointerBoundaryEvents(const PPointerEvent& pointerEvent, const PointerEventPath& previousPath, const PointerEventPath& targetPath)
+{
+    // Paths are ordered from target to root, so the common suffix contains
+    // ancestors that the pointer did not leave or enter.
+    size_t sharedAncestorCount = 0;
+    while (sharedAncestorCount < previousPath.size() && sharedAncestorCount < targetPath.size()
+        && previousPath[previousPath.size() - sharedAncestorCount - 1] == targetPath[targetPath.size() - sharedAncestorCount - 1])
+    {
+        sharedAncestorCount++;
+    }
+
+    const size_t exitedViewCount = previousPath.size() - sharedAncestorCount;
+    const size_t enteredViewCount = targetPath.size() - sharedAncestorCount;
+    const Ptr<PView> previousTarget = previousPath.empty() ? nullptr : previousPath.front();
+    const Ptr<PView> target = targetPath.empty() ? nullptr : targetPath.front();
+
+    if (previousTarget != target && previousTarget != nullptr)
+    {
+        PPointerEvent outEvent = pointerEvent;
+        outEvent.EventType = PPointerEventType::Out;
+        previousPath.front()->DispatchPointerEvent(outEvent, previousPath, nullptr, nullptr, true);
+    }
+
+    if (!previousPath.empty())
+    {
+        for (size_t index = 0; index < exitedViewCount; ++index)
+        {
+            PointerEventPath leavePath(previousPath.begin() + index, previousPath.end());
+            PPointerEvent leaveEvent = pointerEvent;
+            leaveEvent.EventType = PPointerEventType::Leave;
+            leavePath.front()->DispatchPointerEvent(leaveEvent, leavePath, nullptr, nullptr, false);
+        }
+    }
+
+    if (previousTarget != target && target != nullptr)
+    {
+        PPointerEvent overEvent = pointerEvent;
+        overEvent.EventType = PPointerEventType::Over;
+        targetPath.front()->DispatchPointerEvent(overEvent, targetPath, nullptr, nullptr, true);
+    }
+
+    if (!targetPath.empty())
+    {
+        for (size_t index = enteredViewCount; index > 0; --index)
+        {
+            PointerEventPath enterPath(targetPath.begin() + index - 1, targetPath.end());
+            PPointerEvent enterEvent = pointerEvent;
+            enterEvent.EventType = PPointerEventType::Enter;
+            enterPath.front()->DispatchPointerEvent(enterEvent, enterPath, nullptr, nullptr, false);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled)
+{
+    PointerEventPath path;
+    BuildPointerEventPath(path);
+    return DispatchPointerEvent(pointerEvent, path, originalCaptureView, targetHandled, true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, const PointerEventPath& path, Ptr<PView> originalCaptureView, bool* targetHandled, bool bubbles)
 {
     if (targetHandled != nullptr) {
         *targetHandled = false;
     }
-
-    PointerEventPath path;
-    BuildPointerEventPath(path);
+    if (path.empty()) {
+        return false;
+    }
 
     bool handled = false;
     for (size_t index = path.size(); index > 1; --index)
@@ -2101,7 +2219,7 @@ bool PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, Ptr<PView> o
         }
     }
 
-    const bool targetPhaseHandled = DispatchPointerEventPhase(pointerEvent, PEventPhase::Target);
+    const bool targetPhaseHandled = path.front()->DispatchPointerEventPhase(pointerEvent, PEventPhase::Target);
     if (targetHandled != nullptr) {
         *targetHandled = targetPhaseHandled;
     }
@@ -2111,12 +2229,15 @@ bool PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, Ptr<PView> o
         return handled;
     }
 
-    for (size_t index = 1; index < path.size(); ++index)
+    if (bubbles)
     {
-        Ptr<PView> view = path[index];
-        handled = view->DispatchPointerEventPhase(pointerEvent, PEventPhase::Bubble) || handled;
-        if (ShouldStopPointerEventDispatch(pointerEvent.PointerID, originalCaptureView)) {
-            return handled;
+        for (size_t index = 1; index < path.size(); ++index)
+        {
+            Ptr<PView> view = path[index];
+            handled = view->DispatchPointerEventPhase(pointerEvent, PEventPhase::Bubble) || handled;
+            if (ShouldStopPointerEventDispatch(pointerEvent.PointerID, originalCaptureView)) {
+                return handled;
+            }
         }
     }
     return handled;
@@ -2151,6 +2272,18 @@ bool PView::DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventP
 
         case PPointerEventType::Cancel:
             return DispatchPointerCancel(pointerEvent.PointerID, viewPointerEvent, phase);
+
+        case PPointerEventType::Enter:
+            return DispatchPointerEnter(pointerEvent.PointerID, viewPointerEvent, phase);
+
+        case PPointerEventType::Leave:
+            return DispatchPointerLeave(pointerEvent.PointerID, viewPointerEvent, phase);
+
+        case PPointerEventType::Over:
+            return DispatchPointerOver(pointerEvent.PointerID, viewPointerEvent, phase);
+
+        case PPointerEventType::Out:
+            return DispatchPointerOut(pointerEvent.PointerID, viewPointerEvent, phase);
     }
     return false;
 }
@@ -2217,6 +2350,58 @@ bool PView::DispatchPointerCancel(PPointerID pointerID, const PPointerEvent& poi
         return OnPointerCancel(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     } else {
         return VFPointerCancel(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::DispatchPointerEnter(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (VFPointerEnter.Empty()) {
+        return OnPointerEnter(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    } else {
+        return VFPointerEnter(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::DispatchPointerLeave(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (VFPointerLeave.Empty()) {
+        return OnPointerLeave(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    } else {
+        return VFPointerLeave(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::DispatchPointerOver(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (VFPointerOver.Empty()) {
+        return OnPointerOver(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    } else {
+        return VFPointerOver(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (VFPointerOut.Empty()) {
+        return OnPointerOut(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    } else {
+        return VFPointerOut(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     }
 }
 

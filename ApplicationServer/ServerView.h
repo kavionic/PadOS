@@ -58,6 +58,7 @@ public:
     void        SetClientHandle(handler_id handle, ServerApplication* ownerApplication) { m_ClientHandle = handle; m_OwnerApplication = ownerApplication; }
     port_id     GetClientPort() const;
     handler_id  GetClientHandle() const { return m_ClientHandle; }
+    ServerApplication* GetOwnerApplication() const { return m_OwnerApplication; }
     Ptr<PServerView> GetOwnerRootView();
 
     PViewDockType   GetDockType() const { return m_DockType; }
@@ -70,7 +71,9 @@ public:
     void HandleAddedToParent(Ptr<PServerView> parent, size_t index);
     void HandleRemovedFromParent(Ptr<PServerView> parent);
 
-    bool        HandlePointerEvent(const PPoint& position, const PPointerEvent& event);
+    Ptr<PServerView> FindPointerEventRootView(const PPoint& position);
+    bool        SendPointerEvent(const PPointerEvent& event, PPointerCaptureID captureID);
+    bool        SendPointerRootViewUpdate(const PPointerEvent& event, PPointerRootViewUpdateType updateType);
 
     void        AddChild(Ptr<PServerView> child, size_t index);
     void        RemoveChild(Ptr<PServerView> child, bool removeAsHandler);
@@ -109,7 +112,7 @@ public:
     void                SetFocusKeyboardMode(PFocusKeyboardMode mode);
     PFocusKeyboardMode   GetFocusKeyboardMode() const                 { return m_FocusKeyboardMode; }
 
-    void        SetHitMode(PViewHitMode mode) { m_HitMode = mode; }
+    void        SetHitMode(PViewHitMode mode);
     void        SetDrawingMode(PDrawingMode mode) { m_DrawingMode = mode; }
     void        SetEraseColor(PColor color) { m_EraseColor = color; }
     void        SetBgColor(PColor color)    { m_BgColor = color; }
@@ -154,7 +157,6 @@ public:
 private:
     friend class PViewBase<PServerView>;
 
-    bool HandlePointerDown(const PPoint& position, const PPointerEvent& event);
     void UpdateScreenPos();
     void DebugDrawRect(const PIRect& frame, PColor color);
     void FillPolygon(std::span<const PPoint> points, PColor fillColor);

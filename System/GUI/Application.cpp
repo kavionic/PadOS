@@ -58,7 +58,9 @@ PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPo
     RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
     RegisterRemoteSignal(&m_RSViewFocusChanged, &PApplication::HandleViewFocusChanged);
     RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
+    RegisterRemoteSignal(&m_RSHandlePointerCaptureRequestReply, &PApplication::HandlePointerCaptureRequestReply);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
+    RegisterRemoteSignal(&m_RSUpdatePointerRootView, &PApplication::HandlePointerRootViewUpdate);
 
     p_post_to_remotesignal<ASRegisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
 
@@ -104,6 +106,7 @@ PApplication::~PApplication()
 void PApplication::Idle()
 {
     LayoutViews();
+    RefreshPointerPaths();
     Flush();
 }
 
@@ -170,10 +173,11 @@ bool PApplication::RemoveView(Ptr<PView> view)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    if (view->m_ServerHandle != INVALID_HANDLE)
-    {
-        handle_id serverHandle = view->m_ServerHandle;
-        DetachView(view);
+    InvalidatePointerPaths();
+
+    const handle_id serverHandle = view->m_ServerHandle;
+    DetachView(view, serverHandle != INVALID_HANDLE);
+    if (serverHandle != INVALID_HANDLE) {
         Post<ASDeleteView>(serverHandle);
     }
     view->HandleDetachedFromScreen();
@@ -364,37 +368,83 @@ void PApplication::Sync()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::DetachView(Ptr<PView> view)
+void PApplication::DetachView(Ptr<PView> view, bool detachChildren)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    for (auto i = m_PointerCaptureMap.begin(); i != m_PointerCaptureMap.end(); )
-    {
-        if (view == i->second.View)
-        {
-            const PPointerID pointerID = i->first;
-            i = m_PointerCaptureMap.erase(i);
-            view->OnPointerCaptureLost(pointerID, PPointerCaptureLostReason::ViewDetached);
-        } else {
-            ++i;
-        }
-    }
-    for (auto i = m_LongPressViewMap.begin(); i != m_LongPressViewMap.end(); )
-    {
-        if (view == i->second) {
-            i = m_LongPressViewMap.erase(i);
-        } else {
-            ++i;
-        }
-    }
+    RemoveViewFromPointerState(view);
     if (view == m_KeyboardFocusView) {
         m_KeyboardFocusView = nullptr;
         view->OnKeyboardFocusChanged(false);
     }
     view->SetServerHandle(INVALID_HANDLE);
-    for (Ptr<PView> child : *view)
+    if (detachChildren)
     {
-        DetachView(child);
+        for (Ptr<PView> child : *view)
+        {
+            DetachView(child, true);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::RemoveViewFromPointerState(Ptr<PView> view)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    std::vector<PPointerID> pointerRoutesToClear;
+    std::vector<PPointerID> capturesToRelease;
+    for (auto& [pointerID, pointerState] : m_PointerStateMap)
+    {
+        if (pointerState.DeliveryRootView == view
+            || std::find(pointerState.EffectivePath.begin(), pointerState.EffectivePath.end(), view)
+                != pointerState.EffectivePath.end())
+        {
+            pointerRoutesToClear.push_back(pointerID);
+        }
+        if (pointerState.Capture.View == ptr_raw_pointer_cast(view)) {
+            capturesToRelease.push_back(pointerID);
+        }
+        if (pointerState.LongPressView == ptr_raw_pointer_cast(view)) {
+            pointerState.LongPressView = nullptr;
+        }
+    }
+
+    if (m_LastClickEvent.PointerID != PInvalidPointerID)
+    {
+        auto iterator = m_PointerStateMap.find(m_LastClickEvent.PointerID);
+        if (iterator == m_PointerStateMap.end() || iterator->second.LongPressView == nullptr) {
+            m_LongPressTimer.Stop();
+        }
+    }
+
+    for (PPointerID pointerID : pointerRoutesToClear)
+    {
+        auto iterator = m_PointerStateMap.find(pointerID);
+        if (iterator != m_PointerStateMap.end()) {
+            ClearEffectivePointerPath(pointerID, iterator->second.LastEvent);
+        }
+    }
+
+    for (PPointerID pointerID : capturesToRelease)
+    {
+        auto iterator = m_PointerStateMap.find(pointerID);
+        if (iterator != m_PointerStateMap.end()
+            && iterator->second.Capture.View == ptr_raw_pointer_cast(view))
+        {
+            const PointerCaptureState captureState = iterator->second.Capture;
+            ClearLocalPointerCapture(
+                pointerID, iterator->second, PPointerCaptureLostReason::ViewDetached);
+            if (captureState.CaptureID != PInvalidPointerCaptureID) {
+                Post<ASReleasePointerCapture>(
+                    pointerID,
+                    captureState.CaptureID);
+            }
+            EraseInactivePointerState(pointerID);
+        }
     }
 }
 
@@ -463,6 +513,7 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             if (code == PAppserverProtocol::CREATE_VIEW_REPLY)
             {
                 view->SetServerHandle(reply.m_ViewHandle);
+                InvalidatePointerPaths();
                 break;
             }
             else
@@ -506,25 +557,62 @@ void PApplication::RegisterViewForLayout(Ptr<PView> view, bool recursive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PApplication::InvalidatePointerPaths()
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    m_PointerPathsInvalid = true;
+    WakeupLooper();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PApplication::PointerState& PApplication::GetPointerState(PPointerID pointerID)
+{
+    return m_PointerStateMap[pointerID];
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::EraseInactivePointerState(PPointerID pointerID)
+{
+    auto iterator = m_PointerStateMap.find(pointerID);
+    if (iterator != m_PointerStateMap.end() && !iterator->second.LastEvent.SupportsHover
+        && iterator->second.EffectivePath.empty() && iterator->second.Capture.View == nullptr
+        && iterator->second.LongPressView == nullptr) {
+        m_PointerStateMap.erase(iterator);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PApplication::SetLongPressView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
     if (view != nullptr)
     {
-        SetLastPointerEvent(pointerEvent);
-        m_LongPressViewMap[pointerID] = ptr_raw_pointer_cast(view);
+        PointerState& pointerState = GetPointerState(pointerID);
+        pointerState.LastEvent = pointerEvent;
+        pointerState.LongPressView = ptr_raw_pointer_cast(view);
         m_LastClickEvent = pointerEvent;
         m_LongPressTimer.Start(true);
     }
     else
     {
-        auto iterator = m_LongPressViewMap.find(pointerID);
-        if (iterator != m_LongPressViewMap.end()) {
-            m_LongPressViewMap.erase(iterator);
+        auto iterator = m_PointerStateMap.find(pointerID);
+        if (iterator != m_PointerStateMap.end()) {
+            iterator->second.LongPressView = nullptr;
             if (pointerID == m_LastClickEvent.PointerID) {
                 m_LongPressTimer.Stop();
             }
+            EraseInactivePointerState(pointerID);
         }
     }
 }
@@ -537,11 +625,164 @@ Ptr<PView> PApplication::GetLongPressView(PPointerID pointerID) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    auto iterator = m_LongPressViewMap.find(pointerID);
-    if (iterator != m_LongPressViewMap.end()) {
-        return ptr_tmp_cast(iterator->second);
+    auto iterator = m_PointerStateMap.find(pointerID);
+    if (iterator != m_PointerStateMap.end()) {
+        return ptr_tmp_cast(iterator->second.LongPressView);
     }
     return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::SetLocalPointerCapture(
+    PPointerID pointerID,
+    PointerState& pointerState,
+    Ptr<PView> view,
+    Ptr<PView> rootView,
+    PPointerCaptureID captureID,
+    PPointerCaptureRequestID requestID,
+    PPointerCaptureMode mode)
+{
+    const PointerCaptureState previousCapture = pointerState.Capture;
+    Ptr<PView> previousCaptureView = ptr_tmp_cast(previousCapture.View);
+
+    pointerState.Capture = PointerCaptureState
+    {
+        .View = ptr_raw_pointer_cast(view),
+        .RootView = ptr_raw_pointer_cast(rootView),
+        .CaptureID = captureID,
+        .RequestID = requestID,
+        .Mode = mode
+    };
+
+    if (previousCaptureView != nullptr && previousCaptureView != view)
+    {
+        Ptr<PView> longPressView = GetLongPressView(pointerID);
+        if (longPressView == previousCaptureView) {
+            SetLongPressView(pointerID, nullptr, pointerState.LastEvent);
+        }
+        previousCaptureView->OnPointerCaptureLost(
+            pointerID, PPointerCaptureLostReason::Stolen);
+    }
+
+    const bool previousCaptureWasConfirmed =
+        previousCapture.CaptureID != PInvalidPointerCaptureID
+        && previousCapture.View != nullptr;
+    if (captureID != PInvalidPointerCaptureID
+        && view != nullptr
+        && (!previousCaptureWasConfirmed || previousCaptureView != view)) {
+        view->OnPointerCaptureGained(pointerID);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::ClearLocalPointerCapture(
+    PPointerID pointerID,
+    PointerState& pointerState,
+    PPointerCaptureLostReason reason)
+{
+    Ptr<PView> captureView = ptr_tmp_cast(pointerState.Capture.View);
+    pointerState.Capture = PointerCaptureState();
+
+    Ptr<PView> longPressView = GetLongPressView(pointerID);
+    if (longPressView == captureView) {
+        SetLongPressView(pointerID, nullptr, pointerState.LastEvent);
+    }
+    if (captureView != nullptr) {
+        captureView->OnPointerCaptureLost(pointerID, reason);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::RefreshPointerPathAfterCaptureChange(PointerState& pointerState)
+{
+    if (pointerState.LastEvent.SupportsHover && pointerState.DeliveryRootView != nullptr)
+    {
+        UpdateEffectivePointerPath(pointerState.DeliveryRootView, pointerState.LastEvent);
+    }
+    else if (!pointerState.LastEvent.SupportsHover && pointerState.Capture.View != nullptr)
+    {
+        PView::PointerEventPath capturePath;
+        pointerState.Capture.View->BuildPointerEventPath(capturePath);
+        pointerState.EffectivePath = std::move(capturePath);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::BeginPointerCaptureRequest(
+    PPointerID pointerID,
+    PointerState& pointerState,
+    Ptr<PView> view,
+    Ptr<PView> rootView,
+    PPointerCaptureMode mode)
+{
+    const PPointerCaptureRequestID requestID = AllocatePointerCaptureRequestID();
+    SetLocalPointerCapture(
+        pointerID,
+        pointerState,
+        view,
+        nullptr,
+        PInvalidPointerCaptureID,
+        requestID,
+        mode);
+    RefreshPointerPathAfterCaptureChange(pointerState);
+    Post<ASSetPointerCapture>(
+        rootView->m_ServerHandle,
+        pointerID,
+        PInvalidPointerCaptureID,
+        requestID,
+        mode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::UpdateConfirmedPointerCapture(
+    PPointerID pointerID,
+    PointerState& pointerState,
+    Ptr<PView> view,
+    Ptr<PView> rootView,
+    PPointerCaptureMode mode)
+{
+    const PointerCaptureState previousCapture = pointerState.Capture;
+    const bool rootViewChanged =
+        previousCapture.RootView != ptr_raw_pointer_cast(rootView);
+    const bool modeChanged = previousCapture.Mode != mode;
+
+    SetLocalPointerCapture(
+        pointerID,
+        pointerState,
+        view,
+        rootView,
+        previousCapture.CaptureID,
+        PInvalidPointerCaptureRequestID,
+        mode);
+
+    if (rootViewChanged) {
+        pointerState.DeliveryRootView = rootView;
+    }
+    RefreshPointerPathAfterCaptureChange(pointerState);
+
+    if (rootViewChanged || modeChanged) {
+        Post<ASSetPointerCapture>(
+            rootView->m_ServerHandle,
+            pointerID,
+            previousCapture.CaptureID,
+            PInvalidPointerCaptureRequestID,
+            mode);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -555,71 +796,54 @@ bool PApplication::SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPoi
     if (view == nullptr) {
         return false;
     }
-    auto previousIterator = m_PointerCaptureMap.find(pointerID);
-    if (previousIterator != m_PointerCaptureMap.end() && view != previousIterator->second.View && previousIterator->second.Mode == PPointerCaptureMode::Locked) {
+
+    Ptr<PView> rootView = view->GetRoot();
+    if (rootView == nullptr || rootView->m_ServerHandle == INVALID_HANDLE) {
         return false;
     }
 
-    Ptr<PView> root = view->GetRoot();
-    if (root == nullptr || root->m_ServerHandle == INVALID_HANDLE) {
+    PointerState& pointerState = GetPointerState(pointerID);
+    const PointerCaptureState previousCapture = pointerState.Capture;
+    if (view != previousCapture.View
+        && previousCapture.View != nullptr
+        && previousCapture.Mode == PPointerCaptureMode::Locked) {
         return false;
     }
 
-    Post<ASSetPointerCapture>(m_ReplyPort.GetHandle(), root->m_ServerHandle, pointerID, mode);
-    Flush();
-
-    MsgSetPointerCaptureReply reply;
-    int32_t code;
-    for (;;)
+    const bool captureIsConfirmed =
+        previousCapture.CaptureID != PInvalidPointerCaptureID;
+    const bool captureIsPending =
+        previousCapture.RequestID != PInvalidPointerCaptureRequestID;
+    if (captureIsConfirmed)
     {
-        if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
-        {
-            if (code == PAppserverProtocol::SET_POINTER_CAPTURE_REPLY)
-            {
-                if (reply.m_CaptureID == PInvalidPointerCaptureID) {
-                    return false;
-                }
-                break;
-            }
-            else
-            {
-                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::SetPointerCapture() received invalid reply: {}", code);
-            }
-        }
-        else if (get_last_error() != EINTR)
-        {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::SetPointerCapture() receive failed: {}", strerror(get_last_error()));
-            return false;
-        }
+        UpdateConfirmedPointerCapture(
+            pointerID, pointerState, view, rootView, mode);
+        return true;
     }
 
-    Ptr<PView> previousCaptureView = GetPointerCaptureView(pointerID);
-
-    m_PointerCaptureMap[pointerID] = PointerCaptureState
+    const Ptr<PView> pendingRootView =
+        (captureIsPending && previousCapture.View != nullptr)
+            ? previousCapture.View->GetRoot()
+            : nullptr;
+    if (captureIsPending
+        && pendingRootView == rootView
+        && previousCapture.Mode == mode)
     {
-        .View = ptr_raw_pointer_cast(view),
-        .CaptureID = reply.m_CaptureID,
-        .Mode = mode
-    };
-
-    if (previousCaptureView != nullptr && previousCaptureView != view)
-    {
-        PPointerEvent pointerEvent = GetLastPointerEvent(pointerID);
-        pointerEvent.EventType = PPointerEventType::Cancel;
-        previousCaptureView->DispatchPointerEventPhase(pointerEvent, PEventPhase::Target);
-        previousCaptureView->OnPointerCaptureLost(pointerID, PPointerCaptureLostReason::Stolen);
-
-        Ptr<PView> longPressView = GetLongPressView(pointerID);
-        if (longPressView == previousCaptureView) {
-            SetLongPressView(pointerID, nullptr, pointerEvent);
-        }
+        SetLocalPointerCapture(
+            pointerID,
+            pointerState,
+            view,
+            nullptr,
+            PInvalidPointerCaptureID,
+            previousCapture.RequestID,
+            mode);
+        RefreshPointerPathAfterCaptureChange(pointerState);
     }
-
-    if (previousCaptureView != view)
+    else
     {
-        view->OnPointerCaptureGained(pointerID);
+        BeginPointerCaptureRequest(
+            pointerID, pointerState, view, rootView, mode);
     }
-
     return true;
 }
 
@@ -631,22 +855,41 @@ void PApplication::ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, 
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-    if (iterator == m_PointerCaptureMap.end()) {
-        return;
-    }
-    if (view != nullptr && view != iterator->second.View) {
+    auto iterator = m_PointerStateMap.find(pointerID);
+    if (iterator == m_PointerStateMap.end()) {
         return;
     }
 
-    Ptr<PView> captureView = ptr_tmp_cast(iterator->second.View);
-    if (captureView != nullptr)
-    {
-        Ptr<PView> root = captureView->GetRoot();
-        if (root != nullptr && root->m_ServerHandle != INVALID_HANDLE) {
-            Post<ASReleasePointerCapture>(root->m_ServerHandle, pointerID, iterator->second.CaptureID, reason);
-        }
+    const PointerCaptureState& captureState = iterator->second.Capture;
+    if (view != nullptr && view != captureState.View) {
+        return;
     }
+
+    const bool captureWasPending =
+        captureState.RequestID != PInvalidPointerCaptureRequestID;
+    const PPointerCaptureID captureID = captureState.CaptureID;
+    ClearLocalPointerCapture(pointerID, iterator->second, reason);
+
+    if (captureID != PInvalidPointerCaptureID) {
+        Post<ASReleasePointerCapture>(pointerID, captureID);
+    } else if (captureWasPending) {
+        RefreshPointerPathAfterCaptureChange(iterator->second);
+    }
+    EraseInactivePointerState(pointerID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPointerCaptureRequestID PApplication::AllocatePointerCaptureRequestID()
+{
+    const PPointerCaptureRequestID requestID = m_NextPointerCaptureRequestID;
+    m_NextPointerCaptureRequestID++;
+    if (m_NextPointerCaptureRequestID == PInvalidPointerCaptureRequestID) {
+        m_NextPointerCaptureRequestID = PFirstPointerCaptureRequestID;
+    }
+    return requestID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -689,14 +932,130 @@ void PApplication::HandleViewFocusChanged(handler_id viewHandle, bool hasFocus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent)
+void PApplication::HandlePointerEvent(
+    handler_id viewHandle,
+    const PPointerEvent& pointerEvent,
+    PPointerCaptureID captureID)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
     Ptr<PView> view = FindView(viewHandle);
-    if (view != nullptr) {
+    if (view != nullptr)
+    {
+        PointerState& pointerState = GetPointerState(pointerEvent.PointerID);
+        if (!pointerEvent.SupportsHover
+            && pointerEvent.EventType == PPointerEventType::Down
+            && captureID != PInvalidPointerCaptureID)
+        {
+            if (pointerState.Capture.View != nullptr) {
+                ClearLocalPointerCapture(
+                    pointerEvent.PointerID,
+                    pointerState,
+                    PPointerCaptureLostReason::PointerCancel);
+            }
+            pointerState.Capture = PointerCaptureState
+            {
+                .View = nullptr,
+                .RootView = ptr_raw_pointer_cast(view),
+                .CaptureID = captureID,
+                .RequestID = PInvalidPointerCaptureRequestID,
+                .Mode = PPointerCaptureMode::Preemptible
+            };
+        }
+
         view->HandlePointerEvent(pointerEvent);
+
+        auto pointerIterator = m_PointerStateMap.find(pointerEvent.PointerID);
+        if (pointerIterator != m_PointerStateMap.end()
+            && (pointerEvent.EventType == PPointerEventType::Up
+                || pointerEvent.EventType == PPointerEventType::Cancel))
+        {
+            PointerCaptureState& captureState = pointerIterator->second.Capture;
+            const bool matchingActiveCapture =
+                captureID != PInvalidPointerCaptureID
+                && captureState.CaptureID == captureID;
+            const bool pendingCaptureWithoutServerCapture =
+                captureID == PInvalidPointerCaptureID
+                && captureState.RequestID != PInvalidPointerCaptureRequestID;
+            if (matchingActiveCapture || pendingCaptureWithoutServerCapture)
+            {
+                const PPointerCaptureLostReason reason =
+                    (pointerEvent.EventType == PPointerEventType::Cancel)
+                        ? PPointerCaptureLostReason::PointerCancel
+                        : PPointerCaptureLostReason::PointerUp;
+                ClearLocalPointerCapture(
+                    pointerEvent.PointerID, pointerIterator->second, reason);
+            }
+            if (!pointerEvent.SupportsHover) {
+                ClearEffectivePointerPath(pointerEvent.PointerID, pointerEvent);
+            }
+        }
+        EraseInactivePointerState(pointerEvent.PointerID);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandlePointerCaptureRequestReply(
+    PPointerID pointerID,
+    PPointerCaptureRequestID requestID,
+    handler_id rootViewHandle,
+    PPointerCaptureID captureID,
+    const PPointerEvent& pointerEvent)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    auto pointerIterator = m_PointerStateMap.find(pointerID);
+    if (pointerIterator == m_PointerStateMap.end()
+        || pointerIterator->second.Capture.RequestID != requestID)
+    {
+        if (captureID != PInvalidPointerCaptureID) {
+            Post<ASReleasePointerCapture>(
+                pointerID, captureID);
+        }
+        return;
+    }
+
+    PointerState& pointerState = pointerIterator->second;
+    Ptr<PView> captureView = ptr_tmp_cast(pointerState.Capture.View);
+    Ptr<PView> rootView = FindView(rootViewHandle);
+    const bool captureTargetIsValid =
+        captureView != nullptr
+        && rootView != nullptr
+        && captureView->GetRoot() == rootView;
+
+    if (captureID == PInvalidPointerCaptureID)
+    {
+        ClearLocalPointerCapture(
+            pointerID, pointerState, PPointerCaptureLostReason::Rejected);
+        RefreshPointerPathAfterCaptureChange(pointerState);
+    }
+    else if (!captureTargetIsValid)
+    {
+        ClearLocalPointerCapture(
+            pointerID, pointerState, PPointerCaptureLostReason::ViewDetached);
+        Post<ASReleasePointerCapture>(
+            pointerID, captureID);
+        RefreshPointerPathAfterCaptureChange(pointerState);
+    }
+    else
+    {
+        const PPointerCaptureMode mode = pointerState.Capture.Mode;
+        pointerState.LastEvent = pointerEvent;
+        pointerState.DeliveryRootView = rootView;
+        SetLocalPointerCapture(
+            pointerID,
+            pointerState,
+            captureView,
+            rootView,
+            captureID,
+            PInvalidPointerCaptureRequestID,
+            mode);
+        RefreshPointerPathAfterCaptureChange(pointerState);
+    }
+    EraseInactivePointerState(pointerID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -707,24 +1066,57 @@ void PApplication::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptur
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-    if (iterator == m_PointerCaptureMap.end()) {
+    auto iterator = m_PointerStateMap.find(pointerID);
+    if (iterator == m_PointerStateMap.end()) {
         return;
     }
-    if (captureID != iterator->second.CaptureID) {
+    if (captureID != iterator->second.Capture.CaptureID) {
         return;
     }
 
-    Ptr<PView> captureView = ptr_tmp_cast(iterator->second.View);
-    m_PointerCaptureMap.erase(iterator);
-
-    Ptr<PView> longPressView = GetLongPressView(pointerID);
-    if (longPressView == captureView) {
-        SetLongPressView(pointerID, nullptr, GetLastPointerEvent(pointerID));
+    const PPointerEvent pointerEvent = iterator->second.LastEvent;
+    if (pointerEvent.SupportsHover)
+    {
+        ClearEffectivePointerPath(pointerID, pointerEvent);
+    }
+    else
+    {
+        iterator->second.DeliveryRootView = nullptr;
+        iterator->second.EffectivePath.clear();
     }
 
-    if (captureView != nullptr) {
-        captureView->OnPointerCaptureLost(pointerID, reason);
+    iterator = m_PointerStateMap.find(pointerID);
+    if (iterator != m_PointerStateMap.end()) {
+        ClearLocalPointerCapture(pointerID, iterator->second, reason);
+    }
+    EraseInactivePointerState(pointerID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandlePointerRootViewUpdate(
+    handler_id              rootViewHandle,
+    const PPointerEvent&    pointerEvent,
+    PPointerRootViewUpdateType  updateType
+)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    switch (updateType)
+    {
+        case PPointerRootViewUpdateType::Reevaluate:
+        {
+            Ptr<PView> rootView = FindView(rootViewHandle);
+            if (rootView != nullptr) {
+                UpdateEffectivePointerPath(rootView, pointerEvent);
+            }
+            break;
+        }
+        case PPointerRootViewUpdateType::Exited:
+            ClearEffectivePointerPath(pointerEvent.PointerID, pointerEvent);
+            break;
     }
 }
 
@@ -736,9 +1128,9 @@ Ptr<PView> PApplication::GetPointerCaptureView(PPointerID pointerID) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    auto iterator = m_PointerCaptureMap.find(pointerID);
-    if (iterator != m_PointerCaptureMap.end()) {
-        return ptr_tmp_cast(iterator->second.View);
+    auto iterator = m_PointerStateMap.find(pointerID);
+    if (iterator != m_PointerStateMap.end()) {
+        return ptr_tmp_cast(iterator->second.Capture.View);
     }
     return nullptr;
 }
@@ -747,12 +1139,64 @@ Ptr<PView> PApplication::GetPointerCaptureView(PPointerID pointerID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::SetLastPointerEvent(const PPointerEvent& pointerEvent)
+bool PApplication::HasConfirmedPointerCapture(PPointerID pointerID) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    if (pointerEvent.PointerID != PInvalidPointerID) {
-        m_LastPointerEventMap[pointerEvent.PointerID] = pointerEvent;
+    auto iterator = m_PointerStateMap.find(pointerID);
+    return iterator != m_PointerStateMap.end()
+        && iterator->second.Capture.CaptureID != PInvalidPointerCaptureID;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PView> PApplication::UpdateEffectivePointerPath(Ptr<PView> deliveryRootView, const PPointerEvent& pointerEvent)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    PointerState& pointerState = GetPointerState(pointerEvent.PointerID);
+    pointerState.LastEvent = pointerEvent;
+    pointerState.DeliveryRootView = deliveryRootView;
+
+    Ptr<PView> targetView = ptr_tmp_cast(pointerState.Capture.View);
+    if (targetView == nullptr && deliveryRootView != nullptr)
+    {
+        const PPoint position = deliveryRootView->ConvertFromScreen(pointerEvent.ScreenPosition);
+        targetView = deliveryRootView->FindPointerTarget(position);
+    }
+
+    PView::PointerEventPath targetPath;
+    if (targetView != nullptr) {
+        targetView->BuildPointerEventPath(targetPath);
+    }
+
+    PView::PointerEventPath previousPath = std::move(pointerState.EffectivePath);
+    pointerState.EffectivePath = targetPath;
+
+    if (previousPath != targetPath) {
+        PView::DispatchPointerBoundaryEvents(pointerEvent, previousPath, targetPath);
+    }
+    return targetView;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::ClearEffectivePointerPath(PPointerID pointerID, const PPointerEvent& pointerEvent)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    auto iterator = m_PointerStateMap.find(pointerID);
+    if (iterator != m_PointerStateMap.end())
+    {
+        PView::PointerEventPath previousPath = std::move(iterator->second.EffectivePath);
+        iterator->second.DeliveryRootView = nullptr;
+        iterator->second.EffectivePath.clear();
+        PView::DispatchPointerBoundaryEvents(pointerEvent, previousPath, PView::PointerEventPath());
+        EraseInactivePointerState(pointerID);
     }
 }
 
@@ -760,28 +1204,30 @@ void PApplication::SetLastPointerEvent(const PPointerEvent& pointerEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::ClearLastPointerEvent(PPointerID pointerID)
+void PApplication::RefreshPointerPaths()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    m_LastPointerEventMap.erase(pointerID);
-}
+    if (m_PointerPathsInvalid)
+    {
+        m_PointerPathsInvalid = false;
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+        std::vector<PPointerID> pointerIDs;
+        for (const auto& [pointerID, pointerState] : m_PointerStateMap)
+        {
+            if (pointerState.LastEvent.SupportsHover && pointerState.DeliveryRootView != nullptr) {
+                pointerIDs.push_back(pointerID);
+            }
+        }
 
-PPointerEvent PApplication::GetLastPointerEvent(PPointerID pointerID) const
-{
-    assert(!IsRunning() || GetMutex().IsLocked());
-
-    auto iterator = m_LastPointerEventMap.find(pointerID);
-    if (iterator != m_LastPointerEventMap.end()) {
-        return iterator->second;
+        for (PPointerID pointerID : pointerIDs)
+        {
+            auto iterator = m_PointerStateMap.find(pointerID);
+            if (iterator != m_PointerStateMap.end()) {
+                UpdateEffectivePointerPath(iterator->second.DeliveryRootView, iterator->second.LastEvent);
+            }
+        }
     }
-    PPointerEvent pointerEvent;
-    pointerEvent.PointerID = pointerID;
-    return pointerEvent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

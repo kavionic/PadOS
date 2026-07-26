@@ -577,9 +577,8 @@ bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PSlider::OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
 {
-    if (phase != PEventPhase::Target) return false;
     if (pointerID == m_HitPointerID)
     {
         SetValue(m_HitValue, false);
@@ -589,7 +588,6 @@ bool PSlider::OnPointerCancel(PPointerID pointerID, const PPoint& position, cons
         Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
         SignalEndDrag(m_Value, this, pointerID);
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

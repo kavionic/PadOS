@@ -39,6 +39,12 @@ enum class PFocusKeyboardMode : uint8_t;
 
 enum class PFontID : uint8_t;
 
+enum class PPointerRootViewUpdateType : uint8_t
+{
+    Reevaluate,
+    Exited
+};
+
 port_id p_get_appserver_port();
 port_id p_get_window_manager_port();
 
@@ -118,7 +124,6 @@ namespace PAppserverProtocol
         // Appserver -> view reply messages:
         REGISTER_APPLICATION_REPLY,
         CREATE_VIEW_REPLY,
-        SET_POINTER_CAPTURE_REPLY,
         CREATE_BITMAP_REPLY,
         PAINT_VIEW,
         VIEW_FRAME_CHANGED,
@@ -133,7 +138,9 @@ namespace PAppserverProtocol
         // Appserver -> application messages:
         SYNC_REPLY,
         HANDLE_POINTER_EVENT,
-        HANDLE_POINTER_CAPTURE_LOST
+        HANDLE_POINTER_CAPTURE_REQUEST_REPLY,
+        HANDLE_POINTER_CAPTURE_LOST,
+        UPDATE_POINTER_ROOT_VIEW
     };
 }
 
@@ -154,11 +161,6 @@ struct MsgRegisterApplicationReply
 struct MsgCreateViewReply
 {
     handler_id m_ViewHandle;
-};
-
-struct MsgSetPointerCaptureReply
-{
-    PPointerCaptureID m_CaptureID = PInvalidPointerCaptureID;
 };
 
 struct MsgCreateBitmapReply
@@ -203,13 +205,14 @@ using ASDeleteView = PRemoteSignal<PAppserverProtocol::DELETE_VIEW, void(handler
 
 using ASSetPointerCapture = PRemoteSignal<PAppserverProtocol::SET_POINTER_CAPTURE,
     void(
-        port_id              replyPort,
-        handler_id           viewHandle,
-        PPointerID           pointerID,
-        PPointerCaptureMode  mode
+        handler_id                 rootViewHandle,
+        PPointerID                 pointerID,
+        PPointerCaptureID          captureID,
+        PPointerCaptureRequestID   requestID,
+        PPointerCaptureMode        mode
         )
 >;
-using ASReleasePointerCapture = PRemoteSignal<PAppserverProtocol::RELEASE_POINTER_CAPTURE, void(handler_id viewHandle, PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
+using ASReleasePointerCapture = PRemoteSignal<PAppserverProtocol::RELEASE_POINTER_CAPTURE, void(PPointerID pointerID, PPointerCaptureID captureID)>;
 
 using ASSetKeyboardFocus = PRemoteSignal<PAppserverProtocol::SET_KEYBOARD_FOCUS,
     void(
@@ -278,8 +281,10 @@ using ASWindowManagerDisableVKeyboard   = PRemoteSignal<PAppserverProtocol::WIND
 
 using ASSyncReply = PRemoteSignal<PAppserverProtocol::SYNC_REPLY>;
                                         
-using ASHandlePointerEvent = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_EVENT, void(handler_id viewHandle, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerEvent = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_EVENT, void(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID)>;
+using ASHandlePointerCaptureRequestReply = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_REQUEST_REPLY, void(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent)>;
 using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
+using ASUpdatePointerRootView = PRemoteSignal<PAppserverProtocol::UPDATE_POINTER_ROOT_VIEW, void(handler_id rootViewHandle, const PPointerEvent& pointerEvent, PPointerRootViewUpdateType updateType)>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
 using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;

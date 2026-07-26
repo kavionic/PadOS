@@ -38,6 +38,7 @@ public:
     virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
 
     void SetCheckable(bool value) { m_CanBeCheked = value; }
     bool IsCheckable() const { return m_CanBeCheked; }

@@ -59,15 +59,16 @@ public:
     bool            RegisterView(Ptr<PServerView> view);
     Ptr<PServerView> FindView(handler_id handle) const;
 
-    void ViewDestructed(PServerView* view);
+    void ViewDetached(PServerView* view);
     void ServerApplicationDestructed(ServerApplication* application);
+    void InvalidatePointerRoutes();
 
     void PushMouseCursor(ServerApplication* owner, PMouseCursorToken token, PMouseCursorID cursorID);
     void PopMouseCursor(ServerApplication* owner, PMouseCursorToken token);
     void RemoveMouseCursorStackEntries(ServerApplication* owner);
 
-    PPointerCaptureID SetPointerCapture(PPointerID pointerID, ServerApplication* application, PPointerCaptureMode mode);
-    void              ReleasePointerCapture(PPointerID pointerID, ServerApplication* application, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
+    void SetPointerCapture(PPointerID pointerID, ServerApplication* application, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
+    void ReleasePointerCapture(PPointerID pointerID, ServerApplication* application, PPointerCaptureID captureID);
 
     void            SetKeyboardFocus(Ptr<PServerView> view, bool focus);
     Ptr<PServerView> GetKeyboardFocus() const;
@@ -88,8 +89,16 @@ private:
     struct PointerCaptureState
     {
         ServerApplication*   Application = nullptr;
+        PServerView*          RootView = nullptr;
         PPointerCaptureID    CaptureID = PInvalidPointerCaptureID;
         PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
+    };
+
+    struct PointerRouteState
+    {
+        PPointerEvent        LastEvent;                  // Last physical input for this pointer.
+        PServerView*         DeliveredRootView = nullptr;    // Root whose client currently considers the pointer inside.
+        PointerCaptureState  Capture;                    // Optional capture override for normal and boundary events.
     };
 
     void ReadInputEvents();
@@ -110,7 +119,16 @@ private:
     void UpdateMouseCursor();
 
     void HandlePointerEvent(const PPointerEvent& event);
-    PPointerEvent GetLastPointerEvent(PPointerID pointerID) const;
+    void HandleHoverPointerEvent(PointerRouteState& pointerState, const PPointerEvent& event);
+    void HandleNonHoverPointerEvent(PointerRouteState& pointerState, const PPointerEvent& event);
+    PointerRouteState& GetPointerRouteState(PPointerID pointerID);
+    void NotifyPointerExitedRootView(PointerRouteState& pointerState, const PPointerEvent& event);
+    void DeliverPointerEvent(PointerRouteState& pointerState, Ptr<PServerView> rootView, const PPointerEvent& event, PPointerCaptureID captureID);
+    void ReevaluatePointerRoute(PointerRouteState& pointerState);
+    void RefreshPointerRoutes();
+    void BeginImplicitPointerCapture(PointerRouteState& pointerState, Ptr<PServerView> rootView);
+    void GrantPointerCapture(PPointerID pointerID, PointerRouteState& pointerState, ServerApplication* application, Ptr<PServerView> rootView, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
+    void RejectPointerCaptureRequest(PPointerID pointerID, PointerRouteState& pointerState, ServerApplication* application, Ptr<PServerView> rootView, PPointerCaptureRequestID requestID);
     PPointerCaptureID AllocatePointerCaptureID();
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
@@ -129,9 +147,9 @@ private:
     
     Ptr<PServerView> m_TopView;
 
-    std::map<PPointerID, PointerCaptureState> m_PointerCaptureMap;
+    std::map<PPointerID, PointerRouteState> m_PointerRouteMap;
     PPointerCaptureID m_NextPointerCaptureID = PFirstPointerCaptureID;
-    std::map<PPointerID, PPointerEvent> m_LastPointerEventMap;
+    bool m_PointerRoutesInvalid = false;
     PServerView*                 m_KeyboardFocusView = nullptr;
 
     std::vector<MouseCursorStackEntry> m_MouseCursorStack;

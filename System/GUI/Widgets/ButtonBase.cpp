@@ -156,6 +156,20 @@ bool PButtonBase::OnPointerMove(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PButtonBase::OnPointerCaptureLost(
+    PPointerID pointerID, PPointerCaptureLostReason reason)
+{
+    if (pointerID == m_HitPointerID)
+    {
+        m_HitPointerID = PInvalidPointerID;
+        SetPressedState(false);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PButtonBase::SetChecked(bool isChecked)
 {
     if (isChecked != m_IsChecked)

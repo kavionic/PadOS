@@ -54,6 +54,7 @@ enum class PMouseButton : uint32_t
 
 using PPointerID = uint32_t;
 using PPointerCaptureID = uint32_t;
+using PPointerCaptureRequestID = uint32_t;
 using PPointerButtonMask = uint32_t;
 
 static constexpr PPointerID PInvalidPointerID = UINT32_MAX;
@@ -62,6 +63,8 @@ static constexpr PPointerID PFirstTouchPointerID = 1;
 static constexpr PPointerButtonMask PPointerButtonMaskNone = 0;
 static constexpr PPointerCaptureID PInvalidPointerCaptureID = 0;
 static constexpr PPointerCaptureID PFirstPointerCaptureID = 1;
+static constexpr PPointerCaptureRequestID PInvalidPointerCaptureRequestID = 0;
+static constexpr PPointerCaptureRequestID PFirstPointerCaptureRequestID = 1;
 
 enum class PPointerCaptureMode : uint8_t
 {
@@ -75,7 +78,8 @@ enum class PPointerCaptureLostReason : uint8_t
     PointerUp,
     PointerCancel,
     Stolen,
-    ViewDetached
+    ViewDetached,
+    Rejected
 };
 
 enum class PEventPhase : uint8_t
@@ -180,7 +184,11 @@ enum class PPointerEventType
     Down,
     Up,
     Move,
-    Cancel
+    Cancel,
+    Enter,
+    Leave,
+    Over,
+    Out
 };
 
 struct PPointerEvent
@@ -189,6 +197,7 @@ struct PPointerEvent
     PPointerEventType   EventType = PPointerEventType::Invalid;
     TimeValNanos        Timestamp;
     PMotionToolType     ToolType = PMotionToolType::Mouse;
+    bool                SupportsHover = false;
     PMouseButton        Button = PMouseButton::None;
     PPointerButtonMask  Buttons = PPointerButtonMaskNone;
     float               Pressure = 0.0f;

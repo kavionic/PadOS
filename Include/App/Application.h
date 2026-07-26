@@ -20,6 +20,7 @@
 #pragma once
 
 #include <set>
+#include <vector>
 
 #include <Math/Rect.h>
 #include <Threads/Looper.h>
@@ -72,31 +73,55 @@ private:
  
     struct PointerCaptureState
     {
-        PView*               View = nullptr;
+        PView*               View = nullptr;       // Local capture target, including a pending request.
+        PView*               RootView = nullptr;   // Server-confirmed root. Null while a request is pending.
         PPointerCaptureID    CaptureID = PInvalidPointerCaptureID;
+        PPointerCaptureRequestID RequestID = PInvalidPointerCaptureRequestID;
         PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
     };
+
+    struct PointerState
+    {
+        PPointerEvent            LastEvent;                  // Last physical input for this pointer.
+        Ptr<PView>               DeliveryRootView;           // Client root view selected by the application server.
+        std::vector<Ptr<PView>>  EffectivePath;              // Capture override or hit-test target through its ancestors.
+        PointerCaptureState      Capture;                    // Optional target override.
+        PView*                   LongPressView = nullptr;
+    };
     
-    void DetachView(Ptr<PView> view);
+    void DetachView(Ptr<PView> view, bool detachChildren);
+    void RemoveViewFromPointerState(Ptr<PView> view);
     
     void* AllocMessageBuffer(int32_t messageID, size_t size);
 
     bool CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index);
     void RegisterViewForLayout(Ptr<PView> view, bool recursive = false);
+    void InvalidatePointerPaths();
 
+    PointerState& GetPointerState(PPointerID pointerID);
+    void      EraseInactivePointerState(PPointerID pointerID);
     void      SetLongPressView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent);
     Ptr<PView> GetLongPressView(PPointerID pointerID) const;
+    void      SetLocalPointerCapture(PPointerID pointerID, PointerState& pointerState, Ptr<PView> view, Ptr<PView> rootView, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
+    void      ClearLocalPointerCapture(PPointerID pointerID, PointerState& pointerState, PPointerCaptureLostReason reason);
+    void      RefreshPointerPathAfterCaptureChange(PointerState& pointerState);
+    void      BeginPointerCaptureRequest(PPointerID pointerID, PointerState& pointerState, Ptr<PView> view, Ptr<PView> rootView, PPointerCaptureMode mode);
+    void      UpdateConfirmedPointerCapture(PPointerID pointerID, PointerState& pointerState, Ptr<PView> view, Ptr<PView> rootView, PPointerCaptureMode mode);
     bool      SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureMode mode);
     void      ReleasePointerCapture(PPointerID pointerID, Ptr<PView> view, PPointerCaptureLostReason reason);
+    PPointerCaptureRequestID AllocatePointerCaptureRequestID();
     void      HandlePaint(handler_id viewHandle, const PRect& updateRect);
     void      HandleViewFrameChanged(handler_id viewHandle, const PRect& frame);
     void      HandleViewFocusChanged(handler_id viewHandle, bool hasFocus);
-    void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent);
+    void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
+    void      HandlePointerCaptureRequestReply(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent);
     void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
+    void      HandlePointerRootViewUpdate(handler_id rootViewHandle, const PPointerEvent& pointerEvent, PPointerRootViewUpdateType updateType);
     Ptr<PView> GetPointerCaptureView(PPointerID pointerID) const;
-    void      SetLastPointerEvent(const PPointerEvent& pointerEvent);
-    void      ClearLastPointerEvent(PPointerID pointerID);
-    PPointerEvent GetLastPointerEvent(PPointerID pointerID) const;
+    bool      HasConfirmedPointerCapture(PPointerID pointerID) const;
+    Ptr<PView> UpdateEffectivePointerPath(Ptr<PView> deliveryRootView, const PPointerEvent& pointerEvent);
+    void      ClearEffectivePointerPath(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void      RefreshPointerPaths();
 
     void LayoutViews();
 
@@ -106,22 +131,24 @@ private:
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
     PMouseCursorToken m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;
+    PPointerCaptureRequestID m_NextPointerCaptureRequestID = PFirstPointerCaptureRequestID;
 
     uint8_t m_SendBuffer[PAPPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
 
-    std::map<PPointerID, PView*> m_LongPressViewMap;
-    std::map<PPointerID, PointerCaptureState> m_PointerCaptureMap;
-    std::map<PPointerID, PPointerEvent> m_LastPointerEventMap;
+    std::map<PPointerID, PointerState> m_PointerStateMap;
     PPointerEvent               m_LastClickEvent;
     PView*                   m_KeyboardFocusView = nullptr;
+    bool                     m_PointerPathsInvalid = false;
 
     PEventTimer              m_LongPressTimer;
     ASPaintView              m_RSPaintView;
     ASViewFrameChanged       m_RSViewFrameChanged;
     ASViewFocusChanged       m_RSViewFocusChanged;
     ASHandlePointerEvent     m_RSHandlePointerEvent;
+    ASHandlePointerCaptureRequestReply m_RSHandlePointerCaptureRequestReply;
     ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;
+    ASUpdatePointerRootView  m_RSUpdatePointerRootView;
 
     std::set<Ptr<PView>>     m_ViewsNeedingLayout;
 

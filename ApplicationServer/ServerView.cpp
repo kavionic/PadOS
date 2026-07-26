@@ -424,6 +424,10 @@ void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
     if (!parent->IsVisible()) {
         Show(false);
     }
+    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    if (server != nullptr) {
+        server->InvalidatePointerRoutes();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -432,12 +436,10 @@ void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 
 void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 {
-    if (m_OwnerApplication != nullptr) {
-        m_OwnerApplication->ViewDestructed(this);
-    }
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
-    if (server != nullptr) {
-        server->ViewDestructed(this);
+    if (server != nullptr)
+    {
+        server->ViewDetached(this);
     }
     if (!parent->IsVisible()) {
         Show(true);
@@ -449,22 +451,46 @@ void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 ///////////////////////////////////////////////////////////////////////////////
 
     
-bool PServerView::HandlePointerEvent(const PPoint& position, const PPointerEvent& event)
+Ptr<PServerView> PServerView::FindPointerEventRootView(const PPoint& position)
 {
-    if (event.EventType == PPointerEventType::Down) {
-        return HandlePointerDown(position, event);
+    if (!IsVisible() || m_HitMode == PViewHitMode::IgnoreRecursive || !GetBounds().DoIntersect(position)) {
+        return nullptr;
     }
 
+    if (m_ClientHandle != INVALID_HANDLE && m_HitMode == PViewHitMode::HitTest) {
+        return ptr_tmp_cast(this);
+    }
+
+    for (Ptr<PServerView> child : p_reverse_ranged(m_ChildrenList))
+    {
+        Ptr<PServerView> targetRootView = child->FindPointerEventRootView(child->ConvertFromParent(position));
+        if (targetRootView != nullptr) {
+            return targetRootView;
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PServerView::SendPointerEvent(const PPointerEvent& event, PPointerCaptureID captureID)
+{
     if (m_ClientHandle == INVALID_HANDLE) {
         return false;
     }
 
     PPointerEvent clientEvent = event;
-    clientEvent.ScreenPosition = position;
-    clientEvent.ViewPosition = position;
+    const PPoint clientPosition = ConvertFromRoot(event.ScreenPosition);
+    clientEvent.ScreenPosition = clientPosition;
+    clientEvent.ViewPosition = clientPosition;
 
-    if (!p_post_to_remotesignal<ASHandlePointerEvent>(GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent)) {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerEvent() failed to send message: {}", strerror(get_last_error()));
+    if (!p_post_to_remotesignal<ASHandlePointerEvent>(
+        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent, captureID))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SendPointerEvent() failed to send message: {}", strerror(get_last_error()));
+        return false;
     }
     return true;
 }
@@ -473,49 +499,24 @@ bool PServerView::HandlePointerEvent(const PPoint& position, const PPointerEvent
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PServerView::HandlePointerDown(const PPoint& position, const PPointerEvent& event)
+bool PServerView::SendPointerRootViewUpdate(const PPointerEvent& event, PPointerRootViewUpdateType updateType)
 {
-    if (!IsVisible() || m_HitMode == PViewHitMode::IgnoreRecursive) {
+    if (m_ClientHandle == INVALID_HANDLE) {
         return false;
     }
 
-    if (m_ClientHandle != INVALID_HANDLE && m_HitMode == PViewHitMode::HitTest)
-    {
-        PPointerEvent clientEvent = event;
-        clientEvent.ScreenPosition = position;
-        clientEvent.ViewPosition = position;
+    PPointerEvent clientEvent = event;
+    const PPoint clientPosition = ConvertFromRoot(event.ScreenPosition);
+    clientEvent.ScreenPosition = clientPosition;
+    clientEvent.ViewPosition = clientPosition;
 
-        if (m_ManagerHandle != INVALID_HANDLE)
-        {
-            if (!p_post_to_window_manager<ASHandlePointerEvent>(INVALID_HANDLE, m_ManagerHandle, clientEvent))
-            {
-                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
-                return false;
-            }            
-        }
-                    
-        if (!p_post_to_remotesignal<ASHandlePointerEvent>(GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent))
-        {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
-            return false;
-        }
-        if (m_OwnerApplication != nullptr) {
-            m_OwnerApplication->SetPointerCapture(event.PointerID, GetOwnerRootView(), PPointerCaptureMode::Preemptible);
-        }
-        return true;
-    }
-
-    for (Ptr<PServerView> child : p_reverse_ranged(m_ChildrenList))
+    if (!p_post_to_remotesignal<ASUpdatePointerRootView>(
+        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent, updateType))
     {
-        if (child->m_Frame.DoIntersect(position))
-        {
-            const PPoint childPos = child->ConvertFromParent(position);
-            if (child->HandlePointerDown(childPos, event)) {
-                return true;
-            }
-        }
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SendPointerRootViewUpdate() failed to send message: {}", strerror(get_last_error()));
+        return false;
     }
-    return false;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -640,6 +641,11 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
     if (parent == nullptr) {
         Invalidate();
     }
+
+    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    if (server != nullptr) {
+        server->InvalidatePointerRoutes();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -692,6 +698,10 @@ void PServerView::SetShapeRegion(Ptr<PRegion> region)
                 }
             }
         }
+    }
+    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    if (server != nullptr) {
+        server->InvalidatePointerRoutes();
     }
 }
 
@@ -1324,6 +1334,10 @@ void PServerView::Show(bool doShow)
             (*child)->Show(isVisible);
         }
         Invalidate(true);
+        ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+        if (server != nullptr) {
+            server->InvalidatePointerRoutes();
+        }
     }
 }
 
@@ -1340,6 +1354,22 @@ void PServerView::SetFocusKeyboardMode(PFocusKeyboardMode mode)
         ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
         if (server != nullptr) {
             server->UpdateViewFocusMode(this);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::SetHitMode(PViewHitMode mode)
+{
+    if (m_HitMode != mode)
+    {
+        m_HitMode = mode;
+        ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+        if (server != nullptr) {
+            server->InvalidatePointerRoutes();
         }
     }
 }
@@ -3452,6 +3482,10 @@ void PServerView::ScrollBy(const PPoint& offset)
         return;
     }
     UpdateScreenPos();
+    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    if (server != nullptr) {
+        server->InvalidatePointerRoutes();
+    }
     const PIPoint intOffset(newOffset - oldOffset);
 
     if (m_DamageReg != nullptr) {

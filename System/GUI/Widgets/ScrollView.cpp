@@ -153,13 +153,11 @@ bool PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollView::OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
 {
-    if (phase != PEventPhase::Target && phase != PEventPhase::Capture) {
-        return false;
-    }
+    // PointerUp and PointerCancel stop tracking before capture is released.
+    // A remaining match is an interrupted gesture that cannot receive more input.
     EndPointerScrollTracking(pointerID);
-    return phase == PEventPhase::Target;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

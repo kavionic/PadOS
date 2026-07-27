@@ -150,10 +150,10 @@ void PTextEditView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (HasFlags(PTextBoxFlags::ReadOnly) || m_HitPointerID != PInvalidPointerID) {
-        return false;
+        return;
     }
 
     SetPointerCapture(pointerID);
@@ -168,17 +168,16 @@ bool PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, 
         m_CursorFrozen = true;
         UpdateCursorTimer();
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return false;
+        return;
     }
 
     if (m_IsScrolling)
@@ -203,17 +202,16 @@ bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
     ReleasePointerCapture(pointerID);
 
     UpdateCursorTimer();
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return false;
+        return;
     }
 
     if (HasKeyboardFocus())
@@ -245,7 +243,6 @@ bool PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, 
         }
     }
 
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

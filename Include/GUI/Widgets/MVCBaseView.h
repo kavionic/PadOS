@@ -151,10 +151,10 @@ private:
 
     void SlotContentScrolled() { InvalidateLayout(); }
 
-    bool SlotContentViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
-    bool SlotContentViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
-    bool SlotContentViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
-    bool SlotContentViewPointerCancel(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    void SlotContentViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    void SlotContentViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    void SlotContentViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
+    void SlotContentViewPointerCancel(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase);
 
     Ptr<PScrollView>         m_ScrollView;
 

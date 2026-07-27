@@ -120,17 +120,18 @@ public:
 
     virtual void OnPaint(const PRect& updateRect) { EraseRect(updateRect); }
 
-    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerEnter(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerLeave(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
-    virtual bool OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerTap(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerEnter(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerLeave(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
     virtual void OnPointerCaptureGained(PPointerID pointerID);
     virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason);
-    virtual bool OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
 
     virtual void OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent);
     virtual void OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent);
@@ -340,15 +341,16 @@ public:
 
     VFConnector<void (PView* view, const PRect& updateRect)> VFPaint;
 
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerDown;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerUp;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerMove;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerCancel;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerEnter;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerLeave;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerOver;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerOut;
-    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFLongPress;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerDown;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerUp;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerMove;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerCancel;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerLongPress;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerTap;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerEnter;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerLeave;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerOver;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerOut;
 
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyDown;
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyUp;
@@ -407,22 +409,19 @@ private:
     void BuildPointerEventPath(PointerEventPath& path);
     static void DispatchPointerBoundaryEvents(const PPointerEvent& pointerEvent, const PointerEventPath& previousPath, const PointerEventPath& targetPath);
     void HandlePointerDown(const PPointerEvent& pointerEvent, Ptr<PView> targetView);
-    void HandlePointerUp(const PPointerEvent& pointerEvent, Ptr<PView> targetView);
-    void HandlePointerMove(const PPointerEvent& pointerEvent, Ptr<PView> targetView);
-    void HandlePointerCancel(const PPointerEvent& pointerEvent, Ptr<PView> targetView);
-    bool DispatchPointerEvent(const PPointerEvent& pointerEvent, Ptr<PView> originalCaptureView, bool* targetHandled);
-    bool DispatchPointerEvent(const PPointerEvent& pointerEvent, const PointerEventPath& path, Ptr<PView> originalCaptureView, bool* targetHandled, bool bubbles);
-    bool DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool ShouldStopPointerEventDispatch(PPointerID pointerID, Ptr<PView> originalCaptureView) const;
-    bool DispatchPointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerEnter(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerLeave(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerOver(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    bool DispatchLongPress(PPointerID pointerID, const PPointerEvent& pointerEvent);
+    void DispatchPointerEvent(const PPointerEvent& pointerEvent);
+    void DispatchPointerEvent(const PPointerEvent& pointerEvent, const PointerEventPath& path, bool bubbles);
+    void DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerLongPress(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerTap(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerEnter(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerLeave(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerOver(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
     void DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
 

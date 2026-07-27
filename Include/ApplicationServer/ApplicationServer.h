@@ -94,11 +94,22 @@ private:
         PPointerCaptureMode  Mode = PPointerCaptureMode::Preemptible;
     };
 
+    struct PointerGestureState
+    {
+        PEventTimer  LongPressTimer;
+        PPoint       StartPosition;
+        TimeValNanos StartTime;
+        PMouseButton Button = PMouseButton::None;
+        bool         TapEligible = false;
+        bool         LongPressEligible = false;
+    };
+
     struct PointerRouteState
     {
-        PPointerEvent        LastEvent;                  // Last physical input for this pointer.
-        PServerView*         DeliveredRootView = nullptr;    // Root whose client currently considers the pointer inside.
-        PointerCaptureState  Capture;                    // Optional capture override for normal and boundary events.
+        PPointerEvent       LastEvent;                       // Last event routed for this pointer.
+        PServerView*        DeliveredRootView = nullptr;     // Root whose client currently considers the pointer inside.
+        PointerCaptureState Capture;                         // Optional capture override for normal and boundary events.
+        PointerGestureState Gesture;
     };
 
     void ReadInputEvents();
@@ -108,6 +119,11 @@ private:
     void QueueTouchEvent(const PTouchEvent& event);
     PPoint UpdateMousePosition(const PMouseEvent& event);
     PPoint ClampMousePosition(const PPoint& position) const;
+    void BeginPointerGesture(PointerRouteState& pointerState, const PPointerEvent& event);
+    void UpdatePointerGesture(PointerRouteState& pointerState, const PPointerEvent& event);
+    bool EndPointerGesture(PointerRouteState& pointerState, const PPointerEvent& event);
+    void CancelPointerGesture(PointerRouteState& pointerState);
+    void SlotLongPressTimer(PEventTimer* timer);
 
     static PMouseButton GetTouchPointerButton(const PTouchEvent& touchEvent);
     static PPointerButtonMask GetTouchPointerButtons(const PTouchEvent& touchEvent);
@@ -119,6 +135,7 @@ private:
     void UpdateMouseCursor();
 
     void HandlePointerEvent(const PPointerEvent& event);
+    void RoutePointerEvent(PointerRouteState& pointerState, const PPointerEvent& event);
     void HandleHoverPointerEvent(PointerRouteState& pointerState, const PPointerEvent& event);
     void HandleNonHoverPointerEvent(PointerRouteState& pointerState, const PPointerEvent& event);
     PointerRouteState& GetPointerRouteState(PPointerID pointerID);

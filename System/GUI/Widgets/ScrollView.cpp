@@ -92,61 +92,58 @@ void PScrollView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (phase == PEventPhase::Capture)
     {
         BeginPointerScrollTracking(pointerID, position);
-        return false;
+        return;
     }
     if (phase != PEventPhase::Target) {
-        return false;
+        return;
     }
     if (!BeginPointerScrollTracking(pointerID, position)) {
-        return false;
+        return;
     }
     if (!SetPointerCapture(pointerID))
     {
         EndPointerScrollTracking(pointerID);
-        return false;
+        return;
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (phase != PEventPhase::Target && phase != PEventPhase::Capture) {
-        return false;
+        return;
     }
     EndPointerScrollTracking(pointerID);
-    return phase == PEventPhase::Target;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (phase == PEventPhase::Capture)
     {
         if (pointerID == m_HitPointerID && !HasPointerCapture(pointerID) && ShouldCaptureScroll(position)) {
             SetPointerCapture(pointerID);
         }
-        return false;
+        return;
     }
     if (phase != PEventPhase::Target) {
-        return false;
+        return;
     }
     if (pointerID != m_HitPointerID) {
-        return true;
+        return;
     }
     SwipeMove(position);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

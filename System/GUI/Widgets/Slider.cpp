@@ -477,12 +477,15 @@ void PSlider::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (phase != PEventPhase::Target) return false;
-    if (!IsEnabled()) return false;
+    if (phase != PEventPhase::Target) return;
+    if (!IsEnabled()) return;
     if (m_HitPointerID == PInvalidPointerID)
     {
+        if (!SetPointerCapture(pointerID, PPointerCaptureMode::Preemptible)) {
+            return;
+        }
         m_HitPointerID = pointerID;
         m_HitValue = GetValue();
         m_HitPos = position; // (position - ValToPos(m_HitValue));
@@ -493,17 +496,16 @@ bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const 
 
         SignalBeginDrag(m_Value, this, pointerID);
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (phase != PEventPhase::Target) return false;
-    if (!IsEnabled()) return false;
+    if (phase != PEventPhase::Target) return;
+    if (!IsEnabled()) return;
     if (pointerID == m_HitPointerID)
     {
         m_HitPointerID = PInvalidPointerID;
@@ -517,17 +519,16 @@ bool PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PP
 
         SignalEndDrag(m_Value, this, pointerID);
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (phase != PEventPhase::Target) return false;
-    if (!IsEnabled()) return false;
+    if (phase != PEventPhase::Target) return;
+    if (!IsEnabled()) return;
     if (pointerID == m_HitPointerID)
     {
         if (!m_PointerCaptureLocked)
@@ -570,7 +571,6 @@ bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const 
 
         SetValue(PosToVal(scaledPos + ValToPos(m_HitValue)));
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

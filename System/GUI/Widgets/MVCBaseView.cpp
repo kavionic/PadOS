@@ -419,29 +419,26 @@ void PMVCBaseView::ItemClicked(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMVCBaseView::SlotContentViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
+void PMVCBaseView::SlotContentViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
     if (phase != PEventPhase::Target) {
-        return false;
+        return;
     }
 
     const size_t index = GetItemIndexAtPosition(position);
     m_PressedItem = index;
     SetHighlightedItem(index);
-    return index != INVALID_INDEX;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMVCBaseView::SlotContentViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
+void PMVCBaseView::SlotContentViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
     if (phase != PEventPhase::Target) {
-        return false;
+        return;
     }
-
-    const bool handled = m_PressedItem != INVALID_INDEX;
 
     if (m_HighlightedItem != INVALID_INDEX)
     {
@@ -453,45 +450,41 @@ bool PMVCBaseView::SlotContentViewPointerUp(PView* view, PPointerID pointerID, c
         }
     }
     m_PressedItem = INVALID_INDEX;
-    return handled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMVCBaseView::SlotContentViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
+void PMVCBaseView::SlotContentViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
     if (phase != PEventPhase::Target) {
-        return false;
+        return;
     }
     if (m_PressedItem == INVALID_INDEX) {
-        return false;
+        return;
     }
 
     const size_t itemIndex = GetItemIndexAtPosition(position);
     const size_t highlightedItem = (itemIndex == m_PressedItem) ? m_PressedItem : INVALID_INDEX;
     SetHighlightedItem(highlightedItem);
 
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMVCBaseView::SlotContentViewPointerCancel(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
+void PMVCBaseView::SlotContentViewPointerCancel(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent, PEventPhase phase)
 {
     if (phase != PEventPhase::Target) {
-        return false;
+        return;
     }
 
-    const bool handled = m_PressedItem != INVALID_INDEX || m_HighlightedItem != INVALID_INDEX;
     m_PressedItem = INVALID_INDEX;
 
     if (m_HighlightedItem != INVALID_INDEX)
     {
         SetHighlightedItem(INVALID_INDEX);
     }
-    return handled;
 }

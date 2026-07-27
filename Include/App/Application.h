@@ -86,7 +86,6 @@ private:
         Ptr<PView>               DeliveryRootView;           // Client root view selected by the application server.
         std::vector<Ptr<PView>>  EffectivePath;              // Capture override or hit-test target through its ancestors.
         PointerCaptureState      Capture;                    // Optional target override.
-        PView*                   LongPressView = nullptr;
     };
     
     void DetachView(Ptr<PView> view, bool detachChildren);
@@ -100,8 +99,6 @@ private:
 
     PointerState& GetPointerState(PPointerID pointerID);
     void      EraseInactivePointerState(PPointerID pointerID);
-    void      SetLongPressView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent);
-    Ptr<PView> GetLongPressView(PPointerID pointerID) const;
     void      SetLocalPointerCapture(PPointerID pointerID, PointerState& pointerState, Ptr<PView> view, Ptr<PView> rootView, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
     void      ClearLocalPointerCapture(PPointerID pointerID, PointerState& pointerState, PPointerCaptureLostReason reason);
     void      RefreshPointerPathAfterCaptureChange(PointerState& pointerState);
@@ -125,8 +122,6 @@ private:
 
     void LayoutViews();
 
-    void SlotLongPressTimer();
-
     static PApplication* s_DefaultApplication;
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
@@ -137,11 +132,9 @@ private:
     int32_t m_UsedSendBufferSize = 0;
 
     std::map<PPointerID, PointerState> m_PointerStateMap;
-    PPointerEvent               m_LastClickEvent;
     PView*                   m_KeyboardFocusView = nullptr;
     bool                     m_PointerPathsInvalid = false;
 
-    PEventTimer              m_LongPressTimer;
     ASPaintView              m_RSPaintView;
     ASViewFrameChanged       m_RSViewFrameChanged;
     ASViewFocusChanged       m_RSViewFocusChanged;

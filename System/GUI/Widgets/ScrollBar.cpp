@@ -239,7 +239,7 @@ void PScrollBar::SlotTimerTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
 	SetPointerCapture(pointerID);
 	m_HitState = HIT_NONE;
@@ -256,7 +256,7 @@ bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, con
 			Flush();
             m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
             GetLooper()->AddTimer(&m_RepeatTimer, true);
-			return true;
+			return;
 		}
 	}
 	if (m_KnobArea.DoIntersect(position))
@@ -265,7 +265,7 @@ bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, con
 		if (cKnobFrame.DoIntersect(position)) {
 			m_HitPos = position - cKnobFrame.TopLeft();
 			m_HitState = HIT_KNOB;
-			return true;
+			return;
 		}
 		float vValue = GetValue();
 		if (m_Orientation == POrientation::Horizontal)
@@ -290,16 +290,15 @@ bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, con
 			vValue = m_Max;
 		}
 		SetValue(vValue);
-		return true;
+		return;
 	}
-	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -352,14 +351,13 @@ bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 	m_HitState = HIT_NONE;
 	ReleasePointerCapture(pointerID);
 
-	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -396,7 +394,6 @@ bool PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, con
 	{
 		SetValue(PosToVal(position));
 	}
-	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -116,9 +116,9 @@ public:
     
     // From View
     virtual void AttachedToScreen() override;
-    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void OnPaint(const PRect& updateRect) override;

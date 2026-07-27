@@ -64,9 +64,6 @@ PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPo
 
     p_post_to_remotesignal<ASRegisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
 
-    m_LongPressTimer.Set(LONG_PRESS_DELAY, true);
-    m_LongPressTimer.SignalTrigged.Connect(this, &PApplication::SlotLongPressTimer);
-
     for(;;)
     {
         MsgRegisterApplicationReply reply;
@@ -408,17 +405,6 @@ void PApplication::RemoveViewFromPointerState(Ptr<PView> view)
         if (pointerState.Capture.View == ptr_raw_pointer_cast(view)) {
             capturesToRelease.push_back(pointerID);
         }
-        if (pointerState.LongPressView == ptr_raw_pointer_cast(view)) {
-            pointerState.LongPressView = nullptr;
-        }
-    }
-
-    if (m_LastClickEvent.PointerID != PInvalidPointerID)
-    {
-        auto iterator = m_PointerStateMap.find(m_LastClickEvent.PointerID);
-        if (iterator == m_PointerStateMap.end() || iterator->second.LongPressView == nullptr) {
-            m_LongPressTimer.Stop();
-        }
     }
 
     for (PPointerID pointerID : pointerRoutesToClear)
@@ -582,54 +568,9 @@ void PApplication::EraseInactivePointerState(PPointerID pointerID)
 {
     auto iterator = m_PointerStateMap.find(pointerID);
     if (iterator != m_PointerStateMap.end() && !iterator->second.LastEvent.SupportsHover
-        && iterator->second.EffectivePath.empty() && iterator->second.Capture.View == nullptr
-        && iterator->second.LongPressView == nullptr) {
+        && iterator->second.EffectivePath.empty() && iterator->second.Capture.View == nullptr) {
         m_PointerStateMap.erase(iterator);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PApplication::SetLongPressView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent)
-{
-    assert(!IsRunning() || GetMutex().IsLocked());
-
-    if (view != nullptr)
-    {
-        PointerState& pointerState = GetPointerState(pointerID);
-        pointerState.LastEvent = pointerEvent;
-        pointerState.LongPressView = ptr_raw_pointer_cast(view);
-        m_LastClickEvent = pointerEvent;
-        m_LongPressTimer.Start(true);
-    }
-    else
-    {
-        auto iterator = m_PointerStateMap.find(pointerID);
-        if (iterator != m_PointerStateMap.end()) {
-            iterator->second.LongPressView = nullptr;
-            if (pointerID == m_LastClickEvent.PointerID) {
-                m_LongPressTimer.Stop();
-            }
-            EraseInactivePointerState(pointerID);
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<PView> PApplication::GetLongPressView(PPointerID pointerID) const
-{
-    assert(!IsRunning() || GetMutex().IsLocked());
-
-    auto iterator = m_PointerStateMap.find(pointerID);
-    if (iterator != m_PointerStateMap.end()) {
-        return ptr_tmp_cast(iterator->second.LongPressView);
-    }
-    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -659,10 +600,6 @@ void PApplication::SetLocalPointerCapture(
 
     if (previousCaptureView != nullptr && previousCaptureView != view)
     {
-        Ptr<PView> longPressView = GetLongPressView(pointerID);
-        if (longPressView == previousCaptureView) {
-            SetLongPressView(pointerID, nullptr, pointerState.LastEvent);
-        }
         previousCaptureView->OnPointerCaptureLost(
             pointerID, PPointerCaptureLostReason::Stolen);
     }
@@ -689,10 +626,6 @@ void PApplication::ClearLocalPointerCapture(
     Ptr<PView> captureView = ptr_tmp_cast(pointerState.Capture.View);
     pointerState.Capture = PointerCaptureState();
 
-    Ptr<PView> longPressView = GetLongPressView(pointerID);
-    if (longPressView == captureView) {
-        SetLongPressView(pointerID, nullptr, pointerState.LastEvent);
-    }
     if (captureView != nullptr) {
         captureView->OnPointerCaptureLost(pointerID, reason);
     }
@@ -1254,16 +1187,3 @@ void PApplication::LayoutViews()
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PApplication::SlotLongPressTimer()
-{
-    assert(!IsRunning() || GetMutex().IsLocked());
-
-    Ptr<PView> lastPressedView = GetLongPressView(m_LastClickEvent.PointerID);
-    if (lastPressedView != nullptr) {
-        lastPressedView->DispatchLongPress(m_LastClickEvent.PointerID, m_LastClickEvent);
-    }
-}

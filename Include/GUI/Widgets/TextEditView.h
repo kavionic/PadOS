@@ -39,9 +39,9 @@ public:
     virtual PPoint   CalculateContentSize() const override;
     virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
 
     virtual void OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 

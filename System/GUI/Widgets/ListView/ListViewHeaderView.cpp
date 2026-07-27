@@ -100,7 +100,7 @@ void PListViewHeaderView::OnPaint(const PRect& cUpdateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PListViewHeaderView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     Ptr<PListView> listView = ptr_static_cast<PListView>(GetParent());
     assert(listView != nullptr);
@@ -125,7 +125,7 @@ bool PListViewHeaderView::OnPointerMove(PPointerID pointerID, const PPoint& posi
         m_DragColumn = -1;
     }
     if (m_SizeColumn == -1) {
-        return true;
+        return;
     }
     float columnWidth = m_ScrolledContainerView->GetColumn(m_SizeColumn)->GetFrame().Width();
     float deltaSize = position.x - m_HitPos.x;
@@ -146,7 +146,6 @@ bool PListViewHeaderView::OnPointerMove(PPointerID pointerID, const PPoint& posi
     Flush();
     m_HitPos = position;
 
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -169,13 +168,13 @@ void PListViewHeaderView::OnViewScrolled(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PListViewHeaderView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty()) {
-        return false;
+        return;
     }
     if (position.y >= m_ScrolledContainerView->GetFrame().top) {
-        return false;
+        return;
     }
     PPoint containerViewPos = m_ScrolledContainerView->ConvertFromParent(position);
     for (size_t i = 0; i < m_ScrolledContainerView->m_ColumnMap.size(); ++i)
@@ -202,14 +201,13 @@ bool PListViewHeaderView::OnPointerDown(PPointerID pointerID, const PPoint& posi
             break;
         }
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PListViewHeaderView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     m_SizeColumn = INVALID_INDEX;
 
@@ -267,7 +265,6 @@ bool PListViewHeaderView::OnPointerUp(PPointerID pointerID, const PPoint& positi
     //      }
     //      return;
     //  }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

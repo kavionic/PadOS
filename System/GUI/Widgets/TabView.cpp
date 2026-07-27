@@ -508,10 +508,10 @@ void PTabView::OnFrameSized(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (m_HitPointerID != PInvalidPointerID || m_TabList.empty() || position.y >= m_TabHeight) {
-        return false;
+        return;
     }
     m_HitPointerID = pointerID;
     m_HitPos    = position;
@@ -528,28 +528,26 @@ bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const
         x += width;
     }
     SetPointerCapture(pointerID);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return false;
+        return;
     }
     ReleasePointerCapture(pointerID);
     m_HitPointerID = PInvalidPointerID;
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID == m_HitPointerID)
     {
@@ -558,7 +556,7 @@ bool PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const
         float width = Width();
 
         if (m_TotalTabsWidth <= width /*&& (GetQualifiers() & QUAL_SHIFT) == 0*/) {
-            return false;
+            return;
         }
 
         m_ScrollOffset += position.x - m_HitPos.x;
@@ -598,7 +596,6 @@ bool PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const
             Flush();
         }
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -981,6 +981,94 @@ PPoint ApplicationServer::ClampMousePosition(const PPoint& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ApplicationServer::BeginPointerGesture(
+    PointerRouteState& pointerState, const PPointerEvent& event)
+{
+    PointerGestureState& gesture = pointerState.Gesture;
+    gesture.StartPosition = event.ScreenPosition;
+    gesture.StartTime = event.Timestamp;
+    gesture.Button = event.Button;
+    gesture.TapEligible = true;
+    gesture.LongPressEligible = true;
+    gesture.LongPressTimer.Start(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::UpdatePointerGesture(
+    PointerRouteState& pointerState, const PPointerEvent& event)
+{
+    const PointerGestureState& gesture = pointerState.Gesture;
+    if ((gesture.TapEligible || gesture.LongPressEligible)
+        && (event.ScreenPosition - gesture.StartPosition).LengthSqr()
+            > BEGIN_DRAG_OFFSET * BEGIN_DRAG_OFFSET)
+    {
+        CancelPointerGesture(pointerState);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ApplicationServer::EndPointerGesture(
+    PointerRouteState& pointerState, const PPointerEvent& event)
+{
+    const PointerGestureState& gesture = pointerState.Gesture;
+    const TimeValNanos gestureDuration =
+        event.Timestamp - gesture.StartTime;
+    const bool generateTap =
+        gesture.TapEligible
+        && gestureDuration >= TimeValNanos::zero
+        && gestureDuration <= TimeValNanos::FromSeconds(TAP_MAX_DURATION);
+
+    CancelPointerGesture(pointerState);
+    return generateTap;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::CancelPointerGesture(PointerRouteState& pointerState)
+{
+    PointerGestureState& gesture = pointerState.Gesture;
+    gesture.LongPressTimer.Stop();
+    gesture.Button = PMouseButton::None;
+    gesture.TapEligible = false;
+    gesture.LongPressEligible = false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotLongPressTimer(PEventTimer* timer)
+{
+    const PPointerID pointerID = PPointerID(timer->GetID());
+    auto iterator = m_PointerRouteMap.find(pointerID);
+    if (iterator != m_PointerRouteMap.end()
+        && iterator->second.Gesture.LongPressEligible)
+    {
+        PointerRouteState& pointerState = iterator->second;
+        PointerGestureState& gesture = pointerState.Gesture;
+        gesture.TapEligible = false;
+        gesture.LongPressEligible = false;
+
+        PPointerEvent longPressEvent = pointerState.LastEvent;
+        longPressEvent.EventType = PPointerEventType::LongPress;
+        longPressEvent.Timestamp = get_monotonic_time();
+        longPressEvent.Button = gesture.Button;
+        HandlePointerEvent(longPressEvent);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PMouseButton ApplicationServer::GetTouchPointerButton(const PTouchEvent& touchEvent)
 {
     switch (touchEvent.EventID)
@@ -1126,19 +1214,63 @@ void ApplicationServer::HandlePointerEvent(const PPointerEvent& event)
 {
     const PPointerID pointerID = event.PointerID;
     PointerRouteState& pointerState = GetPointerRouteState(pointerID);
+    bool generateTap = false;
+    switch (event.EventType)
+    {
+        case PPointerEventType::Down:
+            BeginPointerGesture(pointerState, event);
+            break;
+
+        case PPointerEventType::Move:
+            UpdatePointerGesture(pointerState, event);
+            break;
+
+        case PPointerEventType::Up:
+            generateTap = EndPointerGesture(pointerState, event);
+            break;
+
+        case PPointerEventType::Cancel:
+            CancelPointerGesture(pointerState);
+            break;
+
+        case PPointerEventType::Invalid:
+        case PPointerEventType::LongPress:
+        case PPointerEventType::Tap:
+        case PPointerEventType::Enter:
+        case PPointerEventType::Leave:
+        case PPointerEventType::Over:
+        case PPointerEventType::Out:
+            break;
+    }
     pointerState.LastEvent = event;
 
-    if (event.SupportsHover) {
-        HandleHoverPointerEvent(pointerState, event);
-    } else {
-        HandleNonHoverPointerEvent(pointerState, event);
+    if (generateTap)
+    {
+        PPointerEvent tapEvent = event;
+        tapEvent.EventType = PPointerEventType::Tap;
+        RoutePointerEvent(pointerState, tapEvent);
     }
+    RoutePointerEvent(pointerState, event);
 
     if (!event.SupportsHover
         && (event.EventType == PPointerEventType::Up
             || event.EventType == PPointerEventType::Cancel))
     {
         m_PointerRouteMap.erase(pointerID);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::RoutePointerEvent(
+    PointerRouteState& pointerState, const PPointerEvent& event)
+{
+    if (event.SupportsHover) {
+        HandleHoverPointerEvent(pointerState, event);
+    } else {
+        HandleNonHoverPointerEvent(pointerState, event);
     }
 }
 
@@ -1160,7 +1292,6 @@ void ApplicationServer::HandleHoverPointerEvent(
     {
         pointerState.Capture = PointerCaptureState();
         if (event.EventType == PPointerEventType::Cancel) {
-            // Cancel terminates the pointer stream itself. Releasing capture does not.
             NotifyPointerExitedRootView(pointerState, event);
         } else {
             ReevaluatePointerRoute(pointerState);
@@ -1205,7 +1336,16 @@ void ApplicationServer::HandleNonHoverPointerEvent(
 
 ApplicationServer::PointerRouteState& ApplicationServer::GetPointerRouteState(PPointerID pointerID)
 {
-    return m_PointerRouteMap[pointerID];
+    auto [iterator, inserted] = m_PointerRouteMap.try_emplace(pointerID);
+    if (inserted)
+    {
+        PointerRouteState& pointerState = iterator->second;
+        pointerState.Gesture.LongPressTimer.Set(LONG_PRESS_DELAY, true);
+        pointerState.Gesture.LongPressTimer.SetID(int32_t(pointerID));
+        pointerState.Gesture.LongPressTimer.SignalTrigged.Connect(
+            this, &ApplicationServer::SlotLongPressTimer);
+    }
+    return iterator->second;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

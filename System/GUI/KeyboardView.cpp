@@ -385,10 +385,11 @@ void PKeyboardView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (m_HitPointerID != PInvalidPointerID) {
-        return PView::OnPointerDown(pointerID, position, event, phase);
+        PView::OnPointerDown(pointerID, position, event, phase);
+        return;
     }
     m_HitPointerID = pointerID;
     m_HitPos = position;
@@ -407,17 +408,16 @@ bool PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, 
         }
     }
     SetPointerCapture(pointerID);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+void PKeyboardView::OnPointerLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return false;
+        return;
     }
     bool cancelPress = false;
     if (m_PressedButton != INVALID_INDEX)
@@ -468,17 +468,17 @@ bool PKeyboardView::OnLongPress(PPointerID pointerID, const PPoint& position, co
         ReleasePointerCapture(pointerID);
         Invalidate();
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerUp(pointerID, position, event, phase);
+        PView::OnPointerUp(pointerID, position, event, phase);
+        return;
     }
 
     if (m_PressedButton != INVALID_INDEX)
@@ -546,17 +546,17 @@ bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
     m_IsDraggingCursor = false;
     m_HitPointerID = PInvalidPointerID;
     ReleasePointerCapture(pointerID);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerMove(pointerID, position, event, phase);
+        PView::OnPointerMove(pointerID, position, event, phase);
+        return;
     }
 
     if (m_IsDraggingCursor)
@@ -586,7 +586,6 @@ bool PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, 
             SetPressedButton(INVALID_INDEX);
         }
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

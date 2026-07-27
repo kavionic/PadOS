@@ -320,5 +320,6 @@ static constexpr float KEYREPEAT_DELAY  = 0.3f;
 static constexpr float KEYREPEAT_REPEAT = 0.08f;
 
 static constexpr float LONG_PRESS_DELAY = 0.5f;
+static constexpr float TAP_MAX_DURATION = 0.25f;
 static constexpr float BEGIN_DRAG_OFFSET = 20.0f;
 static constexpr float POINTER_CAPTURE_LOCK_THRESHOLD = 8.0f;

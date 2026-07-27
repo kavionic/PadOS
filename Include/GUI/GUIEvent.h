@@ -185,6 +185,8 @@ enum class PPointerEventType
     Up,
     Move,
     Cancel,
+    LongPress,
+    Tap,
     Enter,
     Leave,
     Over,

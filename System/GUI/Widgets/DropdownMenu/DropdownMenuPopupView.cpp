@@ -191,12 +191,13 @@ void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxS
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
         if (m_HitPointerID != PInvalidPointerID) {
-            return PView::OnPointerDown(pointerID, position, event, phase);
+            PView::OnPointerDown(pointerID, position, event, phase);
+            return;
         }
         m_HitPointerID = pointerID;
 
@@ -208,11 +209,12 @@ bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
         {
             SignalSelectionChanged(m_OldSelection, true);
         }
-        return true;
+        return;
     }
 
     if (m_HitPointerID != PInvalidPointerID) {
-        return PView::OnPointerDown(pointerID, position, event, phase);
+        PView::OnPointerDown(pointerID, position, event, phase);
+        return;
     }
     m_HitPos = position;
     m_HitPointerID = pointerID;
@@ -226,14 +228,13 @@ bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
     Invalidate(itemFrame);
 
     SetPointerCapture(pointerID);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
@@ -241,11 +242,12 @@ bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
         {
             SignalSelectionChanged(m_CurSelection, true);
         }
-        return true;
+        return;
     }
 
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerUp(pointerID, position, event, phase);
+        PView::OnPointerUp(pointerID, position, event, phase);
+        return;
     }
 
     m_HitPointerID = PInvalidPointerID;
@@ -263,19 +265,18 @@ bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
         SignalSelectionChanged(PositionToIndex(position), true);
     }
     ReleasePointerCapture(pointerID);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (event.ToolType == PMotionToolType::Mouse)
     {
         if (!GetBounds().DoIntersect(position)) {
-            return false;
+            return;
         }
         size_t newSelection = PositionToIndex(position);
 
@@ -295,11 +296,12 @@ bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
             Invalidate(itemFrame);
             SignalSelectionChanged(newSelection, false);
         }
-        return true;
+        return;
     }
 
     if (pointerID != m_HitPointerID) {
-        return PView::OnPointerMove(pointerID, position, event, phase);
+        PView::OnPointerMove(pointerID, position, event, phase);
+        return;
     }
     if (m_MouseMoved)
     {
@@ -328,7 +330,6 @@ bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
             m_MouseMoved = true;
         }
     }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

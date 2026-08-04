@@ -79,6 +79,12 @@ private:
     static constexpr size_t INPUT_EVENT_BUFFER_SIZE = 8192;
     static constexpr PMouseButton TOUCH_POINTER_BUTTON = PMouseButton::Left;
 
+    struct InputDevice
+    {
+        PString Name;
+        int     FileDescriptor = -1;
+    };
+
     struct MouseCursorStackEntry
     {
         ServerApplication* Owner = nullptr;
@@ -112,8 +118,9 @@ private:
         PointerGestureState Gesture;
     };
 
+    void OpenInputDevices();
     void ReadInputEvents();
-    void ReadInputEvents(int inputDevice, PInputClass inputClass, const char* deviceName);
+    void ReadInputEvents(int inputDevice, const PString& deviceName);
     void QueuePointerEvent(const PPointerEvent& event);
     void QueueMouseEvent(const PMouseEvent& event);
     void QueueTouchEvent(const PTouchEvent& event);
@@ -172,9 +179,8 @@ private:
     std::vector<MouseCursorStackEntry> m_MouseCursorStack;
     PMouseCursorID                     m_CurrentMouseCursorID = PInvalidMouseCursorID;
 
-    PPoint     m_MousePosition;
-    int        m_MouseInputDevice = -1;
-    int        m_TouchInputDevice = -1;
+    PPoint                   m_MousePosition;
+    std::vector<InputDevice> m_InputDevices;
 
     ApplicationServer(const ApplicationServer&) = delete;
     ApplicationServer& operator=(const ApplicationServer&) = delete;

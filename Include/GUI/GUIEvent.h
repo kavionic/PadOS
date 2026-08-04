@@ -211,6 +211,6 @@ struct PKeyEvent : PInputEvent
 {
     static constexpr size_t MAX_TEXT_LENGTH = 11;
 
-    PKeyCodes    m_KeyCode;
+    PKeyCodes   m_KeyCode;
     char        m_Text[MAX_TEXT_LENGTH + 1];
 };

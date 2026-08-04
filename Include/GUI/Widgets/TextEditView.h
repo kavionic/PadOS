@@ -43,7 +43,7 @@ public:
     virtual void    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
 
-    virtual void OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
+    virtual void OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
     // From TextEditView:
     void                    SetText(const PString& text, bool sendEvent = true);

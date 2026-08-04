@@ -249,7 +249,7 @@ void PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextEditView::OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
+void PTextEditView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
 {
     if (keyCode == PKeyCodes::CURSOR_LEFT)
     {

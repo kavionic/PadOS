@@ -33,6 +33,7 @@
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/ServerView.h>
 #include <ApplicationServer/Drivers/RA8875GfxDriver.h>
+#include <Storage/Directory.h>
 #include <Utils/Utils.h>
 #include <GUI/View.h>
 
@@ -497,29 +498,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     s_DisplayDriver->SetMousePos(PIPoint(m_MousePosition));
     ApplyMouseCursor(ToMouseCursorID(PStandardMouseCursor::Pointer));
 
-    m_MouseInputDevice = open("/dev/input/mouse", O_RDONLY | O_NONBLOCK);
-    if (m_MouseInputDevice != -1)
-    {
-        if (!GetWaitGroup().AddFile(m_MouseInputDevice)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to add mouse input device to wait group: {}", strerror(errno));
-        }
-    }
-    else
-    {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to open mouse input device: {}", strerror(errno));
-    }
-
-    m_TouchInputDevice = open("/dev/input/touch", O_RDONLY | O_NONBLOCK);
-    if (m_TouchInputDevice != -1)
-    {
-        if (!GetWaitGroup().AddFile(m_TouchInputDevice)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to add touch input device to wait group: {}", strerror(errno));
-        }
-    }
-    else
-    {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to open touch input device: {}", strerror(errno));
-    }
+    OpenInputDevices();
     g_AppserverPort = GetPortID();
 }
 
@@ -529,17 +508,11 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
 ApplicationServer::~ApplicationServer()
 {
-    if (m_MouseInputDevice != -1)
+    for (InputDevice& inputDevice : m_InputDevices)
     {
-        GetWaitGroup().RemoveFile(m_MouseInputDevice);
-        close(m_MouseInputDevice);
-        m_MouseInputDevice = -1;
-    }
-    if (m_TouchInputDevice != -1)
-    {
-        GetWaitGroup().RemoveFile(m_TouchInputDevice);
-        close(m_TouchInputDevice);
-        m_TouchInputDevice = -1;
+        GetWaitGroup().RemoveFile(inputDevice.FileDescriptor);
+        close(inputDevice.FileDescriptor);
+        inputDevice.FileDescriptor = -1;
     }
 }
 
@@ -802,17 +775,56 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::ReadInputEvents()
+void ApplicationServer::OpenInputDevices()
 {
-    ReadInputEvents(m_MouseInputDevice, PInputClass::Mouse, "mouse");
-    ReadInputEvents(m_TouchInputDevice, PInputClass::TouchScreen, "touch");
+    PDirectory inputDirectory("/dev/input");
+    if (!inputDirectory.IsValid())
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::OpenInputDevices() failed to open /dev/input: {}", strerror(errno));
+        return;
+    }
+
+    PString deviceName;
+    while (inputDirectory.GetNextEntry(deviceName))
+    {
+        if (deviceName.is_dot_or_dot_dot()) {
+            continue;
+        }
+
+        const int inputDevice = openat(inputDirectory.GetFileDescriptor(), deviceName.c_str(), O_RDONLY | O_NONBLOCK);
+        if (inputDevice == -1)
+        {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::OpenInputDevices() failed to open {}: {}", deviceName, strerror(errno));
+            continue;
+        }
+
+        if (!GetWaitGroup().AddFile(inputDevice))
+        {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::OpenInputDevices() failed to add {} to wait group: {}", deviceName, strerror(errno));
+            close(inputDevice);
+            continue;
+        }
+
+        m_InputDevices.push_back(InputDevice{deviceName, inputDevice});
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::ReadInputEvents(int inputDevice, PInputClass inputClass, const char* deviceName)
+void ApplicationServer::ReadInputEvents()
+{
+    for (const InputDevice& inputDevice : m_InputDevices) {
+        ReadInputEvents(inputDevice.FileDescriptor, inputDevice.Name);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::ReadInputEvents(int inputDevice, const PString& deviceName)
 {
     if (inputDevice == -1) {
         return;
@@ -842,47 +854,69 @@ void ApplicationServer::ReadInputEvents(int inputDevice, PInputClass inputClass,
                     break;
                 }
 
-                if (eventHeader->ClassID != inputClass)
+                switch (eventHeader->EventType)
                 {
-                    p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received unexpected {} input class: {}", deviceName, std::to_underlying(eventHeader->ClassID));
-                }
-                else
-                {
-                    switch (eventHeader->EventType)
-                    {
-                        case PInputEventType::MouseEvent:
-                            if (inputClass != PInputClass::Mouse)
+                    case PInputEventType::MouseEvent:
+                        if (eventHeader->ClassID != PInputClass::Mouse)
+                        {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received mouse event with input class {} from {}.", std::to_underlying(eventHeader->ClassID), deviceName);
+                        }
+                        else if (eventHeader->EventSize < sizeof(PMouseEvent))
+                        {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated mouse event: {}", eventHeader->EventSize);
+                        }
+                        else
+                        {
+                            QueueMouseEvent(*reinterpret_cast<const PMouseEvent*>(currentEventData));
+                        }
+                        break;
+
+                    case PInputEventType::TouchEvent:
+                        if (eventHeader->ClassID != PInputClass::TouchScreen)
+                        {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received touch event with input class {} from {}.", std::to_underlying(eventHeader->ClassID), deviceName);
+                        }
+                        else if (eventHeader->EventSize < sizeof(PTouchEvent))
+                        {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated touch event: {}", eventHeader->EventSize);
+                        }
+                        else
+                        {
+                            QueueTouchEvent(*reinterpret_cast<const PTouchEvent*>(currentEventData));
+                        }
+                        break;
+
+                    case PInputEventType::KeyEvent:
+                        if (eventHeader->ClassID != PInputClass::Keyboard)
+                        {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received key event with input class {} from {}.", std::to_underlying(eventHeader->ClassID), deviceName);
+                        }
+                        else if (eventHeader->EventSize < sizeof(PKeyEvent))
+                        {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated key event: {}", eventHeader->EventSize);
+                        }
+                        else
+                        {
+                            const PKeyEvent& keyEvent = *reinterpret_cast<const PKeyEvent*>(currentEventData);
+                            if (keyEvent.EventID == PInputEventID::KeyDown || keyEvent.EventID == PInputEventID::KeyUp)
                             {
-                                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received non-mouse event from {} input.", deviceName);
-                            }
-                            else if (eventHeader->EventSize < sizeof(PMouseEvent))
-                            {
-                                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated mouse event: {}", eventHeader->EventSize);
+                                const int32_t messageCode = (keyEvent.EventID == PInputEventID::KeyDown)
+                                    ? int32_t(PMessageID::KEY_DOWN)
+                                    : int32_t(PMessageID::KEY_UP);
+                                Ptr<PServerView> focusView = GetKeyboardFocus();
+                                if (focusView != nullptr) {
+                                    message_port_send_timeout_ns(focusView->GetClientPort(), focusView->GetClientHandle(), messageCode, currentEventData, eventHeader->EventSize, TimeValNanos::FromMilliseconds(500).AsNanoseconds());
+                                }
                             }
                             else
                             {
-                                QueueMouseEvent(*reinterpret_cast<const PMouseEvent*>(currentEventData));
+                                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received invalid key event ID {} from {}.", std::to_underlying(keyEvent.EventID), deviceName);
                             }
-                            break;
+                        }
+                        break;
 
-                        case PInputEventType::TouchEvent:
-                            if (inputClass != PInputClass::TouchScreen)
-                            {
-                                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received non-touch event from {} input.", deviceName);
-                            }
-                            else if (eventHeader->EventSize < sizeof(PTouchEvent))
-                            {
-                                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated touch event: {}", eventHeader->EventSize);
-                            }
-                            else
-                            {
-                                QueueTouchEvent(*reinterpret_cast<const PTouchEvent*>(currentEventData));
-                            }
-                            break;
-
-                        default:
-                            break;
-                    }
+                    default:
+                        break;
                 }
 
                 currentEventData += eventHeader->EventSize;

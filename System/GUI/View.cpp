@@ -1998,7 +1998,7 @@ void PView::UpdatePosition(UpdatePositionNotifyServer notifyMode)
             newOffset = PPoint(0.0f, 0.0f);
         }
         if (parent == nullptr) {
-            newScreenPos = m_Frame.TopLeft();
+            newScreenPos = (m_ServerHandle == INVALID_HANDLE) ? m_Frame.TopLeft() : m_ScreenPos;
         } else {
             newScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
         }
@@ -2373,4 +2373,23 @@ void PView::DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEven
 void PView::HandleFrameChanged(const PRect& frame)
 {
     SetFrameInternal(frame, false);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::HandleScreenPositionChanged(const PPoint& screenPosition)
+{
+    if (screenPosition != m_ScreenPos)
+    {
+        const PPoint deltaScreenPos = m_ScreenPos - screenPosition;
+        m_ScreenPos = screenPosition;
+
+        for (Ptr<PView> child : m_ChildrenList) {
+            child->UpdatePosition(PView::UpdatePositionNotifyServer::Never);
+        }
+        InvalidatePointerHitTest();
+        OnScreenFrameMoved(deltaScreenPos);
+    }
 }

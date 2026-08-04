@@ -56,6 +56,7 @@ PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPo
 {
     RegisterRemoteSignal(&m_RSPaintView, &PApplication::HandlePaint);
     RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
+    RegisterRemoteSignal(&m_RSViewScreenPositionChanged, &PApplication::HandleViewScreenPositionChanged);
     RegisterRemoteSignal(&m_RSViewFocusChanged, &PApplication::HandleViewFocusChanged);
     RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureRequestReply, &PApplication::HandlePointerCaptureRequestReply);
@@ -499,6 +500,7 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             if (code == PAppserverProtocol::CREATE_VIEW_REPLY)
             {
                 view->SetServerHandle(reply.m_ViewHandle);
+                view->HandleScreenPositionChanged(reply.m_ScreenPosition);
                 InvalidatePointerPaths();
                 break;
             }
@@ -846,6 +848,18 @@ void PApplication::HandleViewFrameChanged(handler_id viewHandle, const PRect& fr
     Ptr<PView> view = FindView(viewHandle);
     if (view != nullptr) {
         view->HandleFrameChanged(frame);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleViewScreenPositionChanged(handler_id viewHandle, const PPoint& screenPosition)
+{
+    Ptr<PView> view = FindView(viewHandle);
+    if (view != nullptr) {
+        view->HandleScreenPositionChanged(screenPosition);
     }
 }
 

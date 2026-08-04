@@ -1639,7 +1639,7 @@ void ApplicationServer::SetKeyboardFocus(Ptr<PServerView> view, bool focus)
         m_KeyboardFocusView = ptr_raw_pointer_cast(view);
         if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView->GetFocusKeyboardMode() != PFocusKeyboardMode::None)
         {
-            p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, view->ConvertToRoot(view->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
+            p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, view->ConvertToScreen(view->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
         }
     }
     else
@@ -1670,7 +1670,7 @@ void ApplicationServer::UpdateViewFocusMode(PServerView* view)
     {
         if (view->GetFocusKeyboardMode() != PFocusKeyboardMode::None)
         {
-            p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, view->ConvertToRoot(view->GetFrame()), view->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
+            p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, view->ConvertToScreen(view->GetFrame()), view->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
         }
         else
         {

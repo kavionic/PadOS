@@ -145,7 +145,7 @@ void PListViewScrolledView::OnPointerDown(PPointerID pointerID, const PPoint& po
     const PRect bounds = GetBounds();
     if (m_ContentHeight > bounds.Height())
     {
-        m_InertialScroller.BeginDrag(GetScrollOffset(), ConvertToRoot(position));
+        m_InertialScroller.BeginDrag(GetScrollOffset(), ConvertToScreen(position));
     }
     m_MouseMoved = false;
     SetPointerCapture(pointerID);
@@ -201,7 +201,7 @@ void PListViewScrolledView::OnPointerMove(PPointerID pointerID, const PPoint& po
         return;
     }
     m_MouseMoved = true;
-    m_InertialScroller.AddUpdate(ConvertToRoot(position));
+    m_InertialScroller.AddUpdate(ConvertToScreen(position));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -345,7 +345,7 @@ bool PListViewScrolledView::HandleMousePointerMove(PPointerID pointerID, const P
     if (m_DragIfMoved)
     {
         m_DragIfMoved = false;
-        if (m_ListView->DragSelection(m_ListView->ConvertFromRoot(ConvertToRoot(position))))
+        if (m_ListView->DragSelection(m_ListView->ConvertFromScreen(ConvertToScreen(position))))
         {
             m_MousDownSeen = false;
             if (m_IsSelecting)

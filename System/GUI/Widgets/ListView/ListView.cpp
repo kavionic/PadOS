@@ -641,7 +641,7 @@ size_t PListView::GetRowIndex(Ptr<PListViewRow> row) const
 
 size_t PListView::GetRowIndexAtPosition(const PPoint& pos) const
 {
-    const PPoint parentPos = ConvertToRoot(m_ScrolledContainerView->ConvertFromRoot(pos));
+    const PPoint parentPos = ConvertToScreen(m_ScrolledContainerView->ConvertFromScreen(pos));
     return m_ScrolledContainerView->GetRowIndex(parentPos.y);
 }
 

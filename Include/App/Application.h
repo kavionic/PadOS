@@ -109,6 +109,7 @@ private:
     PPointerCaptureRequestID AllocatePointerCaptureRequestID();
     void      HandlePaint(handler_id viewHandle, const PRect& updateRect);
     void      HandleViewFrameChanged(handler_id viewHandle, const PRect& frame);
+    void      HandleViewScreenPositionChanged(handler_id viewHandle, const PPoint& screenPosition);
     void      HandleViewFocusChanged(handler_id viewHandle, bool hasFocus);
     void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
     void      HandlePointerCaptureRequestReply(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent);
@@ -137,6 +138,7 @@ private:
 
     ASPaintView              m_RSPaintView;
     ASViewFrameChanged       m_RSViewFrameChanged;
+    ASViewScreenPositionChanged m_RSViewScreenPositionChanged;
     ASViewFocusChanged       m_RSViewFocusChanged;
     ASHandlePointerEvent     m_RSHandlePointerEvent;
     ASHandlePointerCaptureRequestReply m_RSHandlePointerCaptureRequestReply;

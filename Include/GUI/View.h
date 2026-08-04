@@ -321,24 +321,6 @@ public:
     void            Flush();
     void            Sync();
 
-//    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
-//    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
-//    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
-//    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
-//    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
-//    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
-//    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
-//    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
-
-    PPoint       ConvertToScreen(const PPoint& point) const   { return m_ScreenPos + point + m_ScrollOffset; }
-    void        ConvertToScreen(PPoint* point) const         { *point += m_ScreenPos + m_ScrollOffset; }
-    PRect        ConvertToScreen(const PRect& rect) const     { return rect + m_ScreenPos + m_ScrollOffset; }
-    void        ConvertToScreen(PRect* rect) const           { *rect += m_ScreenPos + m_ScrollOffset; }
-    PPoint       ConvertFromScreen(const PPoint& point) const { return point - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromScreen(PPoint* point) const       { *point -= m_ScreenPos + m_ScrollOffset; }
-    PRect        ConvertFromScreen(const PRect& rect) const   { return rect - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromScreen(PRect* rect) const         { *rect -= m_ScreenPos + m_ScrollOffset; }
-
     VFConnector<void (PView* view, const PRect& updateRect)> VFPaint;
 
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerDown;
@@ -427,6 +409,7 @@ private:
 
 
     void HandleFrameChanged(const PRect& frame);
+    void HandleScreenPositionChanged(const PPoint& screenPosition);
 
     static uint32_t s_InstanceCount;
 

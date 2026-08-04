@@ -394,6 +394,17 @@ PServerView::~PServerView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PServerView::SetClientHandle(handler_id handle, ServerApplication* ownerApplication)
+{
+    m_ClientHandle = handle;
+    m_OwnerApplication = ownerApplication;
+    UpdateClientRootState();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 port_id PServerView::GetClientPort() const
 {
     return (m_OwnerApplication != nullptr) ? m_OwnerApplication->GetClientPort() : INVALID_HANDLE;
@@ -403,24 +414,12 @@ port_id PServerView::GetClientPort() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PServerView> PServerView::GetOwnerRootView()
-{
-    Ptr<PServerView> rootView = ptr_tmp_cast(this);
-    Ptr<PServerView> parent = GetParent();
-    while (parent != nullptr && parent->m_OwnerApplication == m_OwnerApplication)
-    {
-        rootView = parent;
-        parent = parent->GetParent();
-    }
-    return rootView;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 {
+    UpdateClientRootState();
+    if (m_IsClientRoot) {
+        NotifyScreenPositionChanged();
+    }
     if (!parent->IsVisible()) {
         Show(false);
     }
@@ -436,6 +435,7 @@ void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 
 void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 {
+    UpdateClientRootState();
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr)
     {
@@ -481,13 +481,8 @@ bool PServerView::SendPointerEvent(const PPointerEvent& event, PPointerCaptureID
         return false;
     }
 
-    PPointerEvent clientEvent = event;
-    const PPoint clientPosition = ConvertFromRoot(event.ScreenPosition);
-    clientEvent.ScreenPosition = clientPosition;
-    clientEvent.ViewPosition = clientPosition;
-
     if (!p_post_to_remotesignal<ASHandlePointerEvent>(
-        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent, captureID))
+        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, event, captureID))
     {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SendPointerEvent() failed to send message: {}", strerror(get_last_error()));
         return false;
@@ -505,13 +500,8 @@ bool PServerView::SendPointerRootViewUpdate(const PPointerEvent& event, PPointer
         return false;
     }
 
-    PPointerEvent clientEvent = event;
-    const PPoint clientPosition = ConvertFromRoot(event.ScreenPosition);
-    clientEvent.ScreenPosition = clientPosition;
-    clientEvent.ViewPosition = clientPosition;
-
     if (!p_post_to_remotesignal<ASUpdatePointerRootView>(
-        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, clientEvent, updateType))
+        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, event, updateType))
     {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SendPointerRootViewUpdate() failed to send message: {}", strerror(get_last_error()));
         return false;
@@ -3571,13 +3561,49 @@ void PServerView::ScrollBy(const PPoint& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PServerView::UpdateClientRootState()
+{
+    if (m_ClientHandle == INVALID_HANDLE || m_OwnerApplication == nullptr)
+    {
+        m_IsClientRoot = false;
+    }
+    else
+    {
+        const Ptr<PServerView> parent = GetParent();
+        m_IsClientRoot = parent != nullptr && parent->m_OwnerApplication != m_OwnerApplication;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::NotifyScreenPositionChanged()
+{
+    if (!p_post_to_remotesignal<ASViewScreenPositionChanged>(
+        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, m_ScreenPos)) {
+        p_system_log<PLogSeverity::ERROR>(
+            LogCategoryAppServer,
+            "ServerView::NotifyScreenPositionChanged() failed to send message: {}",
+            strerror(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PServerView::UpdateScreenPos()
 {
+    const PPoint previousScreenPos = m_ScreenPos;
     const Ptr<PServerView> parent = m_Parent.Lock();
     if (parent == nullptr) {
         m_ScreenPos = m_Frame.TopLeft();
     } else {
         m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
+    }
+    if (m_IsClientRoot && m_ScreenPos != previousScreenPos) {
+        NotifyScreenPositionChanged();
     }
     for (Ptr<PServerView> child : m_ChildrenList) {
         child->UpdateScreenPos();

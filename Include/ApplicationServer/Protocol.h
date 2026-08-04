@@ -127,6 +127,7 @@ namespace PAppserverProtocol
         CREATE_BITMAP_REPLY,
         PAINT_VIEW,
         VIEW_FRAME_CHANGED,
+        VIEW_SCREEN_POSITION_CHANGED,
         VIEW_FOCUS_CHANGED,
         
         // Appserver <-> Window manager messages:
@@ -161,6 +162,7 @@ struct MsgRegisterApplicationReply
 struct MsgCreateViewReply
 {
     handler_id m_ViewHandle;
+    PPoint     m_ScreenPosition;
 };
 
 struct MsgCreateBitmapReply
@@ -271,6 +273,7 @@ using ASViewDrawScaledBitmap= PRemoteSignal<PAppserverProtocol::VIEW_DRAW_SCALED
 using ASViewDebugDraw       = PRemoteSignal<PAppserverProtocol::VIEW_DEBUG_DRAW,          void(handler_id viewHandle, PColor renderColor, uint32_t drawFlags)>;
 using ASPaintView           = PRemoteSignal<PAppserverProtocol::PAINT_VIEW,               void(handler_id viewHandle, const PRect& updateRect)>;
 using ASViewFrameChanged    = PRemoteSignal<PAppserverProtocol::VIEW_FRAME_CHANGED,       void(handler_id viewHandle, const PRect& frame)>;
+using ASViewScreenPositionChanged = PRemoteSignal<PAppserverProtocol::VIEW_SCREEN_POSITION_CHANGED, void(handler_id viewHandle, const PPoint& screenPosition)>;
 using ASViewFocusChanged    = PRemoteSignal<PAppserverProtocol::VIEW_FOCUS_CHANGED,       void(handler_id viewHandle, bool hasFocus)>;
 
 

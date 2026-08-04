@@ -168,7 +168,7 @@ void WindowManager::SlotEnableVKeyboard(const PRect& focusViewEditArea, bool num
         m_KeyboardView = ptr_new<PVirtualKeyboardView>(numerical);
         m_KeyboardView->PreferredSizeChanged();
 
-        keyboardFrame = m_ClientsView->GetBounds();
+        keyboardFrame = m_TopView->GetBounds();
         keyboardFrame.top = keyboardFrame.bottom;
         keyboardFrame.bottom = keyboardFrame.top + m_KeyboardView->GetPreferredSize(PPrefSizeType::Smallest).y;
         m_KeyboardView->SetFrame(keyboardFrame);
@@ -182,7 +182,7 @@ void WindowManager::SlotEnableVKeyboard(const PRect& focusViewEditArea, bool num
         keyboardFrame.bottom = keyboardFrame.top + m_KeyboardView->GetPreferredSize(PPrefSizeType::Smallest).y;
     }
 
-    const PRect screenFrame = m_ClientsView->GetBounds();
+    const PRect screenFrame = m_TopView->GetBounds();
     const float finalKeyboardTop = screenFrame.bottom - keyboardFrame.Height();
 
     const float currentScrollOffset = m_TopView->GetScrollOffset().y;
@@ -214,7 +214,7 @@ void WindowManager::SlotDisableVKeyboard()
     m_IsKeyboardActive = false;
     if (m_KeyboardView != nullptr)
     {
-        const PRect screenFrame   = m_ClientsView->GetBounds();
+        const PRect screenFrame   = m_TopView->GetBounds();
         const PRect keyboardFrame = m_KeyboardView->GetFrame();
 
         const float finalKeyboardTop = screenFrame.bottom;

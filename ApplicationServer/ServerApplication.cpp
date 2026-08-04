@@ -381,6 +381,7 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
         
     MsgCreateViewReply reply;
     reply.m_ViewHandle = view->GetHandle();
+    reply.m_ScreenPosition = view->m_ScreenPos;
     const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, PAppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));

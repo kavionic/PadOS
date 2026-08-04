@@ -55,11 +55,10 @@ public:
     );
 
     virtual ~PServerView();
-    void        SetClientHandle(handler_id handle, ServerApplication* ownerApplication) { m_ClientHandle = handle; m_OwnerApplication = ownerApplication; }
+    void        SetClientHandle(handler_id handle, ServerApplication* ownerApplication);
     port_id     GetClientPort() const;
     handler_id  GetClientHandle() const { return m_ClientHandle; }
     ServerApplication* GetOwnerApplication() const { return m_OwnerApplication; }
-    Ptr<PServerView> GetOwnerRootView();
 
     PViewDockType   GetDockType() const { return m_DockType; }
 
@@ -157,6 +156,8 @@ public:
 private:
     friend class PViewBase<PServerView>;
 
+    void UpdateClientRootState();
+    void NotifyScreenPositionChanged();
     void UpdateScreenPos();
     void DebugDrawRect(const PIRect& frame, PColor color);
     void FillPolygon(std::span<const PPoint> points, PColor fillColor);
@@ -270,6 +271,7 @@ private:
     
     bool    m_HasInvalidRegs = true; // True if something made our clipping region invalid
     bool    m_IsUpdating = false;    // True while we paint areas from the damage list
+    bool    m_IsClientRoot = false;
     bool    m_IsWindowManagerControlled = false;
 
     PTriangleMode       m_TriangleMode = PTriangleMode::Fan;

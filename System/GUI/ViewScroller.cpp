@@ -96,6 +96,31 @@ void ViewScrollerSignalTarget::EndSwipe()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PPoint ViewScrollerSignalTarget::ScrollBy(const PPoint& offset)
+{
+    PPoint consumedOffset;
+    Ptr<PView> view = m_ScrolledView.Lock();
+    if (view != nullptr)
+    {
+        const PPoint previousOffset = view->GetScrollOffset();
+        const PRect scrollBounds = m_InertialScroller.GetScrollBounds();
+        PPoint targetOffset = previousOffset + offset;
+
+        targetOffset.x = std::clamp(targetOffset.x, scrollBounds.left, scrollBounds.right);
+        targetOffset.y = std::clamp(targetOffset.y, scrollBounds.top, scrollBounds.bottom);
+        targetOffset.Round();
+
+        m_InertialScroller.ScrollTo(targetOffset, PPoint());
+        view->ScrollTo(targetOffset);
+        consumedOffset = view->GetScrollOffset() - previousOffset;
+    }
+    return consumedOffset;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ViewScrollerSignalTarget::SlotInertialScrollUpdate(const PPoint& position)
 {
     Ptr<PView> view = m_ScrolledView.Lock();

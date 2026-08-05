@@ -632,8 +632,9 @@ void PView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PP
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::OnPointerWheel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+PPoint PView::OnPointerWheel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
 {
+    return pointerEvent.WheelDelta;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2116,20 +2117,22 @@ void PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, const Pointe
         return;
     }
 
+    PPointerEvent dispatchedEvent = pointerEvent;
+
     for (size_t index = path.size(); index > 1; --index)
     {
         Ptr<PView> view = path[index - 1];
-        view->DispatchPointerEventPhase(pointerEvent, PEventPhase::Capture);
+        view->DispatchPointerEventPhase(dispatchedEvent, PEventPhase::Capture);
     }
 
-    path.front()->DispatchPointerEventPhase(pointerEvent, PEventPhase::Target);
+    path.front()->DispatchPointerEventPhase(dispatchedEvent, PEventPhase::Target);
 
     if (bubbles)
     {
         for (size_t index = 1; index < path.size(); ++index)
         {
             Ptr<PView> view = path[index];
-            view->DispatchPointerEventPhase(pointerEvent, PEventPhase::Bubble);
+            view->DispatchPointerEventPhase(dispatchedEvent, PEventPhase::Bubble);
         }
     }
 }
@@ -2138,14 +2141,13 @@ void PView::DispatchPointerEvent(const PPointerEvent& pointerEvent, const Pointe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventPhase phase)
+void PView::DispatchPointerEventPhase(PPointerEvent& pointerEvent, PEventPhase phase)
 {
     if (!IsEventPhaseEnabled(phase)) {
         return;
     }
 
-    PPointerEvent viewPointerEvent = pointerEvent;
-    viewPointerEvent.ViewPosition = ConvertFromScreen(pointerEvent.ScreenPosition);
+    pointerEvent.ViewPosition = ConvertFromScreen(pointerEvent.ScreenPosition);
 
     switch (pointerEvent.EventType)
     {
@@ -2153,47 +2155,47 @@ void PView::DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventP
             break;
 
         case PPointerEventType::Down:
-            DispatchPointerDown(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerDown(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Up:
-            DispatchPointerUp(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerUp(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Move:
-            DispatchPointerMove(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerMove(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Wheel:
-            DispatchPointerWheel(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerWheel(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Cancel:
-            DispatchPointerCancel(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerCancel(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::LongPress:
-            DispatchPointerLongPress(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerLongPress(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Tap:
-            DispatchPointerTap(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerTap(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Enter:
-            DispatchPointerEnter(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerEnter(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Leave:
-            DispatchPointerLeave(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerLeave(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Over:
-            DispatchPointerOver(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerOver(pointerEvent.PointerID, pointerEvent, phase);
             break;
 
         case PPointerEventType::Out:
-            DispatchPointerOut(pointerEvent.PointerID, viewPointerEvent, phase);
+            DispatchPointerOut(pointerEvent.PointerID, pointerEvent, phase);
             break;
     }
 }
@@ -2241,12 +2243,12 @@ void PView::DispatchPointerMove(PPointerID pointerID, const PPointerEvent& point
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::DispatchPointerWheel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+void PView::DispatchPointerWheel(PPointerID pointerID, PPointerEvent& pointerEvent, PEventPhase phase)
 {
     if (VFPointerWheel.Empty()) {
-        OnPointerWheel(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+        pointerEvent.WheelDelta = OnPointerWheel(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     } else {
-        VFPointerWheel(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+        pointerEvent.WheelDelta = VFPointerWheel(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     }
 }
 

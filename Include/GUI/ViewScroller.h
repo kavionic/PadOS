@@ -41,6 +41,7 @@ public:
     void BeginSwipe(const PPoint& position);
     void SwipeMove(const PPoint& position);
     void EndSwipe();
+    PPoint ScrollBy(const PPoint& offset);
 
 private:
     friend class ::PViewScroller;
@@ -83,6 +84,9 @@ public:
 
     virtual Ptr<PView>   SetScrolledView(Ptr<PView> view) { return m_Handler.SetScrolledView(view); }
     Ptr<PView>           GetScrolledView() const           { return m_Handler.GetScrolledView(); }
+
+protected:
+    PPoint ScrollScrolledViewBy(const PPoint& offset) { return m_Handler.ScrollBy(offset); }
 
 private:
     osi::ViewScrollerSignalTarget  m_Handler;

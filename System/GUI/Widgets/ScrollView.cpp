@@ -23,6 +23,8 @@
 
 #include <cmath>
 
+static constexpr float SCROLL_VIEW_WHEEL_SCROLL_STEP = 32.0f;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -31,6 +33,7 @@
 PScrollView::PScrollView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
     EnableEventPhase(PEventPhase::Capture, true);
+    EnableEventPhase(PEventPhase::Bubble, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,6 +44,7 @@ PScrollView::PScrollView(PViewFactoryContext& context, Ptr<PView> parent, const 
 {
     MergeFlags(PViewFlags::WillDraw);
     EnableEventPhase(PEventPhase::Capture, true);
+    EnableEventPhase(PEventPhase::Bubble, true);
 
     for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
     {
@@ -144,6 +148,38 @@ void PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, co
         return;
     }
     SwipeMove(position);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPoint PScrollView::OnPointerWheel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Capture) {
+        return event.WheelDelta;
+    }
+
+    PPoint scrollDelta;
+    if (CanScrollHorizontally()) {
+        scrollDelta.x = event.WheelDelta.x * SCROLL_VIEW_WHEEL_SCROLL_STEP;
+    }
+    if (CanScrollVertically()) {
+        scrollDelta.y = event.WheelDelta.y * SCROLL_VIEW_WHEEL_SCROLL_STEP;
+    }
+    if (scrollDelta.x == 0.0f && scrollDelta.y == 0.0f) {
+        return event.WheelDelta;
+    }
+
+    const PPoint consumedScrollDelta = ScrollScrolledViewBy(scrollDelta);
+    PPoint remainingWheelDelta = event.WheelDelta;
+    if (scrollDelta.x != 0.0f) {
+        remainingWheelDelta.x -= consumedScrollDelta.x / SCROLL_VIEW_WHEEL_SCROLL_STEP;
+    }
+    if (scrollDelta.y != 0.0f) {
+        remainingWheelDelta.y -= consumedScrollDelta.y / SCROLL_VIEW_WHEEL_SCROLL_STEP;
+    }
+    return remainingWheelDelta;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -34,6 +34,7 @@ public:
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual PPoint  OnPointerWheel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 

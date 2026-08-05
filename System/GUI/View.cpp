@@ -632,6 +632,14 @@ void PView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PP
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PView::OnPointerWheel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
 {
 }
@@ -1333,6 +1341,7 @@ void PView::HandlePointerEvent(const PPointerEvent& pointerEvent)
 
         case PPointerEventType::Up:
         case PPointerEventType::Move:
+        case PPointerEventType::Wheel:
         case PPointerEventType::Cancel:
         case PPointerEventType::LongPress:
         case PPointerEventType::Tap:
@@ -2155,6 +2164,10 @@ void PView::DispatchPointerEventPhase(const PPointerEvent& pointerEvent, PEventP
             DispatchPointerMove(pointerEvent.PointerID, viewPointerEvent, phase);
             break;
 
+        case PPointerEventType::Wheel:
+            DispatchPointerWheel(pointerEvent.PointerID, viewPointerEvent, phase);
+            break;
+
         case PPointerEventType::Cancel:
             DispatchPointerCancel(pointerEvent.PointerID, viewPointerEvent, phase);
             break;
@@ -2221,6 +2234,19 @@ void PView::DispatchPointerMove(PPointerID pointerID, const PPointerEvent& point
         OnPointerMove(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     } else {
         VFPointerMove(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::DispatchPointerWheel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (VFPointerWheel.Empty()) {
+        OnPointerWheel(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    } else {
+        VFPointerWheel(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     }
 }
 

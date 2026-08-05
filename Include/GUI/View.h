@@ -120,6 +120,7 @@ public:
     virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
     virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
     virtual void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
+    virtual void OnPointerWheel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
     virtual void OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
     virtual void OnPointerLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
     virtual void OnPointerTap(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase);
@@ -323,6 +324,7 @@ public:
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerDown;
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerUp;
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerMove;
+    VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerWheel;
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerCancel;
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerLongPress;
     VFConnector<void (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)> VFPointerTap;
@@ -394,6 +396,7 @@ private:
     void DispatchPointerDown(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerUp(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerMove(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void DispatchPointerWheel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerCancel(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerLongPress(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerTap(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);

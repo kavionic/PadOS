@@ -193,7 +193,8 @@ enum class PPointerEventType
     Enter,
     Leave,
     Over,
-    Out
+    Out,
+    Wheel
 };
 
 struct PPointerEvent
@@ -208,6 +209,7 @@ struct PPointerEvent
     float               Pressure = 0.0f;
     PPoint              ScreenPosition;
     PPoint              ViewPosition;
+    PPoint              WheelDelta;
 };
 
 struct PKeyEvent : PInputEvent

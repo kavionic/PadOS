@@ -1243,6 +1243,9 @@ PPointerEventType ApplicationServer::GetPointerEventType(PInputEventID eventID)
         case PInputEventID::TouchMove:
             return PPointerEventType::Move;
 
+        case PInputEventID::MouseWheel:
+            return PPointerEventType::Wheel;
+
         default:
             return PPointerEventType::Invalid;
     }
@@ -1265,6 +1268,9 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEven
     pointerEvent.Pressure = (mouseEvent.Buttons != PPointerButtonMaskNone) ? 1.0f : 0.0f;
     pointerEvent.ScreenPosition = position;
     pointerEvent.ViewPosition = position;
+    if (mouseEvent.EventID == PInputEventID::MouseWheel) {
+        pointerEvent.WheelDelta = mouseEvent.Position;
+    }
     return pointerEvent;
 }
 
@@ -1381,6 +1387,7 @@ void ApplicationServer::HandlePointerEvent(const PPointerEvent& event)
         case PPointerEventType::Leave:
         case PPointerEventType::Over:
         case PPointerEventType::Out:
+        case PPointerEventType::Wheel:
             break;
     }
     pointerState.LastEvent = event;

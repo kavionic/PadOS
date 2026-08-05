@@ -1,6 +1,7 @@
 target_sources(PadOS_Kernel PRIVATE
 	BME280.h
 	HID.h
+	InputDevice.h
 	RA8875.h
 	I2C.h
 	INA3221.h

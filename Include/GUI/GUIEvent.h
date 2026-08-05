@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -128,7 +128,8 @@ enum class PInputEventType : uint16_t
     InputEvent,
     MouseEvent,
     TouchEvent,
-    KeyEvent
+    KeyEvent,
+    DeviceEvent
 };
 
 enum class PInputClass : uint16_t
@@ -140,15 +141,17 @@ enum class PInputClass : uint16_t
 
 enum class PInputEventID : uint32_t
 {
+    DeviceAdded,
+    DeviceRemoved,
+    KeyDown,
+    KeyUp,
     MouseDown,
     MouseUp,
     MouseMove,
+    MouseWheel,
     TouchDown,
     TouchUp,
-    TouchMove,
-    KeyDown,
-    KeyUp,
-    MouseWheel
+    TouchMove
 };
 
 struct PInputEvent

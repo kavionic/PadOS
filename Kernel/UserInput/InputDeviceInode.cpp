@@ -17,9 +17,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
-#include <string.h>
 #include <fcntl.h>
+#include <limits>
+#include <string.h>
 
+#include <Kernel/KAddressValidation.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/UserInput/InputDeviceInode.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -40,6 +42,70 @@ KInputDeviceInode::KInputDeviceInode(PInputClass classID, size_t maxQueuedEvents
     , m_Mutex("input_device", PEMutexRecursionMode_RaiseError)
     , m_ReadCondition("input_device_read")
 {
+    m_DeviceControlDispatcher.AddHandler(&PInputDeviceControl::GetRegisteredDevices, this, &KInputDeviceInode::GetRegisteredDevices);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::AddSource(int32_t sourceID)
+{
+    const PInputEvent event
+    {
+        .EventSize = sizeof(PInputEvent),
+        .EventType = PInputEventType::DeviceEvent,
+        .ClassID = m_ClassID,
+        .Timestamp = kget_monotonic_time(),
+        .EventID = PInputEventID::DeviceAdded,
+        .SourceID = sourceID
+    };
+    EventBuffer eventBuffer = CreateEventBuffer(event);
+
+    KScopedLock lock(m_Mutex);
+
+    const bool inserted = m_SourceIDs.insert(sourceID).second;
+    if (!inserted) {
+        PERROR_THROW_CODE(PErrorCode::EXIST);
+    }
+
+    const bool wasEmpty = m_EventQueue.empty();
+    QueueEvent_pl(std::move(eventBuffer));
+    if (wasEmpty && !m_EventQueue.empty()) {
+        m_ReadCondition.WakeupAll();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::RemoveSource(int32_t sourceID)
+{
+    const PInputEvent event
+    {
+        .EventSize = sizeof(PInputEvent),
+        .EventType = PInputEventType::DeviceEvent,
+        .ClassID = m_ClassID,
+        .Timestamp = kget_monotonic_time(),
+        .EventID = PInputEventID::DeviceRemoved,
+        .SourceID = sourceID
+    };
+    EventBuffer eventBuffer = CreateEventBuffer(event);
+
+    KScopedLock lock(m_Mutex);
+
+    const auto sourceIterator = m_SourceIDs.find(sourceID);
+    if (sourceIterator != m_SourceIDs.end())
+    {
+        m_SourceIDs.erase(sourceIterator);
+
+        const bool wasEmpty = m_EventQueue.empty();
+        QueueEvent_pl(std::move(eventBuffer));
+        if (wasEmpty && !m_EventQueue.empty()) {
+            m_ReadCondition.WakeupAll();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -150,6 +216,15 @@ void KInputDeviceInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KInputDeviceInode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    m_DeviceControlDispatcher.Dispatch(request, inData, inDataLength, outData, outDataLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool KInputDeviceInode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 {
     kassert(!m_Mutex.IsLocked());
@@ -250,6 +325,34 @@ const PInputEvent& KInputDeviceInode::GetInputEventHeader(const EventBuffer& eve
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t KInputDeviceInode::GetRegisteredDevices(PInputDeviceInfo* devices, size_t maxDeviceCount) const
+{
+    if (maxDeviceCount > std::numeric_limits<size_t>::max() / sizeof(PInputDeviceInfo)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    validate_user_write_pointer_trw(devices, maxDeviceCount * sizeof(PInputDeviceInfo));
+
+    KScopedLock lock(m_Mutex);
+
+    size_t deviceIndex = 0;
+    for (const int32_t sourceID : m_SourceIDs)
+    {
+        if (deviceIndex >= maxDeviceCount) {
+            break;
+        }
+        devices[deviceIndex] = PInputDeviceInfo{
+            .ClassID = m_ClassID,
+            .SourceID = sourceID
+        };
+        ++deviceIndex;
+    }
+    return m_SourceIDs.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 KInputMotionDeviceInode::KInputMotionDeviceInode(PInputClass classID, size_t maxQueuedEvents)
     : KInputDeviceInode(classID, maxQueuedEvents)
 {
@@ -286,6 +389,10 @@ void KInputMotionDeviceInode::QueueEvent_pl(EventBuffer&& event)
 void KInputMotionDeviceInode::ValidateEvent(const PInputEvent& event, size_t availableSize) const
 {
     KInputDeviceInode::ValidateEvent(event, availableSize);
+
+    if (event.EventType == PInputEventType::DeviceEvent) {
+        return;
+    }
 
     switch (m_ClassID)
     {

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/ServerView.h>
 #include <ApplicationServer/Drivers/RA8875GfxDriver.h>
+#include <DeviceControl/InputDevice.h>
 #include <Storage/Directory.h>
 #include <Utils/Utils.h>
 #include <GUI/View.h>
@@ -495,9 +496,9 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
     m_MousePosition = GetScreenFrame().Center();
     s_DisplayDriver->SetMousePos(PIPoint(m_MousePosition));
-    ApplyMouseCursor(ToMouseCursorID(PStandardMouseCursor::Pointer));
 
     OpenInputDevices();
+    UpdateMouseCursor();
     g_AppserverPort = GetPortID();
 }
 
@@ -791,6 +792,40 @@ void ApplicationServer::OpenInputDevices()
         }
 
         m_InputDevices.push_back(InputDevice{deviceName, inputDevice});
+        ReadRegisteredInputDevices(inputDevice, deviceName);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::ReadRegisteredInputDevices(int inputDevice, const PString& deviceName)
+{
+    try
+    {
+        PInputDeviceControl deviceControl(inputDevice);
+        std::vector<PInputDeviceInfo> registeredDevices;
+
+        for (;;)
+        {
+            const size_t registeredDeviceCount = deviceControl.GetRegisteredDevices(registeredDevices.data(), registeredDevices.size());
+            if (registeredDeviceCount <= registeredDevices.size())
+            {
+                registeredDevices.resize(registeredDeviceCount);
+                break;
+            }
+            registeredDevices.resize(registeredDeviceCount);
+        }
+
+        for (const PInputDeviceInfo& device : registeredDevices)
+        {
+            m_RegisteredInputDevices[device.SourceID] = device.ClassID;
+        }
+    }
+    catch (const std::exception& error)
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadRegisteredInputDevices() failed to query {}: {}", deviceName, error.what());
     }
 }
 
@@ -841,6 +876,10 @@ void ApplicationServer::ReadInputEvents(int inputDevice, const PString& deviceNa
 
                 switch (eventHeader->EventType)
                 {
+                    case PInputEventType::DeviceEvent:
+                        HandleInputDeviceEvent(*eventHeader, deviceName);
+                        break;
+
                     case PInputEventType::MouseEvent:
                         if (eventHeader->ClassID != PInputClass::Mouse)
                         {
@@ -920,6 +959,81 @@ void ApplicationServer::ReadInputEvents(int inputDevice, const PString& deviceNa
         {
             break;
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::HandleInputDeviceEvent(const PInputEvent& event, const PString& deviceName)
+{
+    bool deviceListChanged = false;
+
+    if (event.EventID == PInputEventID::DeviceAdded)
+    {
+        const auto [deviceIterator, inserted] = m_RegisteredInputDevices.emplace(event.SourceID, event.ClassID);
+        deviceListChanged = inserted;
+
+        if (!inserted && deviceIterator->second != event.ClassID)
+        {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::HandleInputDeviceEvent() source {} changed class from {} to {} on {}.", event.SourceID, std::to_underlying(deviceIterator->second), std::to_underlying(event.ClassID), deviceName);
+            deviceIterator->second = event.ClassID;
+            deviceListChanged = true;
+        }
+    }
+    else if (event.EventID == PInputEventID::DeviceRemoved)
+    {
+        const auto deviceIterator = m_RegisteredInputDevices.find(event.SourceID);
+        if (deviceIterator != m_RegisteredInputDevices.end())
+        {
+            if (deviceIterator->second != event.ClassID)
+            {
+                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::HandleInputDeviceEvent() source {} removal has class {} instead of {} on {}.", event.SourceID, std::to_underlying(event.ClassID), std::to_underlying(deviceIterator->second), deviceName);
+            }
+            m_RegisteredInputDevices.erase(deviceIterator);
+            deviceListChanged = true;
+        }
+    }
+    else
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::HandleInputDeviceEvent() received invalid device event ID {} from {}.", std::to_underlying(event.EventID), deviceName);
+    }
+
+    if (deviceListChanged)
+    {
+        switch (event.ClassID)
+        {
+            case PInputClass::Keyboard: UpdateVirtualKeyboard();        break;
+            case PInputClass::Mouse:    UpdateMouseCursorVisibility();  break;
+            default: break;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ApplicationServer::HasInputDevice(PInputClass classID) const
+{
+    return std::any_of(
+        m_RegisteredInputDevices.begin(),
+        m_RegisteredInputDevices.end(),
+        [classID](const auto& device) { return device.second == classID; }
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::UpdateVirtualKeyboard()
+{
+    if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView->GetFocusKeyboardMode() != PFocusKeyboardMode::None && !HasInputDevice(PInputClass::Keyboard)) {
+        p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, m_KeyboardFocusView->ConvertToScreen(m_KeyboardFocusView->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
+    } else {
+        p_post_to_window_manager<ASWindowManagerDisableVKeyboard>(INVALID_HANDLE);
     }
 }
 
@@ -1193,14 +1307,16 @@ bool ApplicationServer::ApplyMouseCursor(PMouseCursorID cursorID)
 
     if (!isVisible)
     {
-        s_DisplayDriver->SetMouseCursorVisible(false);
+        m_IsMouseCursorRequestedVisible = false;
+        UpdateMouseCursorVisibility();
         m_CurrentMouseCursorID = cursorID;
         return true;
     }
 
     if (s_DisplayDriver->SetMouseCursorBitmap(cursorBitmap))
     {
-        s_DisplayDriver->SetMouseCursorVisible(true);
+        m_IsMouseCursorRequestedVisible = true;
+        UpdateMouseCursorVisibility();
         m_CurrentMouseCursorID = cursorID;
         return true;
     }
@@ -1220,6 +1336,15 @@ void ApplicationServer::UpdateMouseCursor()
         cursorID = m_MouseCursorStack.back().CursorID;
     }
     ApplyMouseCursor(cursorID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::UpdateMouseCursorVisibility()
+{
+    s_DisplayDriver->SetMouseCursorVisible(m_IsMouseCursorRequestedVisible && HasInputDevice(PInputClass::Mouse));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1653,17 +1778,12 @@ void ApplicationServer::SetKeyboardFocus(Ptr<PServerView> view, bool focus)
     if (focus)
     {
         m_KeyboardFocusView = ptr_raw_pointer_cast(view);
-        if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView->GetFocusKeyboardMode() != PFocusKeyboardMode::None)
-        {
-            p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, view->ConvertToScreen(view->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
-        }
+        UpdateVirtualKeyboard();
     }
-    else
+    else if (view == m_KeyboardFocusView)
     {
-        if (view == m_KeyboardFocusView) {
-            m_KeyboardFocusView = nullptr;
-            p_post_to_window_manager<ASWindowManagerDisableVKeyboard>(INVALID_HANDLE);
-        }
+        m_KeyboardFocusView = nullptr;
+        UpdateVirtualKeyboard();
     }
 }
 
@@ -1682,16 +1802,8 @@ Ptr<PServerView> ApplicationServer::GetKeyboardFocus() const
 
 void ApplicationServer::UpdateViewFocusMode(PServerView* view)
 {
-    if (view == m_KeyboardFocusView)
-    {
-        if (view->GetFocusKeyboardMode() != PFocusKeyboardMode::None)
-        {
-            p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, view->ConvertToScreen(view->GetFrame()), view->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
-        }
-        else
-        {
-            p_post_to_window_manager<ASWindowManagerDisableVKeyboard>(INVALID_HANDLE);
-        }
+    if (view == m_KeyboardFocusView) {
+        UpdateVirtualKeyboard();
     }
 }
 

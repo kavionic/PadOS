@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -118,8 +118,12 @@ private:
     };
 
     void OpenInputDevices();
+    void ReadRegisteredInputDevices(int inputDevice, const PString& deviceName);
     void ReadInputEvents();
     void ReadInputEvents(int inputDevice, const PString& deviceName);
+    void HandleInputDeviceEvent(const PInputEvent& event, const PString& deviceName);
+    bool HasInputDevice(PInputClass classID) const;
+    void UpdateVirtualKeyboard();
     void QueuePointerEvent(const PPointerEvent& event);
     void QueueMouseEvent(const PMouseEvent& event);
     void QueueTouchEvent(const PTouchEvent& event);
@@ -139,6 +143,7 @@ private:
 
     bool ApplyMouseCursor(PMouseCursorID cursorID);
     void UpdateMouseCursor();
+    void UpdateMouseCursorVisibility();
 
     void HandlePointerEvent(const PPointerEvent& event);
     void RoutePointerEvent(PointerRouteState& pointerState, const PPointerEvent& event);
@@ -173,15 +178,17 @@ private:
     Ptr<PServerView> m_TopView;
 
     std::map<PPointerID, PointerRouteState> m_PointerRouteMap;
-    PPointerCaptureID m_NextPointerCaptureID = PFirstPointerCaptureID;
-    bool m_PointerRoutesInvalid = false;
-    PServerView*                 m_KeyboardFocusView = nullptr;
+    PPointerCaptureID                       m_NextPointerCaptureID = PFirstPointerCaptureID;
+    bool                                    m_PointerRoutesInvalid = false;
+    bool                                    m_IsMouseCursorRequestedVisible = false;
+    PServerView*                            m_KeyboardFocusView = nullptr;
 
     std::vector<MouseCursorStackEntry> m_MouseCursorStack;
     PMouseCursorID                     m_CurrentMouseCursorID = PInvalidMouseCursorID;
 
-    PPoint                   m_MousePosition;
-    std::vector<InputDevice> m_InputDevices;
+    PPoint                         m_MousePosition;
+    std::vector<InputDevice>       m_InputDevices;
+    std::map<int32_t, PInputClass> m_RegisteredInputDevices;
 
     ApplicationServer(const ApplicationServer&) = delete;
     ApplicationServer& operator=(const ApplicationServer&) = delete;

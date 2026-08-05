@@ -19,13 +19,16 @@
 #pragma once
 
 #include <deque>
+#include <set>
 #include <vector>
 
+#include <DeviceControl/InputDevice.h>
 #include <GUI/GUIEvent.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KInode.h>
+#include <RPC/RPCDispatcher.h>
 
 
 namespace kernel
@@ -41,11 +44,14 @@ public:
 
     PInputClass GetClassID() const { return m_ClassID; }
 
+    void AddSource(int32_t sourceID);
+    void RemoveSource(int32_t sourceID);
     virtual void AddEvent(const PInputEvent& event);
 
     virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
     virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
+    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
@@ -62,12 +68,16 @@ protected:
 
     PInputClass             m_ClassID;
     size_t                  m_MaxQueuedEvents;
-    KMutex                  m_Mutex;
+    mutable KMutex          m_Mutex;
     KConditionVariable      m_ReadCondition;
     std::deque<EventBuffer> m_EventQueue;
 
 private:
     static const PInputEvent& GetInputEventHeader(const EventBuffer& event);
+    size_t GetRegisteredDevices(PInputDeviceInfo* devices, size_t maxDeviceCount) const;
+
+    std::set<int32_t> m_SourceIDs;
+    PRPCDispatcher    m_DeviceControlDispatcher;
 
     KInputDeviceInode(const KInputDeviceInode&) = delete;
     KInputDeviceInode& operator=(const KInputDeviceInode&) = delete;

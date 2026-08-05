@@ -60,6 +60,9 @@ int32_t KUserInputManager::AddSource(PInputClass classID)
         if (m_SourceNodes.find(sourceID) == m_SourceNodes.end())
         {
             m_SourceNodes[sourceID] = sourceNode;
+            PScopeFail sourceMapCleanup([this, sourceID]() { m_SourceNodes.erase(sourceID); });
+
+            sourceNode->AddSource(sourceID);
             return sourceID;
         }
         if (m_NextSourceID == firstSourceID) {
@@ -75,7 +78,13 @@ int32_t KUserInputManager::AddSource(PInputClass classID)
 void KUserInputManager::RemoveSource(int32_t sourceID)
 {
     KScopedLock lock(m_Mutex);
-    m_SourceNodes.erase(sourceID);
+
+    const auto sourceIterator = m_SourceNodes.find(sourceID);
+    if (sourceIterator != m_SourceNodes.end())
+    {
+        sourceIterator->second->RemoveSource(sourceID);
+        m_SourceNodes.erase(sourceIterator);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

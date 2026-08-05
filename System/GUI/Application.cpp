@@ -58,6 +58,7 @@ PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPo
     RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
     RegisterRemoteSignal(&m_RSViewScreenPositionChanged, &PApplication::HandleViewScreenPositionChanged);
     RegisterRemoteSignal(&m_RSViewFocusChanged, &PApplication::HandleViewFocusChanged);
+    RegisterRemoteSignal(&m_RSHandleKeyboardEvent, &PApplication::HandleKeyboardEvent);
     RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureRequestReply, &PApplication::HandlePointerCaptureRequestReply);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
@@ -872,6 +873,18 @@ void PApplication::HandleViewFocusChanged(handler_id viewHandle, bool hasFocus)
     Ptr<PView> view = FindView(viewHandle);
     if (view != nullptr) {
         SetKeyboardFocus(view, hasFocus, false);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent)
+{
+    Ptr<PView> view = FindView(viewHandle);
+    if (view != nullptr) {
+        view->HandleKeyboardEvent(keyEvent);
     }
 }
 

@@ -462,8 +462,6 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     : PLooper("Appserver", 10, PAPPSERVER_MSG_BUFFER_SIZE)
     , m_ReplyPort("appserver_reply", 100)
 {
-    set_input_event_port(GetPortID());
-
     s_DisplayDriver = displayDriver;
     s_DisplayDriver->Open();
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
@@ -492,7 +490,8 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
     AddHandler(m_TopView);
 
-    RSRegisterApplication.Connect(this, &ApplicationServer::SlotRegisterApplication); 
+    RegisterRemoteSignal(&m_RSRegisterApplication, &ApplicationServer::SlotRegisterApplication);
+    RegisterRemoteSignal(&m_RSVirtualKeyboardEvent, &ApplicationServer::SlotVirtualKeyboardEvent);
 
     m_MousePosition = GetScreenFrame().Center();
     s_DisplayDriver->SetMousePos(PIPoint(m_MousePosition));
@@ -514,32 +513,6 @@ ApplicationServer::~ApplicationServer()
         close(inputDevice.FileDescriptor);
         inputDevice.FileDescriptor = -1;
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
-{
-    switch(code)
-    {
-        case PAppserverProtocol::REGISTER_APPLICATION:
-            RSRegisterApplication.Dispatch(data, length);
-            return true;
-            
-        case int32_t(PMessageID::KEY_DOWN):
-        case int32_t(PMessageID::KEY_UP):
-        {
-            Ptr<PServerView> focusView = GetKeyboardFocus();
-            if (focusView != nullptr)
-            {
-                message_port_send_timeout_ns(focusView->GetClientPort(), focusView->GetClientHandle(), code, data, length, TimeValNanos::FromMilliseconds(500).AsNanoseconds());
-            }
-            return true;
-        }
-    }
-    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -775,6 +748,18 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ApplicationServer::SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent)
+{
+    Ptr<PServerView> focusView = GetKeyboardFocus();
+    if (focusView != nullptr) {
+        focusView->SendKeyboardEvent(keyEvent);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ApplicationServer::OpenInputDevices()
 {
     PDirectory inputDirectory("/dev/input");
@@ -900,12 +885,9 @@ void ApplicationServer::ReadInputEvents(int inputDevice, const PString& deviceNa
                             const PKeyEvent& keyEvent = *reinterpret_cast<const PKeyEvent*>(currentEventData);
                             if (keyEvent.EventID == PInputEventID::KeyDown || keyEvent.EventID == PInputEventID::KeyUp)
                             {
-                                const int32_t messageCode = (keyEvent.EventID == PInputEventID::KeyDown)
-                                    ? int32_t(PMessageID::KEY_DOWN)
-                                    : int32_t(PMessageID::KEY_UP);
                                 Ptr<PServerView> focusView = GetKeyboardFocus();
                                 if (focusView != nullptr) {
-                                    message_port_send_timeout_ns(focusView->GetClientPort(), focusView->GetClientHandle(), messageCode, currentEventData, eventHeader->EventSize, TimeValNanos::FromMilliseconds(500).AsNanoseconds());
+                                    focusView->SendKeyboardEvent(keyEvent);
                                 }
                             }
                             else

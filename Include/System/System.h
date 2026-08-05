@@ -37,6 +37,3 @@ void set_last_error(int error);
 #ifdef __cplusplus
 void set_last_error(PErrorCode error);
 #endif
-
-status_t set_input_event_port(port_id port);
-port_id  get_input_event_port();

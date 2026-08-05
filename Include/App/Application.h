@@ -111,6 +111,7 @@ private:
     void      HandleViewFrameChanged(handler_id viewHandle, const PRect& frame);
     void      HandleViewScreenPositionChanged(handler_id viewHandle, const PPoint& screenPosition);
     void      HandleViewFocusChanged(handler_id viewHandle, bool hasFocus);
+    void      HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent);
     void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
     void      HandlePointerCaptureRequestReply(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent);
     void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
@@ -140,6 +141,7 @@ private:
     ASViewFrameChanged       m_RSViewFrameChanged;
     ASViewScreenPositionChanged m_RSViewScreenPositionChanged;
     ASViewFocusChanged       m_RSViewFocusChanged;
+    ASHandleKeyboardEvent    m_RSHandleKeyboardEvent;
     ASHandlePointerEvent     m_RSHandlePointerEvent;
     ASHandlePointerCaptureRequestReply m_RSHandlePointerCaptureRequestReply;
     ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;

@@ -321,31 +321,6 @@ PView::~PView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::HandleMessage(int32_t code, const void* data, size_t length)
-{
-    switch (PMessageID(code))
-    {
-        case PMessageID::KEY_DOWN:
-        {
-            const PKeyEvent* keyEvent = static_cast<const PKeyEvent*>(data);
-            DispatchKeyDown(keyEvent->m_KeyCode, keyEvent->m_Text, *keyEvent);
-            return true;
-        }
-        case PMessageID::KEY_UP:
-        {
-            const PKeyEvent* keyEvent = static_cast<const PKeyEvent*>(data);
-            DispatchKeyUp(keyEvent->m_KeyCode, keyEvent->m_Text, *keyEvent);
-            return true;
-        }
-        default:
-            return PViewBase<PView>::HandleMessage(code, data, length);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 PApplication* PView::GetApplication() const
 {
     PLooper* const looper = GetLooper();
@@ -2337,6 +2312,27 @@ void PView::DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointe
         OnPointerOut(pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
     } else {
         VFPointerOut(this, pointerID, pointerEvent.ViewPosition, pointerEvent, phase);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::HandleKeyboardEvent(const PKeyEvent& keyEvent)
+{
+    switch (keyEvent.EventID)
+    {
+        case PInputEventID::KeyDown:
+            DispatchKeyDown(keyEvent.m_KeyCode, keyEvent.m_Text, keyEvent);
+            break;
+
+        case PInputEventID::KeyUp:
+            DispatchKeyUp(keyEvent.m_KeyCode, keyEvent.m_Text, keyEvent);
+            break;
+
+        default:
+            break;
     }
 }
 

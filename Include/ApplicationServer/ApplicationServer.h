@@ -46,7 +46,6 @@ public:
     ApplicationServer(Ptr<PDisplayDriver> displayDriver);
     ~ApplicationServer();
 
-    virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
 
     static PRect             GetScreenFrame();
@@ -156,6 +155,7 @@ private:
     PPointerCaptureID AllocatePointerCaptureID();
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
+    void SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent);
 
     static Ptr<PDisplayDriver>   s_DisplayDriver;
     static Ptr<PSrvBitmap>       s_ScreenBitmap;
@@ -167,7 +167,8 @@ private:
 
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 
-    ASRegisterApplication::Receiver RSRegisterApplication;
+    ASRegisterApplication    m_RSRegisterApplication;
+    ASVirtualKeyboardEvent   m_RSVirtualKeyboardEvent;
     
     Ptr<PServerView> m_TopView;
 

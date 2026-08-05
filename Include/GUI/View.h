@@ -73,9 +73,6 @@ public:
     PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, const PRect& frame);
     virtual ~PView();
 
-    // From EventHandler:
-    virtual bool HandleMessage(int32_t code, const void* data, size_t length) override;
-
     PApplication* GetApplication() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
     handler_id   GetParentServerHandle() const;
@@ -404,6 +401,7 @@ private:
     void DispatchPointerLeave(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerOver(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
+    void HandleKeyboardEvent(const PKeyEvent& keyEvent);
     void DispatchKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
     void DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
 

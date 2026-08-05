@@ -64,6 +64,7 @@ namespace PAppserverProtocol
         // Appserver messages:
         MESSAGE_BUNDLE,
         REGISTER_APPLICATION,
+        VIRTUAL_KEYBOARD_EVENT,
         // Application messages:
         SYNC,
         CREATE_VIEW,
@@ -141,7 +142,8 @@ namespace PAppserverProtocol
         HANDLE_POINTER_EVENT,
         HANDLE_POINTER_CAPTURE_REQUEST_REPLY,
         HANDLE_POINTER_CAPTURE_LOST,
-        UPDATE_POINTER_ROOT_VIEW
+        UPDATE_POINTER_ROOT_VIEW,
+        HANDLE_KEYBOARD_EVENT
     };
 }
 
@@ -173,6 +175,7 @@ struct MsgCreateBitmapReply
 };
 
 using ASRegisterApplication = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const PString& name)>;
+using ASVirtualKeyboardEvent = PRemoteSignal<PAppserverProtocol::VIRTUAL_KEYBOARD_EVENT, void(const PKeyEvent& keyEvent)>;
 using ASSync                = PRemoteSignal<PAppserverProtocol::SYNC,                 void(port_id replyPort)>;
 
 using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
@@ -288,6 +291,7 @@ using ASHandlePointerEvent = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_EV
 using ASHandlePointerCaptureRequestReply = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_REQUEST_REPLY, void(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent)>;
 using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
 using ASUpdatePointerRootView = PRemoteSignal<PAppserverProtocol::UPDATE_POINTER_ROOT_VIEW, void(handler_id rootViewHandle, const PPointerEvent& pointerEvent, PPointerRootViewUpdateType updateType)>;
+using ASHandleKeyboardEvent = PRemoteSignal<PAppserverProtocol::HANDLE_KEYBOARD_EVENT, void(handler_id viewHandle, const PKeyEvent& keyEvent)>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
 using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;

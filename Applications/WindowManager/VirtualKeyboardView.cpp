@@ -19,6 +19,7 @@
 
 
 #include <PadOS/Time.h>
+#include <ApplicationServer/Protocol.h>
 #include <GUI/Widgets/TextBox.h>
 #include <GUI/KeyboardView.h>
 
@@ -69,8 +70,16 @@ void PVirtualKeyboardView::SlotKeyPressed(PKeyCodes keyCode, const PString& text
     event.m_KeyCode = keyCode;
     strncpy(event.m_Text, text.c_str(), PKeyEvent::MAX_TEXT_LENGTH);
 
-    message_port_send(get_input_event_port(), INVALID_HANDLE, int32_t(PMessageID::KEY_DOWN), &event, sizeof(event));
+    p_post_to_remotesignal<ASVirtualKeyboardEvent>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::infinit,
+        event);
 
     event.EventID = PInputEventID::KeyUp;
-    message_port_send(get_input_event_port(), INVALID_HANDLE, int32_t(PMessageID::KEY_UP), &event, sizeof(event));
+    p_post_to_remotesignal<ASVirtualKeyboardEvent>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::infinit,
+        event);
 }

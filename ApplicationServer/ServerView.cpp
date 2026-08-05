@@ -494,6 +494,25 @@ bool PServerView::SendPointerEvent(const PPointerEvent& event, PPointerCaptureID
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool PServerView::SendKeyboardEvent(const PKeyEvent& event)
+{
+    if (m_ClientHandle == INVALID_HANDLE) {
+        return false;
+    }
+
+    if (!p_post_to_remotesignal<ASHandleKeyboardEvent>(
+        GetClientPort(), INVALID_HANDLE, TimeValNanos::zero, m_ClientHandle, event))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SendKeyboardEvent() failed to send message: {}", strerror(get_last_error()));
+        return false;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool PServerView::SendPointerRootViewUpdate(const PPointerEvent& event, PPointerRootViewUpdateType updateType)
 {
     if (m_ClientHandle == INVALID_HANDLE) {

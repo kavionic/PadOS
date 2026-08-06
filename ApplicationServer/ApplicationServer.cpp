@@ -1048,14 +1048,34 @@ void ApplicationServer::QueuePointerEvent(const PPointerEvent& event)
     }
 
     const bool isMoveEvent = event.EventType == PPointerEventType::Move;
+    const bool isWheelEvent = event.EventType == PPointerEventType::Wheel;
 
-    if (isMoveEvent && !m_PointerEventQueue.empty())
+    if ((isMoveEvent || isWheelEvent) && !m_PointerEventQueue.empty())
     {
         PPointerEvent& queuedEvent = m_PointerEventQueue.back();
         if (queuedEvent.EventType == event.EventType && queuedEvent.PointerID == event.PointerID)
         {
-            queuedEvent = event;
-            return;
+            if (isMoveEvent)
+            {
+                queuedEvent = event;
+                return;
+            }
+
+            const bool horizontalDirectionMatches =
+                queuedEvent.WheelDelta.x == 0.0f
+                || event.WheelDelta.x == 0.0f
+                || (queuedEvent.WheelDelta.x < 0.0f) == (event.WheelDelta.x < 0.0f);
+            const bool verticalDirectionMatches =
+                queuedEvent.WheelDelta.y == 0.0f
+                || event.WheelDelta.y == 0.0f
+                || (queuedEvent.WheelDelta.y < 0.0f) == (event.WheelDelta.y < 0.0f);
+            if (horizontalDirectionMatches && verticalDirectionMatches)
+            {
+                const PPoint accumulatedWheelDelta = queuedEvent.WheelDelta + event.WheelDelta;
+                queuedEvent = event;
+                queuedEvent.WheelDelta = accumulatedWheelDelta;
+                return;
+            }
         }
     }
     m_PointerEventQueue.push(event);

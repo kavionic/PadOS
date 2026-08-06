@@ -90,6 +90,8 @@ WindowManager::~WindowManager()
 
 bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
+    PApplication::HandleMessage(targetHandler, code, data, length);
+
     switch (code)
     {
     case PAppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW:

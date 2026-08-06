@@ -104,9 +104,27 @@ PApplication::~PApplication()
 
 void PApplication::Idle()
 {
+    DispatchPendingPointerEvents();
     LayoutViews();
     RefreshPointerPaths();
     Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PApplication::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
+{
+    static_cast<void>(data);
+    static_cast<void>(length);
+
+    if (targetHandler != INVALID_HANDLE
+        || (code != ASPaintView::GetID() && code != ASHandlePointerEvent::GetID()))
+    {
+        DispatchPendingPointerEvents();
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -893,6 +911,80 @@ void PApplication::HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& k
 ///////////////////////////////////////////////////////////////////////////////
 
 void PApplication::HandlePointerEvent(
+    handler_id viewHandle,
+    const PPointerEvent& pointerEvent,
+    PPointerCaptureID captureID)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    const bool isMoveEvent = pointerEvent.EventType == PPointerEventType::Move;
+    const bool isWheelEvent = pointerEvent.EventType == PPointerEventType::Wheel;
+    
+    if ((isMoveEvent || isWheelEvent) && !m_PendingPointerEvents.empty())
+    {
+        PendingPointerEvent& pendingEvent = m_PendingPointerEvents.back();
+    
+        if (pendingEvent.ViewHandle == viewHandle
+            && pendingEvent.CaptureID == captureID
+            && pendingEvent.Event.PointerID     == pointerEvent.PointerID
+            && pendingEvent.Event.EventType     == pointerEvent.EventType
+            && pendingEvent.Event.ToolType      == pointerEvent.ToolType
+            && pendingEvent.Event.SupportsHover == pointerEvent.SupportsHover
+            && pendingEvent.Event.Button        == pointerEvent.Button
+            && pendingEvent.Event.Buttons       == pointerEvent.Buttons)
+        {
+            if (isMoveEvent)
+            {
+                pendingEvent.Event = pointerEvent;
+                return;
+            }
+
+            const bool horizontalDirectionMatches =
+                pendingEvent.Event.WheelDelta.x == 0.0f || pointerEvent.WheelDelta.x == 0.0f
+                || (pendingEvent.Event.WheelDelta.x < 0.0f) == (pointerEvent.WheelDelta.x < 0.0f);
+            
+            const bool verticalDirectionMatches =
+                pendingEvent.Event.WheelDelta.y == 0.0f || pointerEvent.WheelDelta.y == 0.0f
+                || (pendingEvent.Event.WheelDelta.y < 0.0f) == (pointerEvent.WheelDelta.y < 0.0f);
+
+            if (horizontalDirectionMatches && verticalDirectionMatches)
+            {
+                const PPoint accumulatedWheelDelta = pendingEvent.Event.WheelDelta + pointerEvent.WheelDelta;
+                pendingEvent.Event = pointerEvent;
+                pendingEvent.Event.WheelDelta = accumulatedWheelDelta;
+                return;
+            }
+        }
+    }
+
+    m_PendingPointerEvents.push_back(PendingPointerEvent
+        {
+            .ViewHandle = viewHandle,
+            .Event = pointerEvent,
+            .CaptureID = captureID
+        }
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::DispatchPendingPointerEvents()
+{
+    while (!m_PendingPointerEvents.empty())
+    {
+        const PendingPointerEvent pendingEvent = m_PendingPointerEvents.front();
+        m_PendingPointerEvents.pop_front();
+        DispatchPointerEvent(pendingEvent.ViewHandle, pendingEvent.Event, pendingEvent.CaptureID);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::DispatchPointerEvent(
     handler_id viewHandle,
     const PPointerEvent& pointerEvent,
     PPointerCaptureID captureID)

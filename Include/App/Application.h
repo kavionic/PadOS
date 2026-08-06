@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <deque>
 #include <set>
 #include <vector>
 
@@ -42,6 +43,7 @@ public:
     static PApplication* GetCurrentApplication() { return dynamic_cast<PApplication*>(GetCurrentThread()); }
 
     virtual void Idle() override;
+    virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     static PIRect    GetScreenIFrame();
     static PRect     GetScreenFrame() { return PRect(GetScreenIFrame()); }
     
@@ -87,6 +89,13 @@ private:
         std::vector<Ptr<PView>>  EffectivePath;              // Capture override or hit-test target through its ancestors.
         PointerCaptureState      Capture;                    // Optional target override.
     };
+
+    struct PendingPointerEvent
+    {
+        handler_id          ViewHandle;
+        PPointerEvent       Event;
+        PPointerCaptureID   CaptureID;
+    };
     
     void DetachView(Ptr<PView> view, bool detachChildren);
     void RemoveViewFromPointerState(Ptr<PView> view);
@@ -113,6 +122,8 @@ private:
     void      HandleViewFocusChanged(handler_id viewHandle, bool hasFocus);
     void      HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent);
     void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
+    void      DispatchPendingPointerEvents();
+    void      DispatchPointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
     void      HandlePointerCaptureRequestReply(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent);
     void      HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
     void      HandlePointerRootViewUpdate(handler_id rootViewHandle, const PPointerEvent& pointerEvent, PPointerRootViewUpdateType updateType);
@@ -134,6 +145,7 @@ private:
     int32_t m_UsedSendBufferSize = 0;
 
     std::map<PPointerID, PointerState> m_PointerStateMap;
+    std::deque<PendingPointerEvent> m_PendingPointerEvents;
     PView*                   m_KeyboardFocusView = nullptr;
     bool                     m_PointerPathsInvalid = false;
 

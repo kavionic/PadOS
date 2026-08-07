@@ -658,15 +658,9 @@ void PApplication::ClearLocalPointerCapture(
 
 void PApplication::RefreshPointerPathAfterCaptureChange(PointerState& pointerState)
 {
-    if (pointerState.LastEvent.SupportsHover && pointerState.DeliveryRootView != nullptr)
-    {
+    if ((pointerState.LastEvent.SupportsHover && pointerState.DeliveryRootView != nullptr)
+        || (!pointerState.LastEvent.SupportsHover && pointerState.Capture.View != nullptr)) {
         UpdateEffectivePointerPath(pointerState.DeliveryRootView, pointerState.LastEvent);
-    }
-    else if (!pointerState.LastEvent.SupportsHover && pointerState.Capture.View != nullptr)
-    {
-        PView::PointerEventPath capturePath;
-        pointerState.Capture.View->BuildPointerEventPath(capturePath);
-        pointerState.EffectivePath = std::move(capturePath);
     }
 }
 
@@ -1127,15 +1121,7 @@ void PApplication::HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptur
     }
 
     const PPointerEvent pointerEvent = iterator->second.LastEvent;
-    if (pointerEvent.SupportsHover)
-    {
-        ClearEffectivePointerPath(pointerID, pointerEvent);
-    }
-    else
-    {
-        iterator->second.DeliveryRootView = nullptr;
-        iterator->second.EffectivePath.clear();
-    }
+    ClearEffectivePointerPath(pointerID, pointerEvent);
 
     iterator = m_PointerStateMap.find(pointerID);
     if (iterator != m_PointerStateMap.end()) {

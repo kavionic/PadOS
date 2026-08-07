@@ -295,7 +295,10 @@ static _Unwind_Reason_Code force_unwind_stop(
 {
     if (actions & _UA_END_OF_STACK)
     {
-        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Thread terminated by cancellation.");
+        ThreadInfo threadInfo;
+        get_thread_info(get_thread_id(), &threadInfo);
+
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Thread '{}({})' terminated by cancellation.", threadInfo.ThreadName, threadInfo.ThreadID);
         _Unwind_DeleteException(exc_obj);
         thread_exit((void*)-1);
     }

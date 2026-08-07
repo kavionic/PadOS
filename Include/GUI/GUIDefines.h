@@ -130,6 +130,7 @@ enum class PStandardColorID : int32_t
     WindowBorderActive,
     WindowBorderInactive,
     ButtonBackground,
+    ButtonBackgroundHover,
     ButtonLabelNormal,
     ButtonLabelDisabled,
     MenuText,

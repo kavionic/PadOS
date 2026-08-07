@@ -38,6 +38,8 @@ public:
     virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase) override;
+    virtual void OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase) override;
     virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
 
     void SetCheckable(bool value) { m_CanBeCheked = value; }
@@ -61,17 +63,20 @@ public:
 protected:
     void SetPressedState(bool isPressed);
     bool GetPressedState() const { return m_IsPressed; }
+    bool IsPointerOver() const { return m_IsPointerOver; }
 
 
 private:
     friend class PButtonGroup;
 
+    void ActivateCheckableButton();
     void SetButtonGroup(Ptr<PButtonGroup> group);
     PPointerID           m_HitPointerID = PInvalidPointerID;
     Ptr<PButtonGroup>        m_ButtonGroup;
     bool                    m_CanBeCheked = false;
     bool                    m_IsPressed = false;
     bool                    m_IsChecked = false;
+    bool                    m_IsPointerOver = false;
 
 
     PButtonBase(const PButtonBase&) = delete;

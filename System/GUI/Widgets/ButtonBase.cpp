@@ -98,14 +98,11 @@ void PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, co
     {
         m_HitPointerID = pointerID;
         SetPressedState(true);
-        p_beep(PBeepLength::Short);
-        if (m_CanBeCheked)
-        {
-            if (m_ButtonGroup != nullptr) {
-                m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
-            } else {
-                SetChecked(!m_IsChecked);
-            }
+        if (event.ToolType != PMotionToolType::Mouse) {
+            p_beep(PBeepLength::Short);
+        }
+        if (m_CanBeCheked && event.ToolType == PMotionToolType::Mouse) {
+            ActivateCheckableButton();
         }
     }
 }
@@ -127,6 +124,8 @@ void PButtonBase::OnPointerUp(PPointerID pointerID, const PPoint& position, cons
             SetPressedState(false);
             if (!m_CanBeCheked) {
                 SignalActivated(pointerID, this);
+            } else if (event.ToolType != PMotionToolType::Mouse) {
+                ActivateCheckableButton();
             }
         }
     }
@@ -142,6 +141,36 @@ void PButtonBase::OnPointerMove(PPointerID pointerID, const PPoint& position, co
     {
         //        printf("Button: Mouse move %d, %.1f/%.1f\n", int(pointerID), position.x, position.y);
         SetPressedState(GetBounds().DoIntersect(position));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target)
+    {
+        m_IsPointerOver = true;
+        if (IsEnabled()) {
+            Invalidate();
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target)
+    {
+        m_IsPointerOver = false;
+        if (IsEnabled()) {
+            Invalidate();
+        }
     }
 }
 
@@ -210,6 +239,19 @@ void PButtonBase::OnEnableStatusChanged(bool isEnabled)
 Ptr<PButtonGroup> PButtonBase::GetButtonGroup() const
 {
     return m_ButtonGroup;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::ActivateCheckableButton()
+{
+    if (m_ButtonGroup != nullptr) {
+        m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
+    } else {
+        SetChecked(!m_IsChecked);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

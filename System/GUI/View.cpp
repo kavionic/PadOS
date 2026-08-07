@@ -58,6 +58,7 @@ static PColor g_DefaultColors[] =
     [int(PStandardColorID::WindowBorderActive)]      = PColor(PNamedColors::steelblue),
     [int(PStandardColorID::WindowBorderInactive)]    = PColor(PNamedColors::slategray),
     [int(PStandardColorID::ButtonBackground)]        = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::ButtonBackgroundHover)]   = PColor(PNamedColors::lightgray),
     [int(PStandardColorID::ButtonLabelNormal)]       = PColor(PNamedColors::black),
     [int(PStandardColorID::ButtonLabelDisabled)]     = PColor(PNamedColors::gray),
     [int(PStandardColorID::MenuText)]                = PColor(PNamedColors::black),

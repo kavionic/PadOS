@@ -103,6 +103,7 @@ void PRadioButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool
 
 void PRadioButton::OnPaint(const PRect& updateRect)
 {
+    const PStandardColorID buttonBackgroundColor = (IsEnabled() && IsPointerOver()) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::DefaultBackground;
     PRect bounds = GetBounds();
     PRect buttonFrame = bounds;
     SetFgColor(PStandardColorID::DefaultBackground);
@@ -150,7 +151,7 @@ void PRadioButton::OnPaint(const PRect& updateRect)
     radius -= 1.0f;
     FillCircle(center, radius);
 
-    SetFgColor(PStandardColorID::DefaultBackground);
+    SetFgColor(buttonBackgroundColor);
 	radius -= 3.0f;
 	FillCircle(center, radius);
 

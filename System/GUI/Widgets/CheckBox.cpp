@@ -91,6 +91,7 @@ void PCheckBox::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
 
 void PCheckBox::OnPaint(const PRect& cUpdateRect)
 {
+    const PStandardColorID buttonBackgroundColor = (IsEnabled() && IsPointerOver()) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::DefaultBackground;
     PRect bounds = GetBounds();
 
     SetFgColor(PStandardColorID::DefaultBackground);
@@ -107,7 +108,7 @@ void PCheckBox::OnPaint(const PRect& cUpdateRect)
         DrawString(label);
     }
 
-    SetEraseColor(PStandardColorID::DefaultBackground);
+    SetEraseColor(buttonBackgroundColor);
 
     PRect buttonFrame(0, 0, CB_SIZE, CB_SIZE);
 
@@ -115,7 +116,7 @@ void PCheckBox::OnPaint(const PRect& cUpdateRect)
     buttonFrame.top += delta;
     buttonFrame.bottom += delta;
 
-    DrawFrame(buttonFrame, FRAME_RECESSED | FRAME_TRANSPARENT);
+    DrawFrame(buttonFrame, FRAME_RECESSED);
 
     if (IsChecked())
     {

@@ -68,8 +68,9 @@ void PButton::OnPaint(const PRect& updateRect)
 {
     const bool isPressed = GetPressedState();
     const bool isEnabled = IsEnabled();
+    const PStandardColorID backgroundColor = (isEnabled && IsPointerOver()) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::ButtonBackground;
     PRect bounds = GetBounds();
-    SetEraseColor(PStandardColorID::ButtonBackground);
+    SetEraseColor(backgroundColor);
 
     if (isEnabled) {
         DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
@@ -84,7 +85,7 @@ void PButton::OnPaint(const PRect& updateRect)
 
     MovePenTo(labelPos);
     SetFgColor(IsEnabled() ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
-    SetBgColor(PStandardColorID::ButtonBackground);
+    SetBgColor(backgroundColor);
     DrawString(GetLabel());
 }
 

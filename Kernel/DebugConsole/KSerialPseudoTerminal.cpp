@@ -215,18 +215,30 @@ void KSerialPseudoTerminal::SendToSerial(const char* text, size_t length)
 
 void KSerialPseudoTerminal::ProcessSerialInput(const char* buffer, size_t length)
 {
-    SendToSlave(buffer, length);
-
     for (size_t i = 0; i < length; ++i)
     {
         const PANSI_ControlCode controlChar = m_ANSICodeParser.ProcessCharacter(buffer[i]);
-        if (controlChar != PANSI_ControlCode::None)
-        {
-            if (controlChar != PANSI_ControlCode::Pending) {
-                ProcessControlChar(controlChar, m_ANSICodeParser.GetArguments());
-            }
+
+        m_PendingSerialInput.push_back(buffer[i]);
+
+        if (controlChar == PANSI_ControlCode::Pending) {
             continue;
         }
+
+        const std::vector<int>& arguments = m_ANSICodeParser.GetArguments();
+        const bool isTerminalSizeReport =
+            controlChar == PANSI_ControlCode::XTerm_XTWINOPS &&
+            arguments.size() >= 3 &&
+            arguments[0] == 8;
+
+        if (controlChar != PANSI_ControlCode::None) {
+            ProcessControlChar(controlChar, arguments);
+        }
+        if (!isTerminalSizeReport) {
+            SendToSlave(m_PendingSerialInput);
+        }
+
+        m_PendingSerialInput.clear();
     }
 }
 

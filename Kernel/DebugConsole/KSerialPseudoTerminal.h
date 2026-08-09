@@ -74,6 +74,7 @@ private:
     std::atomic<uint16_t> m_PendingPixelWidth{0};
     std::atomic<uint16_t> m_PendingPixelHeight{0};
 
+    PString               m_PendingSerialInput;
     PANSIEscapeCodeParser m_ANSICodeParser;
     PIPoint               m_TerminalSize = PIPoint(80, 24);
 };

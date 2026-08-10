@@ -17,6 +17,7 @@ target_sources(PadOS_System PRIVATE
 	POSIXTokenizer.h
 	RelocMemSection.h
 	String.h
+	TerminalLineEditor.h
 	TypeTraits.h
 	UTF8Utils.h
 	Utils.h

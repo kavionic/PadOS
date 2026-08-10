@@ -9,6 +9,7 @@ target_sources(PadOS_System PRIVATE
 	MessagePort.cpp
 	POSIXTokenizer.cpp
 	String.cpp
+	TerminalLineEditor.cpp
 	Utils.cpp
 	XMLFactory.cpp
 	XMLObjectParser.cpp

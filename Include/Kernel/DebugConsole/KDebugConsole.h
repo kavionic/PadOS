@@ -19,138 +19,80 @@
 
 #pragma once
 
-#include <Math/point.h>
-#include <Utils/ANSIEscapeCodeParser.h>
-
-#include <Kernel/KThread.h>
-#include <Kernel/KSemaphore.h>
 #include <Kernel/DebugConsole/KConsoleCommand.h>
+#include <Kernel/KSemaphore.h>
+#include <Kernel/KThread.h>
+#include <Utils/TerminalLineEditor.h>
 
 class PPOSIXTokenizer;
 
 namespace kernel
 {
 
-class KDebugConsole : public KThread
+class KDebugConsole : public KThread, public SignalTarget
 {
 public:
-    KDebugConsole(int ptyFD, bool allowTermination);
-
-    void Setup();
-
-    virtual void* Run() override;
-
     struct JobEntry
     {
         pid_t   PID = -1;
         PString CommandLine;
-        bool    Stopped = false;  // true = stopped, false = running in background
+        bool    Stopped = false;
     };
+
+    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands();
+    static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { GetCommands()[name] = std::move(commandCreator); }
+
+    KDebugConsole(int ptyFD, bool allowTermination);
+
+    void Setup();
+    void Terminate(int exitCode);
+    int  GetLastExitCode() const { return m_LastExitCode; }
+
+    virtual void* Run() override;
 
     int GetStdInFD() const  { return m_StdInFD; }
     int GetStdOutFD() const { return m_StdOutFD; }
     int GetStdErrFD() const { return m_StdErrFD; }
 
+    void SendText(const char* text, size_t length);
+    void SendText(const PString& text) { SendText(text.c_str(), text.size()); }
+    void SendNewline() { SendText("\n", 1); }
+
     const std::map<int, JobEntry>& GetJobs() const { return m_Jobs; }
 
     int  AddJob(pid_t pid, bool isStopped, const PString& commandLine);
     void RemoveJob(int jobNum);
-    int  FindJob(pid_t pid); // Returns job number, or -1 if not found.
+    int  FindJob(pid_t pid);
     const JobEntry& GetJobInfo(int jobNum) const;
     void SetJobStopped(int jobNum, bool stopped);
 
     void WaitForForegroundProcess(pid_t pid, const PString& commandLine);
     void CheckBackgroundJobs();
 
-    void AddInputText(const char* text, size_t length);
-    void EnterPressed();
-
-    void SendText(const char* text, size_t length);
-    void SendText(const PString& text) { SendText(text.c_str(), text.size()); }
-    void SendNewline() { SendText("\n", 1); }
-
-    template<typename... TArgTypes>
-    void SendANSICode(PANSI_ControlCode code, TArgTypes ...args)
-    {
-        SendText(m_ANSICodeParser.FormatANSICode(code, std::forward<TArgTypes>(args)...));
-    }
-    
-    void ShowTerminalCursor(bool show);
-
-    PIPoint GetScreenPosition(size_t cursorPosition) const;
-    void    MoveScreenCursor(const PIPoint& startPos, const PIPoint& endPos);
-
-    void MoveCursor(int distance);
-    void MoveToHome() { MoveCursor(-m_CursorPosition); }
-    void MoveToEnd() { MoveCursor(m_EditBuffer.size() - m_CursorPosition); }
-
-    void MoveInHistory(int distance);
-    void MoveToHistoryStart() { MoveInHistory(-m_HistoryLocation); }
-    void MoveToHistoryEnd() { MoveInHistory(m_HistoryBuffers.size() - m_HistoryLocation); }
-
-    void DeleteChar();
-    void BackspaceChar();
-
-    void RefreshText(size_t startPosition);
-    void ResetInput();
-
-    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands();
-
-    static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { GetCommands()[name] = std::move(commandCreator); }
-
-    bool SetPrompt(const PString& text, size_t visibleLength);
+private:
+    void HandleLineSubmitted(const PString& line);
+    void HandleDisconnect();
+    PTerminalLineEditor::CompletionResult GetExpansionList(const PTerminalLineEditor::CompletionContext& context);
 
     void UpdateCmdPrompt();
-    void UpdatePrompt(bool editMode);
 
-    void Terminate(int exitCode);
-    int GetLastExitCode() const { return m_LastExitCode; }
-private:
-    static size_t GetCommonStartLength(const std::vector<PString>& alternatives);
-
-    void PrintPendingExpansionAlternatives();
-
-    void                    ExpandArgument();
-    std::vector<PString>    ExpandCommandName(size_t argumentIndex, const PString& argumentText, size_t argumentOffset, size_t& outReplaceStart, size_t& outReplaceEnd);
-    std::vector<PString>    ExpandFilePath(size_t argumentIndex, const PString& argumentText, size_t argumentOffset, size_t& outReplaceStart, size_t& outReplaceEnd);
+    PTerminalLineEditor::CompletionResult ExpandCommandName(const PTerminalLineEditor::CompletionContext& context);
+    PTerminalLineEditor::CompletionResult ExpandFilePath(const PTerminalLineEditor::CompletionContext& context);
 
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
-    void ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args);
 
-    void UpdateWindowSize();
-
-    PANSIEscapeCodeParser m_ANSICodeParser;
+    PTerminalLineEditor m_LineEditor;
 
     int m_PTYFD = -1;
     int m_StdInFD = -1;
     int m_StdOutFD = -1;
     int m_StdErrFD = -1;
 
-    PString m_CmdPrompt = "$ ";
-    PString m_EditPrompt = "> ";
-    PString m_Prompt = m_CmdPrompt;
-
-    size_t  m_CmdPromptVisibleLength = m_CmdPrompt.size();
-    size_t  m_EditPromptVisibleLength = m_EditPrompt.size();
-    size_t  m_PromptVisibleLength = m_Prompt.size();
-
-    PIPoint m_TerminalSize = PIPoint(80, 24);
-
-    PString m_InputBuffer;
-    PString m_EditBuffer;
-    std::vector<PString> m_HistoryBuffers;
-
-    size_t  m_HistoryLocation = 0;
-    size_t  m_CursorPosition = 0;
-
-    std::vector<PString> m_PendingExpansionAlternatives;
-
     std::map<int, JobEntry> m_Jobs;
 
-    bool            m_AllowTermination = true;
-    volatile bool   m_ShouldRun = true;
-    int             m_LastExitCode = 0;
-    KSemaphore      m_TerminateSemaphore;
+    volatile bool m_ShouldRun = true;
+    int           m_LastExitCode = 0;
+    KSemaphore    m_TerminateSemaphore;
 };
 
 } // namespace kernel

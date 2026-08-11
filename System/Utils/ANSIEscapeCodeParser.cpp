@@ -91,6 +91,16 @@ PANSI_ControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PANSIEscapeCodeParser::Reset()
+{
+    m_ControlState = EControlState::None;
+    m_CodeArgs.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PString PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode code, std::vector<int> args)
 {
     PString text = "\033[";

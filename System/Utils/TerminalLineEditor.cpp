@@ -27,6 +27,7 @@
 
 #include <Utils/POSIXTokenizer.h>
 #include <Utils/TerminalLineEditor.h>
+#include <Utils/UTF8Utils.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -39,21 +40,130 @@ void PTerminalLineEditor::Initialize(int inputFD, int outputFD)
     m_OutputFD = outputFD;
 
     UpdateTerminalSize();
-
-    m_Prompt = m_PrimaryPrompt;
-    m_PromptVisibleLength = m_PrimaryPromptVisibleLength;
-
-    WriteText(m_Prompt);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PTerminalLineEditor::BeginInput(const PString& initialText)
+{
+    UpdateTerminalSize();
+    ClearInput();
+
+    m_Prompt = m_PrimaryPrompt;
+    m_PromptVisibleLength = m_PrimaryPromptVisibleLength;
+    m_InputActive = true;
+
+    if (m_DisplayMode == DisplayMode::HorizontalScroll)
+    {
+        m_EditBuffer = initialText;
+        m_CursorPosition = m_EditBuffer.size();
+        RenderSingleLine();
+    }
+    else
+    {
+        WriteText(m_Prompt);
+        AddInputText(initialText.c_str(), initialText.size());
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::ResetInput()
+{
+    ClearInput();
+    m_InputActive = false;
+
+    if (m_EchoNewline) {
+        WriteNewline();
+    }
+    RestartInput();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PTerminalLineEditor::AddInput(const char* text, size_t length)
+{
+    if (!m_InputActive || text == nullptr) {
+        return 0;
+    }
+
+    size_t textStart = 0;
+
+    for (size_t characterIndex = 0; characterIndex < length; ++characterIndex)
+    {
+        const uint8_t character = uint8_t(text[characterIndex]);
+
+        if (m_SkipNextLineFeed)
+        {
+            m_SkipNextLineFeed = false;
+            if (character == '\n')
+            {
+                textStart = characterIndex + 1;
+                continue;
+            }
+        }
+
+        PANSI_ControlCode controlCharacter = PANSI_ControlCode::None;
+
+        if (m_BreakCharacter != DISABLED_CONTROL_CHARACTER && int(character) == m_BreakCharacter) {
+            controlCharacter = PANSI_ControlCode::Break;
+        } else if (m_DisconnectCharacter != DISABLED_CONTROL_CHARACTER && int(character) == m_DisconnectCharacter) {
+            controlCharacter = PANSI_ControlCode::Disconnect;
+        } else if (m_CancelCharacter != DISABLED_CONTROL_CHARACTER && int(character) == m_CancelCharacter) {
+            controlCharacter = PANSI_ControlCode::Cancel;
+        } else if (character != 0x03 && character != 0x04) {
+            controlCharacter = m_ANSICodeParser.ProcessCharacter(text[characterIndex]);
+        }
+
+        if (controlCharacter != PANSI_ControlCode::None)
+        {
+            AddInputText(text + textStart, characterIndex - textStart);
+            textStart = characterIndex + 1;
+
+            if (controlCharacter != PANSI_ControlCode::Pending && ProcessControlCharacter(controlCharacter, m_ANSICodeParser.GetArguments())) {
+                return characterIndex + 1;
+            }
+            continue;
+        }
+
+        if (character == '\r' || character == '\n')
+        {
+            AddInputText(text + textStart, characterIndex - textStart);
+            FlushIncompleteUTF8Text();
+            textStart = characterIndex + 1;
+            m_SkipNextLineFeed = character == '\r';
+
+            if (SubmitLine()) {
+                return characterIndex + 1;
+            }
+        }
+    }
+
+    AddInputText(text + textStart, length - textStart);
+    return length;
+}
+
 void PTerminalLineEditor::SetPrimaryPrompt(const PString& text, size_t visibleLength)
 {
+    const bool primaryPromptActive = m_Prompt == m_PrimaryPrompt;
+
     m_PrimaryPrompt = text;
     m_PrimaryPromptVisibleLength = visibleLength;
+
+    if (m_InputActive && primaryPromptActive)
+    {
+        m_Prompt = m_PrimaryPrompt;
+        m_PromptVisibleLength = m_PrimaryPromptVisibleLength;
+        if (m_DisplayMode == DisplayMode::HorizontalScroll) {
+            RenderSingleLine();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,50 +182,45 @@ void PTerminalLineEditor::SetContinuationPrompt(const PString& text, size_t visi
 
 PTerminalLineEditor::ReadResult PTerminalLineEditor::ReadInput()
 {
-    char buffer[32];
+    if (m_InputFD == -1) {
+        return ReadResult::Error;
+    }
 
-    ssize_t length;
-    do {
-        length = read(m_InputFD, buffer, sizeof(buffer));
-    } while (length < 0 && errno == EINTR);
-
-    if (length > 0)
+    if (m_PendingReadText.empty())
     {
-        UpdateTerminalSize();
-        ProcessInput(buffer, size_t(length));
-        return ReadResult::DataRead;
-    }
-    if (length == 0) {
-        return ReadResult::EndOfInput;
-    }
-    return ReadResult::Error;
-}
+        char buffer[32];
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+        ssize_t length;
+        do {
+            length = read(m_InputFD, buffer, sizeof(buffer));
+        } while (length < 0 && errno == EINTR);
 
-void PTerminalLineEditor::ResetInput()
-{
-    m_PendingExpansionAlternatives.clear();
-
-    const PString lineBuffer = m_InputBuffer + m_EditBuffer;
-
-    if (!lineBuffer.empty()) {
-        m_HistoryBuffers.push_back(lineBuffer);
+        if (length > 0) {
+            m_PendingReadText.append(buffer, size_t(length));
+        } else if (length == 0) {
+            return ReadResult::EndOfInput;
+        } else {
+            return ReadResult::Error;
+        }
     }
 
-    m_InputBuffer.clear();
-    m_EditBuffer.clear();
-    m_CursorPosition = 0;
-    m_HistoryLocation = m_HistoryBuffers.size();
+    UpdateTerminalSize();
+    size_t bytesConsumed = 0;
 
-    m_Prompt = m_PrimaryPrompt;
-    m_PromptVisibleLength = m_PrimaryPromptVisibleLength;
+    while (bytesConsumed < m_PendingReadText.size() && m_InputActive)
+    {
+        const size_t consumed = AddInput(
+            m_PendingReadText.data() + bytesConsumed,
+            m_PendingReadText.size() - bytesConsumed);
 
-    WriteNewline();
-    WriteText(m_Prompt);
-    SendANSICode(PANSI_ControlCode::EraseDisplay);
+        if (consumed == 0) {
+            break;
+        }
+        bytesConsumed += consumed;
+    }
+
+    m_PendingReadText.erase(0, bytesConsumed);
+    return ReadResult::DataRead;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,62 +236,86 @@ size_t PTerminalLineEditor::GetCommonStartLength(const std::vector<CompletionCan
         return candidates[0].Text.size();
     }
 
-    for (size_t commonStartLength = 0; ; ++commonStartLength)
+    size_t commonStartLength = 0;
+    for (;;)
     {
+        bool reachedEnd = false;
         for (size_t candidateIndex = 0; candidateIndex < candidates.size(); ++candidateIndex)
         {
             const PString& text = candidates[candidateIndex].Text;
 
-            if (text.size() <= commonStartLength) {
-                return commonStartLength;
-            }
-            if (candidateIndex != 0 && text[commonStartLength] != candidates[0].Text[commonStartLength]) {
-                return commonStartLength;
+            if (text.size() <= commonStartLength ||
+                (candidateIndex != 0 && text[commonStartLength] != candidates[0].Text[commonStartLength]))
+            {
+                reachedEnd = true;
+                break;
             }
         }
+        if (reachedEnd) {
+            break;
+        }
+        ++commonStartLength;
     }
+
+    while (commonStartLength > 0 &&
+           commonStartLength < candidates[0].Text.size() &&
+           !is_first_utf8_byte(uint8_t(candidates[0].Text[commonStartLength])))
+    {
+        --commonStartLength;
+    }
+    return commonStartLength;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTerminalLineEditor::ProcessInput(const char* text, size_t length)
+size_t PTerminalLineEditor::GetUTF8CharacterLength(std::string_view text, size_t offset)
 {
-    size_t start = 0;
-    for (size_t characterIndex = 0; characterIndex <= length; ++characterIndex)
-    {
-        if (characterIndex != length)
-        {
-            const PANSI_ControlCode controlCharacter = m_ANSICodeParser.ProcessCharacter(text[characterIndex]);
-            if (controlCharacter != PANSI_ControlCode::None)
-            {
-                const size_t bytesAdded = characterIndex - start;
-                if (bytesAdded > 0) {
-                    AddInputText(&text[start], bytesAdded);
-                }
-                start = characterIndex + 1;
-                if (controlCharacter != PANSI_ControlCode::Pending) {
-                    ProcessControlCharacter(controlCharacter, m_ANSICodeParser.GetArguments());
-                }
-                continue;
-            }
-        }
-
-        if (characterIndex == length || text[characterIndex] == '\r' || text[characterIndex] == '\n')
-        {
-            const size_t bytesAdded = characterIndex - start;
-
-            if (bytesAdded > 0) {
-                AddInputText(&text[start], bytesAdded);
-            }
-
-            start = characterIndex + 1;
-            if (characterIndex != length && text[characterIndex] == '\r') {
-                SubmitLine();
-            }
-        }
+    if (offset >= text.size()) {
+        return 0;
     }
+
+    const size_t characterLength = size_t(utf8_char_length(uint8_t(text[offset])));
+    return (characterLength <= text.size() - offset) ? characterLength : 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PTerminalLineEditor::GetPreviousUTF8CharacterOffset(std::string_view text, size_t offset)
+{
+    if (offset == 0) {
+        return 0;
+    }
+
+    size_t characterOffset = offset - 1;
+
+    while (characterOffset > 0 && !is_first_utf8_byte(uint8_t(text[characterOffset]))) {
+        --characterOffset;
+    }
+    return characterOffset;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PTerminalLineEditor::GetUTF8CharacterCount(std::string_view text, size_t startOffset, size_t endOffset)
+{
+    size_t characterCount = 0;
+
+    for (size_t characterOffset = startOffset; characterOffset < endOffset; ++characterCount)
+    {
+        size_t characterLength = GetUTF8CharacterLength(text, characterOffset);
+
+        if (characterLength == 0) {
+            characterLength = 1;
+        }
+        characterOffset += characterLength;
+    }
+    return characterCount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -195,23 +324,27 @@ void PTerminalLineEditor::ProcessInput(const char* text, size_t length)
 
 void PTerminalLineEditor::AddInputText(const char* text, size_t length)
 {
-    m_PendingExpansionAlternatives.clear();
-
-    m_EditBuffer.insert(m_EditBuffer.begin() + m_CursorPosition, text, text + length);
-
-    m_CursorPosition += length;
-    if (m_CursorPosition == m_EditBuffer.size())
-    {
-        WriteText(text, length);
-
-        const PIPoint screenPosition = GetScreenPosition(m_CursorPosition);
-        if (screenPosition.x == 0) {
-            WriteText(" \010", 2);
-        }
+    if (length == 0) {
+        return;
     }
-    else
+
+    m_IncompleteUTF8Text.append(text, length);
+
+    size_t completeLength = 0;
+    while (completeLength < m_IncompleteUTF8Text.size())
     {
-        RefreshText(m_CursorPosition - length);
+        const size_t characterLength = GetUTF8CharacterLength(m_IncompleteUTF8Text, completeLength);
+
+        if (characterLength == 0) {
+            break;
+        }
+        completeLength += characterLength;
+    }
+
+    if (completeLength != 0)
+    {
+        InsertInputText(m_IncompleteUTF8Text.data(), completeLength);
+        m_IncompleteUTF8Text.erase(0, completeLength);
     }
 }
 
@@ -219,15 +352,56 @@ void PTerminalLineEditor::AddInputText(const char* text, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTerminalLineEditor::SubmitLine()
+void PTerminalLineEditor::InsertInputText(const char* text, size_t length)
 {
-    WriteNewline();
+    m_PendingExpansionAlternatives.clear();
+    const size_t insertionPosition = m_CursorPosition;
+
+    m_EditBuffer.insert(m_EditBuffer.begin() + insertionPosition, text, text + length);
+    m_CursorPosition += length;
+
+    if (m_DisplayMode == DisplayMode::HorizontalScroll) {
+        RefreshSingleLine(insertionPosition);
+    } else if (m_CursorPosition == m_EditBuffer.size()) {
+        WriteText(text, length);
+
+        const PIPoint screenPosition = GetScreenPosition(m_CursorPosition);
+        if (screenPosition.x == 0) {
+            WriteText(" \010", 2);
+        }
+    } else {
+        RefreshText(insertionPosition);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::FlushIncompleteUTF8Text()
+{
+    if (!m_IncompleteUTF8Text.empty())
+    {
+        InsertInputText(m_IncompleteUTF8Text.data(), m_IncompleteUTF8Text.size());
+        m_IncompleteUTF8Text.clear();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PTerminalLineEditor::SubmitLine()
+{
+    if (m_EchoNewline) {
+        WriteNewline();
+    }
 
     m_PendingExpansionAlternatives.clear();
 
     const PString lineBuffer = m_InputBuffer + m_EditBuffer;
 
-    if (m_InputMode == PTerminalLineEditor::InputMode::POSIXCommand)
+    if (m_SubmissionMode == SubmissionMode::ContinueIncomplete)
     {
         const PPOSIXTokenizer tokenizer(lineBuffer);
         if (tokenizer.GetTermination() != PPOSIXTokenizer::Termination::Normal)
@@ -239,24 +413,58 @@ void PTerminalLineEditor::SubmitLine()
             m_Prompt = m_ContinuationPrompt;
             m_PromptVisibleLength = m_ContinuationPromptVisibleLength;
             WriteText(m_Prompt);
-            return;
+            return false;
         }
     }
 
-    if (!lineBuffer.empty()) {
+    if (m_HistoryEnabled && !lineBuffer.empty()) {
         m_HistoryBuffers.push_back(lineBuffer);
     }
 
-    m_InputBuffer.clear();
-    m_EditBuffer.clear();
-    m_CursorPosition = 0;
-    m_HistoryLocation = m_HistoryBuffers.size();
+    ClearInput();
+    m_InputActive = false;
 
     VFLineSubmitted(lineBuffer);
+    RestartInput();
+    return true;
+}
 
-    m_Prompt = m_PrimaryPrompt;
-    m_PromptVisibleLength = m_PrimaryPromptVisibleLength;
-    WriteText(m_Prompt);
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::ClearInput()
+{
+    m_ANSICodeParser.Reset();
+    m_PendingExpansionAlternatives.clear();
+    m_InputBuffer.clear();
+    m_EditBuffer.clear();
+    m_IncompleteUTF8Text.clear();
+    m_CursorPosition = 0;
+    m_HorizontalOffset = 0;
+    m_HistoryLocation = m_HistoryBuffers.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::CancelInput()
+{
+    ClearInput();
+    m_InputActive = false;
+    RestartInput();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::RestartInput()
+{
+    if (m_AutoRestart) {
+        BeginInput();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -265,6 +473,10 @@ void PTerminalLineEditor::SubmitLine()
 
 void PTerminalLineEditor::WriteText(const char* text, size_t length) const
 {
+    if (m_OutputFD == -1) {
+        return;
+    }
+
     size_t bytesWritten = 0;
     while (bytesWritten < length)
     {
@@ -290,6 +502,10 @@ void PTerminalLineEditor::WriteText(const char* text, size_t length) const
 
 void PTerminalLineEditor::UpdateTerminalSize()
 {
+    if (m_OutputFD == -1) {
+        return;
+    }
+
     struct winsize terminalSize = {};
 
     const PErrorCode result = device_control(m_OutputFD, TIOCGWINSZ, nullptr, 0, &terminalSize, sizeof(terminalSize));
@@ -314,13 +530,160 @@ void PTerminalLineEditor::ShowTerminalCursor(bool show)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t PTerminalLineEditor::GetSingleLineEditWidth() const
+{
+    const size_t terminalWidth = std::max(size_t(m_TerminalSize.x), size_t(1));
+    const size_t promptWidth = (m_PromptVisibleLength < terminalWidth) ? m_PromptVisibleLength : 0;
+    return terminalWidth - promptWidth - 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PTerminalLineEditor::GetSingleLineCursorColumn() const
+{
+    return GetUTF8CharacterCount(m_EditBuffer, m_HorizontalOffset, m_CursorPosition);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PTerminalLineEditor::GetSingleLineVisibleEnd() const
+{
+    const size_t editWidth = GetSingleLineEditWidth();
+    size_t visibleEnd = m_HorizontalOffset;
+    size_t visibleColumns = 0;
+
+    while (visibleEnd < m_EditBuffer.size() && visibleColumns < editWidth)
+    {
+        size_t characterLength = GetUTF8CharacterLength(m_EditBuffer, visibleEnd);
+
+        if (characterLength == 0) {
+            characterLength = 1;
+        }
+        visibleEnd += characterLength;
+        ++visibleColumns;
+    }
+    return visibleEnd;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PTerminalLineEditor::UpdateSingleLineHorizontalOffset()
+{
+    const size_t previousHorizontalOffset = m_HorizontalOffset;
+
+    if (m_CursorPosition < m_HorizontalOffset) {
+        m_HorizontalOffset = m_CursorPosition;
+    }
+
+    size_t cursorColumn = GetSingleLineCursorColumn();
+    const size_t editWidth = GetSingleLineEditWidth();
+
+    while (cursorColumn > editWidth && m_HorizontalOffset < m_CursorPosition)
+    {
+        size_t characterLength = GetUTF8CharacterLength(m_EditBuffer, m_HorizontalOffset);
+
+        if (characterLength == 0) {
+            characterLength = 1;
+        }
+        m_HorizontalOffset += characterLength;
+        --cursorColumn;
+    }
+    return m_HorizontalOffset != previousHorizontalOffset;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::RefreshSingleLine(size_t startPosition)
+{
+    if (UpdateSingleLineHorizontalOffset() || startPosition < m_HorizontalOffset)
+    {
+        RenderSingleLine();
+        return;
+    }
+
+    const size_t visibleEnd = GetSingleLineVisibleEnd();
+    if (startPosition > visibleEnd)
+    {
+        RenderSingleLine();
+        return;
+    }
+
+    const size_t endColumn = GetUTF8CharacterCount(m_EditBuffer, m_HorizontalOffset, visibleEnd);
+    const size_t cursorColumn = GetSingleLineCursorColumn();
+    const bool repositionCursor = cursorColumn != endColumn;
+
+    if (repositionCursor) {
+        ShowTerminalCursor(false);
+    }
+    WriteText(m_EditBuffer.data() + startPosition, visibleEnd - startPosition);
+    SendANSICode(PANSI_ControlCode::EraseInLine);
+
+    if (cursorColumn < endColumn) {
+        SendANSICode(PANSI_ControlCode::XTerm_Left, int(endColumn - cursorColumn));
+    } else if (cursorColumn > endColumn) {
+        SendANSICode(PANSI_ControlCode::XTerm_Right, int(cursorColumn - endColumn));
+    }
+    if (repositionCursor) {
+        ShowTerminalCursor(true);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTerminalLineEditor::RenderSingleLine()
+{
+    const size_t terminalWidth = std::max(size_t(m_TerminalSize.x), size_t(1));
+    const bool promptFits = m_PromptVisibleLength < terminalWidth;
+    UpdateSingleLineHorizontalOffset();
+
+    const size_t visibleEnd = GetSingleLineVisibleEnd();
+    const size_t endColumn = GetUTF8CharacterCount(m_EditBuffer, m_HorizontalOffset, visibleEnd);
+    const size_t cursorColumn = GetSingleLineCursorColumn();
+
+    ShowTerminalCursor(false);
+    WriteText("\r", 1);
+    if (promptFits) {
+        WriteText(m_Prompt);
+    }
+    WriteText(m_EditBuffer.data() + m_HorizontalOffset, visibleEnd - m_HorizontalOffset);
+    SendANSICode(PANSI_ControlCode::EraseInLine);
+
+    if (cursorColumn < endColumn) {
+        SendANSICode(PANSI_ControlCode::XTerm_Left, int(endColumn - cursorColumn));
+    }
+    ShowTerminalCursor(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PIPoint PTerminalLineEditor::GetScreenPosition(size_t cursorPosition) const
 {
-    PIPoint position(m_PromptVisibleLength, 0);
+    const size_t terminalWidth = std::max(size_t(m_TerminalSize.x), size_t(1));
+    PIPoint position(
+        int(m_PromptVisibleLength % terminalWidth),
+        int(m_PromptVisibleLength / terminalWidth));
 
-    for (size_t characterIndex = 0; characterIndex < cursorPosition; ++characterIndex)
+    for (size_t characterOffset = 0; characterOffset < cursorPosition; )
     {
-        if (m_EditBuffer[characterIndex] == '\n' || ((m_PromptVisibleLength + characterIndex) % size_t(m_TerminalSize.x)) == 0)
+        size_t characterLength = GetUTF8CharacterLength(m_EditBuffer, characterOffset);
+
+        if (characterLength == 0) {
+            characterLength = 1;
+        }
+
+        if (m_EditBuffer[characterOffset] == '\n')
         {
             position.x = 0;
             position.y++;
@@ -328,7 +691,13 @@ PIPoint PTerminalLineEditor::GetScreenPosition(size_t cursorPosition) const
         else
         {
             position.x++;
+            if (size_t(position.x) == terminalWidth)
+            {
+                position.x = 0;
+                position.y++;
+            }
         }
+        characterOffset += characterLength;
     }
     return position;
 }
@@ -361,29 +730,64 @@ void PTerminalLineEditor::MoveScreenCursor(const PIPoint& startPosition, const P
 void PTerminalLineEditor::MoveCursor(ptrdiff_t distance)
 {
     m_PendingExpansionAlternatives.clear();
+    size_t newPosition = m_CursorPosition;
 
     if (distance < 0)
     {
-        if (size_t(-distance) > m_CursorPosition) {
-            distance = -ptrdiff_t(m_CursorPosition);
+        while (distance < 0 && newPosition != 0)
+        {
+            newPosition = GetPreviousUTF8CharacterOffset(m_EditBuffer, newPosition);
+            ++distance;
         }
     }
     else
     {
-        const size_t availableDistance = m_EditBuffer.size() - m_CursorPosition;
-        if (size_t(distance) > availableDistance) {
-            distance = ptrdiff_t(availableDistance);
+        while (distance > 0 && newPosition < m_EditBuffer.size())
+        {
+            size_t characterLength = GetUTF8CharacterLength(m_EditBuffer, newPosition);
+
+            if (characterLength == 0) {
+                characterLength = 1;
+            }
+            newPosition = std::min(newPosition + characterLength, m_EditBuffer.size());
+            --distance;
         }
     }
+    MoveCursorTo(newPosition);
+}
 
-    if (distance != 0)
-    {
-        const PIPoint previousScreenPosition = GetScreenPosition(m_CursorPosition);
-        m_CursorPosition = size_t(ptrdiff_t(m_CursorPosition) + distance);
-        const PIPoint newScreenPosition = GetScreenPosition(m_CursorPosition);
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-        MoveScreenCursor(previousScreenPosition, newScreenPosition);
+void PTerminalLineEditor::MoveCursorTo(size_t position)
+{
+    position = std::min(position, m_EditBuffer.size());
+    if (position == m_CursorPosition) {
+        return;
     }
+
+    if (m_DisplayMode == DisplayMode::HorizontalScroll)
+    {
+        const size_t previousCursorColumn = GetSingleLineCursorColumn();
+        m_CursorPosition = position;
+
+        if (UpdateSingleLineHorizontalOffset()) {
+            RenderSingleLine();
+        } else {
+            const size_t cursorColumn = GetSingleLineCursorColumn();
+            if (cursorColumn < previousCursorColumn) {
+                SendANSICode(PANSI_ControlCode::XTerm_Left, int(previousCursorColumn - cursorColumn));
+            } else if (cursorColumn > previousCursorColumn) {
+                SendANSICode(PANSI_ControlCode::XTerm_Right, int(cursorColumn - previousCursorColumn));
+            }
+        }
+        return;
+    }
+
+    const PIPoint previousScreenPosition = GetScreenPosition(m_CursorPosition);
+    m_CursorPosition = position;
+    MoveScreenCursor(previousScreenPosition, GetScreenPosition(m_CursorPosition));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -394,7 +798,7 @@ void PTerminalLineEditor::MoveInHistory(ptrdiff_t distance)
 {
     m_PendingExpansionAlternatives.clear();
 
-    if (!m_InputBuffer.empty()) {
+    if (!m_HistoryEnabled || !m_InputBuffer.empty()) {
         return;
     }
     if (distance < 0)
@@ -412,7 +816,13 @@ void PTerminalLineEditor::MoveInHistory(ptrdiff_t distance)
     }
     if (distance != 0)
     {
-        MoveCursor(-ptrdiff_t(m_CursorPosition));
+        MoveCursorTo(0);
+        const bool hideCursorDuringUpdate = m_DisplayMode == DisplayMode::Wrap;
+        if (hideCursorDuringUpdate)
+        {
+            ShowTerminalCursor(false);
+            SendANSICode(PANSI_ControlCode::EraseDisplay);
+        }
         if (m_HistoryLocation < m_HistoryBuffers.size())
         {
             m_HistoryBuffers[m_HistoryLocation] = std::move(m_EditBuffer);
@@ -424,6 +834,9 @@ void PTerminalLineEditor::MoveInHistory(ptrdiff_t distance)
         }
         m_CursorPosition = m_EditBuffer.size();
         RefreshText(0);
+        if (hideCursorDuringUpdate) {
+            ShowTerminalCursor(true);
+        }
     }
 }
 
@@ -437,7 +850,12 @@ void PTerminalLineEditor::DeleteChar()
 
     if (m_CursorPosition < m_EditBuffer.size())
     {
-        m_EditBuffer.erase(m_EditBuffer.begin() + m_CursorPosition);
+        size_t characterLength = GetUTF8CharacterLength(m_EditBuffer, m_CursorPosition);
+
+        if (characterLength == 0) {
+            characterLength = 1;
+        }
+        m_EditBuffer.erase(m_CursorPosition, characterLength);
         RefreshText(m_CursorPosition);
     }
 }
@@ -452,8 +870,11 @@ void PTerminalLineEditor::BackspaceChar()
 
     if (m_CursorPosition > 0)
     {
-        MoveCursor(-1);
-        m_EditBuffer.erase(m_EditBuffer.begin() + m_CursorPosition);
+        const size_t characterStart = GetPreviousUTF8CharacterOffset(m_EditBuffer, m_CursorPosition);
+        const size_t characterLength = m_CursorPosition - characterStart;
+
+        MoveCursorTo(characterStart);
+        m_EditBuffer.erase(characterStart, characterLength);
         RefreshText(m_CursorPosition);
     }
 }
@@ -464,6 +885,12 @@ void PTerminalLineEditor::BackspaceChar()
 
 void PTerminalLineEditor::RefreshText(size_t startPosition)
 {
+    if (m_DisplayMode == DisplayMode::HorizontalScroll)
+    {
+        RefreshSingleLine(startPosition);
+        return;
+    }
+
     WriteText(m_EditBuffer.data() + startPosition, m_EditBuffer.size() - startPosition);
 
     const PIPoint cursorScreenPosition = GetScreenPosition(m_CursorPosition);
@@ -487,7 +914,7 @@ void PTerminalLineEditor::PrintPendingExpansionAlternatives()
 
     const size_t cursorPosition = m_CursorPosition;
 
-    MoveCursor(ptrdiff_t(m_EditBuffer.size() - m_CursorPosition));
+    MoveCursorTo(m_EditBuffer.size());
     WriteNewline();
 
     SendANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::FgColor_BrightGreen));
@@ -505,7 +932,7 @@ void PTerminalLineEditor::PrintPendingExpansionAlternatives()
     WriteNewline();
     WriteText(m_Prompt);
     RefreshText(0);
-    MoveCursor(ptrdiff_t(cursorPosition));
+    MoveCursorTo(cursorPosition);
 
     m_PendingExpansionAlternatives = std::move(alternatives);
 }
@@ -613,7 +1040,7 @@ void PTerminalLineEditor::ExpandArgument()
             }
         }
 
-        MoveCursor(ptrdiff_t(replaceStart) - ptrdiff_t(m_CursorPosition));
+        MoveCursorTo(replaceStart);
 
         if (finalExpansion && replaceEnd == m_EditBuffer.size()) {
             replacementString += " ";
@@ -635,27 +1062,61 @@ void PTerminalLineEditor::ExpandArgument()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTerminalLineEditor::ProcessControlCharacter(PANSI_ControlCode controlCharacter, const std::vector<int>& arguments)
+bool PTerminalLineEditor::ProcessControlCharacter(PANSI_ControlCode controlCharacter, const std::vector<int>& arguments)
 {
     switch (controlCharacter)
     {
+        case PANSI_ControlCode::Cancel:
+            CancelInput();
+            return true;
+
         case PANSI_ControlCode::Break:
-            WriteText("^C", 2);
-            ResetInput();
+            if (m_EchoControlCharacters) {
+                WriteText("^C", 2);
+            }
+            ClearInput();
+            m_InputActive = false;
             VFBreak();
-            break;
+            if (m_EchoNewline) {
+                WriteNewline();
+            }
+            RestartInput();
+            return true;
 
         case PANSI_ControlCode::Disconnect:
             if (m_DisconnectOnEmpty && m_EditBuffer.empty() && m_InputBuffer.empty())
             {
-                WriteText("^D\n", 3);
+                if (m_EchoControlCharacters) {
+                    WriteText("^D", 2);
+                }
+                if (m_EchoNewline) {
+                    WriteNewline();
+                }
+                m_InputActive = false;
                 VFDisconnect();
             }
             else
             {
-                WriteText("^D", 2);
-                ResetInput();
+                if (m_EchoControlCharacters) {
+                    WriteText("^D", 2);
+                }
+                ClearInput();
+                m_InputActive = false;
+                if (m_EchoNewline) {
+                    WriteNewline();
+                }
+                RestartInput();
             }
+            return true;
+
+        case PANSI_ControlCode::Backspace:
+            if (m_CursorPosition == 0 &&
+                m_BackspaceAtStartAction == BackspaceAtStartAction::CancelInput)
+            {
+                CancelInput();
+                return true;
+            }
+            BackspaceChar();
             break;
 
         case PANSI_ControlCode::XTerm_Left:
@@ -680,10 +1141,6 @@ void PTerminalLineEditor::ProcessControlCharacter(PANSI_ControlCode controlChara
 
         case PANSI_ControlCode::XTerm_Home:
             MoveToHome();
-            break;
-
-        case PANSI_ControlCode::Backspace:
-            BackspaceChar();
             break;
 
         case PANSI_ControlCode::Tab:
@@ -727,4 +1184,5 @@ void PTerminalLineEditor::ProcessControlCharacter(PANSI_ControlCode controlChara
         default:
             break;
     }
+    return false;
 }

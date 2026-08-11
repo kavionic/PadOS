@@ -32,6 +32,7 @@
 #include <System/AppDefinition.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/String.h>
+#include <Utils/TerminalLineEditor.h>
 #include <Utils/UTF8Utils.h>
 
 
@@ -51,8 +52,6 @@ constexpr std::string_view ANSI_RESET_RENDERING        = "\033[0m";
 constexpr std::string_view ANSI_SCROLL_UP              = "\033[S";
 constexpr std::string_view ANSI_SCROLL_DOWN            = "\033[T";
 constexpr std::string_view ANSI_RESET_SCROLL_REGION    = "\033[r";
-
-
 enum class LessKey
 {
     Character,
@@ -77,7 +76,7 @@ struct InputKey
 };
 
 
-class CmdLess
+class CmdLess : public SignalTarget
 {
 public:
     explicit CmdLess(const char* fileName);
@@ -100,7 +99,6 @@ private:
     void AppendStatus(PString& output, size_t pageLineCount, const struct winsize& terminalSize) const;
 
     void DrawHelp() const;
-    void DrawSearchPrompt(const PString& query, bool reverse) const;
 
     PString FormatText(
         const PString& text,
@@ -126,6 +124,7 @@ private:
     void MoveLines(int64_t delta);
     void MovePages(int direction);
     bool PromptSearch(bool reverse);
+    void HandleSearchSubmitted(const PString& query);
     bool FindNextMatch(bool reverse);
 
     static void WriteAll(int fileDescriptor, std::string_view text);
@@ -134,13 +133,16 @@ private:
     PString              m_FileName;
     std::vector<PString> m_Lines;
     PString              m_SearchText;
+    PString              m_SubmittedSearchText;
     PString              m_Message;
+    PTerminalLineEditor  m_SearchLineEditor;
     struct termios       m_OriginalTermios = {};
     size_t               m_FirstLine = 0;
     size_t               m_HorizontalOffset = 0;
     uint16_t             m_RenderedColumnCount = 0;
     uint16_t             m_RenderedRowCount = 0;
     bool                 m_SearchReverse = false;
+    bool                 m_SearchSubmitted = false;
     bool                 m_HasTerminal = false;
 };
 
@@ -152,6 +154,15 @@ private:
 CmdLess::CmdLess(const char* fileName)
     : m_FileName(fileName)
 {
+    m_SearchLineEditor.SetSubmissionMode(PTerminalLineEditor::SubmissionMode::AlwaysSubmit);
+    m_SearchLineEditor.SetDisplayMode(PTerminalLineEditor::DisplayMode::HorizontalScroll);
+    m_SearchLineEditor.SetDisconnectCharacter(PTerminalLineEditor::DISABLED_CONTROL_CHARACTER);
+    m_SearchLineEditor.SetCancelCharacter(0x07);
+    m_SearchLineEditor.SetBackspaceAtStartAction(PTerminalLineEditor::BackspaceAtStartAction::CancelInput);
+    m_SearchLineEditor.SetAutoRestart(false);
+    m_SearchLineEditor.SetEchoNewline(false);
+    m_SearchLineEditor.SetEchoControlCharacters(false);
+    m_SearchLineEditor.VFLineSubmitted.Connect(this, &CmdLess::HandleSearchSubmitted);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -166,6 +177,8 @@ int CmdLess::Run()
     if (!EnterTerminal()) {
         return 1;
     }
+
+    m_SearchLineEditor.Initialize(-1, STDOUT_FILENO);
 
     WriteAll(STDOUT_FILENO, ANSI_ENABLE_ALT_SCR_BUFFER);
     WriteAll(STDOUT_FILENO, ANSI_HIDE_CURSOR);
@@ -726,21 +739,6 @@ void CmdLess::DrawHelp() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void CmdLess::DrawSearchPrompt(const PString& query, bool reverse) const
-{
-    PString output;
-
-    output += "\r\033[2K";
-    output += reverse ? "?" : "/";
-    output += query;
-
-    WriteAll(STDOUT_FILENO, output);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 PString CmdLess::FormatText(
     const PString& text,
     size_t horizontalOffset,
@@ -995,59 +993,33 @@ void CmdLess::MovePages(int direction)
 
 bool CmdLess::PromptSearch(bool reverse)
 {
-    PString query;
-
+    m_SearchSubmitted = false;
+    m_SubmittedSearchText.clear();
+    m_SearchLineEditor.SetPrimaryPrompt(reverse ? "?" : "/", 1);
     WriteAll(STDOUT_FILENO, ANSI_SHOW_CURSOR);
-    DrawSearchPrompt(query, reverse);
+    m_SearchLineEditor.BeginInput();
 
-    for (;;)
+    while (m_SearchLineEditor.IsInputActive())
     {
-        const InputKey input = ReadInput();
-
-        if (input.Code == LessKey::EndOfInput)
+        char character;
+        if (!ReadByte(character))
         {
+            m_SearchLineEditor.ResetInput();
             WriteAll(STDOUT_FILENO, ANSI_HIDE_CURSOR);
             return false;
         }
-        if (input.Code != LessKey::Character) {
-            continue;
-        }
-
-        if (input.Character == '\r' || input.Character == '\n') {
-            break;
-        }
-        if (input.Character == 0x03)
-        {
-            WriteAll(STDOUT_FILENO, ANSI_HIDE_CURSOR);
-            m_Message = "Search canceled";
-            return false;
-        }
-        if (input.Character == '\b' || uint8_t(input.Character) == 0x7f)
-        {
-            if (!query.empty())
-            {
-                size_t characterStart = query.size() - 1;
-
-                while (characterStart > 0 &&
-                       !is_first_utf8_byte(uint8_t(query[characterStart]))) {
-                    --characterStart;
-                }
-
-                query.resize(characterStart);
-            }
-        }
-        else if (uint8_t(input.Character) >= 0x20)
-        {
-            query.push_back(input.Character);
-        }
-
-        DrawSearchPrompt(query, reverse);
+        m_SearchLineEditor.AddInput(&character, 1);
     }
 
     WriteAll(STDOUT_FILENO, ANSI_HIDE_CURSOR);
 
-    if (!query.empty()) {
-        m_SearchText = std::move(query);
+    if (!m_SearchSubmitted)
+    {
+        m_Message = "Search canceled";
+        return false;
+    }
+    if (!m_SubmittedSearchText.empty()) {
+        m_SearchText = std::move(m_SubmittedSearchText);
     }
     if (m_SearchText.empty())
     {
@@ -1057,6 +1029,16 @@ bool CmdLess::PromptSearch(bool reverse)
 
     m_SearchReverse = reverse;
     return FindNextMatch(reverse);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void CmdLess::HandleSearchSubmitted(const PString& query)
+{
+    m_SubmittedSearchText = query;
+    m_SearchSubmitted = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

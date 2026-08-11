@@ -29,6 +29,7 @@ enum class PANSI_ControlCode
     Pending,
     Disconnect,
     Break,
+    Cancel,
     Escape,
     Backspace,
     Tab,
@@ -209,6 +210,8 @@ class PANSIEscapeCodeParser
 {
 public:
     PANSI_ControlCode ProcessCharacter(char character);
+    void Reset();
+
     const std::vector<int>& GetArguments() const { return m_CodeArgs; }
 
     static PString FormatANSICode(PANSI_ControlCode code, std::vector<int> args);

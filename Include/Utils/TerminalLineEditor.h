@@ -20,6 +20,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -32,10 +33,22 @@
 class PTerminalLineEditor
 {
 public:
-    enum class InputMode : uint8_t
+    enum class SubmissionMode : uint8_t
     {
-        SingleLine,
-        POSIXCommand
+        AlwaysSubmit,
+        ContinueIncomplete
+    };
+
+    enum class DisplayMode : uint8_t
+    {
+        Wrap,
+        HorizontalScroll
+    };
+
+    enum class BackspaceAtStartAction : uint8_t
+    {
+        Ignore,
+        CancelInput
     };
 
     enum class ReadResult : uint8_t
@@ -68,25 +81,67 @@ public:
     };
 
 public:
+    static constexpr int DISABLED_CONTROL_CHARACTER = -1;
+
     PTerminalLineEditor() = default;
 
     void Initialize(int inputFD, int outputFD);
 
+    void BeginInput(const PString& initialText = {});
+    void ResetInput();
+
+    size_t AddInput(const char* text, size_t length);
+
+    bool IsInputActive() const { return m_InputActive; }
+
     int  GetInputFileDescriptor() const { return m_InputFD; }
     int  GetOutputFileDescriptor() const { return m_OutputFD; }
 
-    void        SetInputMode(InputMode inputMode) { m_InputMode = inputMode; }
-    InputMode   GetInputMode() const { return m_InputMode; }
+    void           SetSubmissionMode(SubmissionMode submissionMode) { m_SubmissionMode = submissionMode; }
+    SubmissionMode GetSubmissionMode() const { return m_SubmissionMode; }
+
+    void        SetDisplayMode(DisplayMode displayMode) { m_DisplayMode = displayMode; }
+    DisplayMode GetDisplayMode() const { return m_DisplayMode; }
 
     void SetDisconnectOnEmpty(bool disconnectOnEmpty) { m_DisconnectOnEmpty = disconnectOnEmpty; }
     bool GetDisconnectOnEmpty() const { return m_DisconnectOnEmpty; }
+
+    void SetBreakCharacter(int character) { m_BreakCharacter = character; }
+    int  GetBreakCharacter() const { return m_BreakCharacter; }
+
+    void SetDisconnectCharacter(int character) { m_DisconnectCharacter = character; }
+    int  GetDisconnectCharacter() const { return m_DisconnectCharacter; }
+
+    void SetCancelCharacter(int character) {
+        m_CancelCharacter = character;
+    }
+    int GetCancelCharacter() const {
+        return m_CancelCharacter;
+    }
+
+    void SetBackspaceAtStartAction(BackspaceAtStartAction action) {
+        m_BackspaceAtStartAction = action;
+    }
+    BackspaceAtStartAction GetBackspaceAtStartAction() const {
+        return m_BackspaceAtStartAction;
+    }
+
+    void SetAutoRestart(bool autoRestart) { m_AutoRestart = autoRestart; }
+    bool GetAutoRestart() const { return m_AutoRestart; }
+
+    void SetEchoNewline(bool echoNewline) { m_EchoNewline = echoNewline; }
+    bool GetEchoNewline() const { return m_EchoNewline; }
+
+    void SetEchoControlCharacters(bool echoControlCharacters) { m_EchoControlCharacters = echoControlCharacters; }
+    bool GetEchoControlCharacters() const { return m_EchoControlCharacters; }
+
+    void SetHistoryEnabled(bool enabled) { m_HistoryEnabled = enabled; }
+    bool GetHistoryEnabled() const { return m_HistoryEnabled; }
 
     void SetPrimaryPrompt(const PString& text, size_t visibleLength);
     void SetContinuationPrompt(const PString& text, size_t visibleLength);
 
     ReadResult ReadInput();
-
-    void ResetInput();
 
 public:
     VFConnector<void (const PString& line)> VFLineSubmitted;
@@ -96,10 +151,18 @@ public:
 
 private:
     static size_t GetCommonStartLength(const std::vector<CompletionCandidate>& candidates);
+    static size_t GetUTF8CharacterLength(std::string_view text, size_t offset);
+    static size_t GetPreviousUTF8CharacterOffset(std::string_view text, size_t offset);
+    static size_t GetUTF8CharacterCount(std::string_view text, size_t startOffset, size_t endOffset);
 
-    void ProcessInput(const char* text, size_t length);
     void AddInputText(const char* text, size_t length);
-    void SubmitLine();
+    void InsertInputText(const char* text, size_t length);
+    void FlushIncompleteUTF8Text();
+    bool SubmitLine();
+
+    void ClearInput();
+    void CancelInput();
+    void RestartInput();
 
     void WriteText(const char* text, size_t length) const;
     void WriteText(const PString& text) const { WriteText(text.c_str(), text.size()); }
@@ -111,15 +174,22 @@ private:
         WriteText(PANSIEscapeCodeParser::FormatANSICode(code, std::forward<TArgTypes>(args)...));
     }
 
-    void UpdateTerminalSize();
-    void ShowTerminalCursor(bool show);
+    void    UpdateTerminalSize();
+    void    ShowTerminalCursor(bool show);
+    size_t  GetSingleLineEditWidth() const;
+    size_t  GetSingleLineCursorColumn() const;
+    size_t  GetSingleLineVisibleEnd() const;
+    bool    UpdateSingleLineHorizontalOffset();
+    void    RefreshSingleLine(size_t startPosition);
+    void    RenderSingleLine();
 
     PIPoint GetScreenPosition(size_t cursorPosition) const;
     void    MoveScreenCursor(const PIPoint& startPosition, const PIPoint& endPosition);
 
     void MoveCursor(ptrdiff_t distance);
-    void MoveToHome() { MoveCursor(-ptrdiff_t(m_CursorPosition)); }
-    void MoveToEnd() { MoveCursor(ptrdiff_t(m_EditBuffer.size() - m_CursorPosition)); }
+    void MoveCursorTo(size_t position);
+    void MoveToHome() { MoveCursorTo(0); }
+    void MoveToEnd() { MoveCursorTo(m_EditBuffer.size()); }
 
     void MoveInHistory(ptrdiff_t distance);
     void MoveToHistoryStart() { MoveInHistory(-ptrdiff_t(m_HistoryLocation)); }
@@ -132,8 +202,7 @@ private:
 
     void PrintPendingExpansionAlternatives();
     void ExpandArgument();
-
-    void ProcessControlCharacter(PANSI_ControlCode controlCharacter, const std::vector<int>& arguments);
+    bool ProcessControlCharacter(PANSI_ControlCode controlCharacter, const std::vector<int>& arguments);
 
     PANSIEscapeCodeParser m_ANSICodeParser;
 
@@ -152,13 +221,29 @@ private:
 
     PString m_InputBuffer;
     PString m_EditBuffer;
+    PString m_IncompleteUTF8Text;
+    PString m_PendingReadText;
     std::vector<PString> m_HistoryBuffers;
 
     size_t m_HistoryLocation = 0;
     size_t m_CursorPosition = 0;
+    size_t m_HorizontalOffset = 0;
 
     std::vector<CompletionCandidate> m_PendingExpansionAlternatives;
 
-    InputMode m_InputMode = InputMode::SingleLine;
+    SubmissionMode m_SubmissionMode = SubmissionMode::AlwaysSubmit;
+    DisplayMode m_DisplayMode = DisplayMode::Wrap;
+    BackspaceAtStartAction m_BackspaceAtStartAction = BackspaceAtStartAction::Ignore;
+
+    int m_BreakCharacter = 0x03;
+    int m_DisconnectCharacter = 0x04;
+    int m_CancelCharacter = DISABLED_CONTROL_CHARACTER;
+
     bool m_DisconnectOnEmpty = true;
+    bool m_AutoRestart = true;
+    bool m_EchoNewline = true;
+    bool m_EchoControlCharacters = true;
+    bool m_HistoryEnabled = true;
+    bool m_InputActive = false;
+    bool m_SkipNextLineFeed = false;
 };

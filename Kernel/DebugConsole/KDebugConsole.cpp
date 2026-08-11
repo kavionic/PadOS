@@ -61,7 +61,8 @@ KDebugConsole::KDebugConsole(int ptyFD, bool allowTermination)
     , m_PTYFD(ptyFD)
     , m_TerminateSemaphore("debug_console_terminate", CLOCK_MONOTONIC_COARSE, 0)
 {
-    m_LineEditor.SetInputMode(PTerminalLineEditor::InputMode::POSIXCommand);
+    m_LineEditor.SetSubmissionMode(PTerminalLineEditor::SubmissionMode::ContinueIncomplete);
+    m_LineEditor.SetDisplayMode(PTerminalLineEditor::DisplayMode::Wrap);
     m_LineEditor.SetDisconnectOnEmpty(allowTermination);
 
     m_LineEditor.VFLineSubmitted.Connect(this, &KDebugConsole::HandleLineSubmitted);
@@ -119,6 +120,7 @@ void* KDebugConsole::Run()
 
     UpdateCmdPrompt();
     m_LineEditor.Initialize(m_StdInFD, m_StdOutFD);
+    m_LineEditor.BeginInput();
 
     KObjectWaitGroup waitGroup("debug_console_wait");
     waitGroup.AddFile_trw(m_StdInFD);

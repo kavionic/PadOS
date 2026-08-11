@@ -34,9 +34,10 @@ class KDebugConsole : public KThread, public SignalTarget
 public:
     struct JobEntry
     {
-        pid_t   PID = -1;
-        PString CommandLine;
-        bool    Stopped = false;
+        pid_t              PID = -1;
+        std::vector<pid_t> ProcessIDs;
+        PString            CommandLine;
+        bool               Stopped = false;
     };
 
     static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands();
@@ -61,12 +62,15 @@ public:
     const std::map<int, JobEntry>& GetJobs() const { return m_Jobs; }
 
     int  AddJob(pid_t pid, bool isStopped, const PString& commandLine);
+    int  AddJob(pid_t processGroupID, std::vector<pid_t>&& processIDs, bool isStopped, const PString& commandLine);
     void RemoveJob(int jobNum);
     int  FindJob(pid_t pid);
     const JobEntry& GetJobInfo(int jobNum) const;
     void SetJobStopped(int jobNum, bool stopped);
 
     void WaitForForegroundProcess(pid_t pid, const PString& commandLine);
+    void WaitForForegroundProcesses(int jobNum);
+    void WaitForForegroundProcesses(pid_t processGroupID, std::vector<pid_t> processIDs, PString commandLine);
     void CheckBackgroundJobs();
 
 private:
@@ -80,6 +84,7 @@ private:
     PTerminalLineEditor::CompletionResult ExpandFilePath(const PTerminalLineEditor::CompletionContext& context);
 
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
+    void ExecutePipeline(std::vector<std::vector<std::string>>&& commands, const PString& commandLine);
 
     PTerminalLineEditor m_LineEditor;
 

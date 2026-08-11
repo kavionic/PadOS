@@ -46,7 +46,8 @@ PPOSIXTokenizer::Termination PPOSIXTokenizer::SetText(const PString& text)
             {
                 m_Tokens.push_back(currentToken);
             }
-            currentToken.Start = currentToken.End + 1;
+            currentToken = {};
+            currentToken.Start = newStart + 1;
         };
 
     auto is_space = [](char c) { return c == ' ' || c == '\t' || c == '\n'; };
@@ -82,6 +83,11 @@ PPOSIXTokenizer::Termination PPOSIXTokenizer::SetText(const PString& text)
                         return m_Termination;
                     }
                     ++i; // Skip \ and next character.
+                }
+                else if (character == '|')
+                {
+                    push_token(i);
+                    m_Tokens.push_back(Token{.Start = i, .End = i + 1});
                 }
                 break;
 

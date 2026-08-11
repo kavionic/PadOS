@@ -145,16 +145,12 @@ public:
             return 1;
         }
 
-        // Snapshot the data we need before removing the entry.
         const KDebugConsole::JobEntry& job = m_Console->GetJobInfo(jobNum);
 
-        pid_t   pid         = job.PID;
-        PString commandLine = job.CommandLine;
+        Print("{}\n", job.CommandLine);
 
-        Print("{}\n", commandLine);
-
-        kkill(pid, SIGCONT);
-        m_Console->WaitForForegroundProcess(pid, commandLine);
+        kkillpg_trw(job.PID, SIGCONT);
+        m_Console->WaitForForegroundProcesses(jobNum);
         return 0;
     }
 
@@ -200,7 +196,7 @@ public:
 
         m_Console->SetJobStopped(jobNum, false);
         Print("[{}]+  {} &\n", jobNum, commandLine);
-        kkill(pid, SIGCONT);
+        kkillpg_trw(pid, SIGCONT);
         return 0;
     }
 

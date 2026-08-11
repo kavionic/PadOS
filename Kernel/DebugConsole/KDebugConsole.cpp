@@ -42,6 +42,11 @@
 namespace kernel
 {
 
+static bool IsKDebugConsolePipeToken(const PPOSIXTokenizer& tokenizer, const PPOSIXTokenizer::Token& token)
+{
+    return !token.HasFormatting && token.End == token.Start + 1 && tokenizer.GetText()[token.Start] == '|';
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -167,8 +172,17 @@ void KDebugConsole::SendText(const char* text, size_t length)
 
 int KDebugConsole::AddJob(pid_t pid, bool isStopped, const PString& commandLine)
 {
+    return AddJob(pid, std::vector<pid_t>{pid}, isStopped, commandLine);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KDebugConsole::AddJob(pid_t processGroupID, std::vector<pid_t>&& processIDs, bool isStopped, const PString& commandLine)
+{
     const int nextNum = m_Jobs.empty() ? 1 : m_Jobs.rbegin()->first + 1;
-    m_Jobs[nextNum] = { pid, commandLine, isStopped };
+    m_Jobs[nextNum] = { processGroupID, std::move(processIDs), commandLine, isStopped };
     return nextNum;
 }
 
@@ -228,12 +242,44 @@ void KDebugConsole::SetJobStopped(int jobNum, bool stopped)
 
 void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLine)
 {
-    for (;;)
+    WaitForForegroundProcesses(pid, std::vector<pid_t>{pid}, commandLine);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::WaitForForegroundProcesses(int jobNum)
+{
+    const auto jobIterator = m_Jobs.find(jobNum);
+    if (jobIterator == m_Jobs.end()) {
+        return;
+    }
+
+    const JobEntry& job = jobIterator->second;
+    WaitForForegroundProcesses(job.PID, job.ProcessIDs, job.CommandLine);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::WaitForForegroundProcesses(pid_t processGroupID, std::vector<pid_t> processIDs, PString commandLine)
+{
+    if (processIDs.empty()) {
+        return;
+    }
+
+    const pid_t lastProcessID = processIDs.back();
+
+    ktcsetpgrp_trw(STDOUT_FILENO, processGroupID);
+
+    while (!processIDs.empty())
     {
-        ktcsetpgrp_trw(STDOUT_FILENO, pid);
+        const pid_t processID = processIDs.front();
 
         siginfo_t info;
-        const PErrorCode result = kwaitid(P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED);
+        const PErrorCode result = kwaitid(P_PID, processID, &info, WEXITED | WSTOPPED | WCONTINUED);
 
         if (result != PErrorCode::Success)
         {
@@ -244,26 +290,36 @@ void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLi
         switch (info.si_code)
         {
             case CLD_EXITED:
-                m_LastExitCode = info.si_status;
-                if (info.si_status != 0) {
-                    kprintf("'%s' exited with code: %d\n", commandLine.c_str(), info.si_status);
+                if (processID == lastProcessID)
+                {
+                    m_LastExitCode = info.si_status;
+                    if (info.si_status != 0) {
+                        kprintf("'%s' exited with code: %d\n", commandLine.c_str(), info.si_status);
+                    }
                 }
-                // Remove from job list if it was a background job brought to foreground.
-                RemoveJob(FindJob(pid));
-                return;
+                processIDs.erase(processIDs.begin());
+                break;
 
+            case CLD_DUMPED:
             case CLD_KILLED:
-                m_LastExitCode = 128 + info.si_status;
-                kprintf("'%s' killed: %s(%d)\n", commandLine.c_str(), strsignal(info.si_status), info.si_status);
-                RemoveJob(FindJob(pid));
-                return;
+                if (processID == lastProcessID)
+                {
+                    m_LastExitCode = 128 + info.si_status;
+                    kprintf("'%s' killed: %s(%d)\n", commandLine.c_str(), strsignal(info.si_status), info.si_status);
+                }
+                processIDs.erase(processIDs.begin());
+                break;
 
             case CLD_STOPPED:
             {
-                int jobNum = FindJob(pid);
-                if (jobNum < 0) {
-                    jobNum = AddJob(pid, true, commandLine);
-                } else {
+                int jobNum = FindJob(processGroupID);
+                if (jobNum < 0)
+                {
+                    jobNum = AddJob(processGroupID, std::move(processIDs), true, commandLine);
+                }
+                else
+                {
+                    m_Jobs[jobNum].ProcessIDs = std::move(processIDs);
                     SetJobStopped(jobNum, true);
                 }
                 kprintf("\n[%d]+  Stopped\t%s\n", jobNum, commandLine.c_str());
@@ -272,14 +328,16 @@ void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLi
 
             case CLD_CONTINUED:
             {
-                const int jobNum = FindJob(pid);
+                const int jobNum = FindJob(processGroupID);
                 if (jobNum >= 0) {
                     SetJobStopped(jobNum, false);
                 }
-                break; // Process continued — keep waiting.
+                break;
             }
         }
     }
+
+    RemoveJob(FindJob(processGroupID));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,39 +346,58 @@ void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLi
 
 void KDebugConsole::CheckBackgroundJobs()
 {
-    for (auto it = m_Jobs.begin(); it != m_Jobs.end(); )
+    for (auto jobIterator = m_Jobs.begin(); jobIterator != m_Jobs.end(); )
     {
-        siginfo_t info = {};
-        const PErrorCode result = kwaitid(P_PID, it->second.PID, &info, WNOHANG | WEXITED | WSTOPPED | WCONTINUED);
+        JobEntry& job = jobIterator->second;
+        bool wasKilled = false;
+        bool isStopped = job.Stopped;
 
-        if (result != PErrorCode::Success || info.si_pid == 0)
+        for (auto processIterator = job.ProcessIDs.begin(); processIterator != job.ProcessIDs.end(); )
         {
-            ++it;
+            siginfo_t info = {};
+            const PErrorCode result = kwaitid(P_PID, *processIterator, &info, WNOHANG | WEXITED | WSTOPPED | WCONTINUED);
+
+            if (result != PErrorCode::Success || info.si_pid == 0)
+            {
+                ++processIterator;
+                continue;
+            }
+
+            switch (info.si_code)
+            {
+                case CLD_EXITED:
+                    processIterator = job.ProcessIDs.erase(processIterator);
+                    continue;
+
+                case CLD_DUMPED:
+                case CLD_KILLED:
+                    wasKilled = true;
+                    processIterator = job.ProcessIDs.erase(processIterator);
+                    continue;
+
+                case CLD_STOPPED:
+                    isStopped = true;
+                    break;
+
+                case CLD_CONTINUED:
+                    isStopped = false;
+                    break;
+            }
+            ++processIterator;
+        }
+
+        if (job.ProcessIDs.empty())
+        {
+            kprintf("[%d]  %s\t%s\n", jobIterator->first, wasKilled ? "Killed" : "Done", job.CommandLine.c_str());
+            jobIterator = m_Jobs.erase(jobIterator);
             continue;
         }
 
-        switch (info.si_code)
-        {
-            case CLD_EXITED:
-                kprintf("[%d]  Done\t%s\n", it->first, it->second.CommandLine.c_str());
-                it = m_Jobs.erase(it);
-                continue;
-
-            case CLD_KILLED:
-                kprintf("[%d]  Killed\t%s\n", it->first, it->second.CommandLine.c_str());
-                it = m_Jobs.erase(it);
-                continue;
-
-            case CLD_STOPPED:
-                SetJobStopped(it->first, true);
-                kprintf("[%d]+  Stopped\t%s\n", it->first, it->second.CommandLine.c_str());
-                break;
-
-            case CLD_CONTINUED:
-                SetJobStopped(it->first, false);
-                break;
+        if (!job.Stopped && isStopped) {
+            kprintf("[%d]+  Stopped\t%s\n", jobIterator->first, job.CommandLine.c_str());
         }
-        ++it;
+        job.Stopped = isStopped;
+        ++jobIterator;
     }
 }
 
@@ -350,7 +427,16 @@ void KDebugConsole::HandleDisconnect()
 
 PTerminalLineEditor::CompletionResult KDebugConsole::GetExpansionList(const PTerminalLineEditor::CompletionContext& context)
 {
-    if (context.TokenIndex == 0) {
+    size_t commandTokenIndex = 0;
+
+    for (size_t tokenIndex = 0; tokenIndex < context.TokenIndex; ++tokenIndex)
+    {
+        if (IsKDebugConsolePipeToken(context.Tokenizer, context.Tokenizer.GetTokens()[tokenIndex])) {
+            commandTokenIndex = tokenIndex + 1;
+        }
+    }
+
+    if (context.TokenIndex == commandTokenIndex) {
         return ExpandCommandName(context);
     }
     return ExpandFilePath(context);
@@ -495,69 +581,220 @@ PTerminalLineEditor::CompletionResult KDebugConsole::ExpandFilePath(const PTermi
 
 void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 {
-    std::vector<std::string> tokens;
+    std::vector<std::vector<std::string>> commands(1);
 
-    for (const PPOSIXTokenizer::Token& token : tokenizer.GetTokens()) {
-        tokens.push_back(tokenizer.GetTokenText(token));
-    }
-
-    if (!tokens.empty())
+    for (const PPOSIXTokenizer::Token& token : tokenizer.GetTokens())
     {
-#ifdef PADOS_MODULE_POSIX_SPAWN
-        const PString path = (tokens[0].empty() || tokens[0][0] == '/') ? tokens[0] : (PString("/bin/") + tokens[0]);
-
-        stat_t statBuf;
-        if (stat(path.c_str(), &statBuf) == 0 && (statBuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
+        if (IsKDebugConsolePipeToken(tokenizer, token))
         {
-            std::vector<char*> argv;
-            argv.reserve(tokens.size());
-            for (auto& token : tokens) {
-                argv.push_back(token.data());
-            }
-            argv.push_back(nullptr);
-
-            posix_spawnattr_t spawnAttrs;
-
-            posix_spawnattr_init(&spawnAttrs);
-            PScopeExit cleanup([&spawnAttrs] { posix_spawnattr_destroy(&spawnAttrs); });
-
-            posix_spawnattr_setflags(&spawnAttrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
-
-            sigset_t defSigs;
-            sigfillset(&defSigs);
-
-            posix_spawnattr_setsigdefault(&spawnAttrs, &defSigs);
-
-            pid_t pid;
-            const int spawnResult = posix_spawn(&pid, path.c_str(), nullptr, &spawnAttrs, argv.data(), environ);
-            if (spawnResult != 0)
+            if (commands.back().empty())
             {
-                kprintf("Failed to execute '%s': %s\n", path.c_str(), strerror(spawnResult));
+                kprintf("syntax error near unexpected token '|'\n");
                 return;
             }
-
-            WaitForForegroundProcess(pid, tokenizer.GetText());
-            return;
-        }
-#endif // PADOS_MODULE_POSIX_SPAWN
-
-        auto cmdIt = GetCommands().find(tokens[0]);
-
-        if (cmdIt != GetCommands().end())
-        {
-            const Ptr<KConsoleCommand>& cmd = cmdIt->second(this);
-
-            try {
-                m_LastExitCode = cmd->Invoke(std::move(tokens));
-            } catch(const std::exception& exc) {
-                kprintf("%s\n", exc.what());
-            }
+            commands.emplace_back();
         }
         else
         {
-            kprintf("Unknown command: %s\n", tokens[0].c_str());
+            commands.back().push_back(tokenizer.GetTokenText(token));
         }
     }
+
+    if (commands.back().empty())
+    {
+        if (commands.size() > 1) {
+            kprintf("syntax error near unexpected token '|'\n");
+        }
+        return;
+    }
+
+    if (commands.size() > 1)
+    {
+        ExecutePipeline(std::move(commands), tokenizer.GetText());
+        return;
+    }
+
+    std::vector<std::string>& tokens = commands.front();
+
+#ifdef PADOS_MODULE_POSIX_SPAWN
+    const PString path = (tokens[0].empty() || tokens[0][0] == '/') ? tokens[0] : (PString("/bin/") + tokens[0]);
+
+    stat_t statBuf;
+    if (stat(path.c_str(), &statBuf) == 0 && (statBuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
+    {
+        ExecutePipeline(std::move(commands), tokenizer.GetText());
+        return;
+    }
+#endif // PADOS_MODULE_POSIX_SPAWN
+
+    auto cmdIt = GetCommands().find(tokens[0]);
+
+    if (cmdIt != GetCommands().end())
+    {
+        const Ptr<KConsoleCommand>& cmd = cmdIt->second(this);
+
+        try {
+            m_LastExitCode = cmd->Invoke(std::move(tokens));
+        } catch(const std::exception& exc) {
+            kprintf("%s\n", exc.what());
+        }
+    }
+    else
+    {
+        kprintf("Unknown command: %s\n", tokens[0].c_str());
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::ExecutePipeline(std::vector<std::vector<std::string>>&& commands, const PString& commandLine)
+{
+#ifdef PADOS_MODULE_POSIX_SPAWN
+    std::vector<PString> paths;
+    paths.reserve(commands.size());
+
+    for (const std::vector<std::string>& command : commands)
+    {
+        const PString path = (command[0].empty() || command[0][0] == '/') ? command[0] : (PString("/bin/") + command[0]);
+
+        stat_t statBuf;
+        if (stat(path.c_str(), &statBuf) != 0 || !(statBuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
+        {
+            if (GetCommands().find(command[0]) != GetCommands().end()) {
+                kprintf("Built-in command '%s' cannot be used in a pipeline\n", command[0].c_str());
+            } else {
+                kprintf("Unknown command: %s\n", command[0].c_str());
+            }
+            return;
+        }
+        paths.push_back(path);
+    }
+
+    std::vector<pid_t> processIDs;
+    processIDs.reserve(commands.size());
+
+    pid_t processGroupID = -1;
+    int inputFileDescriptor = -1;
+
+    auto terminatePipeline = [&]()
+        {
+            if (inputFileDescriptor != -1) {
+                close(inputFileDescriptor);
+            }
+            if (processGroupID != -1) {
+                kkillpg(processGroupID, SIGKILL);
+            }
+            for (pid_t processID : processIDs)
+            {
+                siginfo_t info = {};
+                kwaitid(P_PID, processID, &info, WEXITED);
+            }
+        };
+
+    for (size_t commandIndex = 0; commandIndex < commands.size(); ++commandIndex)
+    {
+        const bool hasOutputPipe = commandIndex + 1 < commands.size();
+        int outputPipe[2] = {-1, -1};
+
+        if (hasOutputPipe && pipe(outputPipe) != 0)
+        {
+            kprintf("Failed to create pipe: %s\n", strerror(errno));
+            terminatePipeline();
+            return;
+        }
+
+        posix_spawn_file_actions_t fileActions;
+        int actionResult = posix_spawn_file_actions_init(&fileActions);
+        if (actionResult == 0 && inputFileDescriptor != -1) {
+            actionResult = posix_spawn_file_actions_adddup2(&fileActions, inputFileDescriptor, STDIN_FILENO);
+        }
+        if (actionResult == 0 && inputFileDescriptor != -1) {
+            actionResult = posix_spawn_file_actions_addclose(&fileActions, inputFileDescriptor);
+        }
+        if (actionResult == 0 && hasOutputPipe) {
+            actionResult = posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], STDOUT_FILENO);
+        }
+        if (actionResult == 0 && hasOutputPipe) {
+            actionResult = posix_spawn_file_actions_addclose(&fileActions, outputPipe[0]);
+        }
+        if (actionResult == 0 && hasOutputPipe) {
+            actionResult = posix_spawn_file_actions_addclose(&fileActions, outputPipe[1]);
+        }
+
+        if (actionResult != 0)
+        {
+            if (hasOutputPipe)
+            {
+                close(outputPipe[0]);
+                close(outputPipe[1]);
+            }
+            kprintf("Failed to configure pipe: %s\n", strerror(actionResult));
+            terminatePipeline();
+            return;
+        }
+
+        PScopeExit destroyFileActions([&fileActions]
+            {
+                posix_spawn_file_actions_destroy(&fileActions);
+            }
+        );
+
+        posix_spawnattr_t spawnAttrs;
+        posix_spawnattr_init(&spawnAttrs);
+        PScopeExit destroySpawnAttrs([&spawnAttrs]
+            {
+                posix_spawnattr_destroy(&spawnAttrs);
+            }
+        );
+
+        posix_spawnattr_setflags(&spawnAttrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
+        if (processGroupID != -1) {
+            posix_spawnattr_setpgroup(&spawnAttrs, processGroupID);
+        }
+
+        sigset_t defaultSignals;
+        sigfillset(&defaultSignals);
+        posix_spawnattr_setsigdefault(&spawnAttrs, &defaultSignals);
+
+        std::vector<char*> arguments;
+        arguments.reserve(commands[commandIndex].size() + 1);
+        for (std::string& argument : commands[commandIndex]) {
+            arguments.push_back(argument.data());
+        }
+        arguments.push_back(nullptr);
+
+        pid_t processID;
+        const int spawnResult = posix_spawn(&processID, paths[commandIndex].c_str(), &fileActions, &spawnAttrs, arguments.data(), environ);
+
+        if (inputFileDescriptor != -1) {
+            close(inputFileDescriptor);
+        }
+        if (hasOutputPipe) {
+            close(outputPipe[1]);
+        }
+        inputFileDescriptor = hasOutputPipe ? outputPipe[0] : -1;
+
+        if (spawnResult != 0)
+        {
+            kprintf("Failed to execute '%s': %s\n", paths[commandIndex].c_str(), strerror(spawnResult));
+            terminatePipeline();
+            return;
+        }
+
+        if (processGroupID == -1) {
+            processGroupID = processID;
+        }
+        processIDs.push_back(processID);
+    }
+
+    WaitForForegroundProcesses(processGroupID, std::move(processIDs), commandLine);
+#else // PADOS_MODULE_POSIX_SPAWN
+    (void)commands;
+    (void)commandLine;
+    kprintf("Pipelines require POSIX spawn support\n");
+#endif // PADOS_MODULE_POSIX_SPAWN
 }
 
 } // namespace kernel

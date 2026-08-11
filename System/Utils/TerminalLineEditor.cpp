@@ -973,7 +973,7 @@ void PTerminalLineEditor::ExpandArgument()
     }
 
     const CompletionContext context = {
-        .Line           = lineBuffer,
+        .Tokenizer      = tokenizer,
         .TokenText      = tokenText,
         .CursorPosition = cursorPosition,
         .TokenIndex     = tokenIndex,

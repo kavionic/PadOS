@@ -6,6 +6,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	Pipe_unittest.cpp
 	PosixSignal_unittest.cpp
 	PosixSpawn_unittest.cpp
+	POSIXTokenizer_unittest.cpp
 	CircularBuffer_unittest.cpp
 	NamedColors_unittest.cpp
 	PEnumBitmask_unittest.cpp

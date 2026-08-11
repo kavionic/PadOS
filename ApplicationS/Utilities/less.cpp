@@ -141,6 +141,8 @@ private:
     size_t               m_HorizontalOffset = 0;
     uint16_t             m_RenderedColumnCount = 0;
     uint16_t             m_RenderedRowCount = 0;
+    int                  m_TerminalInputFD = STDIN_FILENO;
+    bool                 m_ReadFromStandardInput = false;
     bool                 m_SearchReverse = false;
     bool                 m_SearchSubmitted = false;
     bool                 m_HasTerminal = false;
@@ -152,7 +154,9 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 CmdLess::CmdLess(const char* fileName)
-    : m_FileName(fileName)
+    : m_FileName((fileName == nullptr || strcmp(fileName, "-") == 0) ? "standard input" : fileName)
+    , m_TerminalInputFD((fileName == nullptr || strcmp(fileName, "-") == 0) ? STDOUT_FILENO : STDIN_FILENO)
+    , m_ReadFromStandardInput(fileName == nullptr || strcmp(fileName, "-") == 0)
 {
     m_SearchLineEditor.SetSubmissionMode(PTerminalLineEditor::SubmissionMode::AlwaysSubmit);
     m_SearchLineEditor.SetDisplayMode(PTerminalLineEditor::DisplayMode::HorizontalScroll);
@@ -363,7 +367,7 @@ int CmdLess::Run()
 
 bool CmdLess::LoadFile()
 {
-    const int fileDescriptor = open(m_FileName.c_str(), O_RDONLY);
+    const int fileDescriptor = m_ReadFromStandardInput ? STDIN_FILENO : open(m_FileName.c_str(), O_RDONLY);
 
     if (fileDescriptor == -1)
     {
@@ -374,7 +378,9 @@ bool CmdLess::LoadFile()
 
     PScopeExit closeFile([fileDescriptor]
         {
-            close(fileDescriptor);
+            if (fileDescriptor != STDIN_FILENO) {
+                close(fileDescriptor);
+            }
         }
     );
 
@@ -431,7 +437,7 @@ bool CmdLess::LoadFile()
 bool CmdLess::EnterTerminal()
 {
     const PErrorCode getResult = device_control(
-        STDIN_FILENO,
+        m_TerminalInputFD,
         TCGETA,
         nullptr,
         0,
@@ -452,7 +458,7 @@ bool CmdLess::EnterTerminal()
     rawTerminal.c_cc[VTIME] = 0;
 
     const PErrorCode setResult = device_control(
-        STDIN_FILENO,
+        m_TerminalInputFD,
         TCSETA,
         &rawTerminal,
         sizeof(rawTerminal),
@@ -478,7 +484,7 @@ void CmdLess::LeaveTerminal()
     if (m_HasTerminal)
     {
         device_control(
-            STDIN_FILENO,
+            m_TerminalInputFD,
             TCSETA,
             &m_OriginalTermios,
             sizeof(m_OriginalTermios),
@@ -572,7 +578,7 @@ bool CmdLess::ReadByte(char& outCharacter) const
 {
     for (;;)
     {
-        const ssize_t bytesRead = read(STDIN_FILENO, &outCharacter, 1);
+        const ssize_t bytesRead = read(m_TerminalInputFD, &outCharacter, 1);
 
         if (bytesRead == 1) {
             return true;
@@ -1112,8 +1118,8 @@ void CmdLess::WriteAll(int fileDescriptor, std::string_view text)
 void CmdLess::PrintUsage(int fileDescriptor, const char* commandName)
 {
     const PString usage = PString::format_string(
-        "Usage: {} FILE\n"
-        "View FILE one screen at a time.\n"
+        "Usage: {} [FILE]\n"
+        "View FILE, or standard input, one screen at a time.\n"
         "\n"
         "  --help    display this help and exit\n",
         commandName);
@@ -1141,13 +1147,13 @@ int less_main(int argc, char* argv[])
         CmdLess::PrintUsage(STDOUT_FILENO, argv[0]);
         return 0;
     }
-    if (argc != 2)
+    if (argc > 2)
     {
         CmdLess::PrintUsage(STDERR_FILENO, argv[0]);
         return 1;
     }
 
-    CmdLess less(argv[1]);
+    CmdLess less((argc == 2) ? argv[1] : nullptr);
     return less.Run();
 }
 

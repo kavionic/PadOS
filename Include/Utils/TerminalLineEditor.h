@@ -29,6 +29,7 @@
 #include <Utils/ANSIEscapeCodeParser.h>
 #include <Utils/String.h>
 
+class PPOSIXTokenizer;
 
 class PTerminalLineEditor
 {
@@ -66,7 +67,7 @@ public:
 
     struct CompletionContext
     {
-        const PString& Line;
+        const PPOSIXTokenizer& Tokenizer;
         const PString& TokenText;
         size_t         CursorPosition = 0;
         size_t         TokenIndex = 0;

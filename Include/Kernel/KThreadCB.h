@@ -33,7 +33,7 @@ struct PThreadUserData;
 extern PThreadControlBlock* __kernel_thread_data;
 
 static constexpr int32_t THREAD_MAX_TLS_SLOTS = 256;
-static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024 * 32;
+static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024 * 64;
 
 namespace kernel
 {

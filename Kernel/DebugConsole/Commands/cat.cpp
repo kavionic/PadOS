@@ -30,8 +30,6 @@ namespace kernel
 class CCmdCat : public KConsoleCommand
 {
 public:
-    CCmdCat(KDebugConsole* console) : KConsoleCommand(console) {}
-
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         bool lastCharIsNewline = false;
@@ -61,7 +59,7 @@ public:
         }
         return 0;
     }
-    virtual PString GetDescription() const override { return "Concatenate FILE(s) to standard output."; }
+    static PString GetDescription() { return "Concatenate FILE(s) to standard output."; }
 };
 
 static KConsoleCommandRegistrator<CCmdCat> g_RegisterCCmdCat("cat");

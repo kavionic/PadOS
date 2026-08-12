@@ -31,16 +31,16 @@ namespace kernel
 
 ssize_t KConsoleCommand::WriteOutput(const void* data, size_t length)
 {
-    return write(m_Console->GetStdOutFD(), data, length);
+    return write(STDOUT_FILENO, data, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KConsoleCommandRegistratorBase::RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator)
+void KConsoleCommandRegistratorBase::RegisterCommand(const PString& name, const PString& description, bool isInternal, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator)
 {
-    KDebugConsole::RegisterCommand(name, std::move(commandCreator));
+    KDebugConsole::RegisterCommand(name, description, isInternal, std::move(commandCreator));
 }
 
 

@@ -40,8 +40,15 @@ public:
         bool               Stopped = false;
     };
 
-    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands();
-    static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { GetCommands()[name] = std::move(commandCreator); }
+    struct CommandEntry
+    {
+        std::function<Ptr<KConsoleCommand>(KDebugConsole* console)> Creator;
+        PString Description;
+        bool    IsInternal = false;
+    };
+
+    static std::map<PString, CommandEntry>& GetCommands();
+    static void RegisterCommand(const PString& name, const PString& description, bool isInternal, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator);
 
     KDebugConsole(int ptyFD, bool allowTermination);
 
@@ -85,6 +92,9 @@ private:
 
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
     void ExecutePipeline(std::vector<std::vector<std::string>>&& commands, const PString& commandLine);
+#ifdef PADOS_MODULE_POSIX_SPAWN
+    pid_t SpawnInternalPipelineCommand(const CommandEntry& commandEntry, std::vector<std::string>&& arguments, pid_t processGroupID, int inputFileDescriptor, int outputFileDescriptor, int unusedFileDescriptor);
+#endif // PADOS_MODULE_POSIX_SPAWN
 
     PTerminalLineEditor m_LineEditor;
 

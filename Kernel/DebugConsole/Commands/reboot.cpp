@@ -28,15 +28,13 @@ namespace kernel
 class CCmdReboot : public KConsoleCommand
 {
 public:
-    CCmdReboot(KDebugConsole* console) : KConsoleCommand(console) {}
-
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         Print("Rebooting...\n");
         __reboot(BootMode_Application);
         return 0;
     }
-    virtual PString GetDescription() const override { return "Reboot device."; }
+    static PString GetDescription() { return "Reboot device."; }
 };
 
 static KConsoleCommandRegistrator<CCmdReboot> g_RegisterCCmdReboot("reboot");

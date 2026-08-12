@@ -22,10 +22,10 @@
 namespace kernel
 {
 
-class CCmdExit : public KConsoleCommand
+class CCmdExit : public KConsoleInternalCommand
 {
 public:
-    CCmdExit(KDebugConsole* console) : KConsoleCommand(console) {}
+    CCmdExit(KDebugConsole* console) : KConsoleInternalCommand(console) {}
 
     virtual int Invoke(std::vector<std::string>&& args) override
     {
@@ -61,7 +61,7 @@ public:
         return exitCode;
     }
 
-    virtual PString GetDescription() const override { return "Exit the shell."; }
+    static PString GetDescription() { return "Exit the shell."; }
 };
 
 static KConsoleCommandRegistrator<CCmdExit> g_RegisterCCmdExit("exit");

@@ -17,7 +17,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 10.01.2026 17:00
 
-#include <functional>
 #include <map>
 
 #include <System/AppDefinition.h>
@@ -30,18 +29,15 @@ namespace kernel
 class CCmdHelp : public KConsoleCommand
 {
 public:
-    CCmdHelp(KDebugConsole* console) : KConsoleCommand(console) {}
-
     virtual int Invoke(std::vector<std::string>&& args) override
     {
-        std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> commands = KDebugConsole::GetCommands();
+        const std::map<PString, KDebugConsole::CommandEntry>& commands = KDebugConsole::GetCommands();
         const std::vector<const PAppDefinition*> apps = PAppDefinition::GetApplicationList();
 
         std::map<PString, PString> commandNames;
 
-        for (auto cmdNode : commands)
-        {
-            commandNames[cmdNode.first] = cmdNode.second(m_Console)->GetDescription();
+        for (const auto& command : commands) {
+            commandNames[command.first] = command.second.Description;
         }
 
         for (const PAppDefinition* app : apps)
@@ -62,7 +58,7 @@ public:
         return 0;
     }
 
-    virtual PString GetDescription() const override { return "List available commands."; }
+    static PString GetDescription() { return "List available commands."; }
 
 private:
 };

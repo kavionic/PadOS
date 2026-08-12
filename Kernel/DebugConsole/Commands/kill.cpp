@@ -33,8 +33,6 @@ namespace kernel
 class CCmdKill : public KConsoleCommand
 {
 public:
-    CCmdKill(KDebugConsole* console) : KConsoleCommand(console) {}
-
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         argparse::ArgumentParser program(args[0], "1.0", argparse::default_arguments::none);
@@ -134,7 +132,7 @@ public:
         return exitCode;
     }
 
-    virtual PString GetDescription() const override
+    static PString GetDescription()
     {
         return "Send a signal to a process.";
     }

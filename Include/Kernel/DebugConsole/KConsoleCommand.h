@@ -20,6 +20,7 @@
 #pragma once
 
 #include <functional>
+#include <type_traits>
 #include <vector>
 #include <unistd.h>
 
@@ -34,8 +35,6 @@ class KDebugConsole;
 class KConsoleCommand : public PtrTarget
 {
 public:
-    KConsoleCommand(KDebugConsole* console) : m_Console(console) {}
-
     template<typename ...ARGS>
     void Print(PFormatString<ARGS...>&& fmt, ARGS&&... args)
     {
@@ -45,18 +44,22 @@ public:
     ssize_t WriteOutput(const void* data, size_t length);
 
     virtual int Invoke(std::vector<std::string>&& args) = 0;
-    virtual PString GetDescription() const = 0;
 
     virtual PString ExpandArgument(const std::vector<PString>& args, size_t argIndex, size_t cursorPos) { return PString::zero; }
+};
 
+class KConsoleInternalCommand : public KConsoleCommand
+{
 protected:
+    KConsoleInternalCommand(KDebugConsole* console) : m_Console(console) {}
+
     KDebugConsole* m_Console = nullptr;
 };
 
 class KConsoleCommandRegistratorBase
 {
 protected:
-    void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator);
+    void RegisterCommand(const PString& name, const PString& description, bool isInternal, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator);
 };
 
 template<typename T>
@@ -65,11 +68,19 @@ class KConsoleCommandRegistrator : public KConsoleCommandRegistratorBase
 public:
     KConsoleCommandRegistrator(const PString name)
     {
-        RegisterCommand(name, [](KDebugConsole* console)
-            {
-                return ptr_new<T>(console);
-            }
-        );
+        if constexpr (std::is_base_of_v<KConsoleInternalCommand, T>) {
+            RegisterCommand(name, T::GetDescription(), true, [](KDebugConsole* console)
+                {
+                    return ptr_new<T>(console);
+                }
+            );
+        } else {
+            RegisterCommand(name, T::GetDescription(), false, [](KDebugConsole*)
+                {
+                    return ptr_new<T>();
+                }
+            );
+        }
     }
 };
 

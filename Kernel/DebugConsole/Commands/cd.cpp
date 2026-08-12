@@ -25,10 +25,10 @@
 namespace kernel
 {
 
-class CCmdCD : public KConsoleCommand
+class CCmdCD : public KConsoleInternalCommand
 {
 public:
-    CCmdCD(KDebugConsole* console) : KConsoleCommand(console) {}
+    CCmdCD(KDebugConsole* console) : KConsoleInternalCommand(console) {}
 
     virtual int Invoke(std::vector<std::string>&& args) override
     {
@@ -64,7 +64,7 @@ public:
         }
         return 1;
     }
-    virtual PString GetDescription() const override { return "Change working directory."; }
+    static PString GetDescription() { return "Change working directory."; }
 };
 
 static KConsoleCommandRegistrator<CCmdCD> g_RegisterCCmdCD("cd");

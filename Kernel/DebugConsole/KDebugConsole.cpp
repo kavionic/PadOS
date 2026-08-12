@@ -18,7 +18,9 @@
 // Created: 09.01.2026 22:00
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -30,6 +32,7 @@
 #include <Kernel/KLogging.h>
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KPosixSignals.h>
+#include <Kernel/KPosixSpawn.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/VFS/FileIO.h>
@@ -47,14 +50,71 @@ static bool IsKDebugConsolePipeToken(const PPOSIXTokenizer& tokenizer, const PPO
     return !token.HasFormatting && token.End == token.Start + 1 && tokenizer.GetText()[token.Start] == '|';
 }
 
+#ifdef PADOS_MODULE_POSIX_SPAWN
+
+struct KDebugConsolePipelineCommandContext
+{
+    Ptr<KConsoleCommand>     Command;
+    std::vector<std::string> Arguments;
+    int                      InputFileDescriptor = -1;
+    int                      OutputFileDescriptor = -1;
+    int                      UnusedFileDescriptor = -1;
+};
+
+static void* KDebugConsolePipelineCommandEntry(void* argument)
+{
+    std::unique_ptr<KDebugConsolePipelineCommandContext> context(static_cast<KDebugConsolePipelineCommandContext*>(argument));
+
+    bool setupSucceeded = true;
+    if (context->InputFileDescriptor != -1) {
+        setupSucceeded = dup2(context->InputFileDescriptor, STDIN_FILENO) != -1;
+    }
+    if (setupSucceeded && context->OutputFileDescriptor != -1) {
+        setupSucceeded = dup2(context->OutputFileDescriptor, STDOUT_FILENO) != -1;
+    }
+
+    if (context->InputFileDescriptor != -1) {
+        close(context->InputFileDescriptor);
+    }
+    if (context->OutputFileDescriptor != -1) {
+        close(context->OutputFileDescriptor);
+    }
+    if (context->UnusedFileDescriptor != -1) {
+        close(context->UnusedFileDescriptor);
+    }
+
+    int exitCode = 1;
+    if (setupSucceeded)
+    {
+        try {
+            exitCode = context->Command->Invoke(std::move(context->Arguments));
+        } catch (const std::exception& exc) {
+            write(STDERR_FILENO, exc.what(), strlen(exc.what()));
+            write(STDERR_FILENO, "\n", 1);
+        }
+    }
+    return reinterpret_cast<void*>(intptr_t(exitCode));
+}
+
+#endif // PADOS_MODULE_POSIX_SPAWN
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& KDebugConsole::GetCommands()
+std::map<PString, KDebugConsole::CommandEntry>& KDebugConsole::GetCommands()
 {
-    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> commands;
+    static std::map<PString, CommandEntry> commands;
     return commands;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::RegisterCommand(const PString& name, const PString& description, bool isInternal, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator)
+{
+    GetCommands()[name] = {std::move(commandCreator), description, isInternal};
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -631,7 +691,7 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 
     if (cmdIt != GetCommands().end())
     {
-        const Ptr<KConsoleCommand>& cmd = cmdIt->second(this);
+        const Ptr<KConsoleCommand>& cmd = cmdIt->second.Creator(this);
 
         try {
             m_LastExitCode = cmd->Invoke(std::move(tokens));
@@ -652,24 +712,35 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 void KDebugConsole::ExecutePipeline(std::vector<std::vector<std::string>>&& commands, const PString& commandLine)
 {
 #ifdef PADOS_MODULE_POSIX_SPAWN
-    std::vector<PString> paths;
-    paths.reserve(commands.size());
+    std::vector<PString> paths(commands.size());
+    std::vector<const CommandEntry*> internalCommandEntries(commands.size(), nullptr);
 
-    for (const std::vector<std::string>& command : commands)
+    for (size_t commandIndex = 0; commandIndex < commands.size(); ++commandIndex)
     {
+        const std::vector<std::string>& command = commands[commandIndex];
         const PString path = (command[0].empty() || command[0][0] == '/') ? command[0] : (PString("/bin/") + command[0]);
 
         stat_t statBuf;
-        if (stat(path.c_str(), &statBuf) != 0 || !(statBuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
+        if (stat(path.c_str(), &statBuf) == 0 && (statBuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
         {
-            if (GetCommands().find(command[0]) != GetCommands().end()) {
-                kprintf("Built-in command '%s' cannot be used in a pipeline\n", command[0].c_str());
-            } else {
-                kprintf("Unknown command: %s\n", command[0].c_str());
-            }
+            paths[commandIndex] = path;
+            continue;
+        }
+
+        const auto commandIterator = GetCommands().find(command[0]);
+        if (commandIterator == GetCommands().end())
+        {
+            kprintf("Unknown command: %s\n", command[0].c_str());
             return;
         }
-        paths.push_back(path);
+        if (commandIterator->second.IsInternal)
+        {
+            kprintf("Command '%s' must run in the console process and cannot be used in a pipeline\n", command[0].c_str());
+            return;
+        }
+
+        paths[commandIndex] = command[0];
+        internalCommandEntries[commandIndex] = &commandIterator->second;
     }
 
     std::vector<pid_t> processIDs;
@@ -705,68 +776,92 @@ void KDebugConsole::ExecutePipeline(std::vector<std::vector<std::string>>&& comm
             return;
         }
 
-        posix_spawn_file_actions_t fileActions;
-        int actionResult = posix_spawn_file_actions_init(&fileActions);
-        if (actionResult == 0 && inputFileDescriptor != -1) {
-            actionResult = posix_spawn_file_actions_adddup2(&fileActions, inputFileDescriptor, STDIN_FILENO);
-        }
-        if (actionResult == 0 && inputFileDescriptor != -1) {
-            actionResult = posix_spawn_file_actions_addclose(&fileActions, inputFileDescriptor);
-        }
-        if (actionResult == 0 && hasOutputPipe) {
-            actionResult = posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], STDOUT_FILENO);
-        }
-        if (actionResult == 0 && hasOutputPipe) {
-            actionResult = posix_spawn_file_actions_addclose(&fileActions, outputPipe[0]);
-        }
-        if (actionResult == 0 && hasOutputPipe) {
-            actionResult = posix_spawn_file_actions_addclose(&fileActions, outputPipe[1]);
-        }
+        pid_t processID = -1;
+        int spawnResult = 0;
+        PString spawnError;
 
-        if (actionResult != 0)
+        if (internalCommandEntries[commandIndex] != nullptr)
         {
-            if (hasOutputPipe)
+            try
             {
-                close(outputPipe[0]);
-                close(outputPipe[1]);
+                processID = SpawnInternalPipelineCommand(
+                    *internalCommandEntries[commandIndex],
+                    std::move(commands[commandIndex]),
+                    processGroupID,
+                    inputFileDescriptor,
+                    hasOutputPipe ? outputPipe[1] : -1,
+                    hasOutputPipe ? outputPipe[0] : -1);
             }
-            kprintf("Failed to configure pipe: %s\n", strerror(actionResult));
-            terminatePipeline();
-            return;
-        }
-
-        PScopeExit destroyFileActions([&fileActions]
+            catch (const std::exception& exc)
             {
-                posix_spawn_file_actions_destroy(&fileActions);
+                spawnResult = -1;
+                spawnError = exc.what();
             }
-        );
+        }
+        else
+        {
+            posix_spawn_file_actions_t fileActions;
+            int actionResult = posix_spawn_file_actions_init(&fileActions);
+            if (actionResult == 0 && inputFileDescriptor != -1) {
+                actionResult = posix_spawn_file_actions_adddup2(&fileActions, inputFileDescriptor, STDIN_FILENO);
+            }
+            if (actionResult == 0 && inputFileDescriptor != -1) {
+                actionResult = posix_spawn_file_actions_addclose(&fileActions, inputFileDescriptor);
+            }
+            if (actionResult == 0 && hasOutputPipe) {
+                actionResult = posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], STDOUT_FILENO);
+            }
+            if (actionResult == 0 && hasOutputPipe) {
+                actionResult = posix_spawn_file_actions_addclose(&fileActions, outputPipe[0]);
+            }
+            if (actionResult == 0 && hasOutputPipe) {
+                actionResult = posix_spawn_file_actions_addclose(&fileActions, outputPipe[1]);
+            }
 
-        posix_spawnattr_t spawnAttrs;
-        posix_spawnattr_init(&spawnAttrs);
-        PScopeExit destroySpawnAttrs([&spawnAttrs]
+            if (actionResult != 0)
             {
-                posix_spawnattr_destroy(&spawnAttrs);
+                if (hasOutputPipe)
+                {
+                    close(outputPipe[0]);
+                    close(outputPipe[1]);
+                }
+                kprintf("Failed to configure pipe: %s\n", strerror(actionResult));
+                terminatePipeline();
+                return;
             }
-        );
 
-        posix_spawnattr_setflags(&spawnAttrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
-        if (processGroupID != -1) {
-            posix_spawnattr_setpgroup(&spawnAttrs, processGroupID);
+            PScopeExit destroyFileActions([&fileActions]
+                {
+                    posix_spawn_file_actions_destroy(&fileActions);
+                }
+            );
+
+            posix_spawnattr_t spawnAttrs;
+            posix_spawnattr_init(&spawnAttrs);
+            PScopeExit destroySpawnAttrs([&spawnAttrs]
+                {
+                    posix_spawnattr_destroy(&spawnAttrs);
+                }
+            );
+
+            posix_spawnattr_setflags(&spawnAttrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
+            if (processGroupID != -1) {
+                posix_spawnattr_setpgroup(&spawnAttrs, processGroupID);
+            }
+
+            sigset_t defaultSignals;
+            sigfillset(&defaultSignals);
+            posix_spawnattr_setsigdefault(&spawnAttrs, &defaultSignals);
+
+            std::vector<char*> arguments;
+            arguments.reserve(commands[commandIndex].size() + 1);
+            for (std::string& argument : commands[commandIndex]) {
+                arguments.push_back(argument.data());
+            }
+            arguments.push_back(nullptr);
+
+            spawnResult = posix_spawn(&processID, paths[commandIndex].c_str(), &fileActions, &spawnAttrs, arguments.data(), environ);
         }
-
-        sigset_t defaultSignals;
-        sigfillset(&defaultSignals);
-        posix_spawnattr_setsigdefault(&spawnAttrs, &defaultSignals);
-
-        std::vector<char*> arguments;
-        arguments.reserve(commands[commandIndex].size() + 1);
-        for (std::string& argument : commands[commandIndex]) {
-            arguments.push_back(argument.data());
-        }
-        arguments.push_back(nullptr);
-
-        pid_t processID;
-        const int spawnResult = posix_spawn(&processID, paths[commandIndex].c_str(), &fileActions, &spawnAttrs, arguments.data(), environ);
 
         if (inputFileDescriptor != -1) {
             close(inputFileDescriptor);
@@ -778,7 +873,8 @@ void KDebugConsole::ExecutePipeline(std::vector<std::vector<std::string>>&& comm
 
         if (spawnResult != 0)
         {
-            kprintf("Failed to execute '%s': %s\n", paths[commandIndex].c_str(), strerror(spawnResult));
+            const char* errorMessage = spawnError.empty() ? strerror(spawnResult) : spawnError.c_str();
+            kprintf("Failed to execute '%s': %s\n", paths[commandIndex].c_str(), errorMessage);
             terminatePipeline();
             return;
         }
@@ -796,5 +892,43 @@ void KDebugConsole::ExecutePipeline(std::vector<std::vector<std::string>>&& comm
     kprintf("Pipelines require POSIX spawn support\n");
 #endif // PADOS_MODULE_POSIX_SPAWN
 }
+
+#ifdef PADOS_MODULE_POSIX_SPAWN
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+pid_t KDebugConsole::SpawnInternalPipelineCommand(const CommandEntry& commandEntry, std::vector<std::string>&& arguments, pid_t processGroupID, int inputFileDescriptor, int outputFileDescriptor, int unusedFileDescriptor)
+{
+    std::unique_ptr<KDebugConsolePipelineCommandContext> context = std::make_unique<KDebugConsolePipelineCommandContext>();
+    context->Command = commandEntry.Creator(this);
+    context->Arguments = std::move(arguments);
+    context->InputFileDescriptor = inputFileDescriptor;
+    context->OutputFileDescriptor = outputFileDescriptor;
+    context->UnusedFileDescriptor = unusedFileDescriptor;
+
+    PPosixSpawnAttribs spawnAttrs = {};
+    spawnAttrs.sa_flags = POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF;
+    spawnAttrs.sa_pgroup = (processGroupID != -1) ? processGroupID : 0;
+    sigfillset(&spawnAttrs.sa_sigdefault);
+
+    PThreadAttribs threadAttrs(context->Arguments[0].c_str(), 0, PThreadDetachState_Joinable, 0);
+    const pid_t processID = kthread_spawn_trw(
+        &threadAttrs,
+        &spawnAttrs,
+#ifdef PADOS_MODULE_USER_SPACE
+        nullptr,
+#endif // PADOS_MODULE_USER_SPACE
+        { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess },
+        nullptr,
+        KDebugConsolePipelineCommandEntry,
+        context.get());
+
+    context.release();
+    return processID;
+}
+
+#endif // PADOS_MODULE_POSIX_SPAWN
 
 } // namespace kernel

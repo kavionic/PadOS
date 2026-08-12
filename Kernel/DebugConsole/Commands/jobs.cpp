@@ -93,10 +93,10 @@ static int ResolveJobArg(KDebugConsole* console, KConsoleCommand* cmd, const std
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class CCmdJobs : public KConsoleCommand
+class CCmdJobs : public KConsoleInternalCommand
 {
 public:
-    CCmdJobs(KDebugConsole* console) : KConsoleCommand(console) {}
+    CCmdJobs(KDebugConsole* console) : KConsoleInternalCommand(console) {}
 
     virtual int Invoke(std::vector<std::string>&& args) override
     {
@@ -121,7 +121,7 @@ public:
         return 0;
     }
 
-    virtual PString GetDescription() const override
+    static PString GetDescription()
     {
         return "List background and stopped jobs.";
     }
@@ -133,10 +133,10 @@ public:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class CCmdFg : public KConsoleCommand
+class CCmdFg : public KConsoleInternalCommand
 {
 public:
-    CCmdFg(KDebugConsole* console) : KConsoleCommand(console) {}
+    CCmdFg(KDebugConsole* console) : KConsoleInternalCommand(console) {}
 
     virtual int Invoke(std::vector<std::string>&& args) override
     {
@@ -154,7 +154,7 @@ public:
         return 0;
     }
 
-    virtual PString GetDescription() const override
+    static PString GetDescription()
     {
         return "Bring a job to the foreground (fg [N]).";
     }
@@ -166,10 +166,10 @@ public:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class CCmdBg : public KConsoleCommand
+class CCmdBg : public KConsoleInternalCommand
 {
 public:
-    CCmdBg(KDebugConsole* console) : KConsoleCommand(console) {}
+    CCmdBg(KDebugConsole* console) : KConsoleInternalCommand(console) {}
 
     virtual int Invoke(std::vector<std::string>&& args) override
     {
@@ -200,7 +200,7 @@ public:
         return 0;
     }
 
-    virtual PString GetDescription() const override
+    static PString GetDescription()
     {
         return "Resume a stopped job in the background (bg [N]).";
     }

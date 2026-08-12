@@ -353,9 +353,6 @@ void KDebugConsole::WaitForForegroundProcesses(pid_t processGroupID, std::vector
                 if (processID == lastProcessID)
                 {
                     m_LastExitCode = info.si_status;
-                    if (info.si_status != 0) {
-                        kprintf("'%s' exited with code: %d\n", commandLine.c_str(), info.si_status);
-                    }
                 }
                 processIDs.erase(processIDs.begin());
                 break;

@@ -48,7 +48,7 @@ public:
 
     Termination GetTermination() const { return m_Termination; }
 
-    void    ParseToken(const Token& token, std::function<bool(size_t position, char character)>&& callback) const;
+    void    ParseToken(const Token& token, std::function<bool(size_t position, char character, bool isQuoted)>&& callback) const;
     PString GetTokenText(const Token& token) const;
     size_t  TokenToGlobalOffset(const Token& token, size_t tokenOffset) const;
     const std::vector<Token>& GetTokens() const { return m_Tokens; }

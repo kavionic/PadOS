@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include <glob.h>
 #include <termios.h>
 #include <spawn.h>
 #include <sys/wait.h>
@@ -48,6 +49,36 @@ namespace kernel
 static bool IsKDebugConsolePipeToken(const PPOSIXTokenizer& tokenizer, const PPOSIXTokenizer::Token& token)
 {
     return !token.HasFormatting && token.End == token.Start + 1 && tokenizer.GetText()[token.Start] == '|';
+}
+
+static bool ExpandKDebugConsoleArgument(const PPOSIXTokenizer& tokenizer, const PPOSIXTokenizer::Token& token, std::vector<std::string>& arguments)
+{
+    PString globPattern;
+    tokenizer.ParseToken(token, [&globPattern](size_t position, char character, bool isQuoted)
+        {
+            if (isQuoted && character != '/') {
+                globPattern += '\\';
+            }
+            globPattern += character;
+            return true;
+        }
+    );
+
+    glob_t globResult = {};
+    const int globStatus = glob(globPattern.c_str(), GLOB_NOCHECK | GLOB_QUOTE, nullptr, &globResult);
+    if (globStatus != 0)
+    {
+        const PString argument = tokenizer.GetTokenText(token);
+        globfree(&globResult);
+        kprintf("Failed to expand argument '%s': glob() returned %d\n", argument.c_str(), globStatus);
+        return false;
+    }
+
+    for (size_t pathIndex = 0; pathIndex < static_cast<size_t>(globResult.gl_pathc); ++pathIndex) {
+        arguments.emplace_back(globResult.gl_pathv[pathIndex]);
+    }
+    globfree(&globResult);
+    return true;
 }
 
 #ifdef PADOS_MODULE_POSIX_SPAWN
@@ -653,7 +684,9 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
         }
         else
         {
-            commands.back().push_back(tokenizer.GetTokenText(token));
+            if (!ExpandKDebugConsoleArgument(tokenizer, token, commands.back())) {
+                return;
+            }
         }
     }
 

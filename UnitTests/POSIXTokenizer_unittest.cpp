@@ -62,6 +62,33 @@ TEST(PPOSIXTokenizer, PreservesQuotedAndEscapedPipes)
     EXPECT_TRUE(tokens[3].HasFormatting);
 }
 
+TEST(PPOSIXTokenizer, IdentifiesQuotedCharacters)
+{
+    const PPOSIXTokenizer tokenizer("plain 'single' \"double\" escaped\\*");
+    const std::vector<PPOSIXTokenizer::Token>& tokens = tokenizer.GetTokens();
+
+    ASSERT_EQ(tokens.size(), 4u);
+
+    auto getQuotedCharacters = [&tokenizer](const PPOSIXTokenizer::Token& token)
+        {
+            std::vector<bool> quotedCharacters;
+            tokenizer.ParseToken(token, [&quotedCharacters](size_t position, char character, bool isQuoted)
+                {
+                    quotedCharacters.push_back(isQuoted);
+                    return true;
+                }
+            );
+            return quotedCharacters;
+        };
+
+    EXPECT_EQ(getQuotedCharacters(tokens[0]), std::vector<bool>(5, false));
+    EXPECT_EQ(getQuotedCharacters(tokens[1]), std::vector<bool>(6, true));
+    EXPECT_EQ(getQuotedCharacters(tokens[2]), std::vector<bool>(6, true));
+    EXPECT_EQ(
+        getQuotedCharacters(tokens[3]),
+        (std::vector<bool>{false, false, false, false, false, false, false, true}));
+}
+
 TEST(PPOSIXTokenizer, SplitsConsecutivePipeOperators)
 {
     const PPOSIXTokenizer tokenizer("one||two");

@@ -130,7 +130,7 @@ PPOSIXTokenizer::Termination PPOSIXTokenizer::SetText(const PString& text)
 }
 
 
-void PPOSIXTokenizer::ParseToken(const Token& token, std::function<bool(size_t position, char character)>&& callback) const
+void PPOSIXTokenizer::ParseToken(const Token& token, std::function<bool(size_t position, char character, bool isQuoted)>&& callback) const
 {
     QuoteMode        quouteMode = QuoteMode::None;
     std::string_view text(&m_Text[token.Start], &m_Text[token.End]);
@@ -163,12 +163,12 @@ void PPOSIXTokenizer::ParseToken(const Token& token, std::function<bool(size_t p
                     else
                     {
                         ++i;
-                        if (!callback(i, nextChar)) return;
+                        if (!callback(i, nextChar, true)) return;
                     }
                 }
                 else
                 {
-                    if (!callback(i, character)) return;
+                    if (!callback(i, character, false)) return;
                 }
                 break;
 
@@ -176,7 +176,7 @@ void PPOSIXTokenizer::ParseToken(const Token& token, std::function<bool(size_t p
                 if (character == '\'') {
                     quouteMode = QuoteMode::None;
                 } else {
-                    if (!callback(i, character)) return;
+                    if (!callback(i, character, true)) return;
                 }
                 break;
 
@@ -193,16 +193,16 @@ void PPOSIXTokenizer::ParseToken(const Token& token, std::function<bool(size_t p
                     const char nextChar = text[i + 1];
                     // Backslash in double-quote only special before \, ", $, `, or newline.
                     if (nextChar == '\\' || nextChar == '"' || nextChar == '$' || nextChar == '`') {
-                        if (!callback(++i, nextChar)) return;
+                        if (!callback(++i, nextChar, true)) return;
                     } else if (nextChar == '\n') {
                         ++i; // Remove both \ and newline (line continuation).
                     } else {
-                        if (!callback(i, character)) return; // Backslash preserved literally.
+                        if (!callback(i, character, true)) return; // Backslash preserved literally.
                     }
                 }
                 else
                 {
-                    if (!callback(i, character)) return;
+                    if (!callback(i, character, true)) return;
                 }
                 break;
         }
@@ -223,7 +223,7 @@ PString PPOSIXTokenizer::GetTokenText(const Token& token) const
     {
         PString tokenText;
 
-        ParseToken(token, [&tokenText](size_t position, char character) { tokenText.push_back(character); return true; });
+        ParseToken(token, [&tokenText](size_t position, char character, bool isQuoted) { tokenText.push_back(character); return true; });
 
         return tokenText;
     }
@@ -240,7 +240,7 @@ size_t PPOSIXTokenizer::TokenToGlobalOffset(const Token& token, size_t tokenOffs
     }
     size_t globalPos = token.End;
     size_t tokenPos = 0;
-    ParseToken(token, [tokenOffset, &token, &globalPos, &tokenPos](size_t charPos, char character) noexcept
+    ParseToken(token, [tokenOffset, &token, &globalPos, &tokenPos](size_t charPos, char character, bool isQuoted) noexcept
         {
             if (tokenPos == tokenOffset)
             {
@@ -270,7 +270,7 @@ size_t PPOSIXTokenizer::GetTokenByPosition(size_t position, size_t& outOffsetInT
 
 
             size_t tokenPos = 0;
-            ParseToken(token, [position, &token, &tokenPos](size_t charPos, char character) noexcept
+            ParseToken(token, [position, &token, &tokenPos](size_t charPos, char character, bool isQuoted) noexcept
                 {
                     if (token.Start + charPos >= position) {
                         return false;

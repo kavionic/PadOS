@@ -1,4 +1,5 @@
 target_sources(PadOS_WindowManager PRIVATE
+	find.cpp
 	grep.cpp
 	less.cpp
 	ls.cpp

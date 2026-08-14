@@ -38,10 +38,11 @@ FATTableIterator::FATTableIterator(Ptr<FATVolume> volume, uint32_t startCluster)
     if (!m_Volume->IsDataCluster(m_CurrentCluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATTableIterator constructed with invalid cluster {}", m_CurrentCluster);
     }
-    
-    m_OffsetInSector  = m_CurrentCluster * m_Volume->m_FATBits / 8;
-    m_CurrentSector   = m_Volume->m_ReservedSectors + m_Volume->m_ActiveFAT * m_Volume->m_SectorsPerFAT + m_OffsetInSector / m_Volume->m_BytesPerSector;
-    m_OffsetInSector %= m_Volume->m_BytesPerSector;
+
+    const uint64_t fatByteOffset = uint64_t(m_CurrentCluster) * m_Volume->m_FATBits / 8;
+    const uint64_t fatStartSector = uint64_t(m_Volume->m_ReservedSectors) + uint64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    m_CurrentSector = static_cast<off64_t>(fatStartSector + fatByteOffset / m_Volume->m_BytesPerSector);
+    m_OffsetInSector = static_cast<uint32_t>(fatByteOffset % m_Volume->m_BytesPerSector);
     m_LoadedSector1 = -1;
     m_LoadedSector2 = -1;
 }
@@ -62,10 +63,12 @@ FATTableIterator::~FATTableIterator()
 void FATTableIterator::SetCluster(uint32_t cluster)
 {
     m_CurrentCluster = cluster;
-    m_OffsetInSector  = m_CurrentCluster * m_Volume->m_FATBits / 8;
-    m_CurrentSector   = m_Volume->m_ReservedSectors + m_Volume->m_ActiveFAT * m_Volume->m_SectorsPerFAT + m_OffsetInSector / m_Volume->m_BytesPerSector;
-    m_OffsetInSector %= m_Volume->m_BytesPerSector;    
-    kassert(m_CurrentSector < m_Volume->m_ReservedSectors + (m_Volume->m_ActiveFAT + 1) * m_Volume->m_SectorsPerFAT);
+    const uint64_t fatByteOffset = uint64_t(m_CurrentCluster) * m_Volume->m_FATBits / 8;
+    const uint64_t fatStartSector = uint64_t(m_Volume->m_ReservedSectors) + uint64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    const uint64_t fatEndSector = fatStartSector + m_Volume->m_SectorsPerFAT;
+    m_CurrentSector = static_cast<off64_t>(fatStartSector + fatByteOffset / m_Volume->m_BytesPerSector);
+    m_OffsetInSector = static_cast<uint32_t>(fatByteOffset % m_Volume->m_BytesPerSector);
+    kassert(static_cast<uint64_t>(m_CurrentSector) < fatEndSector);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,24 +77,11 @@ void FATTableIterator::SetCluster(uint32_t cluster)
 
 void FATTableIterator::Increment()
 {
-    m_CurrentCluster++;
-    
-    if (m_CurrentCluster == m_Volume->m_TotalClusters + FATTable::FIRST_DATA_CLUSTER)
-    {
+    ++m_CurrentCluster;
+    if (m_CurrentCluster == m_Volume->m_TotalClusters + FATTable::FIRST_DATA_CLUSTER) {
         m_CurrentCluster = FATTable::FIRST_DATA_CLUSTER;
-        m_OffsetInSector = 2 * m_Volume->m_FATBits / 8; // FIXME!!!!!!!!!!!!!!!!!!!! 12-bit wont work!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        m_CurrentSector = m_Volume->m_ReservedSectors + m_Volume->m_ActiveFAT * m_Volume->m_SectorsPerFAT;
     }
-    else
-    {
-        m_OffsetInSector += m_Volume->m_FATBits / 8;
-        if (m_OffsetInSector >= m_Volume->m_BytesPerSector)
-        {
-            m_OffsetInSector -= m_Volume->m_BytesPerSector;
-            m_CurrentSector++;
-            kassert(m_CurrentSector < m_Volume->m_ReservedSectors + (m_Volume->m_ActiveFAT + 1) * m_Volume->m_SectorsPerFAT);
-        }
-    }    
+    SetCluster(m_CurrentCluster);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,39 +96,37 @@ void FATTableIterator::SetEntry(uint32_t value)
     
     if (m_Volume->m_FATBits == 12)
     {
-        uint32_t andmask;
-        uint32_t ormask;
+        uint32_t preserveMask;
+        uint32_t entryBits;
             
-        if (m_CurrentCluster & 1) {
-            ormask = (value & 0xfff) << 4;
-            andmask = 0xf;
-        } else {
-            ormask = value & 0xfff;
-            andmask = 0xf000;
+        if (m_CurrentCluster & 1)
+        {
+            entryBits = (value & 0xfff) << 4;
+            preserveMask = 0xf;
         }
-        block1[m_OffsetInSector] = uint8_t((block1[m_OffsetInSector] & andmask) | ormask);
+        else
+        {
+            entryBits = value & 0xfff;
+            preserveMask = 0xf000;
+        }
+        block1[m_OffsetInSector] = uint8_t((block1[m_OffsetInSector] & preserveMask) | entryBits);
             
         if (m_OffsetInSector == m_Volume->m_BytesPerSector - 1)
         {
             kassert(block2 != nullptr);
-            block2[0] = uint8_t((block2[0] & (andmask >> 8)) | (ormask >> 8));
+            block2[0] = uint8_t((block2[0] & (preserveMask >> 8)) | (entryBits >> 8));
             m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector2), block2);
             m_Block2.MarkDirty();
         }
         else
         {
-            block1[m_OffsetInSector+1] = uint8_t((block1[m_OffsetInSector+1] & (andmask >> 8)) | (ormask >> 8));
+            block1[m_OffsetInSector + 1] = uint8_t((block1[m_OffsetInSector + 1] & (preserveMask >> 8)) | (entryBits >> 8));
         }
-        m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector1), block1);
-        m_Block1.MarkDirty();
-        return;
     }
     else if (m_Volume->m_FATBits == 16)
     {
         block1[m_OffsetInSector] = value & 0xff;
         block1[m_OffsetInSector + 1] = (value >> 8) & 0xff;
-        m_Block1.MarkDirty();
-        return;
     }
     else if (m_Volume->m_FATBits == 32)
     {
@@ -146,12 +134,16 @@ void FATTableIterator::SetEntry(uint32_t value)
         block1[m_OffsetInSector]     = value & 0xff;
         block1[m_OffsetInSector + 1] = (value >> 8) & 0xff;
         block1[m_OffsetInSector + 2] = (value >> 16) & 0xff;
-        block1[m_OffsetInSector + 3] = (value >> 24) & 0x0f;
-        kassert(value == (block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector + 1] + 0x10000*block1[m_OffsetInSector + 2] + 0x1000000*block1[m_OffsetInSector + 3]));
-        m_Block1.MarkDirty();
-        return;
+        block1[m_OffsetInSector + 3] = uint8_t((block1[m_OffsetInSector + 3] & 0xf0) | ((value >> 24) & 0x0f));
+        kassert(value == (block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector + 1] + 0x10000*block1[m_OffsetInSector + 2] + 0x1000000*(block1[m_OffsetInSector + 3] & 0x0f)));
     }
-    PERROR_THROW_CODE(PErrorCode::IO);
+    else
+    {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector1), block1);
+    m_Block1.MarkDirty();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -178,14 +170,14 @@ uint32_t FATTableIterator::GetEntry()
         } else {
             val &= 0xfff;
         }
-        if (val > 0xff0) val |= 0x0ffff000;
+        if (val >= 0xff0) val |= 0x0ffff000;
         
         return val;
     }
     else if (m_Volume->m_FATBits == 16)
     {
         uint32_t val = block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector+1];
-        if (val > 0xfff0) val |= 0x0fff0000;
+        if (val >= 0xfff0) val |= 0x0fff0000;
         return val;
     }
     else if (m_Volume->m_FATBits == 32)
@@ -202,7 +194,7 @@ uint32_t FATTableIterator::GetEntry()
 void FATTableIterator::Update()
 {
     kassert(m_Volume->IsDataCluster(m_CurrentCluster));
-    kassert(m_OffsetInSector == ((m_CurrentCluster * m_Volume->m_FATBits / 8) % m_Volume->m_BytesPerSector));
+    kassert(m_OffsetInSector == ((uint64_t(m_CurrentCluster) * m_Volume->m_FATBits / 8) % m_Volume->m_BytesPerSector));
     
     if (m_LoadedSector1 != m_CurrentSector)
     {

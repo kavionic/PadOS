@@ -26,7 +26,7 @@
 #include "FATTableIterator.h"
 
 #define END_FAT_ENTRY 0x0ffffff8
-#define BAD_FAT_ENTRY 0x0ffffff1
+#define BAD_FAT_ENTRY 0x0ffffff7
 
 namespace kernel
 {

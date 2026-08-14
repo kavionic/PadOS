@@ -1184,7 +1184,7 @@ void CmdLSUSB::PrintTreeProperty(const std::vector<bool>& treeBranches, bool isL
 
 void CmdLSUSB::PrintTreeLine(const std::vector<bool>& treeBranches, bool isLastLine, const PString& text)
 {
-    Print("{}{}{}\n", MakeTreePrefix(treeBranches), isLastLine ? "â””â”€â”€ " : "â”œâ”€â”€ ", text);
+    Print("{}{}{}\n", MakeTreePrefix(treeBranches), isLastLine ? "└── " : "├── ", text);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1197,7 +1197,7 @@ PString CmdLSUSB::MakeTreePrefix(const std::vector<bool>& treeBranches)
 
     for (bool hasMoreSiblings : treeBranches)
     {
-        prefix += hasMoreSiblings ? "â”‚   " : "    ";
+        prefix += hasMoreSiblings ? "│   " : "    ";
     }
     return prefix;
 }

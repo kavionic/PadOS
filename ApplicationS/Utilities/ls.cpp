@@ -134,11 +134,11 @@ int CCmdLS::Invoke(int argc, char* argv[])
         }
         else
         {
-            Print("{0}: invalid argument â€˜{1}â€™ for â€˜--colorâ€™\n"
+            Print("{0}: invalid argument ‘{1}’ for ‘--color’\n"
                   "Valid arguments are:\n"
-                  "  - â€˜alwaysâ€™, â€˜yesâ€™, â€˜forceâ€™\n"
-                  "  - â€˜neverâ€™, â€˜noâ€™, â€˜noneâ€™\n"
-                  "  - â€˜autoâ€™, â€˜ttyâ€™, â€˜if-ttyâ€™\n"
+                  "  - ‘always’, ‘yes’, ‘force’\n"
+                  "  - ‘never’, ‘no’, ‘none’\n"
+                  "  - ‘auto’, ‘tty’, ‘if-tty’\n"
                   "Try '{0} --help' for more information.\n", argv[0], value);
 
             return 1;

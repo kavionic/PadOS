@@ -48,7 +48,7 @@ enum class FilenameMode
 class CmdGrep
 {
 public:
-    CmdGrep();
+    CmdGrep() = default;
     ~CmdGrep();
 
     int Run(int argc, char* argv[]);

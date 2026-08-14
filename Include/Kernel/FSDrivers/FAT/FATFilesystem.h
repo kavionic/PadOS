@@ -91,7 +91,7 @@ private:
     Ptr<FATInode> DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName);
     bool IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir);
     void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, uint32_t* startIndex, uint32_t* endIndex);
-    void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex);
+    void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex);
     void CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir);
     void EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> node);
     void DoUnlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const PString& name, bool removeFile);

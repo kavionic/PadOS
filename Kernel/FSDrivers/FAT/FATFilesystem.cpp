@@ -56,6 +56,7 @@ struct FATNewDirEntryInfo
     TimeValNanos AccessTime;
     TimeValNanos ModificationTime;
     uint8_t      DOSAttribs = 0;
+    uint8_t      ShortNameCaseFlags = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -114,6 +115,7 @@ static TimeValNanos FATTimeToTimeValOrFallback(uint32_t fatTime, uint8_t createT
 static void InitFATDirectoryEntry(
     FATDirectoryEntry& entry,
     const char shortName[11],
+    uint8_t shortNameCaseFlags,
     uint8_t dosAttribs,
     uint32_t cluster,
     size_t size,
@@ -123,7 +125,7 @@ static void InitFATDirectoryEntry(
 {
     memcpy(entry.m_Filename, shortName, sizeof(entry.m_Filename));
     entry.m_Attribs = dosAttribs;
-    entry.m_NTReserved = 0;
+    entry.m_ShortNameCaseFlags = shortNameCaseFlags;
     SetFATDirectoryEntryTimestamps(entry, createTime, accessTime, modificationTime);
     if (cluster == 0)
     {
@@ -1091,6 +1093,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     InitFATDirectoryEntry(
         *currentDirectoryEntry,
         currentDirectoryName,
+        0,
         FAT_SUBDIR,
         dummy->m_StartCluster,
         size_t(dummy->m_Size),
@@ -1107,6 +1110,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     InitFATDirectoryEntry(
         *parentDirectoryEntry,
         parentDirectoryName,
+        0,
         FAT_SUBDIR,
         parentCluster,
         size_t(dir->m_Size),
@@ -2087,33 +2091,26 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
         PERROR_THROW_CODE(PErrorCode::EXIST);
     }
 
-    // check name legality while converting. We ignore the case conversion
-    // flag, i.e. (filename "blah" will always have a patched short name),
-    // because the whole case conversion system in dos is brain damaged;
-    // remnants of CP/M no less.
-
-    // existing names pose a problem; in these cases, we'll just live with
-    // two identical short names. not a great solution, but there's little
-    // we can do about it.
-
     std::vector<wchar16_t> longName;
 
     longName.resize(258, 0xffff);
 
-    size_t len = name.copy_utf16(longName.data(), longName.size());
+    const size_t nameLength = name.copy_utf16(longName.data(), longName.size());
 
-    if (len == longName.size())
+    if (nameLength == longName.size())
     {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): Error converting utf8 name '{}' to UNICODE. Result to long.", name.c_str());
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
-    longName[len++] = 0;
+    longName[nameLength] = 0;
+    uint32_t longNameLength = static_cast<uint32_t>(nameLength);
 
     char shortName[11];
-    FATDirectoryIterator::GenerateShortName(longName.data(), len, shortName);
+    FATDirectoryIterator::GenerateShortName(longName.data(), nameLength, shortName);
 
-    // If there is a long name, patch short name and check for duplication
-    if (FATDirectoryIterator::RequiresLongName(longName.data(), len))
+    // If there is a long name, patch the short name and check for duplication.
+    // Otherwise, preserve uniformly lowercase components with the NT case flags.
+    if (FATDirectoryIterator::RequiresLongName(longName.data(), nameLength, info.ShortNameCaseFlags))
     {
         char tempName[11]; // Temporary short name
 
@@ -2158,7 +2155,7 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
     }
     else
     {
-        len = 0; // Entry doesn't need a long name.
+        longNameLength = 0; // Entry doesn't need a long name.
     }
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): creating directory entry [{:11.11}].", shortName);
@@ -2170,14 +2167,14 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
     info.AccessTime = node->m_ATime;
     info.ModificationTime = node->m_MTime;
 
-    DoCreateDirectoryEntry(vol, parent, &info, (char*)shortName, longName.data(), len, startIndex, endIndex);
+    DoCreateDirectoryEntry(vol, parent, &info, shortName, longName.data(), longNameLength, startIndex, endIndex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex)
+void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex)
 {
     if (g_DOSDeviceNames.count(PString(shortName, 11)) != 0)
     {
@@ -2190,7 +2187,7 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
     }
 
     /* convert byte length of unicode name to directory entries */
-    size_t required_entries = (len + 12) / 13 + 1;
+    size_t required_entries = (longNameLength + 12) / 13 + 1;
 
     // find a place to put the entries
     *startIndex = 0;
@@ -2282,6 +2279,7 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
     InitFATDirectoryEntry(
         buffer->m_Normal,
         shortName,
+        info->ShortNameCaseFlags,
         info->DOSAttribs,
         info->Cluster,
         info->Size,

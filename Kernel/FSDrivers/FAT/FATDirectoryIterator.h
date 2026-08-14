@@ -33,11 +33,14 @@ namespace kernel
 class FATVolume;
 class FATInode;
 
+inline constexpr uint8_t FAT_SHORT_NAME_LOWERCASE_BASE = 0x08;
+inline constexpr uint8_t FAT_SHORT_NAME_LOWERCASE_EXTENSION = 0x10;
+
 struct FATDirectoryEntry
 {
     char     m_Filename[11];       // 0x00
     uint8_t  m_Attribs;            // 0x0b
-    uint8_t  m_NTReserved;         // 0x0c
+    uint8_t  m_ShortNameCaseFlags; // 0x0c
     uint8_t  m_CreateTimeFine;     // 0x0d, 10 ms ticks within the FAT 2-second timestamp interval.
     uint16_t m_CreateTime;         // 0x0e
     uint16_t m_CreateDate;         // 0x10
@@ -105,7 +108,7 @@ public:
     FATDirectoryEntryCombo* Rewind();
     void                    MarkDirty() { m_IsDirty = true; }  
 
-    static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength);
+    static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength, uint8_t& outShortNameCaseFlags);
     static void MungeShortName(char* shortName, uint32_t iteration);
     static void GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName);
 

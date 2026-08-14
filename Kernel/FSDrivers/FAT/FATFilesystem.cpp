@@ -156,8 +156,8 @@ PErrorCode FATFilesystem::Probe(const char* devicePath, fs_info* fsInfo)
 {
     try
     {
-        // Attempt to mount volume as a FAT volume
-        Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(Mount(-1, devicePath, 0, nullptr, 0));
+        // Attempt to mount the volume as FAT without modifying it.
+        Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(Mount(-1, devicePath, MOUNT_READ_ONLY, nullptr, 0));
 
         if (!vol->CheckMagic(__func__)) {
             return PErrorCode::INVAL;
@@ -322,57 +322,56 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
     // Now we are convinced of the drive is valid.
 
-    // XXX: if fsinfo exists, read from there?
-    vol->m_LastAllocatedCluster = 2;
+    vol->m_LastAllocatedCluster = FATTable::FIRST_DATA_CLUSTER;
 
     if (!vol->m_BCache.SetDevice(deviceFile, vol->m_TotalSectors, vol->m_BytesPerSector)) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error initializing block cache ({}).", strerror(get_last_error()));
         PERROR_THROW_CODE(PErrorCode(get_last_error()));
     }
 
-
-    //    uint32_t freeClusters = 0;
-    bool     isFreeClustersValid = vol->HasFlag(FSVolumeFlags::FS_IS_READONLY);
-    if (!isFreeClustersValid)
+    bool isFreeClustersValid = false;
+    if (vol->m_FSInfoSector != 0xffff)
     {
-        if (vol->m_FSInfoSector != 0xffff)
+        KCacheBlockDesc bufferDesc = vol->m_BCache.GetBlock_trw(vol->m_FSInfoSector);
+        FATFSInfo* fsInfo = static_cast<FATFSInfo*>(bufferDesc.m_Buffer);
+        if (fsInfo != nullptr)
         {
-            KCacheBlockDesc bufferDesc = vol->m_BCache.GetBlock_trw(vol->m_FSInfoSector);
-            FATFSInfo* fsInfo = static_cast<FATFSInfo*>(bufferDesc.m_Buffer);
-            if (fsInfo != nullptr)
+            if (fsInfo->m_Signature1 == 0x41615252 && fsInfo->m_Signature2 == 0x61417272 && fsInfo->m_Signature3 == 0xaa550000)
             {
-                if (fsInfo->m_Signature1 == 0x41615252 && fsInfo->m_Signature2 == 0x61417272 && fsInfo->m_Signature3 == 0xaa550000)
+                const uint32_t freeClusterCount = fsInfo->m_FreeClusters;
+                const uint32_t lastAllocatedCluster = fsInfo->m_LastAllocatedCluster;
+                if (freeClusterCount <= vol->m_TotalClusters)
                 {
-                    vol->m_FreeClusters = fsInfo->m_FreeClusters;
-                    vol->m_LastAllocatedCluster = fsInfo->m_LastAllocatedCluster;
-#if 0                    
-                    const uint32_t freeClusters = vol->GetFATTable()->CountFreeClusters();
-                    if (freeClusters != vol->m_FreeClusters)
-                    {
-                        vol->m_FreeClusters = freeClusters;
-                        kernel_log(LogCat_FATFS, KLogSeverity::ERROR, "Mismatching free cluster count in fsinfo block. Found {} should be {}.", vol->m_FreeClusters, freeClusters);
-                    }
-#endif                    
+                    vol->m_FreeClusters = freeClusterCount;
                     isFreeClustersValid = true;
                 }
-                else
+                else if (freeClusterCount != 0xffffffff)
                 {
-                    uint32_t signature1 = fsInfo->m_Signature1;
-                    uint32_t signature2 = fsInfo->m_Signature2;
-                    uint32_t signature3 = fsInfo->m_Signature3;
-                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATFilesystem::Mount(): fsinfo block has invalid magic number {:08x}, {:08x}, {:08x}", signature1, signature2, signature3);
+                    kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): FSInfo free-cluster count {} exceeds volume cluster count {}.", freeClusterCount, vol->m_TotalClusters);
+                }
+
+                if (vol->IsDataCluster(lastAllocatedCluster)) {
+                    vol->m_LastAllocatedCluster = lastAllocatedCluster;
+                } else if (lastAllocatedCluster != 0xffffffff) {
+                    kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): ignoring invalid FSInfo next-free hint {}.", lastAllocatedCluster);
                 }
             }
             else
             {
-                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error getting fsinfo sector {:x}", vol->m_FSInfoSector);
+                uint32_t signature1 = fsInfo->m_Signature1;
+                uint32_t signature2 = fsInfo->m_Signature2;
+                uint32_t signature3 = fsInfo->m_Signature3;
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATFilesystem::Mount(): fsinfo block has invalid magic number {:08x}, {:08x}, {:08x}", signature1, signature2, signature3);
             }
         }
-        if (!isFreeClustersValid)
+        else
         {
-            vol->m_FreeClusters = vol->GetFATTable()->CountFreeClusters();
-            isFreeClustersValid = true;
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error getting fsinfo sector {:x}", vol->m_FSInfoSector);
         }
+    }
+
+    if (!isFreeClustersValid) {
+        vol->m_FreeClusters = vol->GetFATTable()->CountFreeClusters();
     }
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "mounting {} (id {:x}, device {:x}, media descriptor {:x})", vol->m_DevicePath.c_str(), vol->m_VolumeID, deviceFile, vol->m_MediaDescriptor);
@@ -406,13 +405,24 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     // find volume label (supersedes any label in the bpb)
     {
         FATDirectoryIterator diri(vol, vol->m_RootInode->m_StartCluster, 0);
-        for (const FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry(); buffer != nullptr; buffer = diri.GetNextRawEntry())
+        const size_t rootEntryCount = static_cast<size_t>(vol->m_RootInode->m_Size / sizeof(FATDirectoryEntry));
+        for (size_t entryIndex = 0; entryIndex < rootEntryCount; ++entryIndex)
         {
+            const FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
+            if (buffer == nullptr) {
+                break;
+            }
+            if (buffer->m_Normal.m_Filename[0] == 0) {
+                break;
+            }
             if ((buffer->m_Normal.m_Attribs & FAT_VOLUME) && (buffer->m_Normal.m_Attribs != 0xf) && (buffer->m_Normal.m_Filename[0] != 0xe5))
             {
                 vol->m_VolumeLabelEntry = diri.m_CurrentIndex;
                 memcpy(vol->m_VolumeLabel, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename));
                 break;
+            }
+            if (entryIndex + 1 < rootEntryCount) {
+                diri.GetNextRawEntry();
             }
         }
     }

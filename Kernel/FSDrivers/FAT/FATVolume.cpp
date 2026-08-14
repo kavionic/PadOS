@@ -75,11 +75,11 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 {
     std::vector<uint8_t> buffer;
 
-    buffer.resize(512);
+    buffer.resize(sizeof(FATSuperBlock));
 
-    FATSuperBlock* superBlock = reinterpret_cast<FATSuperBlock*>(buffer.data());
+    const FATSuperBlock* superBlock = reinterpret_cast<const FATSuperBlock*>(buffer.data());
     
-      // read in the boot sector
+    // Read the boot sector.
     const size_t bytesRead = kpread_trw(deviceFile, buffer.data(), buffer.size(), 0);
     if (bytesRead != buffer.size()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error reading boot sector.");
@@ -88,8 +88,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     
     m_MediaDescriptor = superBlock->m_Media;
     
-      // Only check boot signature on hard disks 
-    if (superBlock->m_Signature != 0xaa55 && m_MediaDescriptor == 0xf8)
+    if (superBlock->m_Signature != 0xaa55)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid signature 0x{:x}", uint16_t(superBlock->m_Signature));
         PERROR_THROW_CODE(PErrorCode::INVAL);
@@ -99,7 +98,8 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): {}, not FAT.", std::string_view(reinterpret_cast<const char*>(superBlock->m_OEMName), sizeof(superBlock->m_OEMName)));
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-      // First fill in the universal fields from the bpb
+
+    // Read and validate the fields common to all FAT BPBs.
     m_BytesPerSector = superBlock->m_BytesPerSector;
     if ((m_BytesPerSector != 512) && (m_BytesPerSector != 1024) && (m_BytesPerSector != 2048))
     {
@@ -108,22 +108,23 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     }
 	
     m_SectorsPerCluster = superBlock->m_SectorsPerCluster;
-    
-    bool validSectorsPerCluster = false;
-    for (int i = 0; i <=7; ++i)
+    const bool validSectorsPerCluster =
+        m_SectorsPerCluster != 0 &&
+        (m_SectorsPerCluster & (m_SectorsPerCluster - 1)) == 0 &&
+        m_SectorsPerCluster <= 128;
+    const uint32_t bytesPerCluster = m_BytesPerSector * m_SectorsPerCluster;
+    if (!validSectorsPerCluster || bytesPerCluster > 32 * 1024)
     {
-        if (m_SectorsPerCluster == (1<<i)) {
-            validSectorsPerCluster = true;
-            break;
-        }
-    }
-    if (!validSectorsPerCluster)
-    {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount() sectors/cluster = {}", m_SectorsPerCluster);
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid cluster size ({} sectors, {} bytes).", m_SectorsPerCluster, bytesPerCluster);
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     m_ReservedSectors = superBlock->m_ReservedSectors;
+    if (m_ReservedSectors == 0)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): volume has no reserved sectors.");
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
 
     m_FATCount = superBlock->m_FATCount;
     if (m_FATCount == 0 || m_FATCount > 8)
@@ -132,95 +133,149 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
-      // Check media descriptor versus known types.
+    // Check the media descriptor against the values defined for FAT.
     if ((superBlock->m_Media != 0xF0) && (superBlock->m_Media < 0xf8))
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid media descriptor byte.");
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
+    m_RootEntriesCount = superBlock->m_RootDirEntryCount16;
+    m_TotalSectors = (superBlock->m_TotalSectorCount16 != 0) ? superBlock->m_TotalSectorCount16 : superBlock->m_TotalSectorCount32;
+    if (m_TotalSectors == 0)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): volume contains no sectors.");
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    const bool hasFAT32BPB = superBlock->m_SectorsPerFAT16 == 0;
+    m_SectorsPerFAT = (superBlock->m_SectorsPerFAT16 != 0) ? superBlock->m_SectorsPerFAT16 : superBlock->m_FSDependent.FAT32.m_SectorsPerFAT;
+    if (m_SectorsPerFAT == 0)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT contains no sectors.");
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    const uint64_t rootDirectoryByteCount = uint64_t(m_RootEntriesCount) * 32;
+    const uint64_t rootDirectorySectorCount = (rootDirectoryByteCount + m_BytesPerSector - 1) / m_BytesPerSector;
+    const uint64_t fatRegionSectorCount = uint64_t(m_FATCount) * m_SectorsPerFAT;
+    const uint64_t firstDataSector = uint64_t(m_ReservedSectors) + fatRegionSectorCount + rootDirectorySectorCount;
+
+    if (firstDataSector >= m_TotalSectors)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): metadata extends through or past the end of the volume ({} >= {}).", firstDataSector, m_TotalSectors);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    m_FirstDataSector = static_cast<uint32_t>(firstDataSector);
+    const uint64_t dataSectorCount = uint64_t(m_TotalSectors) - firstDataSector;
+    m_TotalClusters = static_cast<uint32_t>(dataSectorCount / m_SectorsPerCluster);
+    if (m_TotalClusters == 0)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): volume contains no data clusters.");
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    if (m_TotalClusters < 4085) {
+        m_FATBits = 12;
+    } else if (m_TotalClusters < 65525) {
+        m_FATBits = 16;
+    } else {
+        m_FATBits = 32;
+    }
+
+    if ((m_FATBits == 32) != hasFAT32BPB)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): {}-bit FAT does not match the BPB layout.", m_FATBits);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    if (m_FATBits == 32 && m_TotalClusters > 0x0ffffff5)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT32 volume contains too many clusters ({}).", m_TotalClusters);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    const uint64_t fatEntryCount = uint64_t(m_TotalClusters) + FATTable::FIRST_DATA_CLUSTER;
+    const uint64_t requiredFATByteCount = (fatEntryCount * m_FATBits + 7) / 8;
+    const uint64_t availableFATByteCount = uint64_t(m_SectorsPerFAT) * m_BytesPerSector;
+    if (requiredFATByteCount > availableFATByteCount)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT is too small ({} bytes available, {} required).", availableFATByteCount, requiredFATByteCount);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
 
     uint32_t rootStartCluster;
     uint32_t rootEndCluster;
     uint32_t rootSize = 0;
     
-      // now become more discerning citizens
-    if (superBlock->m_SectorsPerFAT16 == 0)
+    if (m_FATBits == 32)
     {
-	    // FAT32
-	    m_FATBits = 32;
-	    m_SectorsPerFAT = superBlock->m_FSDependent.FAT32.m_SectorsPerFAT;
-        m_TotalSectors  = superBlock->m_TotalSectorCount32;
-		
-        m_FSInfoSector  = superBlock->m_FSDependent.FAT32.m_FSInfoSector;
-	    if ((m_FSInfoSector != 0xffff) && (m_FSInfoSector >= m_ReservedSectors))
+        if (m_RootEntriesCount != 0)
         {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): fsinfo sector too large ({}).", m_FSInfoSector);
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT32 root-entry count is not zero ({}).", m_RootEntriesCount);
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        m_FATMirrored = !(superBlock->m_FSDependent.FAT32.m_ExtendedFlags & 0x80);
-        m_ActiveFAT = (m_FATMirrored) ? (superBlock->m_FSDependent.FAT32.m_ExtendedFlags & 0xf) : 0;
 
-        m_FirstDataSector = m_ReservedSectors + m_FATCount * m_SectorsPerFAT;
-        m_TotalClusters   = (m_TotalSectors - m_FirstDataSector) / m_SectorsPerCluster;
+        if (superBlock->m_FSDependent.FAT32.m_FSVersion != 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): unsupported FAT32 version 0x{:04x}.", superBlock->m_FSDependent.FAT32.m_FSVersion);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+
+        m_FSInfoSector = superBlock->m_FSDependent.FAT32.m_FSInfoSector;
+        if ((m_FSInfoSector != 0xffff) && ((m_FSInfoSector == 0) || (m_FSInfoSector >= m_ReservedSectors)))
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid FSInfo sector ({}).", m_FSInfoSector);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+
+        const uint16_t extendedFlags = superBlock->m_FSDependent.FAT32.m_ExtendedFlags;
+        m_FATMirrored = (extendedFlags & 0x80) == 0;
+        m_ActiveFAT = m_FATMirrored ? 0 : uint8_t(extendedFlags & 0x0f);
+        if (m_ActiveFAT >= m_FATCount)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): active FAT index {} exceeds FAT count {}.", m_ActiveFAT, m_FATCount);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
 
         rootStartCluster = superBlock->m_FSDependent.FAT32.m_RootDirectory;
-	    if (rootStartCluster >= m_TotalClusters)
+        if (!IsDataCluster(rootStartCluster))
         {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): root inode cluster too large ({}).", rootStartCluster);
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid root-directory cluster ({}).", rootStartCluster);
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
+        rootEndCluster = rootStartCluster;
     }
     else
     {
-        m_SectorsPerFAT = superBlock->m_SectorsPerFAT16;
-	  // FAT12 & FAT16
-    	if (m_FATCount != 2) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): claims {} fat tables.", m_FATCount);
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-        }
-
-        m_RootEntriesCount = superBlock->m_RootDirEntryCount16;
-	    if (m_RootEntriesCount % (m_BytesPerSector / 0x20))
+        if (m_RootEntriesCount == 0)
         {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid number of root entries.");
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT12/16 volume contains no root-directory entries.");
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
 
-	    m_FSInfoSector = 0xffff;
-	    m_TotalSectors = superBlock->m_TotalSectorCount16;
-	    if (m_TotalSectors == 0) {
-	        m_TotalSectors = superBlock->m_TotalSectorCount32;
-        }            
+        m_FSInfoSector = 0xffff;
+        m_FATMirrored = true;
+        m_ActiveFAT = 0;
 
-	    m_FATMirrored = true;
-	    m_ActiveFAT   = 0;
+        m_RootStart = m_ReservedSectors + m_FATCount * m_SectorsPerFAT;
+        m_RootSectorCount = static_cast<uint32_t>(rootDirectorySectorCount);
+        rootStartCluster = 1;
+        rootEndCluster = 1;
+        rootSize = m_RootSectorCount * m_BytesPerSector;
 
-        m_RootStart       = m_ReservedSectors + m_FATCount * m_SectorsPerFAT;
-        m_RootSectorCount = m_RootEntriesCount * 0x20 / m_BytesPerSector;
-	    rootStartCluster  = 1;
-        rootEndCluster    = 1;
-        rootSize          = m_RootSectorCount * m_BytesPerSector;
-	    m_FirstDataSector = m_RootStart + m_RootSectorCount;
-	    m_TotalClusters   = (m_TotalSectors - m_FirstDataSector) / m_SectorsPerCluster;	
-		
-	    // XXX: uncertain about border cases; win32 sdk says cutoffs are at
-	    //      at ff6/ff7 (or fff6/fff7), but that doesn't make much sense
-	    if (m_TotalClusters > 0xff1) {
-	        m_FATBits = 16;
-	    } else {
-	        m_FATBits = 12;
-        }
         if (superBlock->m_FSDependent.FAT16.m_BootSignature == 0x29)
         {
             // Fill in the volume label
-            if (memcmp(superBlock->m_FSDependent.FAT16.m_VolumeLabel, "           ", 11) != 0) {
+            if (memcmp(superBlock->m_FSDependent.FAT16.m_VolumeLabel, "           ", 11) != 0)
+            {
                 memcpy(m_VolumeLabel, superBlock->m_FSDependent.FAT16.m_VolumeLabel, 11);
                 m_VolumeLabelEntry = -1;
             }
         }
-        
     }
+
     m_RootInode->m_Size         = rootSize;
     m_RootInode->m_StartCluster = rootStartCluster;
     m_RootInode->m_EndCluster   = rootEndCluster;

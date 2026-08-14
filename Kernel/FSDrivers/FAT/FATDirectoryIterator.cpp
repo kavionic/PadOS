@@ -556,12 +556,16 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
             }
             if (startIndex == 0xffff)
             {
-                if ((buffer->m_LFN.m_SequenceNumber & 0x40) == 0) {
-                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN start entry in directory.");
+                const uint8_t sequenceNumber = buffer->m_LFN.m_SequenceNumber;
+                const uint32_t entryCount = sequenceNumber & 0x1f;
+                if ((sequenceNumber & 0xe0) != 0x40 || entryCount == 0 || entryCount > 20)
+                {
+                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): invalid LFN start sequence number 0x{:02x}.", sequenceNumber);
                     continue;
                 }
+
                 hash = buffer->m_LFN.m_Hash;
-                lfnCount = buffer->m_LFN.m_SequenceNumber & 0x1f;
+                lfnCount = entryCount;
                 startIndex = m_CurrentIndex;
                 
                 if (filename == nullptr) {
@@ -596,6 +600,11 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
                 if (filenameLen > 0 && utf16Buffer[filenameLen - 1] == 0) {
                     --filenameLen;
                 }
+                if (filenameLen > 255)
+                {
+                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): long file name exceeds 255 characters.");
+                    startIndex = 0xffff;
+                }
                 continue;
             }
             else
@@ -605,11 +614,13 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
                     startIndex = 0xffff;
                     continue;
                 }
-                if (buffer->m_LFN.m_SequenceNumber != --lfnCount) {
+                if (lfnCount <= 1 || buffer->m_LFN.m_SequenceNumber != lfnCount - 1)
+                {
                     kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN sequence number.");
                     startIndex = 0xffff;
                     continue;
                 }
+                --lfnCount;
                 if (filename != nullptr)
                 {
                     wchar16_t* dst = utf16Buffer.data() + 13 * (lfnCount - 1);

@@ -18,6 +18,11 @@
 // Created: 12.03.2026 22:00
 
 
+#include "top.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <termios.h>
 #include <sys/pados_types.h>
 #include <sys/pados_threads.h>
@@ -42,164 +47,143 @@ namespace shutil_top
 #define ANSI_DISABLE_ALT_SCR_BUFFER "\033[?1049l"
 
 
-struct TopThreadInfo : public PtrTarget
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int CmdTop::Run(TimeValNanos period)
 {
-    thread_id       ThreadID;
-    pid_t           ProcessID;
-    TimeValNanos    ThisTime;
-    TimeValNanos    LastTime;
-    PString         ThreadName;
-    PString         ProcName;
-    int             Priority;
-    uint32_t        RunNumber;
-};
+    printf(ANSI_CLEAR_SCREEN ANSI_CURSOR_TOP_LEFT "Wait for initial update\n");
+    update_list();
 
+    snooze(0.3);
 
-class CmdTop : public PtrTarget
-{
-public:
-    ///////////////////////////////////////////////////////////////////////////////
-    /// \author Kurt Skauen
-    ///////////////////////////////////////////////////////////////////////////////
-
-    int Run(TimeValNanos period)
+    for (;;)
     {
-        printf(ANSI_CLEAR_SCREEN ANSI_CURSOR_TOP_LEFT "Wait for initial update\n");
         update_list();
+        print_list();
+        snooze(period);
+    }
+    return 0;
+}
 
-        snooze(0.3);
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-        for(;;)
+void CmdTop::insert_thread(ThreadInfo* psInfo)
+{
+    for (size_t i = 0; i < m_ThreadList.size(); ++i)
+    {
+        if (psInfo->ThreadID == m_ThreadList[i]->ThreadID)
         {
-            update_list();
-            print_list();
-            snooze(period);
+            m_ThreadList[i]->LastTime = m_ThreadList[i]->ThisTime;
+            m_ThreadList[i]->ThisTime = TimeValNanos::FromNanoseconds(psInfo->UserTimeNano);
+            m_ThreadList[i]->RunNumber = m_RunNumber;
+
+            m_ThreadList[i]->Priority = psInfo->Priority;
+            m_ThreadList[i]->ThreadName = psInfo->ThreadName;
+            m_ThreadList[i]->ProcName = psInfo->ProcessName;
+            return;
         }
-        return 0;
+    }
+    Ptr<TopThreadInfo> threadInfo = ptr_new<TopThreadInfo>();
+
+    threadInfo->ThreadID    = psInfo->ThreadID;
+    threadInfo->ProcessID   = psInfo->ProcessID;
+    threadInfo->ThisTime    = TimeValNanos::FromNanoseconds(psInfo->UserTimeNano);
+    threadInfo->LastTime    = TimeValNanos::FromNanoseconds(psInfo->UserTimeNano);
+    threadInfo->Priority    = psInfo->Priority;
+    threadInfo->RunNumber   = m_RunNumber;
+
+    threadInfo->ThreadName  = psInfo->ThreadName;
+    threadInfo->ProcName    = psInfo->ProcessName;
+
+    m_ThreadList.push_back(threadInfo);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void CmdTop::print_list()
+{
+    struct winsize winSize;
+    TimeValNanos totalTime;
+
+    device_control(0, TIOCGWINSZ, nullptr, 0, &winSize, sizeof(winSize));
+
+    const size_t lineCount = std::min<size_t>(m_ThreadList.size(), winSize.ws_row);
+
+    for (size_t i = 0; i < lineCount; ++i)
+    {
+        const Ptr<TopThreadInfo>& info = m_ThreadList[i];
+        totalTime += info->ThisTime - info->LastTime;
     }
 
-private:
+    printf(ANSI_CURSOR_TOP_LEFT);
 
-    ///////////////////////////////////////////////////////////////////////////////
-    /// \author Kurt Skauen
-    ///////////////////////////////////////////////////////////////////////////////
-
-    void insert_thread(ThreadInfo* psInfo)
+    double totalTimeInverse = 1.0f / totalTime.AsSeconds();
+    for (size_t i = 0; i < lineCount; ++i)
     {
-        for (size_t i = 0; i < m_ThreadList.size(); ++i)
-        {
-            if (psInfo->ThreadID == m_ThreadList[i]->ThreadID)
-            {
-                m_ThreadList[i]->LastTime = m_ThreadList[i]->ThisTime;
-                m_ThreadList[i]->ThisTime = TimeValNanos::FromNanoseconds(psInfo->UserTimeNano);
-                m_ThreadList[i]->RunNumber = m_RunNumber;
+        const Ptr<TopThreadInfo>& psInfo = m_ThreadList[i];
+        TimeValNanos deltaTime = psInfo->ThisTime - psInfo->LastTime;
 
-                m_ThreadList[i]->Priority = psInfo->Priority;
-                m_ThreadList[i]->ThreadName = psInfo->ThreadName;
-                m_ThreadList[i]->ProcName = psInfo->ProcessName;
-                return;
-            }
-        }
-        Ptr<TopThreadInfo> threadInfo = ptr_new<TopThreadInfo>();
-        
-        threadInfo->ThreadID    = psInfo->ThreadID;
-        threadInfo->ProcessID   = psInfo->ProcessID;
-        threadInfo->ThisTime    = TimeValNanos::FromNanoseconds(psInfo->UserTimeNano);
-        threadInfo->LastTime    = TimeValNanos::FromNanoseconds(psInfo->UserTimeNano);
-        threadInfo->Priority    = psInfo->Priority;
-        threadInfo->RunNumber   = m_RunNumber;
-
-        threadInfo->ThreadName  = psInfo->ThreadName;
-        threadInfo->ProcName    = psInfo->ProcessName;
-
-        m_ThreadList.push_back(threadInfo);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    /// \author Kurt Skauen
-    ///////////////////////////////////////////////////////////////////////////////
-
-    void print_list()
-    {
-        struct winsize winSize;
-        TimeValNanos totalTime;
-
-        device_control(0, TIOCGWINSZ, nullptr, 0, &winSize, sizeof(winSize));
-
-        const size_t lineCount = std::min<size_t>(m_ThreadList.size(), winSize.ws_row);
-
-        for (size_t i = 0; i < lineCount; ++i)
-        {
-            const Ptr<TopThreadInfo>& info = m_ThreadList[i];
-            totalTime += info->ThisTime - info->LastTime;
-        }
-
-        printf(ANSI_CURSOR_TOP_LEFT);
-
-        double totalTimeInverse = 1.0f / totalTime.AsSeconds();
-        for (size_t i = 0; i < lineCount; ++i)
-        {
-            const Ptr<TopThreadInfo>& psInfo = m_ThreadList[i];
-            TimeValNanos deltaTime = psInfo->ThisTime - psInfo->LastTime;
-
-            PString text = PString::format_string("{:<15.15} {:<20.20} ({:04}:{:04}) {:4}, {:.3f}ms {:5.1f}%",
-                psInfo->ProcName, psInfo->ThreadName,
-                psInfo->ProcessID, psInfo->ThreadID,
-                psInfo->Priority,
-                deltaTime.AsSeconds() * 0.001, deltaTime.AsSeconds() * 100.0 * totalTimeInverse
-            );
-            if (text.size() > winSize.ws_col) text.resize(winSize.ws_col);
-
-            if (i == 0) {
-                printf("%s", text.c_str());
-            } else {
-                printf("\n%s", text.c_str());
-            }
-            if (text.size() < winSize.ws_col) {
-                printf(ANSI_CLEAR_TO_END_OF_LINE);
-            }
-        }
-        if (lineCount < winSize.ws_row) {
-            printf("\n" ANSI_CLEAR_TO_END_OF_SCREEN);
-        }
-        fflush(stdout);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    /// \author Kurt Skauen
-    ///////////////////////////////////////////////////////////////////////////////
-
-    void update_list()
-    {
-        ThreadInfo threadInfo;
-
-        for (PErrorCode result = get_thread_info(-1, &threadInfo); result == PErrorCode::Success; result = get_next_thread_info(&threadInfo))
-        {
-            insert_thread(&threadInfo);
-        }
-        std::sort(m_ThreadList.begin(), m_ThreadList.end(), [](const Ptr<TopThreadInfo>& psI1, const Ptr<TopThreadInfo>& psI2)
-            {
-                if (psI1->RunNumber != psI2->RunNumber) {
-                    return psI2->RunNumber < psI1->RunNumber;
-                }
-                return (psI2->ThisTime - psI2->LastTime) < (psI1->ThisTime - psI1->LastTime);
-            }
+        PString text = PString::format_string("{:<15.15} {:<20.20} ({:04}:{:04}) {:4}, {:.3f}ms {:5.1f}%",
+            psInfo->ProcName, psInfo->ThreadName,
+            psInfo->ProcessID, psInfo->ThreadID,
+            psInfo->Priority,
+            deltaTime.AsSeconds() * 0.001, deltaTime.AsSeconds() * 100.0 * totalTimeInverse
         );
+        if (text.size() > winSize.ws_col) text.resize(winSize.ws_col);
 
-        for (ssize_t i = m_ThreadList.size() - 1; i >= 0; --i)
-        {
-            if (m_ThreadList[i]->RunNumber == m_RunNumber)
-            {
-                m_ThreadList.resize(i + 1);
-                break;
-            }
+        if (i == 0) {
+            printf("%s", text.c_str());
+        } else {
+            printf("\n%s", text.c_str());
         }
-        m_RunNumber++;
+        if (text.size() < winSize.ws_col) {
+            printf(ANSI_CLEAR_TO_END_OF_LINE);
+        }
     }
+    if (lineCount < winSize.ws_row) {
+        printf("\n" ANSI_CLEAR_TO_END_OF_SCREEN);
+    }
+    fflush(stdout);
+}
 
-    std::vector<Ptr<TopThreadInfo>> m_ThreadList;
-    uint32_t m_RunNumber = 1;
-};
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void CmdTop::update_list()
+{
+    ThreadInfo threadInfo;
+
+    for (PErrorCode result = get_thread_info(-1, &threadInfo); result == PErrorCode::Success; result = get_next_thread_info(&threadInfo))
+    {
+        insert_thread(&threadInfo);
+    }
+    std::sort(m_ThreadList.begin(), m_ThreadList.end(), [](const Ptr<TopThreadInfo>& psI1, const Ptr<TopThreadInfo>& psI2)
+        {
+            if (psI1->RunNumber != psI2->RunNumber) {
+                return psI2->RunNumber < psI1->RunNumber;
+            }
+            return (psI2->ThisTime - psI2->LastTime) < (psI1->ThisTime - psI1->LastTime);
+        }
+    );
+
+    for (ssize_t i = m_ThreadList.size() - 1; i >= 0; --i)
+    {
+        if (m_ThreadList[i]->RunNumber == m_RunNumber)
+        {
+            m_ThreadList.resize(i + 1);
+            break;
+        }
+    }
+    m_RunNumber++;
+}
+
 
 int top_main(int argc, char** argv)
 {

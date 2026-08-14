@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 12.08.2026 22:00
 
+#include "find.h"
+
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -43,108 +45,6 @@
 
 namespace shutil_find
 {
-
-enum class ParseArgumentsResult
-{
-    Success,
-    Help,
-    Error
-};
-
-
-enum class FindActionType
-{
-    Print,
-    PrintNull,
-    Execute,
-    ExecuteBatch,
-    ExecuteDirectory,
-    ExecuteDirectoryBatch
-};
-
-
-struct FindAction
-{
-    FindActionType       Type = FindActionType::Print;
-    std::vector<PString> CommandArguments;
-    std::vector<PString> PendingArguments;
-    PString              PendingDirectory;
-    size_t               PendingArgumentBytes = 0;
-};
-
-
-class CmdFind
-{
-public:
-    int Run(int argc, char* argv[]);
-
-private:
-    ParseArgumentsResult ParseArguments(int argc, char* argv[]);
-    bool ExtractActions(
-        int argc,
-        char* argv[],
-        std::vector<std::string>& parserArguments
-    );
-
-    void VisitPath(
-        const PString& path,
-        const PString& name,
-        size_t depth,
-        const stat_t& statBuffer,
-        dev_t traversalDevice
-    );
-    bool ReadNodeStat(const PString& path, stat_t& statBuffer);
-    void ReadDirectoryEntries(const PString& path, std::vector<PString>& entries);
-    bool Matches(const PString& name, mode_t mode) const;
-    bool MatchesFileType(mode_t mode) const;
-    void PerformActions(const PString& path);
-    bool ExecuteImmediateAction(const FindAction& action, const PString& path);
-    void QueueBatchAction(FindAction& action, const PString& path);
-    void FlushPendingActions();
-    void FlushPendingAction(FindAction& action);
-    bool RunCommand(
-        std::vector<PString>&& commandArguments,
-        const PString& workingDirectory,
-        bool nonZeroExitIsError
-    );
-
-    static PString GetBaseName(const PString& path);
-    static PString MakeChildPath(const PString& parentPath, const PString& childName);
-    static void GetExecutionLocation(
-        const PString& path,
-        PString& directory,
-        PString& argument
-    );
-    static PString ResolveExecutablePath(
-        const PString& command,
-        const PString& workingDirectory
-    );
-    static void ReplaceAll(
-        PString& text,
-        std::string_view token,
-        std::string_view replacement
-    );
-    static size_t CalculateArgumentBytes(const std::vector<PString>& arguments);
-    static bool IsBatchAction(FindActionType actionType);
-    static bool IsDirectoryAction(FindActionType actionType);
-    static bool WriteAll(int fileDescriptor, std::string_view text);
-
-    void PrintPath(const PString& path, bool nullTerminate);
-    void ReportError(const PString& text);
-
-    PString                 m_CommandName;
-    std::vector<PString>    m_StartPaths;
-    std::vector<FindAction> m_Actions;
-    PString                 m_NamePattern;
-    size_t                  m_MinDepth = 0;
-    size_t                  m_MaxDepth = std::numeric_limits<size_t>::max();
-    char                    m_FileType = '\0';
-    bool                    m_UseNamePattern = false;
-    bool                    m_UseFileType = false;
-    bool                    m_StayOnDevice = false;
-    bool                    m_HadError = false;
-};
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

@@ -1,15 +1,28 @@
 target_sources(PadOS_WindowManager PRIVATE
 	FileUtilityHelpers.cpp
+	FileUtilityHelpers.h
 	cp.cpp
+	cp.h
 	find.cpp
+	find.h
 	grep.cpp
+	grep.h
 	less.cpp
+	less.h
 	ln.cpp
+	ln.h
 	ls.cpp
+	ls.h
 	ls_usb.cpp
+	ls_usb.h
 	mkdir.cpp
+	mkdir.h
 	mv.cpp
+	mv.h
 	rm.cpp
+	rm.h
 	rmdir.cpp
+	rmdir.h
 	top.cpp
+	top.h
 )

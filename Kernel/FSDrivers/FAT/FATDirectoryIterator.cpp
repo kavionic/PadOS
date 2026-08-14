@@ -498,7 +498,9 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
     if ((++m_CurrentIndex % m_EntriesPerSector) == 0)
     {
         ReleaseCurrentBlock();
-        m_SectorIterator.Increment(1);
+        if (!m_SectorIterator.Increment(1)) {
+            return nullptr;
+        }
         m_CurrentBlock = m_SectorIterator.GetBlock_(true);
         if (m_CurrentBlock.m_Buffer == nullptr) {
             return nullptr;
@@ -517,7 +519,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
     std::vector<wchar16_t> utf16Buffer;
 
     if (filename != nullptr) {
-        utf16Buffer.resize(512);
+        utf16Buffer.resize(FAT_LONG_NAME_MAX_ENTRY_COUNT * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY);
     }
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): {}", m_CurrentIndex);
 
@@ -548,7 +550,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
             continue;
         }
         
-        if (buffer->m_LFN.m_Attribs == 0x0f) // long file name
+        if ((buffer->m_LFN.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) == FAT_LONG_NAME_ATTRIBUTES)
         {
             if ((buffer->m_LFN.m_Reserved1 != 0) || (buffer->m_LFN.m_Reserved2[0] != 0) || (buffer->m_LFN.m_Reserved2[1] != 0)) {
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Invalid LFN entry: reserved fields clobbered.");
@@ -558,7 +560,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
             {
                 const uint8_t sequenceNumber = buffer->m_LFN.m_SequenceNumber;
                 const uint32_t entryCount = sequenceNumber & 0x1f;
-                if ((sequenceNumber & 0xe0) != 0x40 || entryCount == 0 || entryCount > 20)
+                if ((sequenceNumber & 0xe0) != 0x40 || entryCount == 0 || entryCount > FAT_LONG_NAME_MAX_ENTRY_COUNT)
                 {
                     kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): invalid LFN start sequence number 0x{:02x}.", sequenceNumber);
                     continue;
@@ -572,7 +574,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
                     continue;
                 }
                 
-                wchar16_t* dst = utf16Buffer.data() + 13 * (lfnCount - 1);
+                wchar16_t* dst = utf16Buffer.data() + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY * (lfnCount - 1);
                 
                 bool done = false;
                 for (int i = 0; !done && i < ARRAY_COUNT(buffer->m_LFN.m_NamePart1); ++i) {
@@ -600,9 +602,9 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
                 if (filenameLen > 0 && utf16Buffer[filenameLen - 1] == 0) {
                     --filenameLen;
                 }
-                if (filenameLen > 255)
+                if (filenameLen > FAT_LONG_NAME_MAX_LENGTH)
                 {
-                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): long file name exceeds 255 characters.");
+                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): long file name exceeds {} characters.", FAT_LONG_NAME_MAX_LENGTH);
                     startIndex = 0xffff;
                 }
                 continue;
@@ -623,7 +625,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
                 --lfnCount;
                 if (filename != nullptr)
                 {
-                    wchar16_t* dst = utf16Buffer.data() + 13 * (lfnCount - 1);
+                    wchar16_t* dst = utf16Buffer.data() + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY * (lfnCount - 1);
                     memcpy(dst, buffer->m_LFN.m_NamePart1, sizeof(buffer->m_LFN.m_NamePart1));
                     dst += ARRAY_COUNT(buffer->m_LFN.m_NamePart1);
                     memcpy(dst, buffer->m_LFN.m_NamePart2, sizeof(buffer->m_LFN.m_NamePart2));
@@ -671,7 +673,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
         }            
     }
 
-    if (outInfo)
+    if (outInfo != nullptr)
     {
         outInfo->m_StartIndex = startIndex;
         outInfo->m_EndIndex   = m_CurrentIndex;

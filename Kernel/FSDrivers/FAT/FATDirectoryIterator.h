@@ -36,6 +36,13 @@ class FATInode;
 inline constexpr uint8_t FAT_SHORT_NAME_LOWERCASE_BASE = 0x08;
 inline constexpr uint8_t FAT_SHORT_NAME_LOWERCASE_EXTENSION = 0x10;
 
+inline constexpr uint8_t FAT_LONG_NAME_ATTRIBUTES = 0x0f;
+inline constexpr uint8_t FAT_LONG_NAME_ATTRIBUTE_MASK = 0x3f;
+
+inline constexpr size_t FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY = 13;
+inline constexpr size_t FAT_LONG_NAME_MAX_LENGTH = 255;
+inline constexpr size_t FAT_LONG_NAME_MAX_ENTRY_COUNT = (FAT_LONG_NAME_MAX_LENGTH + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY - 1) / FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY;
+
 struct FATDirectoryEntry
 {
     char     m_Filename[11];       // 0x00
@@ -102,17 +109,17 @@ public:
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
-    bool                    GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename);
-    bool                    GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
+    bool GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename);
+    bool GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();
-    void                    MarkDirty() { m_IsDirty = true; }  
+    void MarkDirty() { m_IsDirty = true; }
 
     static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength, uint8_t& outShortNameCaseFlags);
     static void MungeShortName(char* shortName, uint32_t iteration);
     static void GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName);
 
-    static uint8_t  HashMSDOSName(const char *name);
+    static uint8_t HashMSDOSName(const char *name);
 
 private:
     void     ReleaseCurrentBlock();    

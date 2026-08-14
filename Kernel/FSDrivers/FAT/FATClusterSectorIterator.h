@@ -33,9 +33,9 @@ struct FATClusterSectorIterator
     off64_t         GetBlockSector();
     KCacheBlockDesc GetBlock_(bool doLoad);
     
-    void        Increment(int sectors);
+    bool Increment(int sectors);
 
-    PErrorCode        MarkBlockDirty();
+    PErrorCode MarkBlockDirty();
     void        ReadBlock(uint8_t* buffer);
     void        WriteBlock(const uint8_t* buffer);
     

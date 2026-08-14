@@ -415,7 +415,9 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
             if (buffer->m_Normal.m_Filename[0] == 0) {
                 break;
             }
-            if ((buffer->m_Normal.m_Attribs & FAT_VOLUME) && (buffer->m_Normal.m_Attribs != 0xf) && (buffer->m_Normal.m_Filename[0] != 0xe5))
+            if ((buffer->m_Normal.m_Attribs & FAT_VOLUME) &&
+                ((buffer->m_Normal.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) != FAT_LONG_NAME_ATTRIBUTES) &&
+                (buffer->m_Normal.m_Filename[0] != 0xe5))
             {
                 vol->m_VolumeLabelEntry = diri.m_CurrentIndex;
                 memcpy(vol->m_VolumeLabel, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename));
@@ -637,7 +639,7 @@ Ptr<KInode> FATFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent
     Ptr<FATInode>  dir = ptr_static_cast<FATInode>(parent);
     PString        file;
 
-    if (nameLength > 255) {
+    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
     file.assign(name, nameLength);
@@ -774,7 +776,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     
-    if (nameLength > 255) {
+    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
 
@@ -1021,7 +1023,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
         kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CreateDirectory() called in removed directory.");
         PERROR_THROW_CODE(PErrorCode::PERM);
     }
-    if (nameLength > 255)
+    if (nameLength > FAT_LONG_NAME_MAX_LENGTH)
     {
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
@@ -1158,95 +1160,116 @@ void FATFilesystem::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> di
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KInode> _odir, const char* pzOldName, int nOldNameLen, Ptr<KInode> _ndir, const char* pzNewName, int nNewNameLen, bool bMustBeDir)
+void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirectory, const char* oldNameBuffer, int oldNameLength, Ptr<KInode> inputNewDirectory, const char* newNameBuffer, int newNameLength, bool mustBeDirectory)
 {
-    Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(_vol);
-    Ptr<FATInode>  odir = ptr_static_cast<FATInode>(_odir);
-    Ptr<FATInode>  ndir = ptr_static_cast<FATInode>(_ndir);
-    Ptr<FATInode>  file;
-    Ptr<FATInode>  file2;
+    Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(inputVolume);
+    Ptr<FATInode> oldDirectory = ptr_static_cast<FATInode>(inputOldDirectory);
+    Ptr<FATInode> newDirectory = ptr_static_cast<FATInode>(inputNewDirectory);
+    Ptr<FATInode> sourceNode;
+    Ptr<FATInode> destinationNode;
     
-    uint32_t ns, ne;
-    PString  oldname;
-    PString  newname;
+    uint32_t newStartIndex;
+    uint32_t newEndIndex;
+    PString oldName;
+    PString newName;
 
-    if ( nOldNameLen > 255 || nNewNameLen > 255 ) {
+    if (oldNameLength > FAT_LONG_NAME_MAX_LENGTH || newNameLength > FAT_LONG_NAME_MAX_LENGTH) {
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
-    oldname.assign(pzOldName, nOldNameLen);
-    newname.assign(pzNewName, nNewNameLen);
+    oldName.assign(oldNameBuffer, oldNameLength);
+    newName.assign(newNameBuffer, newNameLength);
 
-    CRITICAL_SCOPE(vol->m_Mutex);
+    if (oldName == "." || oldName == ".." || newName == "." || newName == "..") {
+        PERROR_THROW_CODE(PErrorCode::PERM);
+    }
 
-    if (!vol->CheckMagic(__func__) || !odir->CheckMagic(__func__) || !ndir->CheckMagic(__func__)) {
+    CRITICAL_SCOPE(volume->m_Mutex);
+
+    if (!volume->CheckMagic(__func__) || !oldDirectory->CheckMagic(__func__) || !newDirectory->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
     
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename() called: {:x}/{}->{:x}/{}", odir->m_InodeID, oldname.c_str(), ndir->m_InodeID, newname.c_str());
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename() called: {:x}/{}->{:x}/{}", oldDirectory->m_InodeID, oldName.c_str(), newDirectory->m_InodeID, newName.c_str());
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): called on read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
     
     // locate the file
-    file = DoLocateInode(vol, odir, oldname);
-    if (file == nullptr) {
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): can't find file {} in directory {:x}.", oldname.c_str(), odir->m_InodeID);
+    sourceNode = DoLocateInode(volume, oldDirectory, oldName);
+    if (sourceNode == nullptr) {
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): can't find file {} in directory {:x}.", oldName.c_str(), oldDirectory->m_InodeID);
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+
+    if (!sourceNode->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    if (!file->CheckMagic(__func__)) {
-        PERROR_THROW_CODE(PErrorCode::IO);
+    if (mustBeDirectory && !sourceNode->IsDirectory()) {
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
+    }
+
+    if (sourceNode->IsDirectory() && IsDirectoryAncestor(volume, sourceNode, newDirectory)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     
     // see if file already exists and erase it if it does
-    file2 = DoLocateInode(vol, ndir, newname);
-    if (file2 != nullptr)
+    destinationNode = DoLocateInode(volume, newDirectory, newName);
+    if (destinationNode != nullptr)
     {
-        if (file2->IsDirectory())
+        if (!destinationNode->CheckMagic(__func__)) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        if (destinationNode->m_InodeID == sourceNode->m_InodeID) {
+            return;
+        }
+
+        if (destinationNode->IsDirectory())
         {
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): destination already occupied by a directory.");
             PERROR_THROW_CODE(PErrorCode::PERM);
         }
 
-        ns = file2->m_DirStartIndex;
-        ne = file2->m_DirEndIndex;
+        newStartIndex = destinationNode->m_DirStartIndex;
+        newEndIndex = destinationNode->m_DirEndIndex;
 
         // Mark inode for removal (ReleaseInode() will clear the fat chain).
         // Note we don't have to lock the file because the fat chain doesn't
         // get wiped from the disk until ReleaseInode() is called; we'll
         // have a phantom chain in effect until the last file is closed.
-        file2->SetDeletedFlag(true);
+        destinationNode->SetDeletedFlag(true);
     }
     else
     {
         // create the new directory entry
-        CreateDirectoryEntry(vol, ndir, file, newname, &ns, &ne);
+        CreateDirectoryEntry(volume, newDirectory, sourceNode, newName, &newStartIndex, &newEndIndex);
     }
 
     // erase old directory entry
-    EraseDirectoryEntry(vol, file);
+    EraseDirectoryEntry(volume, sourceNode);
     
     // shrink the directory (an error here is not disastrous)
-    CompactDirectory(vol, odir);
+    CompactDirectory(volume, oldDirectory);
 
     // update inode information
-    file->m_ParentInodeID = ndir->m_InodeID;
-    file->m_DirStartIndex = ns;
-    file->m_DirEndIndex = ne;
+    sourceNode->m_ParentInodeID = newDirectory->m_InodeID;
+    sourceNode->m_DirStartIndex = newStartIndex;
+    sourceNode->m_DirEndIndex = newEndIndex;
 
     // update vcache
-    vol->SetInodeIDToLocationIDMapping(file->m_InodeID, (file->m_Size) ? GENERATE_DIR_CLUSTER_INODEID(file->m_ParentInodeID, file->m_StartCluster) : GENERATE_DIR_INDEX_INODEID(file->m_ParentInodeID, file->m_DirStartIndex));
+    volume->SetInodeIDToLocationIDMapping(sourceNode->m_InodeID, (sourceNode->m_Size) ? GENERATE_DIR_CLUSTER_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_StartCluster) : GENERATE_DIR_INDEX_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_DirStartIndex));
 
     // XXX: only write changes in the directory entry if needed
     //      (i.e. old entry, not new)
-    file->Write();
+    sourceNode->Write();
 
-    if (file->IsDirectory())
+    if (sourceNode->IsDirectory())
     {
         // Update the ".." directory entry.
-        FATDirectoryIterator diri(vol, file->m_StartCluster, 1);
+        FATDirectoryIterator diri(volume, sourceNode->m_StartCluster, 1);
         FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
         if (buffer == nullptr) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): Error opening directory.");
@@ -1256,7 +1279,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KInode> _odir, const char* p
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): Invalid directory.");
             PERROR_THROW_CODE(PErrorCode::IO);
         }
-        if (ndir->m_InodeID == vol->m_RootInode->m_InodeID)
+        if (newDirectory->m_InodeID == volume->m_RootInode->m_InodeID)
         {
             // Root directory always has cluster = 0
             buffer->m_Normal.m_FirstClusterLow = 0;
@@ -1264,8 +1287,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KInode> _odir, const char* p
         }
         else
         {
-            buffer->m_Normal.m_FirstClusterLow  = ndir->m_StartCluster & 0xffff;
-            buffer->m_Normal.m_FirstClusterHigh = uint16_t(ndir->m_StartCluster >> 16);
+            buffer->m_Normal.m_FirstClusterLow  = newDirectory->m_StartCluster & 0xffff;
+            buffer->m_Normal.m_FirstClusterHigh = uint16_t(newDirectory->m_StartCluster >> 16);
         }
         diri.MarkDirty();
     }
@@ -1281,7 +1304,7 @@ void FATFilesystem::Unlink(Ptr<KFSVolume> vol, Ptr<KInode> dir, const char* _nam
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Unlink() called.");
     
-    if ( nameLength > 255 ) {
+    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
     name.assign(_name, nameLength);
@@ -1298,7 +1321,7 @@ void FATFilesystem::RemoveDirectory(Ptr<KFSVolume> vol, Ptr<KInode> dir, const c
     PString name;
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::RemoveDirectory() called.");
 
-    if ( nameLength > 255 ) {
+    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
     name.assign(_name, nameLength);
@@ -1605,6 +1628,10 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
 
 size_t FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
 {
+    if (entry == nullptr || bufSize < sizeof(*entry)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
     Ptr<FATVolume>        vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATDirectoryNode> dirNode = ptr_static_cast<FATDirectoryNode>(directory);
     Ptr<FATInode>         dir = ptr_static_cast<FATInode>(directory->GetInode());
@@ -1995,7 +2022,7 @@ bool FATFilesystem::FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, cons
         if (buffer->m_Normal.m_Filename[0] == 0) {
             break;
         }
-        if (buffer->m_Normal.m_Attribs != 0xf) { // Not long file name
+        if ((buffer->m_Normal.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) != FAT_LONG_NAME_ATTRIBUTES) {
             if (memcmp(rawShortName, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename)) == 0) {
                 return true;
             }
@@ -2090,6 +2117,33 @@ bool FATFilesystem::IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool FATFilesystem::IsDirectoryAncestor(Ptr<FATVolume> volume, Ptr<FATInode> ancestor, Ptr<FATInode> directory)
+{
+    Ptr<FATInode> currentDirectory = directory;
+
+    for (uint32_t directoryDepth = 0; directoryDepth <= volume->m_TotalClusters; ++directoryDepth)
+    {
+        if (currentDirectory->m_InodeID == ancestor->m_InodeID) {
+            return true;
+        }
+        if (currentDirectory->m_InodeID == volume->m_RootInode->m_InodeID) {
+            return false;
+        }
+
+        currentDirectory = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(volume->m_VolumeID, currentDirectory->m_ParentInodeID, false));
+        if (currentDirectory == nullptr || !currentDirectory->IsDirectory()) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+    }
+
+    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::IsDirectoryAncestor(): cycle in directory hierarchy.");
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, uint32_t* startIndex, uint32_t* endIndex)
 {
     struct FATNewDirEntryInfo info;
@@ -2103,13 +2157,13 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
 
     std::vector<wchar16_t> longName;
 
-    longName.resize(258, 0xffff);
+    longName.resize(FAT_LONG_NAME_MAX_ENTRY_COUNT * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY, 0xffff);
 
     const size_t nameLength = name.copy_utf16(longName.data(), longName.size());
 
-    if (nameLength == longName.size())
+    if (nameLength > FAT_LONG_NAME_MAX_LENGTH)
     {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): Error converting utf8 name '{}' to UNICODE. Result to long.", name.c_str());
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): Error converting utf8 name '{}' to UNICODE. Result too long.", name.c_str());
         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
     }
     longName[nameLength] = 0;
@@ -2195,28 +2249,26 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): for bad cluster ({}).", info->Cluster);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
+    if (longNameLength > FAT_LONG_NAME_MAX_LENGTH) {
+        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+    }
 
-    /* convert byte length of unicode name to directory entries */
-    size_t required_entries = (longNameLength + 12) / 13 + 1;
+    const size_t requiredEntryCount = (longNameLength + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY - 1) / FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY + 1;
 
     // find a place to put the entries
     *startIndex = 0;
-    bool last_entry = true;
+    bool isLastEntry = true;
     {
         FATDirectoryIterator diri(vol, dir->m_StartCluster, 0);
-        int         loops = 0;
-        while (diri.GetCurrentEntry() != nullptr)
+        const uint32_t directoryEntryCount = static_cast<uint32_t>(dir->m_Size / sizeof(FATDirectoryEntry));
+        while (diri.m_CurrentIndex < directoryEntryCount && diri.GetCurrentEntry() != nullptr)
         {
             FATDirectoryEntryInfo info;
 
-            if (loops++ > 1000) {
-                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): infinit loop.");
-                break;
-            }
             if (diri.GetNextLFNEntry(&info, nullptr))
             {
-                if (info.m_StartIndex - *startIndex >= required_entries) {
-                    last_entry = false;
+                if (info.m_StartIndex - *startIndex >= requiredEntryCount) {
+                    isLastEntry = false;
                     break;
                 }
                 *startIndex = diri.m_CurrentIndex;
@@ -2228,11 +2280,11 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
             }
         }
     }
-    // If at end of directory, last_entry flag will be true as it should be
+    // If at end of directory, isLastEntry will be true as it should be.
 
-    *endIndex = *startIndex + required_entries - 1;
+    *endIndex = *startIndex + static_cast<uint32_t>(requiredEntryCount) - 1;
 
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): directory entry runs from {:x} to {:x} (dirsize = {}){}", *startIndex, *endIndex, dir->m_Size, last_entry ? " (last entry)" : "");
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): directory entry runs from {:x} to {:x} (dirsize = {}){}", *startIndex, *endIndex, dir->m_Size, isLastEntry ? " (last entry)" : "");
 
     bool wasExpanded = false;
     // check if the directory needs to be expanded
@@ -2264,19 +2316,19 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
     uint8_t hash = FATDirectoryIterator::HashMSDOSName(shortName);
 
     // write lfn entries
-    for (size_t i = 1; i < required_entries && buffer != nullptr; ++i, buffer = diri.GetNextRawEntry())
+    for (size_t entryIndex = 1; entryIndex < requiredEntryCount && buffer != nullptr; ++entryIndex, buffer = diri.GetNextRawEntry())
     {
-        const wchar16_t* p = longName + (required_entries - i - 1) * 13; // Go to unicode offset
+        const wchar16_t* namePart = longName + (requiredEntryCount - entryIndex - 1) * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY;
         memset(buffer, 0, sizeof(*buffer));
         
-        buffer->m_LFN.m_SequenceNumber = uint8_t(required_entries - i + ((i == 1) ? 0x40 : 0));
-        buffer->m_LFN.m_Attribs = 0x0f;
+        buffer->m_LFN.m_SequenceNumber = uint8_t(requiredEntryCount - entryIndex + ((entryIndex == 1) ? 0x40 : 0));
+        buffer->m_LFN.m_Attribs = FAT_LONG_NAME_ATTRIBUTES;
         buffer->m_LFN.m_Hash = hash;
-        memcpy(buffer->m_LFN.m_NamePart1, p, sizeof(buffer->m_LFN.m_NamePart1));
-        p += ARRAY_COUNT(buffer->m_LFN.m_NamePart1);
-        memcpy(buffer->m_LFN.m_NamePart2, p, sizeof(buffer->m_LFN.m_NamePart2));
-        p += ARRAY_COUNT(buffer->m_LFN.m_NamePart2);
-        memcpy(buffer->m_LFN.m_NamePart3, p, sizeof(buffer->m_LFN.m_NamePart3));
+        memcpy(buffer->m_LFN.m_NamePart1, namePart, sizeof(buffer->m_LFN.m_NamePart1));
+        namePart += ARRAY_COUNT(buffer->m_LFN.m_NamePart1);
+        memcpy(buffer->m_LFN.m_NamePart2, namePart, sizeof(buffer->m_LFN.m_NamePart2));
+        namePart += ARRAY_COUNT(buffer->m_LFN.m_NamePart2);
+        memcpy(buffer->m_LFN.m_NamePart3, namePart, sizeof(buffer->m_LFN.m_NamePart3));
         diri.MarkDirty();
     }
 
@@ -2300,7 +2352,7 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
     
     if (wasExpanded)
     {
-        kassert(last_entry);
+        kassert(isLastEntry);
         // Add end of directory markers to the rest of the cluster. Clear all entries to stop scandisk complaining.
         while ((buffer = diri.GetNextRawEntry()) != nullptr) {
             memset(buffer, 0, sizeof(FATDirectoryEntry));
@@ -2323,18 +2375,13 @@ void FATFilesystem::CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir)
     }
 
     FATDirectoryIterator    diri(vol, dir->m_StartCluster, 0);
-    int                     loops = 0;
     uint32_t                last = 0;
+    const uint32_t          directoryEntryCount = static_cast<uint32_t>(dir->m_Size / sizeof(FATDirectoryEntry));
 
-    while (diri.GetCurrentEntry() != nullptr)
+    while (diri.m_CurrentIndex < directoryEntryCount && diri.GetCurrentEntry() != nullptr)
     {
         FATDirectoryEntryInfo info;
 
-        if ( loops++ > 1000 ) {
-            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::CompactDirectory(): infinit loop." );
-            break;
-        }
-        
         if (diri.GetNextLFNEntry(&info, nullptr))
         {
             // don't compact away volume labels in the root dir

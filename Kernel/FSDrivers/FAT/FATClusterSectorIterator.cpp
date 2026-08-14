@@ -86,7 +86,7 @@ void FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATClusterSectorIterator::Increment(int sectors)
+bool FATClusterSectorIterator::Increment(int sectors)
 {
     if (m_CurrentSector == 0xffff) { // check if already at end of chain
         PERROR_THROW_CODE(PErrorCode::IO);
@@ -95,31 +95,35 @@ void FATClusterSectorIterator::Increment(int sectors)
         PERROR_THROW_CODE(PErrorCode::IO);
     }    
     if (sectors == 0) {
-        return;
+        return true;
     }    
     if (IS_FIXED_ROOT(m_CurrentCluster))
     {
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_RootSectorCount) {
-            return;
-        }            
+            return true;
+        }
+        m_CurrentSector = 0xffff;
+        return false;
     }
     else
     {
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_SectorsPerCluster) {
-            return;
+            return true;
         }    
         m_CurrentCluster = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster);
 
-        if (int32_t(m_CurrentCluster) < 0) {
+        if (m_CurrentCluster == END_FAT_ENTRY)
+        {
             m_CurrentSector = 0xffff;
-            return;
+            return false;
         }
 
-        if (m_Volume->IsDataCluster(m_CurrentCluster)) {
+        if (m_Volume->IsDataCluster(m_CurrentCluster))
+        {
             m_CurrentSector %= m_Volume->m_SectorsPerCluster;
-            return;
+            return true;
         }
     }
 

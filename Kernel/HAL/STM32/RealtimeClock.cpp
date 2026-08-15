@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.04.2022 21:00
 
+#include <chrono>
 #include <time.h>
 #include <stm32h7xx.h>
 
@@ -96,21 +97,28 @@ TimeValNanos RealtimeClock::GetClock()
         const uint32_t timeReg = RTC->TR;
         const uint32_t dateReg = RTC->DR;    // Read DR last as this restore shadow register updates.
 
-        tm timeInfo;
+        const int rtcSecond = int(((timeReg & RTC_TR_ST_Msk) >> RTC_TR_ST_Pos) * 10 + ((timeReg & RTC_TR_SU_Msk) >> RTC_TR_SU_Pos));
+        const int rtcMinute = int(((timeReg & RTC_TR_MNT_Msk) >> RTC_TR_MNT_Pos) * 10 + ((timeReg & RTC_TR_MNU_Msk) >> RTC_TR_MNU_Pos));
+        int rtcHour = int(((timeReg & RTC_TR_HT_Msk) >> RTC_TR_HT_Pos) * 10 + ((timeReg & RTC_TR_HU_Msk) >> RTC_TR_HU_Pos));
+        if (timeReg & RTC_TR_PM) {
+            rtcHour += 12;
+        }
 
-        timeInfo.tm_sec = ((timeReg & RTC_TR_ST_Msk) >> RTC_TR_ST_Pos) * 10 + ((timeReg & RTC_TR_SU_Msk) >> RTC_TR_SU_Pos);
-        timeInfo.tm_min = ((timeReg & RTC_TR_MNT_Msk) >> RTC_TR_MNT_Pos) * 10 + ((timeReg & RTC_TR_MNU_Msk) >> RTC_TR_MNU_Pos);
-        timeInfo.tm_hour = ((timeReg & RTC_TR_HT_Msk) >> RTC_TR_HT_Pos) * 10 + ((timeReg & RTC_TR_HU_Msk) >> RTC_TR_HU_Pos);
-        if (timeReg & RTC_TR_PM) timeInfo.tm_hour += 12;
+        const int rtcDay = int(((dateReg & RTC_DR_DT_Msk) >> RTC_DR_DT_Pos) * 10 + ((dateReg & RTC_DR_DU_Msk) >> RTC_DR_DU_Pos));
+        const int rtcMonth = int(((dateReg & RTC_DR_MT_Msk) >> RTC_DR_MT_Pos) * 10 + ((dateReg & RTC_DR_MU_Msk) >> RTC_DR_MU_Pos));
+        const int rtcYear = 2000 + int(((dateReg & RTC_DR_YT_Msk) >> RTC_DR_YT_Pos) * 10 + ((dateReg & RTC_DR_YU_Msk) >> RTC_DR_YU_Pos));
 
-        timeInfo.tm_mday = ((dateReg & RTC_DR_DT_Msk) >> RTC_DR_DT_Pos) * 10 + ((dateReg & RTC_DR_DU_Msk) >> RTC_DR_DU_Pos);
-        timeInfo.tm_mon = ((dateReg & RTC_DR_MT_Msk) >> RTC_DR_MT_Pos) * 10 + ((dateReg & RTC_DR_MU_Msk) >> RTC_DR_MU_Pos);
-        timeInfo.tm_year = 2000 + ((dateReg & RTC_DR_YT_Msk) >> RTC_DR_YT_Pos) * 10 + ((dateReg & RTC_DR_YU_Msk) >> RTC_DR_YU_Pos);
-
-        timeInfo.tm_mon -= 1;
-        timeInfo.tm_year -= 1900;
-
-        const time_t unixTime = mktime(&timeInfo);
+        const std::chrono::year_month_day rtcCalendarDate(
+            std::chrono::year(rtcYear),
+            std::chrono::month(static_cast<unsigned>(rtcMonth)),
+            std::chrono::day(static_cast<unsigned>(rtcDay))
+        );
+        const std::chrono::sys_seconds rtcDateTime =
+            std::chrono::sys_days(rtcCalendarDate)
+            + std::chrono::hours(rtcHour)
+            + std::chrono::minutes(rtcMinute)
+            + std::chrono::seconds(rtcSecond);
+        const time_t unixTime = static_cast<time_t>(rtcDateTime.time_since_epoch().count());
         const uint32_t SyncPreDiv = (RTC->PRER & RTC_PRER_PREDIV_S_Msk) >> RTC_PRER_PREDIV_S_Pos;
 
         TimeValNanos currentTime = TimeValNanos::FromSeconds(unixTime);

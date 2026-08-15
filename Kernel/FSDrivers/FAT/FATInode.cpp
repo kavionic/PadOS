@@ -31,27 +31,6 @@
 namespace kernel
 {
 
-static int32_t tzoffset = 120; // Minutes
-static int daze[] = { 0,0,31,59,90,120,151,181,212,243,273,304,334,0,0,0 };
-
-#define IS_LEAP_YEAR(y) ((((y) % 4) == 0) && ((y) % 100))
-
-///////////////////////////////////////////////////////////////////////////////
-/// Returns leap days since 1970
-///
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static int LeapDays(int year, int month)
-{
-    // Year is 1970-based, month is 0-based
-    int result = (year + 2) / 4 - (year + 70) / 100;
-    if (IS_LEAP_YEAR(year + 70)) {
-        if (month < 2) result--;
-    }
-    return result;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -142,11 +121,15 @@ bool FATInode::Write()
 
 time_t FATInode::FATTimeToUnixTime(uint32_t fatTime)
 {
-    time_t days;
-
-    days = daze[(fatTime>>21)&15] + ((fatTime>>25)+10)*365 + LeapDays((fatTime>>25)+10,((fatTime>>21)&15)-1)+((fatTime>>16)&31)-1;
-
-    return (((days * 24) + ((fatTime>>11)&31)) * 60 + ((fatTime>>5)&63) + tzoffset) * 60 + 2*(fatTime&31);
+    tm timeInfo = {};
+    timeInfo.tm_sec = int((fatTime & 0x1f) * 2);
+    timeInfo.tm_min = int((fatTime >> 5) & 0x3f);
+    timeInfo.tm_hour = int((fatTime >> 11) & 0x1f);
+    timeInfo.tm_mday = int((fatTime >> 16) & 0x1f);
+    timeInfo.tm_mon = int((fatTime >> 21) & 0x0f) - 1;
+    timeInfo.tm_year = int((fatTime >> 25) & 0x7f) + 80;
+    timeInfo.tm_isdst = -1;
+    return mktime(&timeInfo);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -168,46 +151,27 @@ TimeValNanos FATInode::FATTimeToTimeVal(uint32_t fatTime, uint8_t createTimeFine
 
 uint32_t FATInode::UnixTimeToFATTime(time_t unixTime)
 {
-    uint32_t fatTime, d, y, days;
+    const uint32_t minimumFATTime = (1u << 21) | (1u << 16); // 1980-01-01 00:00:00
+    const uint32_t maximumFATTime = (127u << 25) | (12u << 21) | (31u << 16) | (23u << 11) | (59u << 5) | 29u; // 2107-12-31 23:59:58
 
-    fatTime = uint32_t((unixTime % 60) / 2);
-    unixTime /= 60;
-    unixTime -= tzoffset;
-    fatTime += uint32_t((unixTime % 60) << 5);
-    unixTime /= 60;
-    fatTime += uint32_t((unixTime % 24) << 11);
-    unixTime /= 24;
-
-    unixTime -= 10 * 365 + 2; // Convert from 1970-based year to 1980-based year
-
-    for (y = 0;; ++y)
-    {
-        days = IS_LEAP_YEAR(80 + y) ? 366 : 365;
-        if (unixTime < days) break;
-        unixTime -= days;
+    const tm* timeInfo = localtime(&unixTime);
+    if (timeInfo == nullptr) {
+        return (unixTime < 0) ? minimumFATTime : maximumFATTime;
+    }
+    if (timeInfo->tm_year < 80) {
+        return minimumFATTime;
+    }
+    if (timeInfo->tm_year > 207) {
+        return maximumFATTime;
     }
 
-    if (IS_LEAP_YEAR(80+y))
-    {
-        if (unixTime == 59) {
-            d = (1 << 5) + 28; // 2/29, 0 based
-            goto bi;
-        } else if (unixTime > 59) {
-            unixTime--;
-        }        
-    }
-
-    for (d=0;d<11;d++) {
-        if (daze[d+2] > unixTime) {
-            break;
-        }
-    }
-    d = (d << 5) + int32_t(unixTime - daze[d+1]);
-
-bi:
-    d += (1 << 5) + 1; // Make date 1-based
-
-    return fatTime + (d << 16) + (y << 25);
+    uint32_t fatTime = uint32_t(timeInfo->tm_sec / 2);
+    fatTime |= uint32_t(timeInfo->tm_min) << 5;
+    fatTime |= uint32_t(timeInfo->tm_hour) << 11;
+    fatTime |= uint32_t(timeInfo->tm_mday) << 16;
+    fatTime |= uint32_t(timeInfo->tm_mon + 1) << 21;
+    fatTime |= uint32_t(timeInfo->tm_year - 80) << 25;
+    return fatTime;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

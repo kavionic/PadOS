@@ -1293,7 +1293,10 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     sourceNode->m_DirEndIndex = newEndIndex;
 
     // update vcache
-    volume->SetInodeIDToLocationIDMapping(sourceNode->m_InodeID, (sourceNode->m_Size) ? GENERATE_DIR_CLUSTER_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_StartCluster) : GENERATE_DIR_INDEX_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_DirStartIndex));
+    const ino_t newLocationID = volume->IsDataCluster(sourceNode->m_StartCluster)
+        ? GENERATE_DIR_CLUSTER_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_StartCluster)
+        : GENERATE_DIR_INDEX_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_DirStartIndex);
+    volume->SetInodeIDToLocationIDMapping(sourceNode->m_InodeID, newLocationID);
 
     // XXX: only write changes in the directory entry if needed
     //      (i.e. old entry, not new)

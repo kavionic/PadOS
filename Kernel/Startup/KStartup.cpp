@@ -17,6 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.01.2026 23:00
 
+#include <stdlib.h>
+#include <time.h>
+
 #include <Ptr/NoPtr.h>
 
 #include <System/AppDefinition.h>
@@ -201,6 +204,11 @@ static void* init_thread_entry(void* arguments)
 {
     // Run global constructors.
     __libc_init_array();
+
+#ifdef PADOS_TIME_ZONE
+    setenv("TZ", PADOS_TIME_ZONE, 1);
+    tzset();
+#endif
 
     KThreadCB* thread = gk_CurrentThread;
 

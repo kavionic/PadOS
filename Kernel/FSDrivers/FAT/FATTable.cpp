@@ -90,21 +90,22 @@ uint32_t FATTable::GetChainEntry(uint32_t chainStart, uint32_t index)
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
+    if (!m_Volume->IsDataCluster(chainStart) || index > m_Volume->m_TotalClusters)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "FATTable::GetChainEntry({}, {}) called with an invalid chain or index.", chainStart, index);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "FATTable::GetChainEntry({}, {})", chainStart, index);
     uint32_t cluster = chainStart;
-    while(index--)
+    for (uint32_t chainIndex = 0; chainIndex < index; ++chainIndex)
     {
-        uint32_t prevCluster = cluster;
-        cluster = GetEntry(prevCluster);
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "  {} -> {}", prevCluster, cluster);
+        const uint32_t previousCluster = cluster;
+        cluster = GetEntry(previousCluster);
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "  {} -> {}", previousCluster, cluster);
         if (!m_Volume->IsDataCluster(cluster)) {
             break;
-        }            
-    }
-    if (cluster == 0)
-    {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "FATTable::GetChainEntry({}, {}) failed!", chainStart, index);
-        PERROR_THROW_CODE(PErrorCode::IO);
+        }
     }
     return cluster;
 }
@@ -116,20 +117,11 @@ uint32_t FATTable::GetChainEntry(uint32_t chainStart, uint32_t index)
 #ifdef FAT_VERIFY_FAT_CHAINS
 bool FATTable::ValidateChainEntry(uint32_t chainStart, uint32_t index, uint32_t expectedValue)
 {
-    uint32_t value;
-    
-    if (GetChainEntry(chainStart, index, &value))
-    {
-        if (value != expectedValue) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "ValidateChainEntry({}, {}, {}) unexpected value {}!", chainStart, index, expectedValue, value);
-        }
-        return value == expectedValue;
+    const uint32_t value = GetChainEntry(chainStart, index);
+    if (value != expectedValue) {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "ValidateChainEntry({}, {}, {}) unexpected value {}!", chainStart, index, expectedValue, value);
     }
-    else
-    {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "ValidateChainEntry({}, {}, {}) failed!", chainStart, index, expectedValue);
-        return false;
-    }
+    return value == expectedValue;
 }
 #endif // FAT_VERIFY_FAT_CHAINS
 
@@ -155,10 +147,8 @@ uint32_t FATTable::CountFreeClusters()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t FATTable::GetChainLength(uint32_t cluster)
+size_t FATTable::GetChainLength(uint32_t cluster, uint32_t* endCluster)
 {
-    size_t count = 0;
-
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "FATTable::GetChainLength() {}", cluster);
         
     if (!m_Volume->CheckMagic(__func__)) {
@@ -170,24 +160,26 @@ size_t FATTable::GetChainLength(uint32_t cluster)
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    while (m_Volume->IsDataCluster(cluster))
+    for (size_t count = 1; count <= m_Volume->m_TotalClusters; ++count)
     {
-        count++;
-        // break out of circular fat chains in a sketchy manner
-        if (count == m_Volume->m_TotalClusters)
+        const uint32_t nextCluster = GetEntry(cluster);
+        if (nextCluster == END_FAT_ENTRY)
         {
-            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() circular FAT chain detected.");
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "  {:x} = {:x}", nextCluster, count);
+            if (endCluster != nullptr) {
+                *endCluster = cluster;
+            }
+            return count;
+        }
+        if (!m_Volume->IsDataCluster(nextCluster))
+        {
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() invalid chain. Cluster {} points to {:x}.", cluster, nextCluster);
             PERROR_THROW_CODE(PErrorCode::IO);
         }
-        cluster = GetEntry(cluster);
+        cluster = nextCluster;
     }
 
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "  {:x} = {:x}", cluster, count);
-
-    if (cluster == END_FAT_ENTRY) {
-        return count;
-    }
-    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() invalid chain. End cluster: {:x}", cluster);
+    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() circular FAT chain detected.");
     PERROR_THROW_CODE(PErrorCode::IO);
 }
 
@@ -195,171 +187,205 @@ size_t FATTable::GetChainLength(uint32_t cluster)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusters, bool updateICache)
+void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool updateICache)
 {
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): {:x} to {} clusters ({}).", node->m_InodeID, clusters, node->m_StartCluster);
-    
-    if (IS_FIXED_ROOT(node->m_StartCluster) || (!m_Volume->IsDataCluster(node->m_StartCluster) && (node->m_StartCluster != 0))) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetChainLength(): called on invalid cluster ({}).", node->m_StartCluster);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): {:x} to {} clusters ({}).", node->m_InodeID, clusterCount, node->m_StartCluster);
+
+    const bool hasClusterChain = node->m_StartCluster != 0;
+    if ((hasClusterChain && (IS_FIXED_ROOT(node->m_StartCluster) || !m_Volume->IsDataCluster(node->m_StartCluster) || !m_Volume->IsDataCluster(node->m_EndCluster) || node->m_AllocatedClusterCount == 0)) ||
+        (!hasClusterChain && (node->m_EndCluster != 0 || node->m_AllocatedClusterCount != 0)))
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetChainLength(): inode has inconsistent chain metadata ({}, {}, {}).", node->m_StartCluster, node->m_EndCluster, node->m_AllocatedClusterCount);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
+    if (clusterCount > m_Volume->m_TotalClusters) {
+        PERROR_THROW_CODE(PErrorCode::NOSPC);
+    }
 
-    if (clusters == 0)
+    if (clusterCount == node->m_AllocatedClusterCount) {
+        return;
+    }
+
+    if (clusterCount == 0)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): truncating node to zero bytes.");
-        if (node->m_StartCluster == 0) {
-            return;
-        }
-        // truncate to zero bytes
-        uint32_t c = node->m_StartCluster;
+        const uint32_t oldStartCluster = node->m_StartCluster;
+        const uint32_t oldEndCluster = node->m_EndCluster;
+        const uint32_t oldClusterCount = node->m_AllocatedClusterCount;
+
         node->m_StartCluster = 0;
         node->m_EndCluster = 0;
-        ClearFATChain(c);
+        node->m_AllocatedClusterCount = 0;
+
+        if (!node->Write())
+        {
+            node->m_StartCluster = oldStartCluster;
+            node->m_EndCluster = oldEndCluster;
+            node->m_AllocatedClusterCount = oldClusterCount;
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        node->m_Iteration++;
         if (updateICache) {
             m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_INDEX_INODEID(node->m_ParentInodeID, node->m_DirStartIndex));
         }
-        // Write to disk so that get_next_dirent doesn't barf
-        node->Write();
+        ClearFATChain(oldStartCluster);
         return;
     }
 
-    if (node->m_StartCluster == 0)
+    if (!hasClusterChain)
     {
-        // From 0 clusters to some clusters.
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): node has no clusters. adding {} clusters.", clusters);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): node has no clusters. adding {} clusters.", clusterCount);
 
-        uint32_t newChainStart = AllocateClusters(clusters);
+        uint32_t newEndCluster;
+        const uint32_t newStartCluster = AllocateClusters(clusterCount, &newEndCluster);
 
-        node->m_StartCluster = newChainStart;
-        node->m_EndCluster = GetChainEntry(newChainStart, clusters - 1);
+        node->m_StartCluster = newStartCluster;
+        node->m_EndCluster = newEndCluster;
+        node->m_AllocatedClusterCount = clusterCount;
 
+        if (!node->Write())
+        {
+            node->m_StartCluster = 0;
+            node->m_EndCluster = 0;
+            node->m_AllocatedClusterCount = 0;
+            ClearFATChain(newStartCluster);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        node->m_Iteration++;
         if (updateICache) {
             m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_CLUSTER_INODEID(node->m_ParentInodeID, node->m_StartCluster));
         }
-        // Write to disk so that get_next_dirent doesn't barf.
-        node->Write();
-
         return;
     }
 
-    uint32_t currentClusterCount = uint32_t((node->m_Size + m_Volume->m_BytesPerSector * m_Volume->m_SectorsPerCluster - 1) / m_Volume->m_BytesPerSector / m_Volume->m_SectorsPerCluster);
-    if (currentClusterCount == clusters) return;
-
-    if (clusters > currentClusterCount)
+    if (clusterCount > node->m_AllocatedClusterCount)
     {
-        
+        const uint32_t additionalClusterCount = clusterCount - node->m_AllocatedClusterCount;
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): adding {} new fat entries.", additionalClusterCount);
 
-        // From some clusters to more clusters.
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): adding {} new fat entries.", clusters - currentClusterCount);
-        const uint32_t newChainStart = AllocateClusters(clusters - currentClusterCount);
-        kassert(m_Volume->IsDataCluster(newChainStart));
+        uint32_t newEndCluster;
+        const uint32_t newStartCluster = AllocateClusters(additionalClusterCount, &newEndCluster);
+        kassert(m_Volume->IsDataCluster(newStartCluster));
 
-        uint32_t prevEndCluster = node->m_EndCluster;
-        node->m_EndCluster = GetChainEntry(newChainStart, clusters - currentClusterCount - 1);
+        SetEntry(node->m_EndCluster, newStartCluster);
 
-        SetEntry(prevEndCluster, newChainStart);
-
+        node->m_EndCluster = newEndCluster;
+        node->m_AllocatedClusterCount = clusterCount;
+        node->m_Iteration++;
         return;
     }
 
-    // From some clusters to fewer clusters.
-    // traverse fat chain
-    
-    uint32_t c = node->m_StartCluster;
-    uint32_t newChainEnd = GetEntry(c);
-
-    uint32_t newEndIndex;
-    for (newEndIndex = 1; newEndIndex < clusters; ++newEndIndex)
-    {
-        if (!m_Volume->IsDataCluster(newChainEnd)) {
-            break;
-        }
-        c = newChainEnd;
-        newChainEnd = m_Volume->GetFATTable()->GetEntry(c);
-    }
-
-    kassert(newEndIndex == clusters);
-    kassert(newChainEnd != END_FAT_ENTRY);
-    if (newEndIndex == clusters && newChainEnd == END_FAT_ENTRY) return;
-
-    //	if (n < 0) return n;
-    if (newChainEnd != END_FAT_ENTRY && !m_Volume->IsDataCluster(newChainEnd)) {
+    const uint32_t newEndCluster = GetChainEntry(node->m_StartCluster, clusterCount - 1);
+    if (!m_Volume->IsDataCluster(newEndCluster)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    // clear trailing fat entries
+    const uint32_t trailingChainStart = GetEntry(newEndCluster);
+    if (!m_Volume->IsDataCluster(trailingChainStart))
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetChainLength(): chain ended before its cached length ({}).", node->m_AllocatedClusterCount);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): clearing trailing fat entries.");
-    SetEntry(c, END_FAT_ENTRY);
-    node->m_EndCluster = c;
-    ClearFATChain(newChainEnd);
+    SetEntry(newEndCluster, END_FAT_ENTRY);
+    node->m_EndCluster = newEndCluster;
+    node->m_AllocatedClusterCount = clusterCount;
+    node->m_Iteration++;
+    ClearFATChain(trailingChainStart);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t FATTable::AllocateClusters(size_t count)
+uint32_t FATTable::AllocateClusters(size_t clusterCount, uint32_t* endCluster)
 {
-    uint32_t first = 0, last = 0;
-    int32_t clustersFound = 0;
-
-    // mark end of chain for allocations
-//    uint32_t value = 0x0ffffff8;
-    uint32_t value = 0x0fffffff;
+    uint32_t firstCluster = 0;
+    uint32_t lastCluster = 0;
+    size_t allocatedClusterCount = 0;
 
     if (!m_Volume->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::AllocateClusters(): {:x}", count);
+    if (clusterCount == 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (clusterCount > m_Volume->m_TotalClusters) {
+        PERROR_THROW_CODE(PErrorCode::NOSPC);
+    }
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::AllocateClusters(): {:x}", clusterCount);
 
     FATTableIterator tableIterator(m_Volume, m_Volume->m_LastAllocatedCluster);
 
-    PScopeFail scopeCleanup([this, &first]() { if (first != 0) ClearFATChain(first); });
-
-    for (uint32_t i = 0; i < m_Volume->m_TotalClusters; ++i)
-    {
-        uint32_t val = tableIterator.GetEntry();
-
-        if (val == 0)
+    PScopeFail scopeCleanup(
+        [this, &firstCluster]()
         {
-            tableIterator.SetEntry(value);
-            m_Volume->m_FreeClusters--;
-            if (clustersFound == 0)
+            if (firstCluster != 0)
             {
-                kassert(first == 0);
-                first = last = tableIterator.GetCurrentCluster();
+                try
+                {
+                    ClearFATChain(firstCluster);
+                }
+                catch (const std::exception& error)
+                {
+                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::AllocateClusters(): failed to release partially allocated chain: {}.", error.what());
+                }
+            }
+        });
+
+    for (uint32_t clusterIndex = 0; clusterIndex < m_Volume->m_TotalClusters; ++clusterIndex)
+    {
+        const uint32_t value = tableIterator.GetEntry();
+
+        if (value == 0)
+        {
+            tableIterator.SetEntry(END_FAT_ENTRY);
+            if (m_Volume->m_FreeClusters > 0) {
+                m_Volume->m_FreeClusters--;
+            }
+            if (allocatedClusterCount == 0)
+            {
+                kassert(firstCluster == 0);
+                firstCluster = tableIterator.GetCurrentCluster();
+                lastCluster = firstCluster;
             }
             else
             {
-                kassert(m_Volume->IsDataCluster(first));
-                kassert(m_Volume->IsDataCluster(last));
-                
+                kassert(m_Volume->IsDataCluster(firstCluster));
+                kassert(m_Volume->IsDataCluster(lastCluster));
+
                 // Set previous last cluster to point to us
-                SetEntry(last, tableIterator.GetCurrentCluster());
-                last = tableIterator.GetCurrentCluster();
+                SetEntry(lastCluster, tableIterator.GetCurrentCluster());
+                lastCluster = tableIterator.GetCurrentCluster();
             }
-            m_Volume->m_LastAllocatedCluster = last;
-            if (++clustersFound == count) {
+            m_Volume->m_LastAllocatedCluster = lastCluster;
+            if (++allocatedClusterCount == clusterCount) {
                 break;
-            }                
+            }
         }
         tableIterator.Increment();
     }
     m_Volume->UpdateFSInfo();
-    if (clustersFound != count)
+    if (allocatedClusterCount != clusterCount)
     {
-        kernel_log<PLogSeverity::WARNING>(LogCat_FATTABLE, "FATTable::AllocateClusters(): Failed to allocate {} clusters. Not enough free entries ({} found).", count, clustersFound);
+        kernel_log<PLogSeverity::WARNING>(LogCat_FATTABLE, "FATTable::AllocateClusters(): Failed to allocate {} clusters. Not enough free entries ({} found).", clusterCount, allocatedClusterCount);
         PERROR_THROW_CODE(PErrorCode::NOSPC);
     }
     else
     {
-        kassert(m_Volume->IsDataCluster(first));
+        kassert(m_Volume->IsDataCluster(firstCluster));
+        kassert(m_Volume->IsDataCluster(lastCluster));
 #ifdef FAT_VERIFY_FAT_CHAINS
-        size_t chainLength;
-        kassert(GetChainLength(first, &chainLength) && chainLength == count);
+        kassert(GetChainLength(firstCluster) == clusterCount);
 #endif // FAT_VERIFY_FAT_CHAINS
 
-        return first;
+        if (endCluster != nullptr) {
+            *endCluster = lastCluster;
+        }
+        return firstCluster;
     }
 }
 
@@ -377,20 +403,30 @@ void FATTable::ClearFATChain(uint32_t cluster)
 //    ASSERT(count_clusters(vol, cluster) != 0);
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::ClearFATChain(): Clearing fat chain: {}", cluster);
-    while (m_Volume->IsDataCluster(cluster))
+    size_t clearedClusterCount = 0;
+    while (m_Volume->IsDataCluster(cluster) && clearedClusterCount < m_Volume->m_TotalClusters)
     {
         const uint32_t nextCluster = GetEntry(cluster);
+        if (nextCluster == 0) {
+            break;
+        }
         SetEntry(cluster, 0);
 
-        m_Volume->m_FreeClusters++;
+        if (m_Volume->m_FreeClusters < m_Volume->m_TotalClusters) {
+            m_Volume->m_FreeClusters++;
+        }
+        clearedClusterCount++;
         cluster = nextCluster;
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "  clearing cluster: {}", cluster);
     }
 
-    if (cluster != END_FAT_ENTRY) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::ClearFATChain(): fat chain terminated improperly with {}.", cluster);
-    }
     m_Volume->UpdateFSInfo();
+
+    if (cluster != END_FAT_ENTRY)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::ClearFATChain(): fat chain terminated improperly with {}.", cluster);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -422,11 +458,16 @@ void FATTable::DumpChain(uint32_t startCluster)
 {
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FAT chain: {:x}", startCluster);
     uint32_t cluster = startCluster;
-    
-    while (m_Volume->IsDataCluster(cluster))
+
+    size_t clusterCount = 0;
+    while (m_Volume->IsDataCluster(cluster) && clusterCount < m_Volume->m_TotalClusters)
     {
         cluster = GetEntry(cluster);
+        clusterCount++;
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "  {:x}", cluster);
+    }
+    if (m_Volume->IsDataCluster(cluster)) {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::DumpChain(): circular FAT chain detected.");
     }
 }
 

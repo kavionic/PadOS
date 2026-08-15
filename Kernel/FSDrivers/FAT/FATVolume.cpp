@@ -245,7 +245,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid root-directory cluster ({}).", rootStartCluster);
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        rootEndCluster = rootStartCluster;
+        rootEndCluster = 0;
     }
     else
     {

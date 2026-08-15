@@ -84,10 +84,11 @@ public:
     // Any changes to this block of information should immediately be written to disk/cache so that FATDirectoryIterator continues to function properly.
     uint32_t m_DirStartIndex; // Starting index of directory entry.
     uint32_t m_DirEndIndex;   // Ending index of directory entry.
-    uint32_t m_StartCluster;  // Data starting cluster.
-    uint32_t m_EndCluster;    // Last data cluster.
-    off_t    m_Size;          // Size in bytes.
-    uint8_t  m_DOSAttribs;    // DOS-style attributes.
+    uint32_t m_StartCluster;       // Data starting cluster.
+    uint32_t m_EndCluster = 0;     // Last data cluster.
+    uint32_t m_AllocatedClusterCount = 0; // Zero if there is no chain or its metadata has not been loaded yet.
+    off_t    m_Size;             // Size in bytes.
+    uint8_t  m_DOSAttribs;       // DOS-style attributes.
 
 private:
     FATInode(const FATInode&) = delete;

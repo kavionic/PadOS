@@ -91,6 +91,7 @@ private:
     Ptr<FATInode> DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName);
     bool IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir);
     bool IsDirectoryAncestor(Ptr<FATVolume> volume, Ptr<FATInode> ancestor, Ptr<FATInode> directory);
+    void EnsureClusterChainMetadataLoaded(Ptr<FATVolume> volume, Ptr<FATInode> node);
     uint32_t GetFileClusterCount(Ptr<FATVolume> volume, off64_t fileSize);
     void ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t startPosition, off64_t endPosition);
     void ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize);

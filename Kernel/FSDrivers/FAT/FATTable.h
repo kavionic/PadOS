@@ -53,9 +53,9 @@ public:
 #endif // FAT_VERIFY_FAT_CHAINS
 
     uint32_t    CountFreeClusters();
-    size_t      GetChainLength(uint32_t cluster);
-    void        SetChainLength(Ptr<FATInode> node, uint32_t clusters, bool updateICache);
-    uint32_t    AllocateClusters(size_t count);
+    size_t      GetChainLength(uint32_t cluster, uint32_t* endCluster = nullptr);
+    void        SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool updateICache);
+    uint32_t    AllocateClusters(size_t clusterCount, uint32_t* endCluster = nullptr);
     void        ClearFATChain(uint32_t cluster);
 
     void MirrorFAT(uint32_t sector, const uint8_t* buffer);

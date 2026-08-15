@@ -40,10 +40,10 @@ namespace kernel
 {
 
 static constexpr TimeValNanos FLUSH_PERIODE = TimeValNanos::FromMilliseconds(1000);
-static constexpr int KBLOCK_CACHE_BLOCK_COUNT = 64;
-static constexpr int BC_FLUSH_COUNT         = 64;
-static constexpr int BC_MIN_WAKEUP_COUNT    = 32;
-static constexpr int BC_MIN_FLUSH_COUNT = 48;
+static constexpr int KBLOCK_CACHE_BLOCK_COUNT   = 4096;
+static constexpr int BC_FLUSH_COUNT             = 128;
+static constexpr int BC_MIN_WAKEUP_COUNT        = 64;
+static constexpr int BC_MIN_FLUSH_COUNT         = 96;
 
 static uint8_t* gk_BCacheBuffer;
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
@@ -200,6 +200,11 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
         {
             KCacheBlockHeader* block = i->second;
             block->AddRef();
+            if (s_MRUList.GetLast() != block)
+            {
+                s_MRUList.Remove(block);
+                s_MRUList.Append(block);
+            }
             return KCacheBlockDesc(block, blockOffset);
         }
 

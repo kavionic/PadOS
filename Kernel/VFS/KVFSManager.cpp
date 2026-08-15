@@ -256,53 +256,71 @@ Ptr<KFSVolume> KVFSManager::GetVolume(fs_id volumeID)
 
 Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount)
 {
+    const auto key = std::make_pair(volumeID, inodeID);
+
     for (;;)
     {
-        CRITICAL_SCOPE(s_InodeMapMutex);
-    
-        auto i = s_InodeMap.find(std::make_pair(volumeID, inodeID));
-    
-        if (i != s_InodeMap.end())
+        Ptr<KFSVolume> volume;
         {
-            if (i->second == PENDING_INODE) {
-                s_InodeMapConditionVar.Wait(s_InodeMapMutex);
-                continue;
-            }
-            if (i->second->GetPtrCount() == 0) {
-                kassert(i->second->IsListMember(&s_InodeMRUList));
-                s_InodeMRUList.Remove(i->second);
-                s_UnusedInodeCount--;
-            }
-            Ptr<KInode> inode = ptr_tmp_cast(i->second);
-            if (crossMount && inode->m_MountRoot != nullptr) {
-                inode = inode->m_MountRoot;
-            }
-            return inode;
-        }
-        else
-        {
-            Ptr<KFSVolume> volume = GetVolume(volumeID);
-            if (volume != nullptr && volume->m_Filesystem != nullptr)
-            {
-                auto key = std::make_pair(volumeID, inodeID);
-                s_InodeMap[key] = PENDING_INODE; // Make sure no other thread attempts to load the same inode while we unlock s_InodeMapMutex.
-                
-                s_InodeMapMutex.Unlock();
-                Ptr<KInode> inode = volume->m_Filesystem->LoadInode(volume, inodeID);
-                s_InodeMapMutex.Lock();
+            KScopedLock inodeMapLock(s_InodeMapMutex);
 
-                if (inode != nullptr)
-                {
-                    s_InodeMap[key] = ptr_raw_pointer_cast(inode);
-                    if (crossMount && inode->m_MountRoot != nullptr) {
-                        inode = inode->m_MountRoot;
-                    }
+            auto i = s_InodeMap.find(key);
+            if (i != s_InodeMap.end())
+            {
+                if (i->second == PENDING_INODE) {
+                    s_InodeMapConditionVar.Wait(s_InodeMapMutex);
+                    continue;
+                }
+                if (i->second->GetPtrCount() == 0) {
+                    kassert(i->second->IsListMember(&s_InodeMRUList));
+                    s_InodeMRUList.Remove(i->second);
+                    s_UnusedInodeCount--;
+                }
+                Ptr<KInode> inode = ptr_tmp_cast(i->second);
+                if (crossMount && inode->m_MountRoot != nullptr) {
+                    inode = inode->m_MountRoot;
                 }
                 return inode;
             }
+
+            volume = GetVolume(volumeID);
+            if (volume == nullptr || volume->m_Filesystem == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
+
+            s_InodeMap[key] = PENDING_INODE;
         }
-    }        
-    PERROR_THROW_CODE(PErrorCode::IO);
+
+        Ptr<KInode> inode;
+        {
+            PScopeExit completeInodeLoad(
+                [&key, &inode]()
+                {
+                    KScopedLock inodeMapLock(s_InodeMapMutex);
+
+                    auto pendingInode = s_InodeMap.find(key);
+                    kassert(pendingInode != s_InodeMap.end());
+                    kassert(pendingInode->second == PENDING_INODE);
+
+                    if (pendingInode != s_InodeMap.end() && pendingInode->second == PENDING_INODE)
+                    {
+                        if (inode != nullptr) {
+                            pendingInode->second = ptr_raw_pointer_cast(inode);
+                        } else {
+                            s_InodeMap.erase(pendingInode);
+                        }
+                    }
+                    s_InodeMapConditionVar.WakeupAll();
+                });
+
+            inode = volume->m_Filesystem->LoadInode(volume, inodeID);
+        }
+
+        if (crossMount && inode != nullptr && inode->m_MountRoot != nullptr) {
+            inode = inode->m_MountRoot;
+        }
+        return inode;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

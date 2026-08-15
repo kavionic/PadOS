@@ -267,11 +267,13 @@ Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossM
             auto i = s_InodeMap.find(key);
             if (i != s_InodeMap.end())
             {
-                if (i->second == PENDING_INODE) {
+                if (i->second == PENDING_INODE)
+                {
                     s_InodeMapConditionVar.Wait(s_InodeMapMutex);
                     continue;
                 }
-                if (i->second->GetPtrCount() == 0) {
+                if (i->second->GetPtrCount() == 0)
+                {
                     kassert(i->second->IsListMember(&s_InodeMRUList));
                     s_InodeMRUList.Remove(i->second);
                     s_UnusedInodeCount--;

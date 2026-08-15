@@ -50,12 +50,41 @@ PString::PString(const wchar16_t* utf16, size_t length)
 
 PString& PString::assign_utf16(const wchar16_t* source, size_t length)
 {
-    reserve(length);
-    for (size_t i = 0; i < length; ++i)
+    clear();
+
+    if (source == nullptr) {
+        return *this;
+    }
+
+    if (length == npos)
     {
-        char utf8Buf[8];
-        size_t utf8Length = unicode_to_utf8(utf8Buf, source[i]);
-        insert(end(), utf8Buf, utf8Buf + utf8Length);
+        length = 0;
+        while (source[length] != 0) {
+            ++length;
+        }
+    }
+
+    reserve(length);
+    for (size_t characterIndex = 0; characterIndex < length; ++characterIndex)
+    {
+        uint32_t character = uint32_t(source[characterIndex]);
+        if (is_utf16_high_surrogate(character))
+        {
+            if (characterIndex + 1 < length && is_utf16_low_surrogate(source[characterIndex + 1]))
+            {
+                const uint32_t lowSurrogate = uint32_t(source[++characterIndex]);
+                character = 0x10000 + ((character - 0xd800) << 10) + (lowSurrogate - 0xdc00);
+            }
+            else
+            {
+                character = UNICODE_REPLACEMENT_CHARACTER;
+            }
+        }
+        else if (is_utf16_low_surrogate(character))
+        {
+            character = UNICODE_REPLACEMENT_CHARACTER;
+        }
+        append_utf32_char(character);
     }
     return *this;
 }
@@ -66,12 +95,30 @@ PString& PString::assign_utf16(const wchar16_t* source, size_t length)
 
 size_t PString::copy_utf16(wchar16_t* dst, size_t length, size_t pos) const
 {
-    size_t outPos = 0;
-    for (size_t i = pos; i < size() && outPos < length; i += utf8_char_length(at(i)))
+    size_t outputPosition = 0;
+    size_t inputPosition = pos;
+
+    while (dst != nullptr && inputPosition < size() && outputPosition < length)
     {
-        dst[outPos++] = wchar16_t(utf8_to_unicode(data() + i));
+        size_t byteLength = 0;
+        const uint32_t character = utf8_to_unicode(data() + inputPosition, size() - inputPosition, byteLength);
+
+        if (character < 0x10000)
+        {
+            dst[outputPosition++] = wchar16_t(character);
+        }
+        else
+        {
+            if (length - outputPosition < 2) {
+                break;
+            }
+            const uint32_t supplementaryCharacter = character - 0x10000;
+            dst[outputPosition++] = wchar16_t(0xd800 + (supplementaryCharacter >> 10));
+            dst[outputPosition++] = wchar16_t(0xdc00 + (supplementaryCharacter & 0x3ff));
+        }
+        inputPosition += byteLength;
     }
-    return outPos;
+    return outputPosition;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,9 +127,86 @@ size_t PString::copy_utf16(wchar16_t* dst, size_t length, size_t pos) const
 
 PString& PString::append_utf32_char(uint32_t unicode)
 {
-    char utf8Buf[8];
-    size_t utf8Length = unicode_to_utf8(utf8Buf, unicode);
-    insert(end(), utf8Buf, utf8Buf + utf8Length);
+    char utf8Buffer[UTF8_MAX_CHARACTER_LENGTH];
+    size_t utf8Length = unicode_to_utf8(utf8Buffer, unicode);
+    insert(end(), utf8Buffer, utf8Buffer + utf8Length);
+    return *this;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PString::utf32_iterator PString::utf32_begin() const noexcept
+{
+    return utf32_iterator(data(), data() + size());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PString::utf32_iterator PString::utf32_end() const noexcept
+{
+    return utf32_iterator(data() + size(), data() + size());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PString::is_valid_utf8() const noexcept
+{
+    size_t byteOffset = 0;
+    while (byteOffset < size())
+    {
+        const size_t characterLength = utf8_valid_sequence_length(data() + byteOffset, size() - byteOffset);
+        if (characterLength == 0) {
+            return false;
+        }
+        byteOffset += characterLength;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PString& PString::sanitize_utf8()
+{
+    size_t byteOffset = 0;
+    while (byteOffset < size())
+    {
+        const size_t characterLength = utf8_valid_sequence_length(data() + byteOffset, size() - byteOffset);
+        if (characterLength == 0) {
+            break;
+        }
+        byteOffset += characterLength;
+    }
+
+    if (byteOffset != size())
+    {
+        PString sanitizedString;
+        sanitizedString.reserve(size());
+        sanitizedString.append(data(), byteOffset);
+
+        while (byteOffset < size())
+        {
+            const size_t characterLength = utf8_valid_sequence_length(data() + byteOffset, size() - byteOffset);
+            if (characterLength != 0)
+            {
+                sanitizedString.append(data() + byteOffset, characterLength);
+                byteOffset += characterLength;
+            }
+            else
+            {
+                sanitizedString.append_utf32_char(UNICODE_REPLACEMENT_CHARACTER);
+                ++byteOffset;
+            }
+        }
+        swap(sanitizedString);
+    }
     return *this;
 }
 
@@ -168,8 +292,8 @@ bool PString::ends_with_nocase(const char* token, size_t length) const
 size_t PString::count_chars() const
 {
     size_t numChars = 0;
-    for (size_t i = 0; i < size(); i += utf8_char_length((*this)[i])) {
-        numChars++;
+    for (size_t byteOffset = 0; byteOffset < size(); byteOffset += size_t(utf8_char_length(uint8_t((*this)[byteOffset])))) {
+        ++numChars;
     }
     return numChars;
 }

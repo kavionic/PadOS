@@ -27,6 +27,7 @@
 
 #include <System/Types.h>
 #include <System/TimeValue.h>
+#include <Utils/UTF8Utils.h>
 
 #ifdef PADOS_OPT_USE_FMT_FORMATTING
 
@@ -67,6 +68,14 @@ public:
     size_t copy_utf16(wchar16_t* dst, size_t length, size_t pos = 0) const;
 
     PString& append_utf32_char(uint32_t unicode);
+
+    using utf32_iterator = PUTF8CodePointIterator;
+
+    utf32_iterator utf32_begin() const noexcept;
+    utf32_iterator utf32_end() const noexcept;
+
+    bool is_valid_utf8() const noexcept;
+    PString& sanitize_utf8();
 
     int compare_nocase(const std::string& rhs) const;
     int compare_nocase(const char* rhs) const;

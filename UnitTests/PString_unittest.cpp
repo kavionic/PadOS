@@ -4,8 +4,10 @@
 #include <limits>
 #include <string>
 #include <sys/stat.h>
+#include <vector>
 
 #include <Utils/String.h>
+#include <Utils/UTF8Utils.h>
 
 namespace {
 
@@ -22,6 +24,91 @@ static constexpr int64_t IEC_PETA = (1LL << 50); // 2^50
 static constexpr int64_t IEC_EXA = (1LL << 60); // 2^60
 
 } // namespace
+
+TEST(PStringUnicode, UTF8ConversionUsesUnicodeScalarValues)
+{
+    constexpr char grinningFaceUTF8[] = "\xf0\x9f\x98\x80";
+    char encodedCharacter[UTF8_MAX_CHARACTER_LENGTH];
+    size_t decodedLength = 0;
+
+    EXPECT_EQ(utf8_to_unicode(grinningFaceUTF8), 0x1f600u);
+    EXPECT_EQ(utf8_to_unicode(grinningFaceUTF8, sizeof(grinningFaceUTF8) - 1, decodedLength), 0x1f600u);
+    EXPECT_EQ(decodedLength, 4u);
+
+    const size_t encodedLength = unicode_to_utf8(encodedCharacter, 0x1f600);
+    EXPECT_EQ(encodedLength, 4u);
+    EXPECT_EQ(std::string(encodedCharacter, encodedLength), grinningFaceUTF8);
+}
+
+TEST(PStringUnicode, BoundedUTF8ConversionHandlesTruncatedCharacters)
+{
+    constexpr char truncatedUTF8[] = "\xf0\x9f";
+    size_t decodedLength = 0;
+
+    EXPECT_EQ(utf8_to_unicode(truncatedUTF8, sizeof(truncatedUTF8) - 1, decodedLength), UNICODE_REPLACEMENT_CHARACTER);
+    EXPECT_EQ(decodedLength, 1u);
+}
+
+TEST(PStringUnicode, UTF8ValidationDetectsMalformedSequences)
+{
+    EXPECT_TRUE(PString("ASCII").is_valid_utf8());
+    EXPECT_TRUE(PString("\xc3\xb8\xf4\x8f\xbf\xbf").is_valid_utf8());
+
+    EXPECT_FALSE(PString("\x80").is_valid_utf8());
+    EXPECT_FALSE(PString("\xc0\x80").is_valid_utf8());
+    EXPECT_FALSE(PString("\xe0\x80\x80").is_valid_utf8());
+    EXPECT_FALSE(PString("\xed\xa0\x80").is_valid_utf8());
+    EXPECT_FALSE(PString("\xf4\x90\x80\x80").is_valid_utf8());
+    EXPECT_FALSE(PString("\xf5\x80\x80\x80").is_valid_utf8());
+    EXPECT_FALSE(PString("\xf0\x9f").is_valid_utf8());
+}
+
+TEST(PStringUnicode, UTF8SanitizingReplacesMalformedBytes)
+{
+    PString text("A\xff" "B\xc3");
+
+    text.sanitize_utf8();
+
+    EXPECT_EQ(text, "A\xef\xbf\xbd" "B\xef\xbf\xbd");
+    EXPECT_TRUE(text.is_valid_utf8());
+}
+
+TEST(PStringUnicode, UTF32IteratorReturnsCodePoints)
+{
+    const PString text("A\xc3\xb8\xf0\x9f\x98\x80");
+    std::vector<uint32_t> characters;
+
+    for (PString::utf32_iterator iterator = text.utf32_begin(); iterator != text.utf32_end(); ++iterator) {
+        characters.push_back(*iterator);
+    }
+
+    const std::vector<uint32_t> expectedCharacters = {'A', 0x00f8, 0x1f600};
+    EXPECT_EQ(characters, expectedCharacters);
+    EXPECT_EQ(text.count_chars(), expectedCharacters.size());
+}
+
+TEST(PStringUnicode, UTF16ConversionHandlesSurrogatePairs)
+{
+    constexpr wchar16_t source[] = {'A', 0xd83d, 0xde00, 0};
+    constexpr wchar16_t expectedUTF16[] = {'A', 0xd83d, 0xde00};
+    wchar16_t destination[3] = {};
+    PString text("old contents");
+
+    text.assign_utf16(source);
+
+    EXPECT_EQ(text, "A\xf0\x9f\x98\x80");
+    EXPECT_EQ(text.copy_utf16(destination, std::size(destination)), std::size(destination));
+    EXPECT_EQ(std::vector<wchar16_t>(destination, destination + std::size(destination)), std::vector<wchar16_t>(std::begin(expectedUTF16), std::end(expectedUTF16)));
+}
+
+TEST(PStringUnicode, UTF16OutputDoesNotWriteHalfASurrogatePair)
+{
+    const PString text("\xf0\x9f\x98\x80");
+    wchar16_t destination = 0;
+
+    EXPECT_EQ(text.copy_utf16(&destination, 1), 0u);
+    EXPECT_EQ(destination, 0);
+}
 
 TEST(FormatFileSize, UnitSelection_SI_vs_IEC_IntegerMode)
 {

@@ -110,6 +110,53 @@ TEST(PStringUnicode, UTF16OutputDoesNotWriteHalfASurrogatePair)
     EXPECT_EQ(destination, 0);
 }
 
+TEST(PStringUnicode, NoCaseComparisonUsesFullUnicodeCaseFolding)
+{
+    EXPECT_EQ(PString("ASCII").compare_nocase("ascii"), 0);
+    EXPECT_EQ(PString("\xc3\x98").compare_nocase("\xc3\xb8"), 0);
+    EXPECT_EQ(PString("\xce\xa3").compare_nocase("\xcf\x83"), 0);
+    EXPECT_EQ(PString("\xce\xa3").compare_nocase("\xcf\x82"), 0);
+    EXPECT_EQ(PString("Stra\xc3\x9f" "e").compare_nocase("STRASSE"), 0);
+    EXPECT_EQ(PString("\xef\xac\x83").compare_nocase("ffi"), 0);
+    EXPECT_EQ(PString("\xf0\x90\x90\x80").compare_nocase("\xf0\x90\x90\xa8"), 0);
+}
+
+TEST(PStringUnicode, NoCaseComparisonUsesDefaultNonTurkicFolding)
+{
+    EXPECT_EQ(PString("\xc4\xb0").compare_nocase("i\xcc\x87"), 0);
+    EXPECT_NE(PString("\xc4\xb0").compare_nocase("i"), 0);
+}
+
+TEST(PStringUnicode, UnicodeNoCasePrefixSuffixAndSearchHandleExpansions)
+{
+    EXPECT_TRUE(PString("Stra\xc3\x9f" "e").starts_with_nocase("STRASS"));
+    EXPECT_TRUE(PString("Ma\xc3\x9f").ends_with_nocase("ASS"));
+    EXPECT_TRUE(PString("\xc3\x9f").ends_with_nocase("s"));
+    EXPECT_TRUE(PString("Fu\xc3\x9f" "ball").containes_nocase("SSB"));
+    EXPECT_TRUE(PString("x\xef\xac\x83y").containes_nocase("FFI"));
+    EXPECT_FALSE(PString("Fu\xc3\x9f" "ball").containes_nocase("SSA"));
+}
+
+TEST(PStringUnicode, ByteOperationsHonorExplicitLengthsAndEmbeddedNulls)
+{
+    const PString text("ab\0cd", 5);
+    constexpr char prefix[] = {'a', 'b', '\0', 'x'};
+    constexpr char suffix[] = {'\0', 'c', 'd'};
+    constexpr char contained[] = {'b', '\0', 'c'};
+
+    EXPECT_FALSE(text.starts_with(prefix, sizeof(prefix)));
+    EXPECT_TRUE(text.ends_with(suffix, sizeof(suffix)));
+    EXPECT_TRUE(text.containes(contained, sizeof(contained)));
+}
+
+TEST(PString, DotNameRecognition)
+{
+    EXPECT_TRUE(PString::is_dot("."));
+    EXPECT_TRUE(PString::is_dot_dot(".."));
+    EXPECT_TRUE(PString::is_dot_or_dot_dot(".."));
+    EXPECT_FALSE(PString::is_dot_dot("..."));
+}
+
 TEST(FormatFileSize, UnitSelection_SI_vs_IEC_IntegerMode)
 {
     EXPECT_EQ(FS(999, 0, PUnitSystem::SI), "999");

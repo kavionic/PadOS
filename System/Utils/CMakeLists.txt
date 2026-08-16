@@ -10,6 +10,7 @@ target_sources(PadOS_System PRIVATE
 	POSIXTokenizer.cpp
 	String.cpp
 	TerminalLineEditor.cpp
+	UnicodeCaseFolding.cpp
 	Utils.cpp
 	XMLFactory.cpp
 	XMLObjectParser.cpp

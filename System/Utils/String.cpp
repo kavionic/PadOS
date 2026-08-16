@@ -17,12 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.04.2018 16:58:13
 
-#include <strings.h>
 #include <string.h>
 #include <sys/stat.h>
 
 #include "Math/Misc.h"
 #include "Utils/String.h"
+#include "Utils/UnicodeCaseFolding.h"
 #include "Utils/UTF8Utils.h"
 #include "Utils/Utils.h"
 
@@ -216,7 +216,7 @@ PString& PString::sanitize_utf8()
 
 int PString::compare_nocase(const std::string& rhs) const
 {
-    return strcasecmp(c_str(), rhs.c_str());
+    return unicode_case_fold_compare(data(), data() + size(), rhs.data(), rhs.data() + rhs.size());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -225,7 +225,7 @@ int PString::compare_nocase(const std::string& rhs) const
 
 int PString::compare_nocase(const char* rhs) const
 {
-    return strcasecmp(c_str(), rhs);
+    return unicode_case_fold_compare(data(), data() + size(), rhs, rhs + strlen(rhs));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -236,7 +236,7 @@ bool PString::starts_with(const char* token, size_t length /*= INVALID_INDEX*/) 
 {
     if (length == INVALID_INDEX) length = strlen(token);
     if (length <= size()) {
-        return strncmp(c_str(), token, length) == 0;
+        return compare(0, length, token, length) == 0;
     } else {
         return false;
     }
@@ -250,11 +250,7 @@ bool PString::starts_with(const char* token, size_t length /*= INVALID_INDEX*/) 
 bool PString::starts_with_nocase(const char* token, size_t length /*= INVALID_INDEX*/) const
 {
     if (length == INVALID_INDEX) length = strlen(token);
-    if (length <= size()) {
-        return strncasecmp(c_str(), token, length) == 0;
-    } else {
-        return false;
-    }
+    return unicode_case_fold_starts_with(data(), data() + size(), token, token + length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -265,7 +261,7 @@ bool PString::ends_with(const char* token, size_t length) const
 {
     if (length == INVALID_INDEX) length = strlen(token);
     if (length <= size()) {
-        return strncmp(c_str() + size() - length, token, length) == 0;
+        return compare(size() - length, length, token, length) == 0;
     } else {
         return false;
     }
@@ -278,11 +274,27 @@ bool PString::ends_with(const char* token, size_t length) const
 bool PString::ends_with_nocase(const char* token, size_t length) const
 {
     if (length == INVALID_INDEX) length = strlen(token);
-    if (length <= size()) {
-        return strncasecmp(c_str() + size() - length, token, length) == 0;
-    } else {
-        return false;
-    }
+    return unicode_case_fold_ends_with(data(), data() + size(), token, token + length);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PString::containes(const char* token, size_t length) const
+{
+    if (length == INVALID_INDEX) length = strlen(token);
+    return find(token, 0, length) != npos;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PString::containes_nocase(const char* token, size_t length) const
+{
+    if (length == INVALID_INDEX) length = strlen(token);
+    return unicode_case_fold_contains(data(), data() + size(), token, token + length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

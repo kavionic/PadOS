@@ -94,7 +94,7 @@ public:
     static bool is_dot(const char* str, size_t length)   { return length == 1 && str[0] == '.'; }
 
     bool        is_dot_dot() const                            { return size() == 2 && at(0) == '.' && at(1) == '.'; }
-    static bool is_dot_dot(const char* str)                   { return str[0] == '.' && str[1] == '.' && str[3] == '\0'; }
+    static bool is_dot_dot(const char* str)                   { return str[0] == '.' && str[1] == '.' && str[2] == '\0'; }
     static bool is_dot_dot(const char* str, size_t length)    { return length == 2 && str[0] == '.' && str[1] == '.'; }
 
     bool        is_dot_or_dot_dot() const                           { return is_dot() || is_dot_dot(); }

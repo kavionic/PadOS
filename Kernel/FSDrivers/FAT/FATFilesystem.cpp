@@ -868,7 +868,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         dummy->m_CTime = FATInode::RoundTimeToFATCreateTime(currentTime);
         dummy->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
 
-        CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
+        CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 
         dummy->m_InodeID = GENERATE_DIR_INDEX_INODEID(dummy->m_ParentInodeID, dummy->m_DirStartIndex);
         if (vol->HasInodeIDToLocationIDMapping(dummy->m_InodeID))
@@ -1120,7 +1120,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     PScopeFail scopeCleanupDirMapping([&vol, &dummy]() { vol->RemoveDirectoryMapping(dummy->m_InodeID); });
     
 
-    CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
+    CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 
     // create '.' and '..' entries and then end of directories
     memset(buffer.data(), 0, buffer.size());
@@ -1278,7 +1278,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     else
     {
         // create the new directory entry
-        CreateDirectoryEntry(volume, newDirectory, sourceNode, newName, &newStartIndex, &newEndIndex);
+        FATInode* collisionExclusion = (oldDirectory->m_InodeID == newDirectory->m_InodeID) ? ptr_raw_pointer_cast(sourceNode) : nullptr;
+        CreateDirectoryEntry(volume, newDirectory, sourceNode, newName, collisionExclusion, &newStartIndex, &newEndIndex);
     }
 
     // erase old directory entry
@@ -2122,6 +2123,39 @@ bool FATFilesystem::FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool FATFilesystem::FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode)
+{
+    FATDirectoryIterator iterator(volume, parent->m_StartCluster, 0);
+    FATDirectoryEntryInfo entryInfo;
+    PString filename;
+    PString shortFilename;
+
+    for (;;)
+    {
+        filename.clear();
+        shortFilename.clear();
+        if (!iterator.GetNextLFNEntry(&entryInfo, &filename, &shortFilename)) {
+            return false;
+        }
+
+        const bool isExcludedEntry = excludedNode != nullptr &&
+                                     parent->m_InodeID == excludedNode->m_ParentInodeID &&
+                                     entryInfo.m_EndIndex == excludedNode->m_DirEndIndex;
+        if (!isExcludedEntry)
+        {
+            const bool longNameCollision = filename.compare_nocase(name) == 0;
+            const bool shortNameCollision = shortFilename != filename && shortFilename.compare_nocase(name) == 0;
+            if (longNameCollision || shortNameCollision) {
+                return true;
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<FATInode> FATFilesystem::DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName)
 {
     ino_t inodeID;
@@ -2371,14 +2405,15 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, uint32_t* startIndex, uint32_t* endIndex)
+void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex)
 {
     struct FATNewDirEntryInfo info;
 
-    // check if name already exists
-    if (DoLocateInode(vol, parent, name)  != nullptr)
+    // FAT names and their 8.3 aliases share a case-insensitive namespace even
+    // though PadOS deliberately performs ordinary path lookup case-sensitively.
+    if (FindNameCollision(vol, parent, name, collisionExclusion))
     {
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): {} already found in directory {:x}.", name.c_str(), parent->m_InodeID);
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): {} conflicts with an existing name or short-name alias in directory {:x}.", name.c_str(), parent->m_InodeID);
         PERROR_THROW_CODE(PErrorCode::EXIST);
     }
 

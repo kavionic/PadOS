@@ -109,7 +109,7 @@ public:
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
-    bool GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename);
+    bool GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename, PString* outShortFilename = nullptr);
     bool GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();

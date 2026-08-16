@@ -513,7 +513,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* filename)
+bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* filename, PString* outShortFilename)
 {
     uint8_t            hash = 0;
     std::vector<wchar16_t> utf16Buffer;
@@ -671,6 +671,10 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
         if (filename != nullptr) {
             FATRawShortNameToUTF8(buffer->m_Normal, *filename);
         }            
+    }
+
+    if (outShortFilename != nullptr) {
+        FATRawShortNameToUTF8(buffer->m_Normal, *outShortFilename);
     }
 
     if (outInfo != nullptr)

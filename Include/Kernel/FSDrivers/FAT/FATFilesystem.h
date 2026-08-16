@@ -88,6 +88,7 @@ public:
 private:
     uint32_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
     bool FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName);
+    bool FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode);
     Ptr<FATInode> DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName);
     bool IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir);
     bool IsDirectoryAncestor(Ptr<FATVolume> volume, Ptr<FATInode> ancestor, Ptr<FATInode> directory);
@@ -95,7 +96,7 @@ private:
     uint32_t GetFileClusterCount(Ptr<FATVolume> volume, off64_t fileSize);
     void ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t startPosition, off64_t endPosition);
     void ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize);
-    void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, uint32_t* startIndex, uint32_t* endIndex);
+    void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex);
     void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex);
     void CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir);
     void EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> node);

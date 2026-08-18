@@ -127,10 +127,22 @@ private:
     friend struct KCacheBlockHeader;
     friend struct KCacheBlockDesc;
 
+    static constexpr TimeValNanos FLUSH_PERIOD = TimeValNanos::FromMilliseconds(1000);
+    static constexpr size_t MAX_FLUSH_BLOCK_COUNT = 128;
+    static constexpr size_t MIN_FLUSH_WAKEUP_BLOCK_COUNT = 64;
+    static constexpr size_t MIN_FLUSH_BLOCK_COUNT = 96;
+
     bool FlushInternal();
 
     static bool  FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount);
     static void* DiskCacheFlusher(void* arg);
+
+#ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+    static size_t GetFlushDiagnosticBufferSize();
+    static void   InitializeFlushDiagnostics(void* buffer);
+    static void   ValidateFlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
+    static bool   FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockList, size_t blockCount);
+#endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
     
     static std::map<int, KBlockCache*>      s_DeviceMap;
     static PIntrusiveList<KCacheBlockHeader> s_FreeList;

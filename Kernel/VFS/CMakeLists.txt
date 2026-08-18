@@ -12,6 +12,10 @@ target_sources(PadOS_Kernel PRIVATE
 	KVFSManager.cpp
 )
 
+if(PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS)
+	target_sources(PadOS_Kernel PRIVATE KBlockCacheDiagnostics.cpp)
+endif()
+
 target_sources(PadOS_KernelExt PRIVATE
 	KPipeFilesystem.cpp
 	KPipeFilesystem.h

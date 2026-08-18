@@ -24,7 +24,9 @@
 #include <malloc.h>
 #include <string.h>
 
+#include <algorithm>
 #include <map>
+#include <tuple>
 
 #include <Kernel/KTime.h>
 #include <Kernel/VFS/KBlockCache.h>
@@ -39,11 +41,11 @@
 namespace kernel
 {
 
-static constexpr TimeValNanos FLUSH_PERIODE = TimeValNanos::FromMilliseconds(1000);
-static constexpr int KBLOCK_CACHE_BLOCK_COUNT   = 4096;
-static constexpr int BC_FLUSH_COUNT             = 128;
-static constexpr int BC_MIN_WAKEUP_COUNT        = 64;
-static constexpr int BC_MIN_FLUSH_COUNT         = 96;
+#ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+static constexpr int KBLOCK_CACHE_BLOCK_COUNT = 4080;
+#else
+static constexpr int KBLOCK_CACHE_BLOCK_COUNT = 4096;
+#endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
 
 static uint8_t* gk_BCacheBuffer;
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
@@ -156,7 +158,16 @@ bool KBlockCache::SetDevice(int device, off64_t blockCount, size_t blockSize)
 
 void KBlockCache::Initialize()
 {
-    gk_BCacheBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT));
+    size_t bufferSize = KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT;
+#ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+    bufferSize += GetFlushDiagnosticBufferSize();
+#endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+
+    gk_BCacheBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, bufferSize));
+#ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+    InitializeFlushDiagnostics(gk_BCacheBuffer + KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT);
+#endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+
     uint8_t* buffer = gk_BCacheBuffer;
     for (int i = 0; i < KBLOCK_CACHE_BLOCK_COUNT; ++i)
     {
@@ -428,7 +439,7 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags |= BCF_DIRTY_PENDING;
         }
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Block {} from device {} dirty.", m_bufferNumber, m_Device);
-        if (KBlockCache::s_DirtyBlockCount >= BC_MIN_WAKEUP_COUNT) {
+        if (KBlockCache::s_DirtyBlockCount >= KBlockCache::MIN_FLUSH_WAKEUP_BLOCK_COUNT) {
             KBlockCache::s_FlushingRequestConditionVar.WakeupAll();
         }
     }
@@ -509,11 +520,15 @@ void KCacheBlockDesc::Reset()
 
 bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount)
 {
+#ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+    return FlushBlockListWithDiagnostics_trw(blockList, blockCount);
+#endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
+
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "KBlockCache::FlushBlockList() flushing {} blocks.", blockCount);
 
     std::sort(blockList, blockList + blockCount, [](const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs) { return std::tie(lhs->m_Device, lhs->m_bufferNumber) < std::tie(rhs->m_Device, rhs->m_bufferNumber); });
 
-    static iovec_t segments[BC_FLUSH_COUNT];
+    static iovec_t segments[MAX_FLUSH_BLOCK_COUNT];
 
 //    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Flush {} blocks.", blockCount);
 
@@ -536,17 +551,17 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
             if (!requiredSegment && blockList[i]->IsFlushRequested()) {
                 requiredSegment = true;
             }
-            if (!requiredSegment && (curTime - blockList[i]->m_DirtyTime) >= FLUSH_PERIODE) {
+            if (!requiredSegment && (curTime - blockList[i]->m_DirtyTime) >= FLUSH_PERIOD) {
                 hasTimedOutBlocks = true;
             }
         }
         if (i == blockCount || (i > start && (blockList[i-1]->m_Device != blockList[i]->m_Device || (blockList[i-1]->m_bufferNumber + 1) != blockList[i]->m_bufferNumber)))
         {
-            size_t segmentCount = i - start;
-            if (requiredSegment || hasTimedOutBlocks || segmentCount >= BC_MIN_FLUSH_COUNT)
+            const size_t segmentCount = i - start;
+            if (requiredSegment || hasTimedOutBlocks || segmentCount >= MIN_FLUSH_BLOCK_COUNT)
             {
-                for (size_t j = start; j < i; ++j) {
-                    blockList[j]->ClearDirtyPending();
+                for (size_t blockIndex = start; blockIndex < i; ++blockIndex) {
+                    blockList[blockIndex]->ClearDirtyPending();
                 }
 
 //                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "  {}:{}", blockList[start]->m_bufferNumber, segmentCount);
@@ -554,7 +569,11 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
                 s_Mutex.Unlock();
                 try
                 {
-                    kpwritev_trw(blockList[start]->m_Device, segments, segmentCount, blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+                    kpwritev_trw(
+                        blockList[start]->m_Device,
+                        segments,
+                        segmentCount,
+                        blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE);
                     anythingFlushed = true;
                 }
                 PERROR_CATCH(([&blockList, &start, &segmentCount](PErrorCode error)
@@ -564,18 +583,17 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
                 ));
                 s_Mutex.Lock();
 
-                for (size_t j = start; j < i; ++j)
+                for (size_t blockIndex = start; blockIndex < i; ++blockIndex)
                 {
-                    if (!blockList[j]->IsDirtyPending())
+                    if (!blockList[blockIndex]->IsDirtyPending())
                     {
-                        blockList[j]->SetDirty(false);
-                        blockList[j]->SetFlushRequested(false);
-                        blockList[j]->SetIsFlushing(false);
+                        blockList[blockIndex]->SetDirty(false);
+                        blockList[blockIndex]->SetFlushRequested(false);
+                        blockList[blockIndex]->SetIsFlushing(false);
                     }
                 }
 
-                if (requiredSegment)
-                {
+                if (requiredSegment) {
                     s_FlushingDoneConditionVar.WakeupAll();
                 }
             }
@@ -591,7 +609,6 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
     }
     return anythingFlushed;
 }
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -607,10 +624,10 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
             {
                 if (s_DirtyBlockCount > 0)
                 {
-                    static KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
-                    int blocksFlushed = 0;
+                    static KCacheBlockHeader* blockList[MAX_FLUSH_BLOCK_COUNT];
+                    size_t blocksFlushed = 0;
                     int deviceID = -1;
-                    for (auto block = s_MRUList.begin(); block != s_MRUList.end() && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; ++block)
+                    for (auto block = s_MRUList.begin(); block != s_MRUList.end() && blocksFlushed < MAX_FLUSH_BLOCK_COUNT && s_DirtyBlockCount > 0; ++block)
                     {
                         if (block->IsDirty() && !block->IsFlushing())
                         {
@@ -631,12 +648,12 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                     if (anythingFlushed) {
                         s_FlushingDoneConditionVar.WakeupAll();
                     } else {
-                        s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
+                        s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIOD);
                     }
                 }
                 else
                 {
-                    s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
+                    s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIOD);
                 }
             }
             PERROR_CATCH(([](PErrorCode error) { kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_BlockCache, "Exception caught during disk cache flushing."); }));

@@ -17,9 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 20.05.2020 23:00:00
 
-#include <type_traits>
+#include <algorithm>
+#include <limits>
 
-#include <malloc.h>
 #include <string.h>
 #include <sys/uio.h>
 
@@ -27,9 +27,11 @@
 #include <Kernel/Drivers/STM32/SDMMCDriver_STM32.h>
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/HAL/PeripheralMapping.h>
+#include <Utils/Utils.h>
 
 
 using namespace sdmmc;
@@ -53,8 +55,7 @@ static const uint32_t SDMMC_EVENT_FLAGS = SDMMC_MASK_CMDRENDIE      // Command R
                                         | SDMMC_MASK_BUSYD0ENDIE    // BUSYD0ENDIE interrupt Enable
                                         | SDMMC_MASK_SDIOITIE       // SDMMC Mode Interrupt Received interrupt Enable
                                         | SDMMC_MASK_VSWENDIE       // Voltage switch critical timing section completion Interrupt Enable
-                                        | SDMMC_MASK_CKSTOPIE       // Voltage Switch clock stopped Interrupt Enable
-                                        | SDMMC_MASK_IDMABTCIE;     // IDMA buffer transfer complete Interrupt Enable
+                                        | SDMMC_MASK_CKSTOPIE;      // Voltage Switch clock stopped Interrupt Enable
 
 static constexpr uint32_t SDMMC_ICR_ALL_FLAGS = 
       SDMMC_ICR_CCRCFAILC
@@ -82,7 +83,7 @@ static constexpr uint32_t SDMMC_ICR_ALL_FLAGS =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : SDMMCDriver(parameters)
+SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : SDMMCDriver(parameters, TRANSFER_BUFFER_SIZE)
 {
     m_PeripheralClockFrequency = parameters.ClockFrequency;
     m_ClockCap = parameters.ClockCap;
@@ -123,6 +124,112 @@ SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : 
 
 SDMMCDriver_STM32::~SDMMCDriver_STM32()
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t SDMMCDriver_STM32::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
+{
+    const TransferRequest request = PrepareTransferRequest(file, segments, segmentCount, position);
+    if (request.Length == 0) {
+        return 0;
+    }
+
+    IOVectorCursor cursor(segments, segmentCount, request.Length);
+    off64_t transferPosition = request.Position;
+
+    KScopedLock deviceLock(m_DeviceMutex);
+    KUniqueLock cardStateLock(m_Mutex, std::defer_lock);
+    if (request.LockCardState) {
+        cardStateLock.lock();
+    }
+    if (!IsReady()) {
+        PERROR_THROW_CODE(PErrorCode::NODEV);
+    }
+
+    while (cursor.RemainingLength != 0)
+    {
+        iovec_t transferSegments[2];
+        size_t transferSegmentCount = PrepareDirectTransfer(cursor, transferSegments);
+        size_t transferLength = 0;
+        const bool useTransferBuffer = transferSegmentCount == 0;
+
+        if (useTransferBuffer)
+        {
+            transferLength = std::min(cursor.RemainingLength, TRANSFER_BUFFER_SIZE);
+            transferSegments[0].iov_base = m_CacheAlignedBuffer;
+            transferSegments[0].iov_len = transferLength;
+            transferSegmentCount = 1;
+        }
+        else
+        {
+            for (size_t segmentIndex = 0; segmentIndex < transferSegmentCount; ++segmentIndex) {
+                transferLength += transferSegments[segmentIndex].iov_len;
+            }
+        }
+
+        ReadBlocks(static_cast<uint32_t>(transferPosition / BLOCK_SIZE), transferSegments, transferSegmentCount);
+
+        if (useTransferBuffer) {
+            cursor.CopyFrom(m_CacheAlignedBuffer, transferLength);
+        }
+        cursor.Advance(transferLength);
+        transferPosition += transferLength;
+    }
+    return request.Length;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t SDMMCDriver_STM32::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
+{
+    const TransferRequest request = PrepareTransferRequest(file, segments, segmentCount, position);
+    if (request.Length == 0) {
+        return 0;
+    }
+
+    IOVectorCursor cursor(segments, segmentCount, request.Length);
+    off64_t transferPosition = request.Position;
+
+    KScopedLock deviceLock(m_DeviceMutex);
+    KUniqueLock cardStateLock(m_Mutex, std::defer_lock);
+    if (request.LockCardState) {
+        cardStateLock.lock();
+    }
+    if (!IsReady()) {
+        PERROR_THROW_CODE(PErrorCode::NODEV);
+    }
+
+    while (cursor.RemainingLength != 0)
+    {
+        iovec_t transferSegments[2];
+        size_t transferSegmentCount = PrepareDirectTransfer(cursor, transferSegments);
+        size_t transferLength = 0;
+
+        if (transferSegmentCount == 0)
+        {
+            transferLength = std::min(cursor.RemainingLength, TRANSFER_BUFFER_SIZE);
+            cursor.CopyTo(m_CacheAlignedBuffer, transferLength);
+            transferSegments[0].iov_base = m_CacheAlignedBuffer;
+            transferSegments[0].iov_len = transferLength;
+            transferSegmentCount = 1;
+        }
+        else
+        {
+            for (size_t segmentIndex = 0; segmentIndex < transferSegmentCount; ++segmentIndex) {
+                transferLength += transferSegments[segmentIndex].iov_len;
+            }
+        }
+
+        WriteBlocks(static_cast<uint32_t>(transferPosition / BLOCK_SIZE), transferSegments, transferSegmentCount);
+        cursor.Advance(transferLength);
+        transferPosition += transferLength;
+    }
+    return request.Length;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,9 +281,45 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
     m_SDMMC->ARG = arg;
     m_SDMMC->CMD = commandR;
 
-    if (!WaitIRQ(interrupts))
+    if ((extraCmdRFlags & SDMMC_CMD_CMDTRANS) != 0)
     {
-        if (m_SDMMC->STA && SDMMC_STA_CTIMEOUT) {
+        const TimeValNanos commandDeadline =
+            kget_monotonic_time() + TimeValNanos::FromMilliseconds(500);
+        uint32_t status;
+        do
+        {
+            status = m_SDMMC->STA & interrupts;
+        } while (status == 0 && kget_monotonic_time() < commandDeadline);
+
+        m_SDMMC->ICR =
+            SDMMC_ICR_CCRCFAILC
+            | SDMMC_ICR_CTIMEOUTC
+            | SDMMC_ICR_CMDRENDC
+            | SDMMC_ICR_CMDSENTC;
+
+        if (status == 0)
+        {
+            m_IOError = ~0L;
+            set_last_error(PErrorCode::TIMEDOUT);
+            return false;
+        }
+
+        const uint32_t commandErrorFlags =
+            SDMMC_STA_CCRCFAIL | SDMMC_STA_CTIMEOUT;
+        if ((status & commandErrorFlags) != 0)
+        {
+            m_IOError = status & commandErrorFlags;
+            if ((status & SDMMC_STA_CTIMEOUT) != 0) {
+                RestartCard();
+            }
+            set_last_error(EIO);
+            return false;
+        }
+        m_IOError = 0;
+    }
+    else if (!WaitIRQ(interrupts))
+    {
+        if ((m_SDMMC->STA & SDMMC_STA_CTIMEOUT) != 0) {
             RestartCard();
         }
         return false;
@@ -185,7 +328,7 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
     {
         if (!WaitIRQ(SDMMC_MASK_BUSYD0ENDIE | SDMMC_MASK_CTIMEOUTIE))
         {
-            if (m_SDMMC->STA && SDMMC_STA_CTIMEOUT) {
+            if ((m_SDMMC->STA & SDMMC_STA_CTIMEOUT) != 0) {
                 RestartCard();
             }
             return false;
@@ -233,76 +376,91 @@ void SDMMCDriver_STM32::GetResponse128(uint8_t* response)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount)
+bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, void* buffer)
 {
-    const uint32_t blockSize = 1 << blockSizePower;
-    const uint32_t byteLength = blockSize * blockCount;
+    const size_t blockSize = size_t(1) << blockSizePower;
+    const size_t transferLength = blockSize * blockCount;
+    const bool useTransferBuffer =
+        buffer != m_CacheAlignedBuffer
+        && ((reinterpret_cast<uintptr_t>(buffer) & DCACHE_LINE_SIZE_MASK) != 0
+            || (transferLength & DCACHE_LINE_SIZE_MASK) != 0);
 
-    void* dmaTarget = nullptr;
+    if (useTransferBuffer && transferLength > TRANSFER_BUFFER_SIZE)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+
+    void* dmaBuffer = useTransferBuffer ? m_CacheAlignedBuffer : buffer;
+    if (useTransferBuffer && (cmd & SDMMC_CMD_WRITE) != 0) {
+        memmove(dmaBuffer, buffer, transferLength);
+    }
+
+    const iovec_t segment = { .iov_base = dmaBuffer, .iov_len = transferLength };
+    const bool result = StartDataTransfer(cmd, arg, blockSizePower, blockCount, &segment, 1);
+
+    if (result && useTransferBuffer && (cmd & SDMMC_CMD_WRITE) == 0) {
+        memmove(buffer, dmaBuffer, transferLength);
+    }
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SDMMCDriver_STM32::StartDataTransfer(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount)
+{
+    const size_t blockSize = size_t(1) << blockSizePower;
+    const size_t byteLength = blockSize * blockCount;
+
+    if (segmentCount == 0 || segmentCount > 2 || byteLength == 0 || byteLength > MAX_DATA_TRANSFER_SIZE)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+
+    size_t segmentLength = 0;
+    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
+    {
+        const iovec_t& segment = segments[segmentIndex];
+        if ((reinterpret_cast<uintptr_t>(segment.iov_base) & DCACHE_LINE_SIZE_MASK) != 0
+            || ((segment.iov_len & DCACHE_LINE_SIZE_MASK) != 0 && segment.iov_base != m_CacheAlignedBuffer))
+        {
+            set_last_error(EINVAL);
+            return false;
+        }
+        segmentLength += segment.iov_len;
+    }
+    if (segmentLength != byteLength)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    if (segmentCount == 2
+        && (segments[0].iov_len != segments[1].iov_len
+            || segments[0].iov_len > MAX_IDMA_BUFFER_SIZE
+            || (segments[0].iov_len % 32) != 0))
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
 
     uint32_t dataControl = (blockSizePower << SDMMC_DCTRL_DBLOCKSIZE_Pos);
+    uint32_t idmaControl;
     if ((cmd & SDMMC_CMD_WRITE) == 0) {
         dataControl |= SDMMC_DCTRL_DTDIR; // From card to host (Read).
     }
-    m_TransferSegments  = segments;
-    m_SegmentCount      = segmentCount;
-    m_CurrentSegment    = 0;
-
-    if (segmentCount == 1)
+    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
     {
-        const void* buffer = segments[0].iov_base;
-        dmaTarget = const_cast<void*>(buffer);
-        if (cmd & SDMMC_CMD_WRITE)
-        {
-            uint32_t* cacheStart = reinterpret_cast<uint32_t*>(intptr_t(dmaTarget) & ~DCACHE_LINE_SIZE_MASK);
-            uint32_t  cacheLength = byteLength + intptr_t(dmaTarget) - intptr_t(cacheStart);
-            cacheLength = ((cacheLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE;
-            SCB_CleanDCache_by_Addr(cacheStart, cacheLength);
-        }
-        else
-        {
-            if ((intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) || (byteLength & DCACHE_LINE_SIZE_MASK))
-            {
-                if (byteLength <= BLOCK_SIZE)
-                {
-                    dmaTarget = m_CacheAlignedBuffer;
-                }
-                else
-                {
-                    kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() called with unaligned buffer or size larger than 512 bytes.");
-                    set_last_error(EINVAL);
-                    return false;
-                }
-            }
-        }
-    }
-    else
-    {
-        if (cmd & SDMMC_CMD_WRITE)
-        {
-            for (size_t i = 0; i < segmentCount; ++i)
-            {
-                if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
-                {
-                    kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.");
-                    set_last_error(EINVAL);
-                    return false;
-                }
-                SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].iov_base), segments[i].iov_len);
-            }
-        }
-        else
-        {
-            for (size_t i = 0; i < segmentCount; ++i)
-            {
-                if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
-                {
-                    kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.");
-                    set_last_error(EINVAL);
-                    return false;
-                }
-            }
+        const size_t cacheLength =
+            (segments[segmentIndex].iov_len + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
+        uint32_t* const cacheAddress = reinterpret_cast<uint32_t*>(segments[segmentIndex].iov_base);
 
+        if ((cmd & SDMMC_CMD_WRITE) != 0) {
+            SCB_CleanDCache_by_Addr(cacheAddress, cacheLength);
+        } else {
+            SCB_InvalidateDCache_by_Addr(cacheAddress, cacheLength);
         }
     }
     if (cmd & SDMMC_CMD_SDIO_BYTE)
@@ -318,8 +476,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
         } else if (cmd & SDMMC_CMD_SINGLE_BLOCK) {
             dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending on block count.
         } else if (cmd & SDMMC_CMD_MULTI_BLOCK) {
-            dataControl |= 3 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
-            //dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
+            dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending on block count.
         } else {
             kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "StartAddressedDataTransCmd() invalid command flags: {:x}", cmd);
             return false;
@@ -328,74 +485,56 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
     m_SDMMC->DTIMER = 0xffffffff;
     m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
 
-    if (dmaTarget == nullptr && m_SegmentCount > 1)
+    if (segmentCount == 2)
     {
-        m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[0].iov_base);
-        m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[1].iov_base);
+        m_SDMMC->IDMABASE0 = reinterpret_cast<uintptr_t>(segments[0].iov_base);
+        m_SDMMC->IDMABASE1 = reinterpret_cast<uintptr_t>(segments[1].iov_base);
 
-        m_SDMMC->IDMABSIZE = ((blockSize / 32) << SDMMC_IDMABSIZE_IDMABNDT_Pos) & SDMMC_IDMABSIZE_IDMABNDT_Msk;
-        m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN | SDMMC_IDMA_IDMABMODE;
-        m_CurrentSegment = 2;
+        m_SDMMC->IDMABSIZE =
+            ((segments[0].iov_len / 32) << SDMMC_IDMABSIZE_IDMABNDT_Pos)
+            & SDMMC_IDMABSIZE_IDMABNDT_Msk;
+        idmaControl = SDMMC_IDMA_IDMAEN | SDMMC_IDMA_IDMABMODE;
     }
     else
     {
-        m_SDMMC->IDMABASE0 = (dmaTarget != nullptr) ? intptr_t(dmaTarget) : intptr_t(m_TransferSegments[0].iov_base);
-
-        m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN;
-        m_CurrentSegment = 1;
+        m_SDMMC->IDMABASE0 = reinterpret_cast<uintptr_t>(segments[0].iov_base);
+        idmaControl = SDMMC_IDMA_IDMAEN;
     }
     m_SDMMC->DLEN = byteLength;
     m_SDMMC->DCTRL = dataControl;
+    m_SDMMC->CMD |= SDMMC_CMD_CMDTRANS;
+    m_SDMMC->IDMACTRL = idmaControl;
 
     bool result = ExecuteCmd(SDMMC_CMD_CMDTRANS, cmd, arg);
 
-    if (result)
-    {
-        TimeValNanos startTime = kget_monotonic_time();
-        do
-        {
-            result = WaitIRQ(SDMMC_MASK_DATAENDIE | SDMMC_MASK_IDMABTCIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE);
-            if (!result) break;
-            if (kget_monotonic_time() - startTime > TimeValNanos::FromMilliseconds(500))
-            {
-                result = false;
-                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() could only read {} of {} blocks.", static_cast<std::remove_volatile_t<decltype(m_CurrentSegment)>>(m_CurrentSegment), m_SegmentCount);
-                break;
-            }
-        } while (m_CurrentSegment != m_SegmentCount);
+    if (result) {
+        result = WaitIRQ(
+            SDMMC_MASK_DATAENDIE
+            | SDMMC_MASK_DABORTIE
+            | SDMMC_MASK_DTIMEOUTIE
+            | SDMMC_MASK_DCRCFAILIE
+            | SDMMC_MASK_TXUNDERRIE
+            | SDMMC_MASK_RXOVERRIE);
     } else {
-        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() Failed to start cmd {}:{} ({})", arg, m_SegmentCount, int(m_WakeupReason));
+        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartDataTransfer() failed to start cmd {} ({})", arg, int(m_WakeupReason));
     }
+
+    m_SDMMC->CMD &= ~SDMMC_CMD_CMDTRANS;
+    m_SDMMC->DLEN = 0;
+    m_SDMMC->DCTRL = 0;
     m_SDMMC->IDMACTRL = 0;
+    m_SDMMC->ICR = SDMMC_ICR_ALL_FLAGS;
 //    m_SDMMC->CLKCR &= ~SDMMC_CLKCR_HWFC_EN; // Hardware flow-control disabled.
 
-    if (m_CurrentSegment != m_SegmentCount) {
-        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() Only {} of {} blocks where transfered at {} ({})", static_cast<std::remove_volatile_t<decltype(m_CurrentSegment)>>(m_CurrentSegment), m_SegmentCount, arg, int(m_WakeupReason));
-        result = false;
-    }
-
-    if (result)
+    if (result && (cmd & SDMMC_CMD_WRITE) == 0)
     {
-        if ((cmd & SDMMC_CMD_WRITE) == 0)
+        for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
         {
-            if (dmaTarget != nullptr)
-            {
-                SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTarget), ((byteLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-                memcpy(segments[0].iov_base, dmaTarget, segments[0].iov_len);
-            }
-            else
-            {
-                for (size_t i = 0; i < segmentCount; ++i)
-                {
-                    if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
-                    {
-                        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment read with unaligned buffer.");
-                        set_last_error(EINVAL);
-                        return false;
-                    }
-                    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].iov_base), segments[i].iov_len);
-                }
-            }
+            const size_t cacheLength =
+                (segments[segmentIndex].iov_len + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
+            SCB_InvalidateDCache_by_Addr(
+                reinterpret_cast<uint32_t*>(segments[segmentIndex].iov_base),
+                cacheLength);
         }
     }
     return result;
@@ -445,6 +584,367 @@ void SDMMCDriver_STM32::ApplySpeedAndBusWidth()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+SDMMCDriver_STM32::IOVectorCursor::IOVectorCursor(const iovec_t* segments, size_t segmentCount, size_t length)
+    : Segments(segments)
+    , SegmentCount(segmentCount)
+    , RemainingLength(length)
+{
+    Normalize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::IOVectorCursor::Normalize()
+{
+    while (SegmentIndex < SegmentCount && SegmentOffset == Segments[SegmentIndex].iov_len)
+    {
+        ++SegmentIndex;
+        SegmentOffset = 0;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t SDMMCDriver_STM32::IOVectorCursor::GetCurrentLength() const
+{
+    kassert(RemainingLength != 0);
+    kassert(SegmentIndex < SegmentCount);
+    return std::min(Segments[SegmentIndex].iov_len - SegmentOffset, RemainingLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint8_t* SDMMCDriver_STM32::IOVectorCursor::GetCurrentAddress() const
+{
+    kassert(RemainingLength != 0);
+    kassert(SegmentIndex < SegmentCount);
+    return static_cast<uint8_t*>(Segments[SegmentIndex].iov_base) + SegmentOffset;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t SDMMCDriver_STM32::IOVectorCursor::GetRemainingSegmentCount(size_t maximumCount) const
+{
+    IOVectorCursor cursor = *this;
+    size_t segmentCount = 0;
+
+    while (cursor.RemainingLength != 0)
+    {
+        ++segmentCount;
+        if (segmentCount > maximumCount) {
+            break;
+        }
+        cursor.Advance(cursor.GetCurrentLength());
+    }
+    return segmentCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t SDMMCDriver_STM32::IOVectorCursor::PeekSegments(iovec_t* segments, size_t segmentCount) const
+{
+    IOVectorCursor cursor = *this;
+    size_t outputSegmentCount = 0;
+
+    while (cursor.RemainingLength != 0 && outputSegmentCount < segmentCount)
+    {
+        const size_t segmentLength = cursor.GetCurrentLength();
+        segments[outputSegmentCount].iov_base = cursor.GetCurrentAddress();
+        segments[outputSegmentCount].iov_len = segmentLength;
+        ++outputSegmentCount;
+        cursor.Advance(segmentLength);
+    }
+    return outputSegmentCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::IOVectorCursor::Advance(size_t length)
+{
+    kassert(length <= RemainingLength);
+
+    while (length != 0)
+    {
+        const size_t advanceLength = std::min(length, GetCurrentLength());
+        SegmentOffset += advanceLength;
+        RemainingLength -= advanceLength;
+        length -= advanceLength;
+        Normalize();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::IOVectorCursor::CopyTo(void* destination, size_t length) const
+{
+    kassert(length <= RemainingLength);
+
+    IOVectorCursor cursor = *this;
+    uint8_t* output = static_cast<uint8_t*>(destination);
+
+    while (length != 0)
+    {
+        const size_t copyLength = std::min(length, cursor.GetCurrentLength());
+        memcpy(output, cursor.GetCurrentAddress(), copyLength);
+        output += copyLength;
+        length -= copyLength;
+        cursor.Advance(copyLength);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::IOVectorCursor::CopyFrom(const void* source, size_t length) const
+{
+    kassert(length <= RemainingLength);
+
+    IOVectorCursor cursor = *this;
+    const uint8_t* input = static_cast<const uint8_t*>(source);
+
+    while (length != 0)
+    {
+        const size_t copyLength = std::min(length, cursor.GetCurrentLength());
+        memcpy(cursor.GetCurrentAddress(), input, copyLength);
+        input += copyLength;
+        length -= copyLength;
+        cursor.Advance(copyLength);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SDMMCDriver_STM32::TransferRequest SDMMCDriver_STM32::PrepareTransferRequest(
+    const Ptr<KFileNode>& file,
+    const iovec_t* segments,
+    size_t segmentCount,
+    off64_t position) const
+{
+    if (position < 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    TransferRequest request;
+    request.Position = position;
+
+    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
+    {
+        if (segments[segmentIndex].iov_len > std::numeric_limits<size_t>::max() - request.Length) {
+            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+        }
+        request.Length += segments[segmentIndex].iov_len;
+    }
+    if (request.Length == 0) {
+        return request;
+    }
+
+    if (file != nullptr)
+    {
+        const Ptr<SDMMCInode> inode = ptr_static_cast<SDMMCInode>(file->GetInode());
+        request.LockCardState = true;
+
+        if (position >= inode->bi_nSize)
+        {
+            request.Length = 0;
+            return request;
+        }
+        if (request.Length > static_cast<size_t>(inode->bi_nSize - position)) {
+            request.Length = static_cast<size_t>(inode->bi_nSize - position);
+        }
+
+        if (inode->bi_nStart > std::numeric_limits<off64_t>::max() - request.Position) {
+            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+        }
+        request.Position += inode->bi_nStart;
+    }
+
+    if ((request.Position % BLOCK_SIZE) != 0 || (request.Length % BLOCK_SIZE) != 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (request.Length != 0
+        && request.Length - 1 > static_cast<size_t>(std::numeric_limits<off64_t>::max() - request.Position))
+    {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    if (request.Length != 0
+        && (request.Position + request.Length - 1) / BLOCK_SIZE > std::numeric_limits<uint32_t>::max())
+    {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    return request;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t SDMMCDriver_STM32::PrepareDirectTransfer(const IOVectorCursor& cursor, iovec_t* transferSegments) const
+{
+    const size_t remainingSegmentCount = cursor.GetRemainingSegmentCount(2);
+    if (remainingSegmentCount == 0 || remainingSegmentCount > 2) {
+        return 0;
+    }
+
+    const size_t segmentCount = cursor.PeekSegments(transferSegments, remainingSegmentCount);
+    kassert(segmentCount == remainingSegmentCount);
+
+    if (segmentCount == 1)
+    {
+        transferSegments[0].iov_len = std::min(transferSegments[0].iov_len, MAX_DATA_TRANSFER_SIZE);
+        transferSegments[0].iov_len -= transferSegments[0].iov_len % BLOCK_SIZE;
+
+        if (transferSegments[0].iov_len != 0
+            && (reinterpret_cast<uintptr_t>(transferSegments[0].iov_base) & DCACHE_LINE_SIZE_MASK) == 0) {
+            return 1;
+        }
+    }
+    else if (transferSegments[0].iov_len == transferSegments[1].iov_len
+        && transferSegments[0].iov_len <= MAX_IDMA_BUFFER_SIZE
+        && (transferSegments[0].iov_len % BLOCK_SIZE) == 0
+        && (reinterpret_cast<uintptr_t>(transferSegments[0].iov_base) & DCACHE_LINE_SIZE_MASK) == 0
+        && (reinterpret_cast<uintptr_t>(transferSegments[1].iov_base) & DCACHE_LINE_SIZE_MASK) == 0)
+    {
+        return 2;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::ReadBlocks(uint32_t firstBlock, const iovec_t* segments, size_t segmentCount)
+{
+    size_t transferLength = 0;
+    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
+        transferLength += segments[segmentIndex].iov_len;
+    }
+
+    const uint32_t blockCount = static_cast<uint32_t>(transferLength / BLOCK_SIZE);
+    const uint32_t cmd = (blockCount > 1) ? SDMMC_CMD18_READ_MULTIPLE_BLOCK : SDMMC_CMD17_READ_SINGLE_BLOCK;
+
+    for (int retry = 0; retry < 10; ++retry)
+    {
+        if (!Cmd13_sdmmc()) {
+            continue;
+        }
+
+        uint32_t start = firstBlock;
+        if ((m_CardType & SDMMCCardType::HC) == 0) {
+            start *= BLOCK_SIZE;
+        }
+
+        if (!StartDataTransfer(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
+            continue;
+        }
+
+        const uint32_t response = GetResponse();
+        if ((response & CARD_STATUS_ERR_RD_WR) != 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::Read() CMD{} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            continue;
+        }
+
+        // WORKAROUND for non-compliant cards: Ignore errors and retry CMD12 once.
+        if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
+            StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0);
+        }
+        return;
+    }
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::WriteBlocks(uint32_t firstBlock, const iovec_t* segments, size_t segmentCount)
+{
+    size_t transferLength = 0;
+    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
+        transferLength += segments[segmentIndex].iov_len;
+    }
+
+    const uint32_t blockCount = static_cast<uint32_t>(transferLength / BLOCK_SIZE);
+    const uint32_t cmd = (blockCount > 1) ? SDMMC_CMD25_WRITE_MULTIPLE_BLOCK : SDMMC_CMD24_WRITE_BLOCK;
+
+    for (int retry = 0; retry < 10; ++retry)
+    {
+        uint32_t start = firstBlock;
+        if ((m_CardType & SDMMCCardType::HC) == 0) {
+            start *= BLOCK_SIZE;
+        }
+
+        if (!StartDataTransfer(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount))
+        {
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(
+                LogCategorySDMMCDriver,
+                "SDMMCDriver_STM32::Write() attempt {} CMD{} start {} blocks {} segments {} failed during the data-transfer phase (error {}).",
+                retry + 1,
+                SDMMC_CMD_GET_INDEX(cmd),
+                start,
+                blockCount,
+                segmentCount,
+                get_last_error());
+            continue;
+        }
+
+        const uint32_t response = GetResponse();
+        if ((response & CARD_STATUS_ERR_RD_WR) != 0)
+        {
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(
+                LogCategorySDMMCDriver,
+                "SDMMCDriver_STM32::Write() attempt {} CMD{} response {:08x} reports write errors {:08x}.",
+                retry + 1,
+                SDMMC_CMD_GET_INDEX(cmd),
+                response,
+                response & CARD_STATUS_ERR_RD_WR);
+            kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::Write() CMD{} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            continue;
+        }
+
+        // SPI multi-block writes terminate using a special token, not CMD12.
+        if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0))
+        {
+            const int stopError = get_last_error();
+            const uint32_t stopResponse = GetResponse();
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(
+                LogCategorySDMMCDriver,
+                "SDMMCDriver_STM32::Write() attempt {} CMD12 failed after CMD{} start {} blocks {} (error {}, response {:08x}).",
+                retry + 1,
+                SDMMC_CMD_GET_INDEX(cmd),
+                start,
+                blockCount,
+                stopError,
+                stopResponse);
+            continue;
+        }
+        return;
+    }
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 IRQResult SDMMCDriver_STM32::IRQCallback(IRQn_Type irq, void* userData)
 {
     return static_cast<SDMMCDriver_STM32*>(userData)->HandleIRQ();
@@ -476,24 +976,12 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
         m_WakeupReason = WakeupReason::DataComplete;
         m_IOCondition.Wakeup(0);
     }
-    else if (status & (SDMMC_EVENT_FLAGS & ~SDMMC_MASK_IDMABTCIE))
+    else if (status & SDMMC_EVENT_FLAGS)
     {
         m_SDMMC->MASK = 0;
         m_IOError = 0;
         m_WakeupReason = WakeupReason::Event;
         m_IOCondition.Wakeup(0);
-    }
-    else if (status & SDMMC_MASK_IDMABTCIE)
-    {
-        m_SDMMC->ICR = SDMMC_ICR_IDMABTCC;
-        if (m_CurrentSegment < m_SegmentCount)
-        {
-            if (m_SDMMC->IDMACTRL & SDMMC_IDMA_IDMABACT) {
-                m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[m_CurrentSegment++].iov_base);
-            } else {
-                m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[m_CurrentSegment++].iov_base);
-            }
-        }
     }
     return IRQResult::HANDLED;
 }
@@ -505,7 +993,7 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
 bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
 {
     static constexpr uint32_t errorFlags = ~SDMMC_EVENT_FLAGS;
-    uint32_t status = m_SDMMC->STA & (flags & ~SDMMC_STA_IDMABTC);
+    uint32_t status = m_SDMMC->STA & flags;
 
     if (status & errorFlags)
     {

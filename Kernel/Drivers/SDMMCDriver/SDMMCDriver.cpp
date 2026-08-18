@@ -20,7 +20,6 @@
 #include <System/Platform.h>
 
 #include <string.h>
-#include <stdio.h>
 #include <malloc.h>
 #include <sys/uio.h>
 
@@ -71,16 +70,20 @@ SDMMCInode::SDMMCInode(Ptr<SDMMCDriver> driver)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver::SDMMCDriver(const SDMMCBaseDriverParameters& parameters)
+SDMMCDriver::SDMMCDriver(const SDMMCBaseDriverParameters& parameters, size_t cacheAlignedBufferSize)
     : KThread("hsmci_driver")
     , m_Mutex("hsmci_driver_mutex", PEMutexRecursionMode_RaiseError)
     , m_CardDetectCondition("hsmci_driver_cd")
     , m_CardStateCondition("hsmci_driver_cstate")
     , m_IOCondition("hsmci_driver_io")
-    , m_DeviceSemaphore("hsmci_driver_dev_sema", CLOCK_MONOTONIC_COARSE, 1)
+    , m_DeviceMutex("hsmci_driver_device_mutex", PEMutexRecursionMode_RaiseError)
     , m_DevicePathBase(parameters.DevicePath)
 {
-    m_CacheAlignedBuffer = memalign(DCACHE_LINE_SIZE, BLOCK_SIZE);
+    kassert(cacheAlignedBufferSize >= BLOCK_SIZE);
+    m_CacheAlignedBuffer = memalign(DCACHE_LINE_SIZE, cacheAlignedBufferSize);
+    if (m_CacheAlignedBuffer == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOMEM);
+    }
 
     m_PinCD = parameters.PinCardDetect;
     m_PinCD.SetDirection(DigitalPinDirection_e::In);
@@ -254,172 +257,6 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
     }
     PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
-{
-    Ptr<SDMMCInode> inode = (file != nullptr) ? ptr_static_cast<SDMMCInode>(file->GetInode()) : nullptr;
-
-    size_t length = 0;
-
-    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].iov_len;
-
-    bool needLocking = false;
-    if (inode != nullptr)
-    {
-        needLocking = true;
-        if (position + length > inode->bi_nSize)
-        {
-            if (position >= inode->bi_nSize) {
-                return 0;
-            } else {
-                length = size_t(inode->bi_nSize - position);
-            }
-        }
-        position += inode->bi_nStart;
-    }
-    
-    if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    
-    const uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
-    const uint32_t blockCount = length / BLOCK_SIZE;
-    
-    PErrorCode error;
-    for (int retry = 0; retry < 10; ++retry)
-    {
-        CRITICAL_SCOPE(m_DeviceSemaphore);
-        
-        error = PErrorCode::Success;
-        CRITICAL_SCOPE(m_Mutex, needLocking);
-
-        if (!IsReady()) {
-            PERROR_THROW_CODE(PErrorCode::NODEV);
-        }
-    
-        if (!Cmd13_sdmmc()) {
-            error = PErrorCode::IO;
-            continue;
-        }
-
-        uint32_t cmd = (blockCount > 1) ? SDMMC_CMD18_READ_MULTIPLE_BLOCK : SDMMC_CMD17_READ_SINGLE_BLOCK;
-
-        // SDSC Card (CCS=0) uses byte unit address,
-        // SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes unit).
-        uint32_t start = firstBlock;
-        if ((m_CardType & SDMMCCardType::HC) == 0) {
-            start *= BLOCK_SIZE;
-        }
-
-        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
-            error = PErrorCode::IO;
-            continue;
-        }
-        uint32_t response = GetResponse();
-        if (response & CARD_STATUS_ERR_RD_WR)
-        {
-            kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver::Read() Read {:02} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
-            error = PErrorCode::IO;
-            continue;
-        }
-
-        // WORKAROUND for no compliance card: The errors on this command must be ignored and one retry can be necessary in SPI mode for no compliance card.
-        if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
-            StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0);
-        }
-        break;
-    }
-    if (error != PErrorCode::Success)
-    {
-        PERROR_THROW_CODE(error);
-    }
-    return length;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
-{
-    Ptr<SDMMCInode> inode = (file != nullptr) ? ptr_static_cast<SDMMCInode>(file->GetInode()) : nullptr;
-
-    size_t length = 0;
-
-    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].iov_len;
-
-    bool needLocking = false;
-    if (inode != nullptr)
-    {
-        needLocking = true;
-        if (position + length > inode->bi_nSize)
-        {
-            if (position >= inode->bi_nSize) {
-                return 0;
-            } else {
-                length = size_t(inode->bi_nSize - position);
-            }
-        }
-        position += inode->bi_nStart;
-    }
-
-
-    if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-
-    uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
-    uint32_t blockCount = length / BLOCK_SIZE;
-
-    PErrorCode error;
-    for (int retry = 0; retry < 10; ++retry)
-    {
-        CRITICAL_SCOPE(m_DeviceSemaphore);
-        
-        error = PErrorCode::Success;
-        CRITICAL_SCOPE(m_Mutex, needLocking);
-
-        if (!IsReady()) {
-            PERROR_THROW_CODE(PErrorCode::NODEV);
-        }
-
-        uint32_t cmd = (blockCount > 1) ? SDMMC_CMD25_WRITE_MULTIPLE_BLOCK : SDMMC_CMD24_WRITE_BLOCK;
-
-        // SDSC Card (CCS=0) uses byte unit address,
-        // SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes unit).
-        uint32_t start = firstBlock;
-        if ((m_CardType & SDMMCCardType::HC) == 0) {
-            start *= BLOCK_SIZE;
-        }
-
-        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
-            error = PErrorCode::IO;
-            continue;
-        }
-        uint32_t response = GetResponse();
-        if (response & CARD_STATUS_ERR_RD_WR)
-        {
-            kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver::Write() Write {:02} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
-            error = PErrorCode::IO;
-            continue;
-        }
-
-		// SPI multi-block writes terminate using a special token, not a STOP_TRANSMISSION request.
-        if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
-            error = PErrorCode::IO;
-            continue;
-        }
-        break;
-    }
-    if (error != PErrorCode::Success) {
-        PERROR_THROW_CODE(error);
-    }
-    return length;
-}    
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -1197,7 +1034,6 @@ bool SDMMCDriver::SetHighSpeed_sd()
 
 	uint8_t* switch_status = reinterpret_cast<uint8_t*>(m_CacheAlignedBuffer);
 
-    iovec_t segment = { .iov_base = switch_status, .iov_len = SD_SW_STATUS_SIZE_BYTES };
     if (!StartAddressedDataTransCmd(SD_CMD6_SWITCH_FUNC,
                                     SD_CMD6_MODE_SWITCH
                                   | SD_CMD6_GRP6_NO_INFLUENCE
@@ -1206,7 +1042,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
                                   | SD_CMD6_GRP3_NO_INFLUENCE
                                   | SD_CMD6_GRP2_DEFAULT
                                   | SD_CMD6_GRP1_HIGH_SPEED,
-									get_first_bit_index(SD_SW_STATUS_SIZE_BYTES), 1, &segment, 1)) {
+									get_first_bit_index(SD_SW_STATUS_SIZE_BYTES), 1, switch_status)) {
         return false;
     }
 
@@ -1455,8 +1291,7 @@ bool SDMMCDriver::Cmd8_mmc(bool* authorizeHighSpeed)
 	uint32_t* buffer = reinterpret_cast<uint32_t*>(m_CacheAlignedBuffer);
 
 	// Read and decode Extended Card Specific Data.
-    iovec_t segment = { .iov_base = buffer, .iov_len = EXT_CSD_SIZE_BYTES };
-    if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, get_first_bit_index(EXT_CSD_SIZE_BYTES), 1, &segment, 1)) {
+    if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, get_first_bit_index(EXT_CSD_SIZE_BYTES), 1, buffer)) {
 		return false;
 	}
     *authorizeHighSpeed = ((buffer[EXT_CSD_CARD_TYPE_INDEX / 4] >> ((EXT_CSD_CARD_TYPE_INDEX % 4) * 8)) & MMC_CTYPE_52MHZ) != 0;
@@ -1502,7 +1337,9 @@ bool SDMMCDriver::Cmd13_sdmmc()
         if (!SendCmd(SDMMC_MCI_CMD13_SEND_STATUS, (uint32_t)m_RCA << 16)) {
             return false;
         }
-        if (GetResponse() & CARD_STATUS_READY_FOR_DATA) {
+        const uint32_t response = GetResponse();
+        if ((response & CARD_STATUS_READY_FOR_DATA) != 0
+            && (response & CARD_STATUS_STATE_Msk) == CARD_STATUS_STATE_TRAN) {
             return true;
         }
         if (kget_monotonic_time() > deadline) {
@@ -1536,8 +1373,7 @@ bool SDMMCDriver::ACmd51_sd()
 		if (!SendCmd(SDMMC_CMD55_APP_CMD, uint32_t(m_RCA) << 16)) {
 			return false;
 		}
-        iovec_t segment(scr, SD_SCR_REG_SIZE_BYTES);
-        if (StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, &segment, 1)) {
+        if (StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, scr)) {
             break;
         } else if (++retries > 5) {
             return false;
@@ -1616,9 +1452,12 @@ bool SDMMCDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
                      | ((uint32_t)functionNumber << SDIO_CMD53_FUNCTION_NUM)
                      | ((uint32_t)rwFlag << SDIO_CMD53_RW_FLAG);
 
-
-    iovec_t segment(const_cast<void*>(buffer), size);
-    return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, get_first_bit_index(1), size, &segment, 1);
+    return StartAddressedDataTransCmd(
+        (rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED,
+        cmdArgs,
+        get_first_bit_index(1),
+        size,
+        const_cast<void*>(buffer));
 }
 
 } // namespace kernel

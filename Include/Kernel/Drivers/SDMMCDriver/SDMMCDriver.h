@@ -32,7 +32,6 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
-#include <Kernel/KSemaphore.h>
 
 #include "SDMMCProtocol.h"
 
@@ -109,7 +108,7 @@ public:
 class SDMMCDriver : public PtrTarget, public KFilesystemFileOps, public KThread
 {
 public:
-    SDMMCDriver(const SDMMCBaseDriverParameters& parameters);
+    SDMMCDriver(const SDMMCBaseDriverParameters& parameters, size_t cacheAlignedBufferSize);
 	virtual ~SDMMCDriver();
 
     int RegisterDevice();
@@ -119,8 +118,6 @@ public:
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags) override;
 
     virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual size_t Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position) override;
-    virtual size_t Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position) override;
     virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 protected:
@@ -177,7 +174,7 @@ protected:
     virtual bool		SendCmd(uint32_t cmd, uint32_t arg) = 0;
 	virtual uint32_t	GetResponse() = 0;
     virtual void		GetResponse128(uint8_t* response) = 0;
-    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount) = 0;
+    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, void* buffer) = 0;
     virtual bool		StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) = 0;
     
     bool     OperationalConditionMCI_sd(bool v2);
@@ -216,7 +213,7 @@ protected:
 	KConditionVariable  m_CardDetectCondition;
 	KConditionVariable  m_CardStateCondition;
     KConditionVariable  m_IOCondition;
-    KSemaphore          m_DeviceSemaphore;
+    KMutex              m_DeviceMutex;
     DigitalPin          m_PinCD;
     
     PString                      m_DevicePathBase;
@@ -232,7 +229,7 @@ protected:
     int                 m_BusWidth     = 1;
     bool                m_HighSpeed    = false;
 
-	void*				m_CacheAlignedBuffer = nullptr;	// 512 byte cache-line aligned temp-buffer for IO.
+	void*				m_CacheAlignedBuffer = nullptr;	// Cache-line aligned transfer and temporary buffer.
     uint16_t            m_RCA;                // Relative card address
     uint8_t             m_CSD[sdmmc::CSD_REG_SIZE_BYTES]; // CSD register
 

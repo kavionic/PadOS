@@ -40,7 +40,8 @@ inline constexpr uint8_t FAT_LONG_NAME_ATTRIBUTES = 0x0f;
 inline constexpr uint8_t FAT_LONG_NAME_ATTRIBUTE_MASK = 0x3f;
 
 inline constexpr size_t FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY = 13;
-inline constexpr size_t FAT_LONG_NAME_MAX_LENGTH = 255;
+inline constexpr size_t FAT_LONG_NAME_MAX_LENGTH = 255; // UTF-16 code units.
+inline constexpr size_t FAT_LONG_NAME_MAX_UTF8_LENGTH = FAT_LONG_NAME_MAX_LENGTH * 3;
 inline constexpr size_t FAT_LONG_NAME_MAX_ENTRY_COUNT = (FAT_LONG_NAME_MAX_LENGTH + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY - 1) / FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY;
 
 struct FATDirectoryEntry

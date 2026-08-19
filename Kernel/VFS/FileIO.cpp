@@ -1234,6 +1234,9 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
     if (current == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
+    if (pathLength != 0 && !current->IsDirectory()) {
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
+    }
     int nameStart = i;
 
     for (;; ++i)
@@ -1252,6 +1255,9 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
                 continue;
             }
             current = klocate_inode_by_name_trw({ KLocateFlag::CrossMount, KLocateFlag::FollowSymlinks }, current, path + nameStart, i - nameStart);
+            if (!current->IsDirectory()) {
+                PERROR_THROW_CODE(PErrorCode::NOTDIR);
+            }
             nameStart = i + 1;
         }
     }

@@ -63,27 +63,94 @@ struct FATNewDirEntryInfo
 // Short name cannot be any of the DOS/Win device names (list from wikipedia).
 ///////////////////////////////////////////////////////////////////////////////
 
-static std::set<PString> g_DOSDeviceNames =
+static std::set<PString> g_DOSDeviceBaseNames =
 {
-    "CON        ",
-    "PRN        ",
-    "AUX        ",
-    "CLOCK$     ",
-    "NUL        ",
-    "COM1       ",
-    "COM2       ",
-    "COM3       ",
-    "COM4       ",
-    "LPT1       ",
-    "LPT2       ",
-    "LPT3       ",
-    "LPT4       ", // Only in some versions of DR-DOS,
-    "LST        ", // Only in 86-DOS and DOS 1.xx.
-    "KEYBD$     ", // Only in multitasking MS-DOS 4.0.
-    "SCREEN$    ", // Only in multitasking MS-DOS 4.0.
-    "$IDLE$     ", // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
-    "CONFIG$    "  // Only in MS-DOS 7.0-8.0.
+    "CON",
+    "PRN",
+    "AUX",
+    "CLOCK$",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+    "LST",      // Only in 86-DOS and DOS 1.xx.
+    "KEYBD$",   // Only in multitasking MS-DOS 4.0.
+    "SCREEN$",  // Only in multitasking MS-DOS 4.0.
+    "$IDLE$",   // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
+    "CONFIG$"   // Only in MS-DOS 7.0-8.0.
 };
+
+static void ValidateFATNameBuffer(const char* name, int nameLength)
+{
+    if (name == nullptr || nameLength < 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (size_t(nameLength) > FAT_LONG_NAME_MAX_UTF8_LENGTH) {
+        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+    }
+}
+
+static bool IsFATLongNameCharacterValid(uint32_t character)
+{
+    if (character < 0x20 || character == 0xfffe || character == 0xffff) {
+        return false;
+    }
+
+    switch (character)
+    {
+        case '"':
+        case '*':
+        case '/':
+        case ':':
+        case '<':
+        case '>':
+        case '?':
+        case '\\':
+        case '|':
+            return false;
+        default:
+            return true;
+    }
+}
+
+static void ValidateNewFATName(const PString& name)
+{
+    if (name.empty() || name == "." || name == ".." || !name.is_valid_utf8()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (name.back() == ' ' || name.back() == '.') {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    size_t utf16Length = 0;
+    for (PString::utf32_iterator iterator = name.utf32_begin(); iterator != name.utf32_end(); ++iterator)
+    {
+        const uint32_t character = *iterator;
+        if (!IsFATLongNameCharacterValid(character)) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+
+        utf16Length += (character < 0x10000) ? 1 : 2;
+        if (utf16Length > FAT_LONG_NAME_MAX_LENGTH) {
+            PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+        }
+    }
+}
 
 static void SetFATDirectoryEntryTimestamps(
     FATDirectoryEntry& entry,
@@ -643,9 +710,7 @@ Ptr<KInode> FATFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent
     Ptr<FATInode>  dir = ptr_static_cast<FATInode>(parent);
     PString        file;
 
-    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
-        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-    }
+    ValidateFATNameBuffer(name, nameLength);
     file.assign(name, nameLength);
 
     CRITICAL_SCOPE(vol->m_Mutex);
@@ -789,16 +854,9 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    if (_name == nullptr) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFILE, "FATFilesystem::CreateFile() called with null name.");
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    
-    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
-        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-    }
-
+    ValidateFATNameBuffer(_name, nameLength);
     name.assign(_name, nameLength);
+    ValidateNewFATName(name);
     
     CRITICAL_SCOPE(vol->m_Mutex);
 
@@ -1055,11 +1113,9 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
         kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CreateDirectory() called in removed directory.");
         PERROR_THROW_CODE(PErrorCode::PERM);
     }
-    if (nameLength > FAT_LONG_NAME_MAX_LENGTH)
-    {
-        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-    }
+    ValidateFATNameBuffer(_name, nameLength);
     name.assign(_name, nameLength);
+    ValidateNewFATName(name);
 
     CRITICAL_SCOPE(vol->m_Mutex);
 
@@ -1206,11 +1262,11 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     PString oldName;
     PString newName;
 
-    if (oldNameLength > FAT_LONG_NAME_MAX_LENGTH || newNameLength > FAT_LONG_NAME_MAX_LENGTH) {
-        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-    }
+    ValidateFATNameBuffer(oldNameBuffer, oldNameLength);
+    ValidateFATNameBuffer(newNameBuffer, newNameLength);
     oldName.assign(oldNameBuffer, oldNameLength);
     newName.assign(newNameBuffer, newNameLength);
+    ValidateNewFATName(newName);
 
     if (oldName == "." || oldName == ".." || newName == "." || newName == "..") {
         PERROR_THROW_CODE(PErrorCode::PERM);
@@ -1341,9 +1397,7 @@ void FATFilesystem::Unlink(Ptr<KFSVolume> vol, Ptr<KInode> dir, const char* _nam
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Unlink() called.");
     
-    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
-        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-    }
+    ValidateFATNameBuffer(_name, nameLength);
     name.assign(_name, nameLength);
 
     DoUnlink(vol,dir,name,true);
@@ -1358,9 +1412,7 @@ void FATFilesystem::RemoveDirectory(Ptr<KFSVolume> vol, Ptr<KInode> dir, const c
     PString name;
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::RemoveDirectory() called.");
 
-    if (nameLength > FAT_LONG_NAME_MAX_LENGTH) {
-        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-    }
+    ValidateFATNameBuffer(_name, nameLength);
     name.assign(_name, nameLength);
 
     DoUnlink(vol, dir, name, false);
@@ -2502,7 +2554,11 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
 
 void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex)
 {
-    if (g_DOSDeviceNames.count(PString(shortName, 11)) != 0)
+    size_t shortNameBaseLength = 0;
+    while (shortNameBaseLength < 8 && shortName[shortNameBaseLength] != ' ') {
+        ++shortNameBaseLength;
+    }
+    if (g_DOSDeviceBaseNames.count(PString(shortName, shortNameBaseLength)) != 0)
     {
         PERROR_THROW_CODE(PErrorCode::PERM);
     }

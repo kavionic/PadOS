@@ -138,7 +138,10 @@ static uint8_t ConvertCP437CharacterCase(uint8_t character, bool toLowercase)
 static bool IsCharacterValid(uint16_t character)
 {
 	static const char illegal[]   = "\\/:*?\"<>|";
-	return (character < 0x80) ? strchr(illegal, char(character)) == nullptr : true;
+	if (character < 0x20 || character == 0xfffe || character == 0xffff) {
+		return false;
+	}
+	return character >= 0x80 || strchr(illegal, char(character)) == nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

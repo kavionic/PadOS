@@ -126,7 +126,11 @@ PDirectory::PDirectory(const PFSNode& node) : PFSNode(node)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PDirectory::PDirectory(const PDirectory& directory) : PFSNode(directory)
+PDirectory::PDirectory(const PDirectory& directory)
+    : PFSNode(directory)
+    , m_DirEntryBuffer(directory.m_DirEntryBuffer)
+    , m_DirEntryBufferSize(directory.m_DirEntryBufferSize)
+    , m_DirEntryBufferOffset(directory.m_DirEntryBufferOffset)
 {
 }
 
@@ -166,6 +170,8 @@ PDirectory::~PDirectory()
 
 bool PDirectory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 {
+    m_DirEntryBufferSize = 0;
+    m_DirEntryBufferOffset = 0;
     if (newFileDescriptor >= 0 && !S_ISDIR(statBuffer.st_mode))
     {
         errno = ENOTDIR;
@@ -203,11 +209,38 @@ bool PDirectory::GetPath(PString& outPath) const
 
 bool PDirectory::GetNextEntry(PString& outName)
 {
-    dirent_t entry;
-    if (posix_getdents(GetFileDescriptor(), &entry, sizeof(entry), 0) != sizeof(entry)) {
+    if (m_DirEntryBufferOffset >= m_DirEntryBufferSize)
+    {
+        const ssize_t readResult = posix_getdents(
+            GetFileDescriptor(),
+            m_DirEntryBuffer.GetBuffer(),
+            m_DirEntryBuffer.GetSize(),
+            0);
+        if (readResult <= 0)
+        {
+            m_DirEntryBufferSize = 0;
+            m_DirEntryBufferOffset = 0;
+            return false;
+        }
+        m_DirEntryBufferSize = size_t(readResult);
+        m_DirEntryBufferOffset = 0;
+    }
+
+    const uint8_t* buffer = static_cast<const uint8_t*>(m_DirEntryBuffer.GetBuffer());
+    PDirEntryIterator iterator(
+        buffer + m_DirEntryBufferOffset,
+        m_DirEntryBufferSize - m_DirEntryBufferOffset);
+    if (!iterator)
+    {
+        m_DirEntryBufferSize = 0;
+        m_DirEntryBufferOffset = 0;
+        errno = EIO;
         return false;
     }
-    outName = entry.d_name;
+
+    const dirent_t& entry = *iterator;
+    m_DirEntryBufferOffset += entry.d_reclen;
+    outName.assign(entry.d_name, entry.d_namlen);
     return true;
 }
 
@@ -230,7 +263,13 @@ bool PDirectory::GetNextEntry(PFileReference& outReference)
 
 bool PDirectory::Rewind()
 {
-    return rewind_directory(GetFileDescriptor()) == PErrorCode::Success;
+    const bool result = rewind_directory(GetFileDescriptor()) == PErrorCode::Success;
+    if (result)
+    {
+        m_DirEntryBufferSize = 0;
+        m_DirEntryBufferOffset = 0;
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

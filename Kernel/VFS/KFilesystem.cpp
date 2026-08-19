@@ -285,7 +285,7 @@ void KFilesystemFileOps::DeviceControl(Ptr<KFileNode> file, int request, const v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
+size_t KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, void* buffer, size_t bufferSize)
 {
     PERROR_THROW_CODE(PErrorCode::NOSYS);
 }

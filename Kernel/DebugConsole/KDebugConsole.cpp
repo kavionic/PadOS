@@ -38,6 +38,7 @@
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/Kpty.h>
+#include <Storage/DirectoryEntry.h>
 #include <System/AppDefinition.h>
 #include <Utils/Logging.h>
 #include <Utils/POSIXTokenizer.h>
@@ -634,22 +635,34 @@ PTerminalLineEditor::CompletionResult KDebugConsole::ExpandFilePath(const PTermi
     const int directory = open(folderPath.c_str(), O_RDONLY | O_DIRECTORY);
     if (directory != -1)
     {
-        dirent_t entry;
-        while (kread_directory(directory, &entry, sizeof(entry)) == sizeof(entry))
+        PDirEntryBuffer directoryEntryBuffer;
+        for (;;)
         {
-            PString entryName(entry.d_name, entry.d_namlen);
-            if (entryName != "." && entryName != ".." && entryName.starts_with_nocase(filename.c_str()))
+            const ssize_t readResult = kread_directory(
+                directory,
+                directoryEntryBuffer.GetBuffer(),
+                directoryEntryBuffer.GetSize());
+            if (readResult <= 0) {
+                break;
+            }
+
+            for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
             {
-                bool isDirectory = entry.d_type == DT_DIR;
-                if (!isDirectory && entry.d_type == DT_LNK)
+                const dirent_t& entry = *iterator;
+                PString entryName(entry.d_name, entry.d_namlen);
+                if (entryName != "." && entryName != ".." && entryName.starts_with_nocase(filename.c_str()))
                 {
-                    struct stat targetStat;
-                    isDirectory = fstatat(directory, entry.d_name, &targetStat, 0) == 0 && S_ISDIR(targetStat.st_mode);
+                    bool isDirectory = entry.d_type == DT_DIR;
+                    if (!isDirectory && entry.d_type == DT_LNK)
+                    {
+                        struct stat targetStat;
+                        isDirectory = fstatat(directory, entry.d_name, &targetStat, 0) == 0 && S_ISDIR(targetStat.st_mode);
+                    }
+                    if (isDirectory) {
+                        entryName += "/";
+                    }
+                    result.Candidates.push_back({std::move(entryName), !isDirectory});
                 }
-                if (isDirectory) {
-                    entryName += "/";
-                }
-                result.Candidates.push_back({std::move(entryName), !isDirectory});
             }
         }
         close(directory);

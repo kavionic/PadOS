@@ -35,6 +35,7 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KVFSManager.h>
+#include <Storage/DirectoryEntry.h>
 
 #include "FATVolume.h"
 #include "FATInode.h"
@@ -1764,9 +1765,10 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
+size_t FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, void* buffer, size_t bufferSize)
 {
-    if (entry == nullptr || bufSize < sizeof(*entry)) {
+    PDirEntryWriter entryWriter(buffer, bufferSize);
+    if (!entryWriter.IsValid() || bufferSize < PGetDirEntryRecordSize(0)) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
@@ -1782,70 +1784,64 @@ size_t FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> d
 
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): inode ID {:x}, index {}.", dir->m_InodeID, dirNode->m_CurrentIndex);
 
-    entry->d_reclen = sizeof(*entry);
-    // simulate '.' and '..' entries for root directory
-    if (dir->m_InodeID == vol->m_RootInode->m_InodeID)
+    const bool isRootDirectory = dir->m_InodeID == vol->m_RootInode->m_InodeID;
+
+    while (isRootDirectory && dirNode->m_CurrentIndex < 2)
     {
-        if (dirNode->m_CurrentIndex >= 2)
+        const char* name = (dirNode->m_CurrentIndex == 0) ? "." : "..";
+        const size_t nameLength = dirNode->m_CurrentIndex + 1;
+        dirent_t* entry = entryWriter.AddEntry(name, nameLength);
+        if (entry == nullptr)
         {
-            dirNode->m_CurrentIndex -= 2;
-        }
-        else
-        {
-            if (dirNode->m_CurrentIndex++ == 0)
-            {
-                strcpy(entry->d_name, ".");
-                entry->d_namlen = 1;
+            if (entryWriter.GetBytesWritten() == 0) {
+                PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
             }
-            else
-            {
-                strcpy(entry->d_name, "..");
-                entry->d_namlen = 2;
-            }
-            entry->d_type = DT_DIR;
-            entry->d_ino = vol->m_RootInode->m_InodeID;
-            entry->d_volumeid = vol->m_VolumeID;
-            return sizeof(dirent_t);
+            return entryWriter.GetBytesWritten();
         }
-    }
 
-    FATDirectoryIterator diri(vol, dir->m_StartCluster, dirNode->m_CurrentIndex);
-    PString fileName;
-    uint32_t dosAttributes = 0;
-
-    bool entryFound = false;
-    if (diri.GetNextDirectoryEntry(dir, &entry->d_ino, &fileName, &dosAttributes))
-    {
-        entryFound = true;
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): found file '{}' / {}.", fileName.c_str(), fileName.size());
-        if (fileName.size() <= NAME_MAX)
-        {
-            fileName.copy(entry->d_name, fileName.size());
-            entry->d_name[fileName.size()] = 0;
-            entry->d_type = (dosAttributes & FAT_SUBDIR) ? DT_DIR : DT_REG;
-
-        }
-        else
-        {
-            PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-        }
-    }
-    dirNode->m_CurrentIndex = diri.m_CurrentIndex;
-
-    if (dir->m_InodeID == vol->m_RootInode->m_InodeID) {
-        dirNode->m_CurrentIndex += 2;
-    }
-    if (entryFound)
-    {
+        entry->d_type = DT_DIR;
+        entry->d_ino = vol->m_RootInode->m_InodeID;
         entry->d_volumeid = vol->m_VolumeID;
-        entry->d_namlen   = static_cast<decltype(entry->d_namlen)>(strlen(entry->d_name));
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): found file '{}'.", entry->d_name);
-        return sizeof(dirent_t);
+        dirNode->m_CurrentIndex++;
     }
-    else
+
+    const uint32_t iteratorIndex = static_cast<uint32_t>(
+        dirNode->m_CurrentIndex - (isRootDirectory ? 2 : 0));
+    FATDirectoryIterator directoryIterator(vol, dir->m_StartCluster, iteratorIndex);
+
+    for (;;)
     {
-        return 0; // End of directory
+        if (entryWriter.GetRemainingSize() < PGetDirEntryRecordSize(0)) {
+            break;
+        }
+
+        PString fileName;
+        ino_t inodeID;
+        uint32_t dosAttributes = 0;
+        if (!directoryIterator.GetNextDirectoryEntry(dir, &inodeID, &fileName, &dosAttributes))
+        {
+            dirNode->m_CurrentIndex = directoryIterator.m_CurrentIndex + (isRootDirectory ? 2 : 0);
+            break;
+        }
+
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): found file '{}' / {}.", fileName.c_str(), fileName.size());
+
+        dirent_t* entry = entryWriter.AddEntry(fileName.c_str(), fileName.size());
+        if (entry == nullptr)
+        {
+            if (entryWriter.GetBytesWritten() == 0) {
+                PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+            }
+            break;
+        }
+
+        entry->d_ino = inodeID;
+        entry->d_type = ((dosAttributes & FAT_SUBDIR) != 0) ? DT_DIR : DT_REG;
+        entry->d_volumeid = vol->m_VolumeID;
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): found file '{}'.", entry->d_name);
+        dirNode->m_CurrentIndex = directoryIterator.m_CurrentIndex + (isRootDirectory ? 2 : 0);
     }
+    return entryWriter.GetBytesWritten();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

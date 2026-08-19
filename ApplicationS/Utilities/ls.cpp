@@ -28,6 +28,7 @@
 #include <argparse/argparse.hpp>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
+#include <Storage/DirectoryEntry.h>
 #include <Utils/ANSIEscapeCodeParser.h>
 #include <System/AppDefinition.h>
 
@@ -218,57 +219,70 @@ void CCmdLS::ListDirectory(const std::string& path)
     else
     {
         printHeader = path != ".";
-        dirent_t entry;
+        PDirEntryBuffer directoryEntryBuffer;
 
-        while (posix_getdents(directory, &entry, sizeof(entry), 0) == sizeof(entry))
+        for (;;)
         {
-            switch (m_FilesToShow)
-            {
-                case EFilesToShow::Normal:
-                    if (entry.d_name[0] == '.') {
-                        continue;
-                    }
-                    break;
-                case EFilesToShow::AlmostAll:
-                    if (PString::is_dot_or_dot_dot(entry.d_name, entry.d_namlen)) {
-                        continue;
-                    }
-                    break;
-                case EFilesToShow::All:
-                    break;
+            const ssize_t readResult = posix_getdents(
+                directory,
+                directoryEntryBuffer.GetBuffer(),
+                directoryEntryBuffer.GetSize(),
+                0);
+            if (readResult <= 0) {
+                break;
             }
-            int error = 0;
-            stat_t fileStat;
-            int fd = openat(directory, entry.d_name, O_PATH | O_NOFOLLOW);
-            if (fd != -1)
+
+            for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
             {
-                if (fstat(fd, &fileStat) == 0)
+                const dirent_t& entry = *iterator;
+                switch (m_FilesToShow)
                 {
-                    PString linkTarget;
-                    if (S_ISLNK(fileStat.st_mode))
-                    {
-                        linkTarget.resize(size_t(fileStat.st_size));
-                        if (readlinkat(fd, "", linkTarget.data(), linkTarget.size()) < 0)
-                        {
-                            Print("Error: {}/{} - {}", path, entry.d_name, strerror(errno));
-                            linkTarget.clear();
+                    case EFilesToShow::Normal:
+                        if (entry.d_name[0] == '.') {
+                            continue;
                         }
+                        break;
+                    case EFilesToShow::AlmostAll:
+                        if (PString::is_dot_or_dot_dot(entry.d_name, entry.d_namlen)) {
+                            continue;
+                        }
+                        break;
+                    case EFilesToShow::All:
+                        break;
+                }
+                int error = 0;
+                stat_t fileStat;
+                int fd = openat(directory, entry.d_name, O_PATH | O_NOFOLLOW);
+                if (fd != -1)
+                {
+                    if (fstat(fd, &fileStat) == 0)
+                    {
+                        PString linkTarget;
+                        if (S_ISLNK(fileStat.st_mode))
+                        {
+                            linkTarget.resize(size_t(fileStat.st_size));
+                            if (readlinkat(fd, "", linkTarget.data(), linkTarget.size()) < 0)
+                            {
+                                Print("Error: {}/{} - {}", path, entry.d_name, strerror(errno));
+                                linkTarget.clear();
+                            }
+                        }
+                        files.push_back(FileEntry{ entry.d_name, linkTarget, fileStat });
                     }
-                    files.push_back(FileEntry{ entry.d_name, linkTarget, fileStat });
+                    else
+                    {
+                        error = errno;
+                    }
+                    close(fd);
                 }
                 else
                 {
                     error = errno;
                 }
-                close(fd);
-            }
-            else
-            {
-                error = errno;
-            }
-            if (error != 0)
-            {
-                Print("Error: {}/{} - {}", path, entry.d_name, strerror(error));
+                if (error != 0)
+                {
+                    Print("Error: {}/{} - {}", path, entry.d_name, strerror(error));
+                }
             }
         }
         std::sort(files.begin(), files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.Name < rhs.Name; });

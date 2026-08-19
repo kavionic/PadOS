@@ -50,13 +50,13 @@ bool KDirectoryNode::LastReferenceGone()
     return KFileTableNode::LastReferenceGone();
 }
 
-size_t KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
+size_t KDirectoryNode::ReadDirectory(void* buffer, size_t bufferSize)
 {
     Ptr<KInode> inode = GetInode();
     if (inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), entry, bufSize);
+    return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), buffer, bufferSize);
 }
 
 void KDirectoryNode::RewindDirectory()

@@ -26,6 +26,7 @@
 
 #include <dirent.h>
 
+#include <Storage/DirectoryEntry.h>
 #include <Storage/Path.h>
 
 
@@ -170,34 +171,39 @@ bool ReadDirectoryEntries(
         return false;
     }
 
-    dirent_t directoryEntry;
+    PDirEntryBuffer directoryEntryBuffer;
 
     for (;;)
     {
         const ssize_t readResult = posix_getdents(
             directoryHandle,
-            &directoryEntry,
-            sizeof(directoryEntry),
+            directoryEntryBuffer.GetBuffer(),
+            directoryEntryBuffer.GetSize(),
             0);
 
         if (readResult == 0) {
             break;
         }
-        if (readResult != static_cast<ssize_t>(sizeof(directoryEntry)))
+        if (readResult < 0)
         {
-            outErrorCode = (readResult < 0) ? errno : EIO;
+            outErrorCode = errno;
             close(directoryHandle);
             return false;
         }
-        if (PString::is_dot_or_dot_dot(
-            directoryEntry.d_name,
-            directoryEntry.d_namlen)) {
-            continue;
-        }
 
-        entries.emplace_back(
-            directoryEntry.d_name,
-            directoryEntry.d_namlen);
+        for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
+        {
+            const dirent_t& directoryEntry = *iterator;
+            if (PString::is_dot_or_dot_dot(
+                directoryEntry.d_name,
+                directoryEntry.d_namlen)) {
+                continue;
+            }
+
+            entries.emplace_back(
+                directoryEntry.d_name,
+                directoryEntry.d_namlen);
+        }
     }
 
     close(directoryHandle);

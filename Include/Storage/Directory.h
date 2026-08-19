@@ -20,6 +20,7 @@
 
 #include <fcntl.h>
 
+#include <Storage/DirectoryEntry.h>
 #include <Storage/FSNode.h>
 #include <Storage/DirIterator.h>
 
@@ -49,8 +50,8 @@ public:
     PDirectory(const PDirectory& directory, const PString& name, int openFlags = O_RDONLY);
     PDirectory(const PFileReference& fileReference, int openFlags = O_RDONLY);
     PDirectory(const PFSNode& node);
-    PDirectory(int fileDescriptor, bool takeOwnership);
     PDirectory(const PDirectory& directory);
+    PDirectory(int fileDescriptor, bool takeOwnership);
     PDirectory(PDirectory&& directory) = default;
     virtual ~PDirectory();
 
@@ -80,4 +81,9 @@ public:
 
     PDirectory& operator=(const PDirectory& rhs) = default;
     PDirectory& operator=(PDirectory&& rhs) = default;
+
+private:
+    PDirEntryBuffer m_DirEntryBuffer;
+    size_t m_DirEntryBufferSize = 0;
+    size_t m_DirEntryBufferOffset = 0;
 };

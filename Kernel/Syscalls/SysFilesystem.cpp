@@ -392,11 +392,12 @@ PErrorCode sys_create_directory(int dirfd, const char* name, mode_t permission)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSysRetPair sys_read_directory(int handle, dirent_t* entry, size_t bufSize)
+PSysRetPair sys_read_directory(int handle, dirent_t* buffer, size_t bufferSize)
 {
     try
     {
-        return PMakeSysRetSuccess(kread_directory_trw(handle, entry, bufSize));
+        validate_user_write_pointer_trw(buffer, bufferSize);
+        return PMakeSysRetSuccess(kread_directory_trw(handle, buffer, bufferSize));
     }
     PERROR_CATCH_RET_SYSRET;
 }

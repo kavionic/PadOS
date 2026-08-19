@@ -34,6 +34,7 @@
 #include <argparse/argparse.hpp>
 
 #include <DeviceControl/USB.h>
+#include <Storage/DirectoryEntry.h>
 #include <System/AppDefinition.h>
 #include <System/Endian.h>
 #include <System/ExceptionHandling.h>
@@ -890,36 +891,41 @@ std::vector<PString> CmdLSUSB::GetSortedPrefixedNames(const PString& directoryPa
         }
     );
 
-    dirent_t directoryEntry;
+    PDirEntryBuffer directoryEntryBuffer;
     for (;;)
     {
-        const ssize_t readResult = posix_getdents(directoryHandle, &directoryEntry, sizeof(directoryEntry), 0);
+        const ssize_t readResult = posix_getdents(
+            directoryHandle,
+            directoryEntryBuffer.GetBuffer(),
+            directoryEntryBuffer.GetSize(),
+            0);
 
         if (readResult == 0) {
             break;
         }
-        if (readResult != static_cast<ssize_t>(sizeof(directoryEntry)))
+        if (readResult < 0)
         {
-            if (readResult < 0)
-            {
-                Print("ls_usb: failed to read {}: {}\n", directoryPath, strerror(errno));
-                m_HadError = true;
-            }
+            Print("ls_usb: failed to read {}: {}\n", directoryPath, strerror(errno));
+            m_HadError = true;
             break;
         }
 
-        if (PString::is_dot_or_dot_dot(directoryEntry.d_name, directoryEntry.d_namlen)) {
-            continue;
-        }
+        for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
+        {
+            const dirent_t& directoryEntry = *iterator;
+            if (PString::is_dot_or_dot_dot(directoryEntry.d_name, directoryEntry.d_namlen)) {
+                continue;
+            }
 
-        const PString entryName(directoryEntry.d_name, directoryEntry.d_namlen);
-        if (!HasPrefixedNumber(entryName, prefix)) {
-            continue;
+            const PString entryName(directoryEntry.d_name, directoryEntry.d_namlen);
+            if (!HasPrefixedNumber(entryName, prefix)) {
+                continue;
+            }
+            if (directoriesOnly && !IsDirectoryEntry(directoryHandle, directoryPath, entryName)) {
+                continue;
+            }
+            names.push_back(entryName);
         }
-        if (directoriesOnly && !IsDirectoryEntry(directoryHandle, directoryPath, entryName)) {
-            continue;
-        }
-        names.push_back(entryName);
     }
 
     std::sort(names.begin(), names.end(), [prefix](const PString& lhs, const PString& rhs)

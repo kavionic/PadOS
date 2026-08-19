@@ -112,7 +112,7 @@ void    kfsync_trw(int handle);
 
 void    kdevice_control_trw(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-size_t  kread_directory_trw(int handle, dirent_t* entry, size_t bufSize);
+size_t  kread_directory_trw(int handle, void* buffer, size_t bufferSize);
 void    krewind_directory_trw(int handle);
 
 void    kcreate_directory_trw(KLocateFlags locateFlags, const char* name, int permission = S_IRWXU);
@@ -151,7 +151,7 @@ int         kfsync(int handle) noexcept;
 
 PErrorCode  kdevice_control(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) noexcept;
 
-ssize_t     kread_directory(int handle, dirent_t* entry, size_t bufSize) noexcept;
+ssize_t     kread_directory(int handle, void* buffer, size_t bufferSize) noexcept;
 PErrorCode  krewind_directory(int handle) noexcept;
 
 int         kcreate_directory(KLocateFlags locateFlags, const char* name, int permission = S_IRWXU) noexcept;

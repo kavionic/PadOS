@@ -29,6 +29,7 @@
 #include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KRootFilesystem.h>
 #include <Kernel/VFS/KVFSManager.h>
+#include <Storage/DirectoryEntry.h>
 #include <System/ExceptionHandling.h>
 
 
@@ -604,10 +605,10 @@ void kdevice_control_trw(int handle, int request, const void* inData, size_t inD
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t kread_directory_trw(int handle, dirent_t* entry, size_t bufSize)
+size_t kread_directory_trw(int handle, void* buffer, size_t bufferSize)
 {
     Ptr<KDirectoryNode> dir = kget_directory_node_trw(handle);
-    return dir->ReadDirectory(entry, bufSize);
+    return dir->ReadDirectory(buffer, bufferSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -899,11 +900,11 @@ PErrorCode kdevice_control(int handle, int request, const void* inData, size_t i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t kread_directory(int handle, dirent_t* entry, size_t bufSize) noexcept
+ssize_t kread_directory(int handle, void* buffer, size_t bufferSize) noexcept
 {
     try
     {
-        return kread_directory_trw(handle, entry, bufSize);
+        return kread_directory_trw(handle, buffer, bufferSize);
     }
     PERROR_CATCH_SET_ERRNO(-1);
 }
@@ -1282,9 +1283,9 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
         return;
     }
 
+    PDirEntryBuffer directoryEntryBuffer;
     for (;;)
     {
-        dirent_t    dirEntry;
         int         directoryHandle;
 
         Ptr<KInode> parent = klocate_inode_by_name_trw(KLocateFlag::CrossMount, inode, "..", 2);
@@ -1293,15 +1294,36 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
 
         bool isMountPoint = (inode->m_Volume != parent->m_Volume);
         bool foundInParent = false;
-        while (kread_directory(directoryHandle, &dirEntry, sizeof(dirEntry)) == sizeof(dirEntry))
+        for (;;)
         {
-            if (PString::is_dot_or_dot_dot(dirEntry.d_name, dirEntry.d_namlen)) {
-                continue;
+            const ssize_t readResult = kread_directory(
+                directoryHandle,
+                directoryEntryBuffer.GetBuffer(),
+                directoryEntryBuffer.GetSize());
+            if (readResult <= 0) {
+                break;
             }
-            if (isMountPoint)
+
+            for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
             {
-                Ptr<KInode> entryInode = klocate_inode_by_name_trw(KLocateFlag::None, parent, dirEntry.d_name, dirEntry.d_namlen);
-                if (entryInode->m_MountRoot == inode)
+                const dirent_t& dirEntry = *iterator;
+                if (PString::is_dot_or_dot_dot(dirEntry.d_name, dirEntry.d_namlen)) {
+                    continue;
+                }
+                if (isMountPoint)
+                {
+                    Ptr<KInode> entryInode = klocate_inode_by_name_trw(KLocateFlag::None, parent, dirEntry.d_name, dirEntry.d_namlen);
+                    if (entryInode->m_MountRoot == inode)
+                    {
+                        if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
+                            PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+                        }
+                        pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namlen);
+                        foundInParent = true;
+                        break;
+                    }
+                }
+                else if (dirEntry.d_ino == inode->m_InodeID)
                 {
                     if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
                         PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
@@ -1311,13 +1333,7 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
                     break;
                 }
             }
-            else if (dirEntry.d_ino == inode->m_InodeID)
-            {
-                if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
-                    PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
-                }
-                pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namlen);
-                foundInParent = true;
+            if (foundInParent) {
                 break;
             }
         }

@@ -19,7 +19,9 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <algorithm>
 #include <atomic>
+#include <iterator>
 
 #include <Kernel/KLogging.h>
 #include <Kernel/KTime.h>
@@ -28,6 +30,7 @@
 #include <Kernel/FSDrivers/VirtualFSBase.h>
 #include <System/System.h>
 #include <System/ExceptionHandling.h>
+#include <Storage/DirectoryEntry.h>
 #include <Utils/String.h>
 
 
@@ -252,8 +255,13 @@ void KVirtualFilesystemBase::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirector
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t KVirtualFilesystemBase::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
+size_t KVirtualFilesystemBase::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, void* buffer, size_t bufferSize)
 {
+    PDirEntryWriter entryWriter(buffer, bufferSize);
+    if (!entryWriter.IsValid() || bufferSize < PGetDirEntryRecordSize(0)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
     Ptr<KVirtualFSVolume> fsVolume = ptr_static_cast<KVirtualFSVolume>(volume);
 
     CRITICAL_SCOPE(fsVolume->m_Mutex);
@@ -263,55 +271,62 @@ size_t KVirtualFilesystemBase::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirecto
 
     const bool haveParent = dirInode != volume->m_RootNode || volume->m_MountPoint != nullptr;
 
-    Ptr<const KInode> inode;
+    const size_t syntheticEntryCount = haveParent ? 2 : 1;
+    const size_t childIndex = (dirNode->m_CurrentIndex >= syntheticEntryCount)
+        ? dirNode->m_CurrentIndex - syntheticEntryCount
+        : 0;
+    auto childIterator = dirInode->m_Children.begin();
+    std::advance(childIterator, std::min(childIndex, dirInode->m_Children.size()));
 
-    if (dirNode->m_CurrentIndex == 0)
+    for (;;)
     {
-        entry->d_name[0] = '.';
-        entry->d_name[1] = '\0';
-        entry->d_namlen = 1;
-
-        inode = dirInode;
-    }
-    else if (haveParent && dirNode->m_CurrentIndex == 1)
-    {
-        entry->d_name[0] = '.';
-        entry->d_name[1] = '.';
-        entry->d_name[2] = '\0';
-        entry->d_namlen = 2;
-
-        if (dirInode != volume->m_RootNode) {
-            inode = ptr_tmp_cast(dirInode->m_Parent);
-        } else if (volume->m_MountPoint != nullptr) {
-            inode = volume->m_MountPoint;
+        if (entryWriter.GetRemainingSize() < PGetDirEntryRecordSize(0)) {
+            break;
         }
-    }
-    else
-    {
-        const size_t indexInDir = dirNode->m_CurrentIndex - (haveParent ? 2 : 1);
-        if (indexInDir < dirInode->m_Children.size())
+
+        const char* name = nullptr;
+        size_t nameLength = 0;
+        Ptr<const KInode> inode;
+        bool isChildEntry = false;
+
+        if (dirNode->m_CurrentIndex == 0)
         {
-            int index = 0;
-            for (auto i : dirInode->m_Children)
-            {
-                if (index++ == indexInDir)
-                {
-                    const PString& name = i.first;
-                    entry->d_namlen = static_cast<decltype(entry->d_namlen)>(name.size());
-                    name.copy(entry->d_name, name.size());
-                    entry->d_name[name.size()] = '\0';
-                    inode = i.second;
-                    break;
-                }
+            name = ".";
+            nameLength = 1;
+            inode = dirInode;
+        }
+        else if (haveParent && dirNode->m_CurrentIndex == 1)
+        {
+            name = "..";
+            nameLength = 2;
+            if (dirInode != volume->m_RootNode) {
+                inode = ptr_tmp_cast(dirInode->m_Parent);
+            } else if (volume->m_MountPoint != nullptr) {
+                inode = volume->m_MountPoint;
             }
         }
-    }
-    if (inode != nullptr)
-    {
-        entry->d_volumeid = inode->m_Volume->m_VolumeID;
-        entry->d_reclen   = sizeof(*entry);
+        else
+        {
+            if (childIterator == dirInode->m_Children.end()) {
+                break;
+            }
+            name = childIterator->first.c_str();
+            nameLength = childIterator->first.size();
+            inode = childIterator->second;
+            isChildEntry = true;
+        }
 
-        entry->d_ino    = inode->m_InodeID;
+        dirent_t* entry = entryWriter.AddEntry(name, nameLength);
+        if (entry == nullptr)
+        {
+            if (entryWriter.GetBytesWritten() == 0) {
+                PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+            }
+            break;
+        }
+
+        entry->d_volumeid = inode->m_Volume->m_VolumeID;
+        entry->d_ino = inode->m_InodeID;
 
         if (S_ISBLK(inode->m_FileMode)) {
             entry->d_type = DT_BLK;
@@ -332,13 +347,11 @@ size_t KVirtualFilesystemBase::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirecto
         }
 
         dirNode->m_CurrentIndex++;
-
-        return sizeof(dirent_t);
+        if (isChildEntry) {
+            ++childIterator;
+        }
     }
-    else
-    {
-        return 0;
-    }
+    return entryWriter.GetBytesWritten();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

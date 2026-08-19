@@ -38,6 +38,7 @@
 
 #include <argparse/argparse.hpp>
 
+#include <Storage/DirectoryEntry.h>
 #include <Storage/Path.h>
 #include <System/AppDefinition.h>
 #include <Utils/String.h>
@@ -457,39 +458,42 @@ void CmdFind::ReadDirectoryEntries(
         return;
     }
 
-    dirent_t directoryEntry;
+    PDirEntryBuffer directoryEntryBuffer;
 
     for (;;)
     {
         const ssize_t readResult = posix_getdents(
             directoryHandle,
-            &directoryEntry,
-            sizeof(directoryEntry),
+            directoryEntryBuffer.GetBuffer(),
+            directoryEntryBuffer.GetSize(),
             0);
 
         if (readResult == 0) {
             break;
         }
-        if (readResult != static_cast<ssize_t>(sizeof(directoryEntry)))
+        if (readResult < 0)
         {
-            const int errorCode = (readResult < 0) ? errno : EIO;
-
             ReportError(PString::format_string(
                 "{}: cannot read directory '{}': {}\n",
                 m_CommandName,
                 path,
-                strerror(errorCode)));
+                strerror(errno)));
             break;
         }
-        if (PString::is_dot_or_dot_dot(
-            directoryEntry.d_name,
-            directoryEntry.d_namlen)) {
-            continue;
-        }
 
-        entries.emplace_back(
-            directoryEntry.d_name,
-            directoryEntry.d_namlen);
+        for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
+        {
+            const dirent_t& directoryEntry = *iterator;
+            if (PString::is_dot_or_dot_dot(
+                directoryEntry.d_name,
+                directoryEntry.d_namlen)) {
+                continue;
+            }
+
+            entries.emplace_back(
+                directoryEntry.d_name,
+                directoryEntry.d_namlen);
+        }
     }
 
     close(directoryHandle);

@@ -70,7 +70,7 @@ public:
 
     virtual bool LastReferenceGone() override;
     
-    size_t ReadDirectory(dirent_t* entry, size_t bufSize);
+    size_t ReadDirectory(void* buffer, size_t bufferSize);
     void RewindDirectory();
 };
 

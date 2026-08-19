@@ -30,6 +30,7 @@
 //#include <sys/statvfs.h>
 
 #include <Storage/FSNode.h>
+#include <Storage/DirectoryEntry.h>
 #include <Utils/HashCalculator.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KVFSManager.h>
@@ -301,47 +302,60 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
     {
         constexpr size_t maxEntriesPerPackage = (4096 - sizeof(SerialProtocol::GetDirectoryReply)) / sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
         static_assert(maxEntriesPerPackage >= 5);
-        dirent_t dirEntry;
-        for (int i = 0; posix_getdents(dir, &dirEntry, sizeof(dirEntry), 0) == sizeof(dirEntry); ++i)
+        PDirEntryBuffer directoryEntryBuffer;
+        for (;;)
         {
-            if (dirEntry.d_namlen >= sizeof(SerialProtocol::GetDirectoryReplyDirEnt::m_Name)) {
-                continue;
+            const ssize_t readResult = posix_getdents(
+                dir,
+                directoryEntryBuffer.GetBuffer(),
+                directoryEntryBuffer.GetSize(),
+                0);
+            if (readResult <= 0) {
+                break;
             }
 
-            struct stat statResult;
-            if (!TryReadStatFromDirectoryEntry(dirEntry, &statResult))
+            for (PDirEntryIterator iterator(directoryEntryBuffer.GetBuffer(), size_t(readResult)); iterator; ++iterator)
             {
-                PString path = packet.m_Path;
-                path += "/";
-                path += dirEntry.d_name;
-                if (stat(path.c_str(), &statResult) < 0) {
+                const dirent_t& dirEntry = *iterator;
+                if (dirEntry.d_namlen >= sizeof(SerialProtocol::GetDirectoryReplyDirEnt::m_Name)) {
                     continue;
                 }
-            }
 
-            SerialProtocol::GetDirectoryReplyDirEnt& replyEntry = entryList.emplace_back();
-            replyEntry.m_Size                  = statResult.st_size;
-            replyEntry.m_CreationTimeNanos     = TimeValNanos::FromTimespec(statResult.st_ctim).AsNanoseconds();
-            replyEntry.m_AccessTimeNanos       = TimeValNanos::FromTimespec(statResult.st_atim).AsNanoseconds();
-            replyEntry.m_ModificationTimeNanos = TimeValNanos::FromTimespec(statResult.st_mtim).AsNanoseconds();
-            replyEntry.m_Attributes            = statResult.st_mode;
-            replyEntry.m_IsDirectory           = S_ISDIR(statResult.st_mode);
-            memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namlen);
-            replyEntry.m_Name[dirEntry.d_namlen] = '\0';
+                struct stat statResult;
+                if (!TryReadStatFromDirectoryEntry(dirEntry, &statResult))
+                {
+                    PString path = packet.m_Path;
+                    path += "/";
+                    path += dirEntry.d_name;
+                    if (stat(path.c_str(), &statResult) < 0) {
+                        continue;
+                    }
+                }
 
-            char timeStr[64];
-            std::strftime(timeStr, sizeof(timeStr), "%b %d %Y", std::localtime(&statResult.st_mtime));
-            p_system_log<PLogSeverity::INFO_FLOODING>(LogCategorySerialHandlerFS, "    {} {} {:>8} '{}'.",
-                PString::format_file_permissions(replyEntry.m_Attributes),
-                timeStr,
-                PString::format_byte_size(statResult.st_size, -2),
-                replyEntry.m_Name
-            );
+                SerialProtocol::GetDirectoryReplyDirEnt& replyEntry = entryList.emplace_back();
+                replyEntry.m_Size                  = statResult.st_size;
+                replyEntry.m_CreationTimeNanos     = TimeValNanos::FromTimespec(statResult.st_ctim).AsNanoseconds();
+                replyEntry.m_AccessTimeNanos       = TimeValNanos::FromTimespec(statResult.st_atim).AsNanoseconds();
+                replyEntry.m_ModificationTimeNanos = TimeValNanos::FromTimespec(statResult.st_mtim).AsNanoseconds();
+                replyEntry.m_Attributes            = statResult.st_mode;
+                replyEntry.m_IsDirectory           = S_ISDIR(statResult.st_mode);
+                memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namlen);
+                replyEntry.m_Name[dirEntry.d_namlen] = '\0';
 
-            if (entryList.size() >= maxEntriesPerPackage)
-            {
-                SendDirectoryEntries(packet.m_SessionID, entryList);
-                entryList.erase(entryList.begin(), entryList.end());
+                char timeStr[64];
+                std::strftime(timeStr, sizeof(timeStr), "%b %d %Y", std::localtime(&statResult.st_mtime));
+                p_system_log<PLogSeverity::INFO_FLOODING>(LogCategorySerialHandlerFS, "    {} {} {:>8} '{}'.",
+                    PString::format_file_permissions(replyEntry.m_Attributes),
+                    timeStr,
+                    PString::format_byte_size(statResult.st_size, -2),
+                    replyEntry.m_Name
+                );
+
+                if (entryList.size() >= maxEntriesPerPackage)
+                {
+                    SendDirectoryEntries(packet.m_SessionID, entryList);
+                    entryList.erase(entryList.begin(), entryList.end());
+                }
             }
         }
         if (!entryList.empty()) {

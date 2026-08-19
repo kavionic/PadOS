@@ -1,5 +1,6 @@
 target_sources(PadOS_IO PRIVATE
 	Directory.h
+	DirectoryEntry.h
 	DirIterator.h
 	File.h
 	FileReference.h

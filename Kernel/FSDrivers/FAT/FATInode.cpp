@@ -21,6 +21,7 @@
 
 #include <string.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/KLogging.h>
 
 #include "FATInode.h"
@@ -30,6 +31,135 @@
 
 namespace kernel
 {
+
+static bool GetFATInodeWriteLocation(const FATInode& inode, FATVolume& volume, uint32_t& parentCluster, uint32_t& expectedStartCluster)
+{
+    if (!IS_DIR_CLUSTER_INODEID(inode.m_ParentInodeID))
+    {
+        kernel_log<PLogSeverity::CRITICAL>(
+            LogCat_FATFS,
+            "FATInode::Write(): inode {:x} has invalid parent inode {:x}.",
+            inode.m_InodeID,
+            inode.m_ParentInodeID);
+        return false;
+    }
+
+    parentCluster = CLUSTER_OF_DIR_CLUSTER_INODEID(inode.m_ParentInodeID);
+    if ((!volume.IsDataCluster(parentCluster) && !IS_FIXED_ROOT(parentCluster)) ||
+        inode.m_DirEndIndex < inode.m_DirStartIndex ||
+        inode.m_DirEndIndex - inode.m_DirStartIndex > FAT_LONG_NAME_MAX_ENTRY_COUNT)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(
+            LogCat_FATFS,
+            "FATInode::Write(): inode {:x} has invalid directory location {}:{} through {}.",
+            inode.m_InodeID,
+            parentCluster,
+            inode.m_DirStartIndex,
+            inode.m_DirEndIndex);
+        return false;
+    }
+
+    ino_t locationID;
+    if (!volume.GetInodeIDToLocationIDMapping(inode.m_InodeID, &locationID)) {
+        locationID = inode.m_InodeID;
+    }
+
+    if (IS_ARTIFICIAL_INODEID(locationID) ||
+        IS_INVALID_INODEID(locationID) ||
+        DIR_OF_INODEID(locationID) != parentCluster)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(
+            LogCat_FATFS,
+            "FATInode::Write(): inode {:x} has invalid location mapping {:x}.",
+            inode.m_InodeID,
+            locationID);
+        return false;
+    }
+
+    if (IS_DIR_INDEX_INODEID(locationID))
+    {
+        if (INDEX_OF_DIR_INDEX_INODEID(locationID) != inode.m_DirStartIndex)
+        {
+            kernel_log<PLogSeverity::CRITICAL>(
+                LogCat_FATFS,
+                "FATInode::Write(): inode {:x} is mapped to directory entry {}, not {}.",
+                inode.m_InodeID,
+                INDEX_OF_DIR_INDEX_INODEID(locationID),
+                inode.m_DirStartIndex);
+            return false;
+        }
+        expectedStartCluster = 0;
+        return true;
+    }
+
+    if (IS_DIR_CLUSTER_INODEID(locationID))
+    {
+        expectedStartCluster = CLUSTER_OF_DIR_CLUSTER_INODEID(locationID);
+        if (!volume.IsDataCluster(expectedStartCluster))
+        {
+            kernel_log<PLogSeverity::CRITICAL>(
+                LogCat_FATFS,
+                "FATInode::Write(): inode {:x} is mapped to invalid cluster {}.",
+                inode.m_InodeID,
+                expectedStartCluster);
+            return false;
+        }
+        return true;
+    }
+
+    kernel_log<PLogSeverity::CRITICAL>(
+        LogCat_FATFS,
+        "FATInode::Write(): inode {:x} has unsupported location mapping {:x}.",
+        inode.m_InodeID,
+        locationID);
+    return false;
+}
+
+static bool IsFATInodeWriteEntryValid(const FATInode& inode, const FATVolume& volume, const FATDirectoryEntry& entry, uint32_t expectedStartCluster)
+{
+    const uint8_t firstFilenameCharacter = uint8_t(entry.m_Filename[0]);
+    const bool isLongNameEntry = (entry.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) == FAT_LONG_NAME_ATTRIBUTES;
+    const bool isVolumeLabel = (entry.m_Attribs & FAT_VOLUME) != 0;
+    const bool isDotEntry =
+        memcmp(entry.m_Filename, ".          ", sizeof(entry.m_Filename)) == 0 ||
+        memcmp(entry.m_Filename, "..         ", sizeof(entry.m_Filename)) == 0;
+    const bool entryIsDirectory = (entry.m_Attribs & FAT_SUBDIR) != 0;
+
+    if (firstFilenameCharacter == 0 ||
+        firstFilenameCharacter == 0xe5 ||
+        isLongNameEntry ||
+        isVolumeLabel ||
+        isDotEntry ||
+        entryIsDirectory != inode.IsDirectory())
+    {
+        kernel_log<PLogSeverity::CRITICAL>(
+            LogCat_FATFS,
+            "FATInode::Write(): directory entry {} no longer identifies inode {:x} (first byte {:02x}, attributes {:02x}).",
+            inode.m_DirEndIndex,
+            inode.m_InodeID,
+            uint32_t(firstFilenameCharacter),
+            uint32_t(entry.m_Attribs));
+        return false;
+    }
+
+    uint32_t entryStartCluster = entry.m_FirstClusterLow;
+    if (volume.m_FATBits == 32) {
+        entryStartCluster |= uint32_t(entry.m_FirstClusterHigh) << 16;
+    }
+
+    if (entryStartCluster != expectedStartCluster)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(
+            LogCat_FATFS,
+            "FATInode::Write(): directory entry {} refers to cluster {}, expected {} for inode {:x}.",
+            inode.m_DirEndIndex,
+            entryStartCluster,
+            expectedStartCluster,
+            inode.m_InodeID);
+        return false;
+    }
+    return true;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -68,29 +198,37 @@ bool FATInode::CheckMagic(const char* functionName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATInode::Write()
+void FATInode::Write()
 {
     FATDirectoryEntryCombo* buffer;
 
     // don't update entries of deleted files
-    if (IsDeleted()) return true;
-
-    // XXX: should check if directory position is still valid even
-    // though we do the IsDeleted() check above
+    if (IsDeleted()) {
+        return;
+    }
 
     Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(m_Volume);
-    if ((m_StartCluster != 0) && !volume->IsDataCluster(m_StartCluster)) {
+    if ((m_StartCluster != 0) && !volume->IsDataCluster(m_StartCluster))
+    {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATInode::Write() called on invalid cluster ({}).", m_StartCluster);
-        set_last_error(EINVAL);
-        return false;
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    FATDirectoryIterator diri(volume, CLUSTER_OF_DIR_CLUSTER_INODEID(m_ParentInodeID), m_DirEndIndex);
+    uint32_t parentCluster;
+    uint32_t expectedStartCluster;
+    if (!GetFATInodeWriteLocation(*this, *volume, parentCluster, expectedStartCluster)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    FATDirectoryIterator diri(volume, parentCluster, m_DirEndIndex);
     buffer = diri.GetCurrentEntry();
     if (buffer == nullptr) {
-        set_last_error(ENOENT);
-        return false;
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
+    if (!IsFATInodeWriteEntryValid(*this, *volume, buffer->m_Normal, expectedStartCluster)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
     buffer->m_Normal.m_Attribs = m_DOSAttribs; // file attributes
     
     const uint32_t createTime = UnixTimeToFATTime(m_CTime.AsSecondsI());
@@ -112,7 +250,6 @@ bool FATInode::Write()
         buffer->m_Normal.m_FileSize = uint32_t(m_Size);
     }
     diri.MarkDirty();
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

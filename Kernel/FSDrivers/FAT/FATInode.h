@@ -62,7 +62,7 @@ public:
         
     bool CheckMagic(const char* functionName);
 
-    bool Write();
+    void Write();
 
     static time_t       FATTimeToUnixTime(uint32_t fatTime);
     static TimeValNanos FATTimeToTimeVal(uint32_t fatTime, uint8_t createTimeFine);

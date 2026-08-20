@@ -394,7 +394,6 @@ bool FATVolume::RemoveInodeIDToLocationIDMapping(ino_t inodeID)
         return true;
     }
     kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::RemoveInodeIDToLocationIDMapping({:16x}) failed to find mapping.", inodeID);
-    set_last_error(ENOENT);
     return false;
 }
 
@@ -520,7 +519,6 @@ ino_t FATVolume::GetDirectoryMapping(uint32_t startCluster) const
     if (i != m_DirectoryMap.end()) {
         return i->second;
     } else {
-        set_last_error(ENOENT);
         return -1;
     }            
 }

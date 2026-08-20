@@ -1863,12 +1863,13 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
 
     if (writeEnd > oldFileSize)
     {
-        node->m_Size = writeEnd;
-        if (!node->Write())
+        PScopeFail restoreFileSize([&node, oldFileSize]()
         {
             node->m_Size = oldFileSize;
-            PERROR_THROW_CODE(PErrorCode::IO);
-        }
+        });
+
+        node->m_Size = writeEnd;
+        node->Write();
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Write(): setting file size to {} ({} clusters).", node->m_Size, requiredClusterCount);
     }
 
@@ -2139,11 +2140,8 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
         dirty = false;
     }
 
-    if (dirty)
-    {
-        if (!node->Write()) {
-            PERROR_THROW_CODE(PErrorCode::IO);
-        }
+    if (dirty) {
+        node->Write();
     }
 }
 
@@ -2543,11 +2541,14 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
 
     if (fileSize < oldFileSize)
     {
-        node->m_Size = fileSize;
-        if (newClusterCount != 0 && !node->Write())
+        PScopeFail restoreFileSize([&node, oldFileSize]()
         {
             node->m_Size = oldFileSize;
-            PERROR_THROW_CODE(PErrorCode::IO);
+        });
+
+        node->m_Size = fileSize;
+        if (newClusterCount != 0) {
+            node->Write();
         }
     }
 
@@ -2561,15 +2562,17 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
         volume->GetFATTable()->SetChainLength(node, newClusterCount, true);
     }
 
-    if (fileSize > oldFileSize) {
+    if (fileSize > oldFileSize)
+    {
         ClearFileRange(volume, node, oldFileSize, fileSize);
 
-        node->m_Size = fileSize;
-        if (!node->Write())
+        PScopeFail restoreFileSize([&node, oldFileSize]()
         {
             node->m_Size = oldFileSize;
-            PERROR_THROW_CODE(PErrorCode::IO);
-        }
+        });
+
+        node->m_Size = fileSize;
+        node->Write();
     }
 }
 

@@ -237,9 +237,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
             node->m_EndCluster = 0;
             node->m_AllocatedClusterCount = 0;
 
-            if (!node->Write()) {
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
+            node->Write();
         }
 
         node->m_Iteration++;
@@ -270,9 +268,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
             node->m_EndCluster = newEndCluster;
             node->m_AllocatedClusterCount = clusterCount;
 
-            if (!node->Write()) {
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
+            node->Write();
         }
 
         node->m_Iteration++;

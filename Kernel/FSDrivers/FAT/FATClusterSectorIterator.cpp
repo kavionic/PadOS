@@ -65,9 +65,10 @@ off64_t FATClusterSectorIterator::GetBlockSector()
 
 FATClusterSectorIterator::FATClusterSectorIterator(Ptr<FATVolume> volume, uint32_t cluster, uint32_t sector)
 {
-    m_Volume         = volume;
-    m_CurrentCluster = cluster;
-    m_CurrentSector  = sector;
+    m_Volume              = volume;
+    m_CurrentCluster      = cluster;
+    m_CurrentSector       = sector;
+    m_VisitedClusterCount = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -78,8 +79,9 @@ void FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
 {
     if (!IsValidClusterSector(m_Volume, cluster, sector)) PERROR_THROW_CODE(PErrorCode::IO);
  
-    m_CurrentCluster = cluster;
-    m_CurrentSector  = sector;
+    m_CurrentCluster      = cluster;
+    m_CurrentSector       = sector;
+    m_VisitedClusterCount = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -111,18 +113,30 @@ bool FATClusterSectorIterator::Increment(int sectors)
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_SectorsPerCluster) {
             return true;
-        }    
-        m_CurrentCluster = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster);
+        }
 
-        if (m_CurrentCluster == END_FAT_ENTRY)
+        const uint32_t clusterAdvanceCount = m_CurrentSector / m_Volume->m_SectorsPerCluster;
+        const uint32_t nextCluster = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, clusterAdvanceCount);
+
+        if (nextCluster == END_FAT_ENTRY)
         {
             m_CurrentSector = 0xffff;
             return false;
         }
 
-        if (m_Volume->IsDataCluster(m_CurrentCluster))
+        if (m_Volume->IsDataCluster(nextCluster))
         {
+            if (m_VisitedClusterCount > m_Volume->m_TotalClusters ||
+                clusterAdvanceCount > m_Volume->m_TotalClusters - m_VisitedClusterCount)
+            {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATClusterSectorIterator::Increment(): circular FAT chain detected.");
+                m_CurrentSector = 0xffff;
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
+
+            m_CurrentCluster = nextCluster;
             m_CurrentSector %= m_Volume->m_SectorsPerCluster;
+            m_VisitedClusterCount += clusterAdvanceCount;
             return true;
         }
     }

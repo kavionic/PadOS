@@ -42,6 +42,7 @@ struct FATClusterSectorIterator
     Ptr<FATVolume> m_Volume;
     uint32_t       m_CurrentCluster;
     uint32_t       m_CurrentSector;
+    uint32_t       m_VisitedClusterCount;
 };
 
 } // namespace

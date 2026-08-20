@@ -460,7 +460,9 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     vol->m_RootInode->m_ATime = FATInode::RoundTimeToFATAccessTime(currentTime);
     vol->m_RootInode->m_CTime = FATInode::RoundTimeToFATCreateTime(currentTime);
     vol->m_RootInode->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
-    vol->AddDirectoryMapping(vol->m_RootInode->m_InodeID);
+    if (!vol->AddDirectoryMapping(vol->m_RootInode->m_StartCluster, vol->m_RootInode->m_InodeID)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
 
     // find volume label (supersedes any label in the bpb)
     {
@@ -772,7 +774,7 @@ void FATFilesystem::ReleaseInode(KInode* inode)
         }
         // If directory, remove from directory mapping.
         if (node->IsDirectory()) {
-            vol->RemoveDirectoryMapping(node->m_InodeID);
+            vol->RemoveDirectoryMapping(node->m_StartCluster, node->m_InodeID);
         }      
     }
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::ReleaseInode() (inode ID {:x}).", node->m_InodeID);
@@ -1172,9 +1174,11 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    vol->AddDirectoryMapping(dummy->m_InodeID);
+    if (!vol->AddDirectoryMapping(dummy->m_StartCluster, dummy->m_InodeID)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
 
-    PScopeFail scopeCleanupDirMapping([&vol, &dummy]() { vol->RemoveDirectoryMapping(dummy->m_InodeID); });
+    PScopeFail scopeCleanupDirMapping([&vol, &dummy]() { vol->RemoveDirectoryMapping(dummy->m_StartCluster, dummy->m_InodeID); });
     
 
     CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
@@ -1258,8 +1262,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     Ptr<FATInode> sourceNode;
     Ptr<FATInode> destinationNode;
     
-    uint32_t newStartIndex;
-    uint32_t newEndIndex;
+    uint32_t newStartIndex = 0;
+    uint32_t newEndIndex = 0;
     PString oldName;
     PString newName;
 
@@ -1305,7 +1309,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     
-    // see if file already exists and erase it if it does
+    // See if the destination already exists.
     destinationNode = DoLocateInode(volume, newDirectory, newName);
     if (destinationNode != nullptr)
     {
@@ -1322,70 +1326,151 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): destination already occupied by a directory.");
             PERROR_THROW_CODE(PErrorCode::PERM);
         }
+        if (sourceNode->IsDirectory()) {
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
+        }
 
         newStartIndex = destinationNode->m_DirStartIndex;
         newEndIndex = destinationNode->m_DirEndIndex;
+    }
 
-        // Mark inode for removal (ReleaseInode() will clear the fat chain).
-        // Note we don't have to lock the file because the fat chain doesn't
-        // get wiped from the disk until ReleaseInode() is called; we'll
-        // have a phantom chain in effect until the last file is closed.
-        destinationNode->SetDeletedFlag(true);
+    ino_t originalSourceLocationID;
+    if (!volume->GetInodeIDToLocationIDMapping(sourceNode->m_InodeID, &originalSourceLocationID)) {
+        originalSourceLocationID = sourceNode->m_InodeID;
+    }
+
+    ino_t originalDestinationLocationID = 0;
+    if (destinationNode != nullptr && !volume->GetInodeIDToLocationIDMapping(destinationNode->m_InodeID, &originalDestinationLocationID)) {
+        originalDestinationLocationID = destinationNode->m_InodeID;
+    }
+
+    FATDirectoryEntry savedDestinationEntry = {};
+    bool destinationEntryCreated = false;
+    bool destinationEntryReplaced = false;
+    bool sourceMappingChangeAttempted = false;
+    bool destinationMappingChangeAttempted = false;
+    bool directoryParentEntryUpdated = false;
+
+    PScopeFail rollbackRename([&]()
+    {
+        if (directoryParentEntryUpdated)
+        {
+            try {
+                UpdateDirectoryParentEntry(volume, sourceNode, oldDirectory);
+            } catch (const std::exception& exception) {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to restore the source directory's '..' entry: {}", exception.what());
+            }
+        }
+
+        if (destinationEntryCreated)
+        {
+            try {
+                EraseDirectoryEntry(volume, newDirectory->m_StartCluster, newStartIndex, newEndIndex);
+            } catch (const std::exception& exception) {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to remove the new directory entry during rollback: {}", exception.what());
+            }
+        }
+        else if (destinationEntryReplaced)
+        {
+            try
+            {
+                FATDirectoryIterator iterator(volume, newDirectory->m_StartCluster, newEndIndex);
+                FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry();
+                if (entry == nullptr) {
+                    PERROR_THROW_CODE(PErrorCode::IO);
+                }
+                entry->m_Normal = savedDestinationEntry;
+                iterator.MarkDirty();
+            }
+            catch (const std::exception& exception)
+            {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to restore the overwritten destination entry: {}", exception.what());
+            }
+        }
+
+        if (sourceMappingChangeAttempted)
+        {
+            try {
+                volume->SetInodeIDToLocationIDMapping(sourceNode->m_InodeID, originalSourceLocationID);
+            } catch (const std::exception& exception) {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to restore the source inode mapping: {}", exception.what());
+            }
+        }
+        if (destinationMappingChangeAttempted)
+        {
+            try {
+                volume->SetInodeIDToLocationIDMapping(destinationNode->m_InodeID, originalDestinationLocationID);
+            } catch (const std::exception& exception) {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to restore the destination inode mapping: {}", exception.what());
+            }
+        }
+    });
+
+    if (destinationNode != nullptr)
+    {
+        FATDirectoryIterator iterator(volume, newDirectory->m_StartCluster, newEndIndex);
+        FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry();
+        if (entry == nullptr)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to open the destination directory entry.");
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        savedDestinationEntry = entry->m_Normal;
+        InitFATDirectoryEntry(
+            entry->m_Normal,
+            savedDestinationEntry.m_Filename,
+            savedDestinationEntry.m_ShortNameCaseFlags,
+            sourceNode->m_DOSAttribs,
+            sourceNode->m_StartCluster,
+            size_t(sourceNode->m_Size),
+            sourceNode->m_CTime,
+            sourceNode->m_ATime,
+            sourceNode->m_MTime);
+        iterator.MarkDirty();
+        destinationEntryReplaced = true;
     }
     else
     {
-        // create the new directory entry
         FATInode* collisionExclusion = (oldDirectory->m_InodeID == newDirectory->m_InodeID) ? ptr_raw_pointer_cast(sourceNode) : nullptr;
         CreateDirectoryEntry(volume, newDirectory, sourceNode, newName, collisionExclusion, &newStartIndex, &newEndIndex);
+        destinationEntryCreated = true;
     }
 
-    // erase old directory entry
-    EraseDirectoryEntry(volume, sourceNode);
-    
-    // shrink the directory (an error here is not disastrous)
-    CompactDirectory(volume, oldDirectory);
+    const ino_t newLocationID = volume->IsDataCluster(sourceNode->m_StartCluster)
+        ? GENERATE_DIR_CLUSTER_INODEID(newDirectory->m_InodeID, sourceNode->m_StartCluster)
+        : GENERATE_DIR_INDEX_INODEID(newDirectory->m_InodeID, newStartIndex);
 
-    // update inode information
+    if (destinationNode != nullptr)
+    {
+        destinationMappingChangeAttempted = true;
+        volume->SetInodeIDToLocationIDMapping(destinationNode->m_InodeID, volume->AllocUniqueInodeID());
+    }
+    sourceMappingChangeAttempted = true;
+    volume->SetInodeIDToLocationIDMapping(sourceNode->m_InodeID, newLocationID);
+
+    if (sourceNode->IsDirectory() && oldDirectory->m_InodeID != newDirectory->m_InodeID)
+    {
+        UpdateDirectoryParentEntry(volume, sourceNode, newDirectory);
+        directoryParentEntryUpdated = true;
+    }
+
+    // Removing the old entry commits the rename. EraseDirectoryEntry() restores
+    // a partially erased entry before propagating an error.
+    EraseDirectoryEntry(volume, oldDirectory->m_StartCluster, sourceNode->m_DirStartIndex, sourceNode->m_DirEndIndex);
+
     sourceNode->m_ParentInodeID = newDirectory->m_InodeID;
     sourceNode->m_DirStartIndex = newStartIndex;
     sourceNode->m_DirEndIndex = newEndIndex;
 
-    // update vcache
-    const ino_t newLocationID = volume->IsDataCluster(sourceNode->m_StartCluster)
-        ? GENERATE_DIR_CLUSTER_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_StartCluster)
-        : GENERATE_DIR_INDEX_INODEID(sourceNode->m_ParentInodeID, sourceNode->m_DirStartIndex);
-    volume->SetInodeIDToLocationIDMapping(sourceNode->m_InodeID, newLocationID);
-
-    // XXX: only write changes in the directory entry if needed
-    //      (i.e. old entry, not new)
-    sourceNode->Write();
-
-    if (sourceNode->IsDirectory())
+    if (destinationNode != nullptr)
     {
-        // Update the ".." directory entry.
-        FATDirectoryIterator diri(volume, sourceNode->m_StartCluster, 1);
-        FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
-        if (buffer == nullptr) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): Error opening directory.");
-            PERROR_THROW_CODE(PErrorCode::IO);
-        }
-        if (memcmp(buffer->m_Normal.m_Filename, "..         ", sizeof(buffer->m_Normal.m_Filename))) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): Invalid directory.");
-            PERROR_THROW_CODE(PErrorCode::IO);
-        }
-        if (newDirectory->m_InodeID == volume->m_RootInode->m_InodeID)
-        {
-            // Root directory always has cluster = 0
-            buffer->m_Normal.m_FirstClusterLow = 0;
-            buffer->m_Normal.m_FirstClusterHigh = 0;
-        }
-        else
-        {
-            buffer->m_Normal.m_FirstClusterLow  = newDirectory->m_StartCluster & 0xffff;
-            buffer->m_Normal.m_FirstClusterHigh = uint16_t(newDirectory->m_StartCluster >> 16);
-        }
-        diri.MarkDirty();
+        // ReleaseInode() clears the replaced file's chain after its final open
+        // handle is closed.
+        destinationNode->SetDeletedFlag(true);
     }
+
+    CompactDirectoryNoThrow(volume, oldDirectory);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2453,6 +2538,38 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATFilesystem::UpdateDirectoryParentEntry(Ptr<FATVolume> volume, Ptr<FATInode> directory, Ptr<FATInode> parent)
+{
+    if (!directory->IsDirectory() || directory->m_InodeID == volume->m_RootInode->m_InodeID) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    uint32_t parentCluster = 0;
+    if (parent->m_InodeID != volume->m_RootInode->m_InodeID)
+    {
+        if (!parent->IsDirectory() || !volume->IsDataCluster(parent->m_StartCluster)) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        parentCluster = parent->m_StartCluster;
+    }
+
+    FATDirectoryIterator iterator(volume, directory->m_StartCluster, 1);
+    FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry();
+    if (entry == nullptr || memcmp(entry->m_Normal.m_Filename, "..         ", sizeof(entry->m_Normal.m_Filename)) != 0 || !(entry->m_Normal.m_Attribs & FAT_SUBDIR))
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::UpdateDirectoryParentEntry(): directory inode {:x} has an invalid '..' entry.", directory->m_InodeID);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    entry->m_Normal.m_FirstClusterLow = uint16_t(parentCluster & 0xffff);
+    entry->m_Normal.m_FirstClusterHigh = uint16_t(parentCluster >> 16);
+    iterator.MarkDirty();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex)
 {
     struct FATNewDirEntryInfo info;
@@ -2728,39 +2845,94 @@ void FATFilesystem::CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> node)
+void FATFilesystem::CompactDirectoryNoThrow(Ptr<FATVolume> vol, Ptr<FATInode> dir) noexcept
 {
-    uint32_t i;
-    FATDirectoryEntryInfo info;
-    
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): erasing directory entries {} through {}.", node->m_DirStartIndex, node->m_DirEndIndex);
-    {
-        FATDirectoryIterator diri(vol, CLUSTER_OF_DIR_CLUSTER_INODEID(node->m_ParentInodeID), node->m_DirStartIndex);
-        FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
+    try {
+        CompactDirectory(vol, dir);
+    } catch (const std::exception& exception) {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CompactDirectoryNoThrow(): failed to compact directory inode {:x}: {}", dir->m_InodeID, exception.what());
+    }
+}
 
-        // first pass: check if the entry is still valid
-        if (buffer == nullptr) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): error reading directory.");
-            PERROR_THROW_CODE(PErrorCode::IO);
-        }
-        if (!diri.GetNextLFNEntry(&info, nullptr)) {
-            PERROR_THROW_CODE(PErrorCode::NOENT);
-        }
-    }        
-    
-    if (info.m_StartIndex != node->m_DirStartIndex || info.m_EndIndex != node->m_DirEndIndex)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATFilesystem::EraseDirectoryEntry(Ptr<FATVolume> vol, uint32_t parentCluster, uint32_t startIndex, uint32_t endIndex)
+{
+    FATDirectoryEntryInfo info;
+
+    if ((!vol->IsDataCluster(parentCluster) && !IS_FIXED_ROOT(parentCluster)) || endIndex < startIndex || endIndex - startIndex > FAT_LONG_NAME_MAX_ENTRY_COUNT)
     {
-        // Any other attributes may be in a state of flux due to wstat calls
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "erase_dir_entry: directory entry doesn't match.");
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): invalid directory cluster or entry range {} through {}.", startIndex, endIndex);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    // second pass: actually erase the entry
-    FATDirectoryIterator diri(vol, CLUSTER_OF_DIR_CLUSTER_INODEID(node->m_ParentInodeID), node->m_DirStartIndex);
-    FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
-    for (i = node->m_DirStartIndex; i <= node->m_DirEndIndex && buffer != nullptr; buffer = diri.GetNextRawEntry(), ++i) {
-        buffer->m_Normal.m_Filename[0] = 0xe5; // Mark entry erased.
-        diri.MarkDirty();
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): erasing directory entries {} through {}.", startIndex, endIndex);
+
+    {
+        FATDirectoryIterator iterator(vol, parentCluster, startIndex);
+        if (iterator.GetCurrentEntry() == nullptr)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): error reading directory.");
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        if (!iterator.GetNextLFNEntry(&info, nullptr)) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
+        }
+    }
+
+    if (info.m_StartIndex != startIndex || info.m_EndIndex != endIndex)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): directory entry doesn't match.");
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    const size_t entryCount = size_t(endIndex - startIndex) + 1;
+    FATDirectoryEntryCombo originalEntries[FAT_LONG_NAME_MAX_ENTRY_COUNT + 1];
+    size_t erasedEntryCount = 0;
+
+    PScopeFail restoreErasedEntries([&]()
+    {
+        if (erasedEntryCount != 0)
+        {
+            try
+            {
+                FATDirectoryIterator restoreIterator(vol, parentCluster, startIndex);
+                for (size_t entryIndex = 0; entryIndex < erasedEntryCount; ++entryIndex)
+                {
+                    FATDirectoryEntryCombo* entry = restoreIterator.GetCurrentEntry();
+                    if (entry == nullptr) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
+                    *entry = originalEntries[entryIndex];
+                    restoreIterator.MarkDirty();
+                    if (entryIndex + 1 < erasedEntryCount) {
+                        restoreIterator.GetNextRawEntry();
+                    }
+                }
+            }
+            catch (const std::exception& exception)
+            {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): failed to restore a partially erased directory entry: {}", exception.what());
+            }
+        }
+    });
+
+    FATDirectoryIterator iterator(vol, parentCluster, startIndex);
+    for (size_t entryIndex = 0; entryIndex < entryCount; ++entryIndex)
+    {
+        FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry();
+        if (entry == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        originalEntries[entryIndex] = *entry;
+        entry->m_Normal.m_Filename[0] = char(0xe5);
+        iterator.MarkDirty();
+        ++erasedEntryCount;
+        if (entryIndex + 1 < entryCount) {
+            iterator.GetNextRawEntry();
+        }
     }
 }
 
@@ -2820,20 +2992,33 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
         }
     }
 
-    // Erase the entry in the parent directory.
-    EraseDirectoryEntry(vol, file);
+    ino_t originalLocationID;
+    if (!vol->GetInodeIDToLocationIDMapping(file->m_InodeID, &originalLocationID)) {
+        originalLocationID = file->m_InodeID;
+    }
 
-    // Shrink the parent directory.
-    CompactDirectory(vol, dir);
+    bool mappingChangeAttempted = false;
+    PScopeFail restoreInodeMapping([&]()
+    {
+        if (mappingChangeAttempted)
+        {
+            try {
+                vol->SetInodeIDToLocationIDMapping(file->m_InodeID, originalLocationID);
+            } catch (const std::exception& exception) {
+                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::DoUnlink(): failed to restore the inode mapping: {}", exception.what());
+            }
+        }
+    });
 
-    // Set the loc to a unique value. This effectively removes it from the
-    // inode cache without releasing its inode number for reuse. This is ok because the
-    // inode is locked in memory after this point and loc will not be
-    // referenced from here on.
-
+    // Move the inode away from its on-disk location before making that
+    // location available for reuse. Roll the mapping back if erasing fails.
+    mappingChangeAttempted = true;
     vol->SetInodeIDToLocationIDMapping(file->m_InodeID, vol->AllocUniqueInodeID());
 
+    EraseDirectoryEntry(vol, dir->m_StartCluster, file->m_DirStartIndex, file->m_DirEndIndex);
     file->SetDeletedFlag(true);
+
+    CompactDirectoryNoThrow(vol, dir);
 }
 
 } // namespace

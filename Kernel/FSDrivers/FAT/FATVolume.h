@@ -126,8 +126,8 @@ public:
 
     void  DumpInodeIDMap();
     
-    void  AddDirectoryMapping(ino_t inodeID);
-    bool  RemoveDirectoryMapping(ino_t inodeID);
+    bool  AddDirectoryMapping(uint32_t startCluster, ino_t inodeID);
+    bool  RemoveDirectoryMapping(uint32_t startCluster, ino_t inodeID);
     ino_t GetDirectoryMapping(uint32_t startCluster) const;
     void  DumpDirectoryMap();
     

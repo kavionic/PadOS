@@ -96,10 +96,12 @@ private:
     uint32_t GetFileClusterCount(Ptr<FATVolume> volume, off64_t fileSize);
     void ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t startPosition, off64_t endPosition);
     void ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize);
+    void UpdateDirectoryParentEntry(Ptr<FATVolume> volume, Ptr<FATInode> directory, Ptr<FATInode> parent);
     void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex);
     void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex);
     void CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir);
-    void EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> node);
+    void CompactDirectoryNoThrow(Ptr<FATVolume> vol, Ptr<FATInode> dir) noexcept;
+    void EraseDirectoryEntry(Ptr<FATVolume> vol, uint32_t parentCluster, uint32_t startIndex, uint32_t endIndex);
     void DoUnlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const PString& name, bool removeFile);
 
 };

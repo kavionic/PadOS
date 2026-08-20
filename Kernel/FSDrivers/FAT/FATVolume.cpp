@@ -466,35 +466,48 @@ void FATVolume::DumpInodeIDMap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATVolume::AddDirectoryMapping(ino_t inodeID)
+bool FATVolume::AddDirectoryMapping(uint32_t startCluster, ino_t inodeID)
 {
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::AddDirectoryMapping({:x})", inodeID);
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::AddDirectoryMapping({}, {:x})", startCluster, inodeID);
 
-    kassert(IS_DIR_CLUSTER_INODEID(inodeID));
-    kassert(inodeID != 0);
-    kassert(m_DirectoryMap.find(CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID)) == m_DirectoryMap.end());
+    if ((!IsDataCluster(startCluster) && !IS_FIXED_ROOT(startCluster)) || !IS_DIR_CLUSTER_INODEID(inodeID) || inodeID == 0 || CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID) != startCluster)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::AddDirectoryMapping(): invalid mapping from cluster {} to inode {:x}.", startCluster, inodeID);
+        return false;
+    }
 
-    m_DirectoryMap[CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID)] = inodeID;
+    const auto insertionResult = m_DirectoryMap.try_emplace(startCluster, inodeID);
+    const auto iterator = insertionResult.first;
+    const bool inserted = insertionResult.second;
+    if (!inserted && iterator->second != inodeID)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::AddDirectoryMapping(): cluster {} is already mapped to inode {:x}, not {:x}.", startCluster, iterator->second, inodeID);
+        return false;
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::RemoveDirectoryMapping(ino_t inodeID)
+bool FATVolume::RemoveDirectoryMapping(uint32_t startCluster, ino_t inodeID)
 {
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::RemoveDirectoryMapping({:x})", inodeID);
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::RemoveDirectoryMapping({}, {:x})", startCluster, inodeID);
 
-    kassert(IS_DIR_CLUSTER_INODEID(inodeID));
-    kassert(inodeID != 0);
-    
-    auto i = m_DirectoryMap.find(CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID));
-    if (i != m_DirectoryMap.end()) {
-        m_DirectoryMap.erase(i);
-        return true;
-    } else {
+    if ((!IsDataCluster(startCluster) && !IS_FIXED_ROOT(startCluster)) || !IS_DIR_CLUSTER_INODEID(inodeID) || inodeID == 0 || CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID) != startCluster)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::RemoveDirectoryMapping(): invalid mapping from cluster {} to inode {:x}.", startCluster, inodeID);
         return false;
     }
+
+    auto iterator = m_DirectoryMap.find(startCluster);
+    if (iterator != m_DirectoryMap.end() && iterator->second == inodeID)
+    {
+        m_DirectoryMap.erase(iterator);
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

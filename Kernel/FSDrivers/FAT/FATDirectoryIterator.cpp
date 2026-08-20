@@ -701,6 +701,55 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
     return true;
 }
 
+static void ValidateFATDirectoryEntry(Ptr<FATVolume> volume, Ptr<FATInode> directory, const FATDirectoryEntryInfo& info, const PString& filename)
+{
+    if (info.m_EndIndex < info.m_StartIndex || info.m_EndIndex - info.m_StartIndex > FAT_LONG_NAME_MAX_ENTRY_COUNT)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory entry {} through {} has an invalid entry count.", info.m_StartIndex, info.m_EndIndex);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    if (filename.empty() || (info.m_DOSAttribs & FAT_VOLUME))
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory entry {} has an invalid name or attributes.", info.m_StartIndex);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    if (filename == ".")
+    {
+        if (directory->m_InodeID == volume->m_RootInode->m_InodeID || info.m_StartIndex != 0 || info.m_EndIndex != 0 || !(info.m_DOSAttribs & FAT_SUBDIR) || info.m_StartCluster != directory->m_StartCluster || info.m_Size != 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory inode {:x} has an invalid '.' entry.", directory->m_InodeID);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+    }
+    else if (filename == "..")
+    {
+        uint32_t expectedParentCluster = 0;
+        if (directory->m_ParentInodeID != volume->m_RootInode->m_InodeID) {
+            expectedParentCluster = CLUSTER_OF_DIR_CLUSTER_INODEID(directory->m_ParentInodeID);
+        }
+        if (directory->m_InodeID == volume->m_RootInode->m_InodeID || info.m_StartIndex != 1 || info.m_EndIndex != 1 || !(info.m_DOSAttribs & FAT_SUBDIR) || info.m_StartCluster != expectedParentCluster || info.m_Size != 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory inode {:x} has an invalid '..' entry.", directory->m_InodeID);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+    }
+    else if (info.m_DOSAttribs & FAT_SUBDIR)
+    {
+        if (!volume->IsDataCluster(info.m_StartCluster) || info.m_Size != 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory entry {} refers to invalid directory cluster {} or has a nonzero size.", info.m_StartIndex, info.m_StartCluster);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+    }
+    else if ((info.m_StartCluster == 0) != (info.m_Size == 0) || (info.m_StartCluster != 0 && !volume->IsDataCluster(info.m_StartCluster)))
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory entry {} has invalid file cluster {} for size {}.", info.m_StartIndex, info.m_StartCluster, info.m_Size);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -721,7 +770,9 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t*
         }
         // Only hide volume label entries in the root directory.
     } while ((info.m_DOSAttribs & FAT_VOLUME) && (directory->m_InodeID == m_SectorIterator.m_Volume->m_RootInode->m_InodeID));
-    
+
+    ValidateFATDirectoryEntry(m_SectorIterator.m_Volume, directory, info, *outFilename);
+
     if (outDosAttribs != nullptr) {
 	    *outDosAttribs = info.m_DOSAttribs;
     }
@@ -760,13 +811,26 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t*
 
             if (info.m_DOSAttribs & FAT_SUBDIR)
             {
-                if (m_SectorIterator.m_Volume->GetDirectoryMapping(info.m_StartCluster) == -1) {
-                    m_SectorIterator.m_Volume->AddDirectoryMapping(*outInodeID);
+                const ino_t mappedInodeID = m_SectorIterator.m_Volume->GetDirectoryMapping(info.m_StartCluster);
+                if (mappedInodeID == -1)
+                {
+                    if (!m_SectorIterator.m_Volume->AddDirectoryMapping(info.m_StartCluster, *outInodeID)) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
+                }
+                else if (mappedInodeID != *outInodeID)
+                {
+                    kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FAT directory cluster {} is referenced by both inode {:x} and inode {:x}.", info.m_StartCluster, mappedInodeID, *outInodeID);
+                    PERROR_THROW_CODE(PErrorCode::IO);
                 }
             }
         }
     }
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextDirectoryEntry(): found {} (inode ID {:x}).", *outFilename, *outInodeID);
+    if (outInodeID != nullptr) {
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextDirectoryEntry(): found {} (inode ID {:x}).", *outFilename, *outInodeID);
+    } else {
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextDirectoryEntry(): found {}.", *outFilename);
+    }
     return true;
 }
 

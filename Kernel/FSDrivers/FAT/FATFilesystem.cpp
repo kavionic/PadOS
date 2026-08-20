@@ -374,9 +374,15 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
     // Check that the partition is large enough to contain the file system.
 
-    if (vol->m_TotalSectors > geo.sector_count)
+    const uint64_t volumeByteCount = uint64_t(vol->m_TotalSectors) * vol->m_BytesPerSector;
+    const uint64_t deviceByteCount = uint64_t(geo.sector_count) * geo.bytes_per_sector;
+    if (volumeByteCount > deviceByteCount)
     {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): volume extends past end of partition ({} > {}).", vol->m_TotalSectors, geo.sector_count);
+        kernel_log<PLogSeverity::ERROR>(
+            LogCat_FATFS,
+            "FATFilesystem::Mount(): volume extends past end of partition ({} bytes > {} bytes).",
+            volumeByteCount,
+            deviceByteCount);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 

@@ -208,6 +208,43 @@ static void InitFATDirectoryEntry(
     entry.m_FileSize = (dosAttribs & FAT_SUBDIR) ? 0 : uint32_t(size);
 }
 
+static void RestoreFATDirectoryEntriesNoThrow(
+    Ptr<FATVolume> volume,
+    uint32_t directoryCluster,
+    uint32_t startIndex,
+    const FATDirectoryEntryCombo* originalEntries,
+    size_t savedEntryCount,
+    size_t rollbackEntryCount) noexcept
+{
+    if (rollbackEntryCount != 0)
+    {
+        try
+        {
+            FATDirectoryIterator iterator(volume, directoryCluster, startIndex);
+            for (size_t entryIndex = 0; entryIndex < rollbackEntryCount; ++entryIndex)
+            {
+                FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry();
+                if (entry == nullptr) {
+                    PERROR_THROW_CODE(PErrorCode::IO);
+                }
+                if (entryIndex < savedEntryCount) {
+                    *entry = originalEntries[entryIndex];
+                } else {
+                    memset(entry, 0, sizeof(*entry));
+                }
+                iterator.MarkDirty();
+                if (entryIndex + 1 < rollbackEntryCount && iterator.GetNextRawEntry() == nullptr) {
+                    PERROR_THROW_CODE(PErrorCode::IO);
+                }
+            }
+        }
+        catch (const std::exception& exception)
+        {
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "RestoreFATDirectoryEntriesNoThrow(): failed to restore directory entries after an entry-creation error: {}", exception.what());
+        }
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -2719,38 +2756,81 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
 
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): directory entry runs from {:x} to {:x} (dirsize = {}){}", *startIndex, *endIndex, dir->m_Size, isLastEntry ? " (last entry)" : "");
 
-    bool wasExpanded = false;
-    // check if the directory needs to be expanded
-    if (*endIndex * sizeof(FATDirectoryEntry) >= dir->m_Size)
+    const uint32_t originalDirectoryEntryCount = static_cast<uint32_t>(dir->m_Size / sizeof(FATDirectoryEntry));
+    const bool directoryNeedsExpansion = *endIndex >= originalDirectoryEntryCount;
+    uint32_t requiredClusterCount = 0;
+    if (directoryNeedsExpansion)
     {
-        uint32_t clusters_needed;
-
         // can't expand fat12 and fat16 root directories :(
         if (IS_FIXED_ROOT(dir->m_StartCluster)) {
             kernel_log<PLogSeverity::WARNING>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): out of space in root directory.");
             PERROR_THROW_CODE(PErrorCode::NOSPC);
         }
-        
-        // otherwise grow directory to fit
-        clusters_needed = ((*endIndex + 1) * sizeof(FATDirectoryEntry) + vol->m_BytesPerSector * vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
+        const uint32_t directoryEntriesPerCluster = vol->m_BytesPerSector * vol->m_SectorsPerCluster / sizeof(FATDirectoryEntry);
+        requiredClusterCount = *endIndex / directoryEntriesPerCluster + 1;
+    }
 
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): expanding directory from {} to {} clusters.", dir->m_Size/vol->m_BytesPerSector/vol->m_SectorsPerCluster, clusters_needed);
+    FATDirectoryEntryCombo savedEntries[FAT_LONG_NAME_MAX_ENTRY_COUNT + 2];
+    size_t savedEntryCount = 0;
+    auto saveOriginalEntry = [&](const FATDirectoryEntryCombo& entry, uint32_t entryIndex)
+    {
+        if (entryIndex < originalDirectoryEntryCount)
+        {
+            kassert(entryIndex == *startIndex + savedEntryCount);
+            kassert(savedEntryCount < ARRAY_COUNT(savedEntries));
+            savedEntries[savedEntryCount++] = entry;
+        }
+    };
 
-        vol->GetFATTable()->SetChainLength(dir, clusters_needed, true);
+    FATDirectoryEntry shortDirectoryEntry = {};
+    InitFATDirectoryEntry(
+        shortDirectoryEntry,
+        shortName,
+        info->ShortNameCaseFlags,
+        info->DOSAttribs,
+        info->Cluster,
+        info->Size,
+        info->CreateTime,
+        info->AccessTime,
+        info->ModificationTime);
 
-        dir->m_Size = vol->m_BytesPerSector * vol->m_SectorsPerCluster * clusters_needed;
+    size_t rollbackEntryCount = 0;
+    bool rollbackNeeded = false;
+    PScopeFail restoreDirectoryEntries(
+        [&]()
+        {
+            if (rollbackNeeded) {
+                RestoreFATDirectoryEntriesNoThrow(vol, dir->m_StartCluster, *startIndex, savedEntries, savedEntryCount, rollbackEntryCount);
+            }
+        });
+
+    bool wasExpanded = false;
+    if (directoryNeedsExpansion)
+    {
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): expanding directory from {} to {} clusters.", dir->m_Size/vol->m_BytesPerSector/vol->m_SectorsPerCluster, requiredClusterCount);
+
+        vol->GetFATTable()->SetChainLength(dir, requiredClusterCount, true);
+
+        dir->m_Size = vol->m_BytesPerSector * vol->m_SectorsPerCluster * requiredClusterCount;
         wasExpanded = true;
     }
 
-    // starting blitting entries
+    // Write everything except the short entry first. The short entry is the
+    // commit point that makes the new name visible.
     FATDirectoryIterator diri(vol,dir->m_StartCluster, *startIndex);
     FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
-    uint8_t hash = FATDirectoryIterator::HashMSDOSName(shortName);
+    if (buffer == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+    const uint8_t hash = FATDirectoryIterator::HashMSDOSName(shortName);
 
     // write lfn entries
     for (size_t entryIndex = 1; entryIndex < requiredEntryCount && buffer != nullptr; ++entryIndex, buffer = diri.GetNextRawEntry())
     {
         const wchar16_t* namePart = longName + (requiredEntryCount - entryIndex - 1) * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY;
+        saveOriginalEntry(*buffer, diri.m_CurrentIndex);
+        rollbackEntryCount = size_t(diri.m_CurrentIndex - *startIndex) + 1;
+        rollbackNeeded = true;
         memset(buffer, 0, sizeof(*buffer));
         
         buffer->m_LFN.m_SequenceNumber = uint8_t(requiredEntryCount - entryIndex + ((entryIndex == 1) ? 0x40 : 0));
@@ -2769,28 +2849,42 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    // write directory entry
-    InitFATDirectoryEntry(
-        buffer->m_Normal,
-        shortName,
-        info->ShortNameCaseFlags,
-        info->DOSAttribs,
-        info->Cluster,
-        info->Size,
-        info->CreateTime,
-        info->AccessTime,
-        info->ModificationTime);
-    diri.MarkDirty();
-    
-    if (wasExpanded)
+    saveOriginalEntry(*buffer, diri.m_CurrentIndex);
+    rollbackEntryCount = requiredEntryCount;
+
+    const uint32_t directoryEntryCount = static_cast<uint32_t>(dir->m_Size / sizeof(FATDirectoryEntry));
+    size_t entriesToClear = 0;
+    if (isLastEntry && size_t(*endIndex) + 1 < directoryEntryCount)
     {
-        kassert(isLastEntry);
-        // Add end of directory markers to the rest of the cluster. Clear all entries to stop scandisk complaining.
-        while ((buffer = diri.GetNextRawEntry()) != nullptr) {
-            memset(buffer, 0, sizeof(FATDirectoryEntry));
-            diri.MarkDirty();
+        entriesToClear = wasExpanded ? directoryEntryCount - size_t(*endIndex) - 1 : 1;
+    }
+
+    if (entriesToClear != 0)
+    {
+        FATDirectoryIterator clearIterator(vol, dir->m_StartCluster, *endIndex + 1);
+        for (size_t entryIndex = 0; entryIndex < entriesToClear; ++entryIndex)
+        {
+            FATDirectoryEntryCombo* entry = clearIterator.GetCurrentEntry();
+            if (entry == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
+            saveOriginalEntry(*entry, clearIterator.m_CurrentIndex);
+            if (!wasExpanded) {
+                rollbackEntryCount = size_t(clearIterator.m_CurrentIndex - *startIndex) + 1;
+            }
+            rollbackNeeded = true;
+            memset(entry, 0, sizeof(*entry));
+            clearIterator.MarkDirty();
+            if (entryIndex + 1 < entriesToClear && clearIterator.GetNextRawEntry() == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
         }
     }
+
+    // Nothing below this point can throw. Publishing the short entry commits
+    // the operation after all supporting records and the end marker are ready.
+    buffer->m_Normal = shortDirectoryEntry;
+    diri.MarkDirty();
 }
 
 // shrink directory to the size needed

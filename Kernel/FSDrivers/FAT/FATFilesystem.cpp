@@ -2098,6 +2098,20 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
         }
     }
 
+    const mode_t oldFileMode = node->m_FileMode;
+    const uint8_t oldDOSAttribs = node->m_DOSAttribs;
+    const TimeValNanos oldAccessTime = node->m_ATime;
+    const TimeValNanos oldModificationTime = node->m_MTime;
+    const TimeValNanos oldCreationTime = node->m_CTime;
+    PScopeFail restoreMetadata([&node, oldFileMode, oldDOSAttribs, oldAccessTime, oldModificationTime, oldCreationTime]()
+    {
+        node->m_FileMode = oldFileMode;
+        node->m_DOSAttribs = oldDOSAttribs;
+        node->m_ATime = oldAccessTime;
+        node->m_MTime = oldModificationTime;
+        node->m_CTime = oldCreationTime;
+    });
+
     if (mask & WSTAT_MODE)
     {
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting file mode to {:o}.", st->st_mode);

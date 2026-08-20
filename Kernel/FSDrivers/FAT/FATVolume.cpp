@@ -127,7 +127,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     }
 
     m_FATCount = superBlock->m_FATCount;
-    if (m_FATCount == 0 || m_FATCount > 8)
+    if (m_FATCount == 0 || m_FATCount > FAT_MAX_SUPPORTED_FAT_COUNT)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): unreasonable FAT count ({}).", m_FATCount);
         PERROR_THROW_CODE(PErrorCode::INVAL);

@@ -58,8 +58,6 @@ public:
     uint32_t    AllocateClusters(size_t clusterCount, uint32_t* endCluster = nullptr);
     void        ClearFATChain(uint32_t cluster);
 
-    void MirrorFAT(uint32_t sector, const uint8_t* buffer);
-
     void DumpChain(uint32_t startCluster);
     
 private:

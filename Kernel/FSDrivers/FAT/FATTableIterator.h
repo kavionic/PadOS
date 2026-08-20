@@ -19,11 +19,15 @@
 
 #pragma once
 
+#include <array>
+
 #include "Ptr/Ptr.h"
 #include "Kernel/VFS/KBlockCache.h"
 
 namespace kernel
 {
+inline constexpr size_t FAT_MAX_SUPPORTED_FAT_COUNT = 8;
+
 class FATVolume;
 
 class FATTableIterator
@@ -40,6 +44,10 @@ public:
     uint32_t GetEntry();
     
 private:
+    using MirrorBlockArray = std::array<KCacheBlockDesc, FAT_MAX_SUPPORTED_FAT_COUNT - 1>;
+
+    size_t AcquireMirrorBlocks(off64_t activeSector, MirrorBlockArray& mirrorBlocks);
+    void CopyToMirrorBlocks(const uint8_t* sourceBuffer, MirrorBlockArray& mirrorBlocks, size_t mirrorBlockCount);
     void Update();
     
     Ptr<FATVolume>  m_Volume;

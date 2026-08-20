@@ -91,6 +91,14 @@ void FATTableIterator::Increment()
 void FATTableIterator::SetEntry(uint32_t value)
 {
     Update();
+    MirrorBlockArray mirrorBlocks1;
+    MirrorBlockArray mirrorBlocks2;
+    const size_t mirrorBlockCount1 = AcquireMirrorBlocks(m_LoadedSector1, mirrorBlocks1);
+    size_t mirrorBlockCount2 = 0;
+    if (m_LoadedSector2 != -1) {
+        mirrorBlockCount2 = AcquireMirrorBlocks(m_LoadedSector2, mirrorBlocks2);
+    }
+
     uint8_t* block1 = static_cast<uint8_t*>(m_Block1.m_Buffer);
     uint8_t* block2 = static_cast<uint8_t*>(m_Block2.m_Buffer);
     
@@ -115,8 +123,6 @@ void FATTableIterator::SetEntry(uint32_t value)
         {
             kassert(block2 != nullptr);
             block2[0] = uint8_t((block2[0] & (preserveMask >> 8)) | (entryBits >> 8));
-            m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector2), block2);
-            m_Block2.MarkDirty();
         }
         else
         {
@@ -142,8 +148,13 @@ void FATTableIterator::SetEntry(uint32_t value)
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector1), block1);
     m_Block1.MarkDirty();
+    CopyToMirrorBlocks(block1, mirrorBlocks1, mirrorBlockCount1);
+    if (m_LoadedSector2 != -1)
+    {
+        m_Block2.MarkDirty();
+        CopyToMirrorBlocks(block2, mirrorBlocks2, mirrorBlockCount2);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -185,6 +196,59 @@ uint32_t FATTableIterator::GetEntry()
         return block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector + 1] + 0x10000*block1[m_OffsetInSector + 2] + 0x1000000*(block1[m_OffsetInSector + 3]&0x0f);
     }
     PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t FATTableIterator::AcquireMirrorBlocks(off64_t activeSector, MirrorBlockArray& mirrorBlocks)
+{
+    if (!m_Volume->m_FATMirrored) {
+        return 0;
+    }
+    if (m_Volume->m_FATCount > FAT_MAX_SUPPORTED_FAT_COUNT)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTableIterator::AcquireMirrorBlocks(): unsupported FAT count {}.", m_Volume->m_FATCount);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    const off64_t activeFATStartSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    if (activeSector < activeFATStartSector || activeSector >= activeFATStartSector + m_Volume->m_SectorsPerFAT)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTableIterator::AcquireMirrorBlocks(): sector {} is outside the active FAT.", activeSector);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    const off64_t sectorOffset = activeSector - activeFATStartSector;
+    size_t mirrorBlockCount = 0;
+    for (size_t fatIndex = 0; fatIndex < m_Volume->m_FATCount; ++fatIndex)
+    {
+        if (fatIndex == m_Volume->m_ActiveFAT) {
+            continue;
+        }
+        const off64_t mirrorSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(fatIndex) * m_Volume->m_SectorsPerFAT + sectorOffset;
+        mirrorBlocks[mirrorBlockCount] = m_Volume->m_BCache.GetBlock_trw(mirrorSector, false);
+        if (mirrorBlocks[mirrorBlockCount].m_Buffer == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        ++mirrorBlockCount;
+    }
+    return mirrorBlockCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATTableIterator::CopyToMirrorBlocks(const uint8_t* sourceBuffer, MirrorBlockArray& mirrorBlocks, size_t mirrorBlockCount)
+{
+    kassert(mirrorBlockCount <= mirrorBlocks.size());
+    for (size_t mirrorIndex = 0; mirrorIndex < mirrorBlockCount; ++mirrorIndex)
+    {
+        memcpy(mirrorBlocks[mirrorIndex].m_Buffer, sourceBuffer, m_Volume->m_BytesPerSector);
+        mirrorBlocks[mirrorIndex].MarkDirty();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

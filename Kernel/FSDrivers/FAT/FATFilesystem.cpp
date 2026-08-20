@@ -1141,7 +1141,6 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATInode>  dir = ptr_static_cast<FATInode>(parent);
-    uint32_t i;
     PString name;
 
     if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__))
@@ -1216,9 +1215,6 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     }
 
     PScopeFail scopeCleanupDirMapping([&vol, &dummy]() { vol->RemoveDirectoryMapping(dummy->m_StartCluster, dummy->m_InodeID); });
-    
-
-    CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 
     // create '.' and '..' entries and then end of directories
     memset(buffer.data(), 0, buffer.size());
@@ -1267,16 +1263,22 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     // clear out rest of cluster to keep scandisk happy
     memset(buffer.data(), 0, buffer.size());
 
-    for (i = 1; i < vol->m_SectorsPerCluster; ++i)
+    for (size_t sectorIndex = 1; sectorIndex < vol->m_SectorsPerCluster; ++sectorIndex)
     {
-        csi.Increment(1);
-        KCacheBlockDesc blockDesc = csi.GetBlock_(false);
-        if (blockDesc.m_Buffer != nullptr)
-        {
-            memset(blockDesc.m_Buffer, 0, vol->m_BytesPerSector);
-            blockDesc.MarkDirty();
+        if (!csi.Increment(1)) {
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
+        KCacheBlockDesc blockDesc = csi.GetBlock_(false);
+        if (blockDesc.m_Buffer == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        memset(blockDesc.m_Buffer, 0, vol->m_BytesPerSector);
+        blockDesc.MarkDirty();
     }
+
+    // Publishing the parent entry commits the new directory after its contents
+    // are fully initialized.
+    CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

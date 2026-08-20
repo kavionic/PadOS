@@ -299,73 +299,80 @@ ino_t FATVolume::AllocUniqueInodeID()
 
 void FATVolume::SetInodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
 {
-    CRITICAL_SCOPE(m_InodeIDMapMutex);
+    KScopedLock inodeMapLock(m_InodeIDMapMutex);
 
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x})", inodeID, locationID);
 
-    auto inodeItr = m_InodeToLocationMap.find(inodeID);
-    if (inodeItr != m_InodeToLocationMap.end())
+    auto inodeIterator = m_InodeToLocationMap.find(inodeID);
+    if (inodeIterator != m_InodeToLocationMap.end())
     {
-        InodeMapEntry& entry = inodeItr->second;
+        InodeMapEntry& entry = inodeIterator->second;
+        auto oldLocationIterator = m_LocationToInodeMap.find(entry.m_LocationID);
+        if (oldLocationIterator == m_LocationToInodeMap.end() || oldLocationIterator->second != &entry)
+        {
+            const ino_t currentOwner = (oldLocationIterator != m_LocationToInodeMap.end() && oldLocationIterator->second != nullptr) ? oldLocationIterator->second->m_InodeID : 0;
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): reverse map at existing location {:16x} is owned by {:16x}.", inodeID, locationID, entry.m_LocationID, currentOwner);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
         if (locationID != entry.m_LocationID)
         {
-            auto locItr = m_LocationToInodeMap.find(entry.m_LocationID);
-            if (locItr != m_LocationToInodeMap.end() && locItr->second == &entry)
+            auto newLocationIterator = m_LocationToInodeMap.find(locationID);
+            if (newLocationIterator != m_LocationToInodeMap.end())
             {
-                m_LocationToInodeMap.erase(locItr);
+                const ino_t currentOwner = (newLocationIterator->second != nullptr) ? newLocationIterator->second->m_InodeID : 0;
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): destination location is already owned by {:16x}.", inodeID, locationID, currentOwner);
+                PERROR_THROW_CODE(PErrorCode::IO);
             }
-            else
-            {
-                const ino_t staleOwner = (locItr != m_LocationToInodeMap.end()) ? locItr->second->m_InodeID : 0;
-                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): reverse map at {:16x} owned by {:16x}.", inodeID, locationID, entry.m_LocationID, staleOwner);
-            }
+
             if (inodeID != locationID)
             {
-                try
+                const auto insertionResult = m_LocationToInodeMap.try_emplace(locationID, &entry);
+                if (!insertionResult.second)
                 {
-                    auto [it, inserted] = m_LocationToInodeMap.try_emplace(locationID, &entry);
-                    if (!inserted)
-                    {
-                        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): new location already claimed by {:16x}, taking over.", inodeID, locationID, it->second->m_InodeID);
-                        it->second = &entry;
-                    }
-                    entry.m_LocationID = locationID;
+                    kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): failed to insert an unclaimed destination location.", inodeID, locationID);
+                    PERROR_THROW_CODE(PErrorCode::IO);
                 }
-                catch(const std::bad_alloc&)
-                {
-                    m_InodeToLocationMap.erase(inodeItr);
-                    throw;
-                }
+                entry.m_LocationID = locationID;
+                m_LocationToInodeMap.erase(oldLocationIterator);
             }
             else
             {
-                m_InodeToLocationMap.erase(inodeItr);
-            }
-        }            
-    }
-    else if (inodeID != locationID)
-    {
-        InodeMapEntry* entry;
-        entry = &m_InodeToLocationMap[inodeID];
-        entry->m_InodeID = inodeID;
-        entry->m_LocationID = locationID;
-        try
-        {
-            auto [it, inserted] = m_LocationToInodeMap.try_emplace(locationID, entry);
-            if (!inserted) {
-                // Location already claimed — log and take it over.
-                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): location already claimed by {:16x}, taking over.", inodeID, locationID, it->second->m_InodeID);
-                it->second = entry;
+                m_LocationToInodeMap.erase(oldLocationIterator);
+                m_InodeToLocationMap.erase(inodeIterator);
             }
         }
-        catch(const std::bad_alloc&)
+    }
+    else
+    {
+        auto locationIterator = m_LocationToInodeMap.find(locationID);
+        if (locationIterator != m_LocationToInodeMap.end())
         {
-            auto i = m_InodeToLocationMap.find(inodeID);
-            kassert(i != m_InodeToLocationMap.end());
-            if (i != m_InodeToLocationMap.end()) {
-                m_InodeToLocationMap.erase(i);
+            const ino_t currentOwner = (locationIterator->second != nullptr) ? locationIterator->second->m_InodeID : 0;
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): destination location is already owned by {:16x}.", inodeID, locationID, currentOwner);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        if (inodeID != locationID)
+        {
+            const auto forwardInsertionResult = m_InodeToLocationMap.try_emplace(inodeID, InodeMapEntry{inodeID, locationID});
+            if (!forwardInsertionResult.second)
+            {
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): inode appeared in the forward map during a locked update.", inodeID, locationID);
+                PERROR_THROW_CODE(PErrorCode::IO);
             }
-            throw;
+            PScopeFail rollbackForwardMapping([this, inodeID]()
+            {
+                m_InodeToLocationMap.erase(inodeID);
+            });
+
+            InodeMapEntry& entry = forwardInsertionResult.first->second;
+            const auto reverseInsertionResult = m_LocationToInodeMap.try_emplace(locationID, &entry);
+            if (!reverseInsertionResult.second)
+            {
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): location appeared in the reverse map during a locked update.", inodeID, locationID);
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
         }
     }
 }

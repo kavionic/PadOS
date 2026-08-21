@@ -81,6 +81,7 @@ public:
 
     virtual void                ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
     virtual void                WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> node, const struct stat* stat, uint32_t mask) override;
+    virtual void                Sync(Ptr<KFileNode> file) override;
 
     virtual void                DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 

@@ -572,7 +572,9 @@ void FATFilesystem::Sync(Ptr<KFSVolume> _vol)
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Sync() called on volume {:x}", vol->m_VolumeID);
 
     vol->UpdateFSInfo();
-    vol->m_BCache.Flush();
+    if (!vol->m_BCache.Sync()) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2131,6 +2133,15 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
     if (dirty) {
         node->Write();
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATFilesystem::Sync(Ptr<KFileNode> file)
+{
+    Sync(file->GetInode()->m_Volume);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

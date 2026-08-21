@@ -86,6 +86,7 @@ public:
 
     static mode_t DOSAttribsToFileMode(uint8_t dosAttribs);
 private:
+    static void CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo);
     uint32_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
     bool FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName);
     bool FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode);

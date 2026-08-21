@@ -19,6 +19,7 @@
 
 #include <System/Platform.h>
 
+#include <string_view>
 #include <utility>
 #include <string.h>
 #include <fcntl.h>
@@ -276,28 +277,7 @@ PErrorCode FATFilesystem::Probe(const char* devicePath, fs_info* fsInfo)
         fsInfo->fi_free_blocks = vol->m_FreeClusters;                              // Free blocks
         fsInfo->fi_free_user_blocks = fsInfo->fi_free_blocks;
 
-        if (vol->m_VolumeLabelEntry > -2) {
-            strncpy(fsInfo->fi_volume_name, vol->m_VolumeLabel, sizeof(fsInfo->fi_volume_name));
-        }
-        else {
-            strcpy(fsInfo->fi_volume_name, "no name    ");
-        }
-        // XXX: should sanitize name as well
-
-        int  i;
-        for (i = 10; i > 0; --i)
-        {
-            if (fsInfo->fi_volume_name[i] != ' ') {
-                break;
-            }
-        }
-        fsInfo->fi_volume_name[i + 1] = 0;
-        for (; i >= 0; --i)
-        {
-            if ((fsInfo->fi_volume_name[i] >= 'A') && (fsInfo->fi_volume_name[i] <= 'Z')) {
-                fsInfo->fi_volume_name[i] = char(fsInfo->fi_volume_name[i] + ('a' - 'A'));
-            }
-        }
+        CopyVolumeLabelToFSInfo(*vol, fsInfo);
         Unmount(vol);
 
         return PErrorCode::Success;
@@ -602,7 +582,6 @@ void FATFilesystem::Sync(Ptr<KFSVolume> _vol)
 void FATFilesystem::ReadFSStat(Ptr<KFSVolume> _vol, fs_info* fss)
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(_vol);
-    int i;
 
     CRITICAL_SCOPE(vol->m_Mutex);
 
@@ -633,24 +612,7 @@ void FATFilesystem::ReadFSStat(Ptr<KFSVolume> _vol, fs_info* fss)
     // Device name.
     //	strncpy(fss->device_name, vol->device, sizeof(fss->device_name));
 
-    if (vol->m_VolumeLabelEntry > -2) {
-        strncpy(fss->fi_volume_name, vol->m_VolumeLabel, sizeof(fss->fi_volume_name));
-    } else {
-        strcpy(fss->fi_volume_name, "no name    ");
-    }
-    // XXX: should sanitize name as well
-    for (i=10;i>0;i--) {
-        if (fss->fi_volume_name[i] != ' ') {
-            break;
-        }
-    }
-    fss->fi_volume_name[i+1] = 0;
-    for (; i >= 0; i--)
-    {
-        if ((fss->fi_volume_name[i] >= 'A') && (fss->fi_volume_name[i] <= 'Z')) {
-            fss->fi_volume_name[i] = char(fss->fi_volume_name[i] + ('a' - 'A'));
-        }
-    }
+    CopyVolumeLabelToFSInfo(*vol, fss);
 
     // File system name
     //	strcpy(fss->fsh_name, "fat");
@@ -681,27 +643,33 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
 
     if (mask & WFSSTAT_NAME)
     {
-        // sanitize name
-        char name[11];
+        char sanitizedName[FAT_VOLUME_LABEL_LENGTH];
+        static constexpr char acceptableCharacters[] = "!#$%&'()-0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`{}~ ";
 
-        memset(name, ' ', 11);
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): setting name to '{}'.", fss->fi_volume_name);
-        int i;
-        int j;
-        for (i = 0, j=0; (i<11) && (fss->fi_volume_name[j]); ++j)
+        size_t inputNameLength = 0;
+        while (inputNameLength < sizeof(fss->fi_volume_name) && fss->fi_volume_name[inputNameLength] != '\0') {
+            ++inputNameLength;
+        }
+        const std::string_view inputName(fss->fi_volume_name, inputNameLength);
+
+        memset(sanitizedName, ' ', sizeof(sanitizedName));
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): setting name to '{}'.", inputName);
+
+        size_t outputIndex = 0;
+        for (size_t inputIndex = 0; outputIndex < FAT_VOLUME_LABEL_LENGTH && inputIndex < inputNameLength; ++inputIndex)
         {
-            static const char acceptable[] = "!#$%&'()-0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`{}~ ";
-            char c = fss->fi_volume_name[j];
-            if ((c >= 'a') && (c <= 'z')) c = char(c + ('A' - 'a'));
-            // spaces acceptable in volume names
-            if (strchr(acceptable, c)) {
-                name[i++] = c;
+            char character = fss->fi_volume_name[inputIndex];
+            if ((character >= 'a') && (character <= 'z')) {
+                character = char(character + ('A' - 'a'));
+            }
+            if (strchr(acceptableCharacters, character) != nullptr) {
+                sanitizedName[outputIndex++] = character;
             }
         }
-        if (i == 0) { // bad name, kiddo
+        if (outputIndex == 0) {
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{:11.11}].", name);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{:11.11}].", sanitizedName);
 
         if (vol->m_VolumeLabelEntry == -1)
         {
@@ -711,15 +679,15 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
             if (buffer == nullptr) {
                 PERROR_THROW_CODE(PErrorCode::IO);
             }
-            if ((buffer[0x26] != 0x29) || memcmp(buffer + 0x2b, vol->m_VolumeLabel, 11))
+            if ((buffer[0x26] != 0x29) || memcmp(buffer + 0x2b, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0)
             {
                 kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): label mismatch.");
                 PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             else
             {
-                memcpy(buffer + 0x2b, name, 11);
-                vol->m_BCache.MarkBlockDirty(0);
+                memcpy(buffer + 0x2b, sanitizedName, FAT_VOLUME_LABEL_LENGTH);
+                bufferDesc.MarkDirty();
             }
         }
         else if (vol->m_VolumeLabelEntry >= 0)
@@ -728,20 +696,20 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
             FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
 
             // check if it is the same as the old volume label
-            if (buffer == nullptr || memcmp(buffer->m_Normal.m_Filename, vol->m_VolumeLabel, sizeof(buffer->m_Normal.m_Filename)) != 0)
+            if (buffer == nullptr || memcmp(buffer->m_Normal.m_Filename, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0)
             {
                 kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): label mismatch.");
                 PERROR_THROW_CODE(PErrorCode::INVAL);
             }
-            memcpy(buffer->m_Normal.m_Filename, name, sizeof(buffer->m_Normal.m_Filename));
+            memcpy(buffer->m_Normal.m_Filename, sanitizedName, FAT_VOLUME_LABEL_LENGTH);
             diri.MarkDirty();
         }
         else
         {
-            const uint32_t index = CreateVolumeLabel(vol, name);
+            const uint32_t index = CreateVolumeLabel(vol, sanitizedName);
             vol->m_VolumeLabelEntry = index;
         }
-        memcpy(vol->m_VolumeLabel, name, 11);
+        memcpy(vol->m_VolumeLabel, sanitizedName, FAT_VOLUME_LABEL_LENGTH);
     }
 }
 
@@ -2230,6 +2198,31 @@ mode_t FATFilesystem::DOSAttribsToFileMode(uint8_t dosAttribs)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATFilesystem::CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo)
+{
+    const bool hasVolumeLabel = volume.m_VolumeLabelEntry > -2;
+    const char* const sourceLabel = hasVolumeLabel ? volume.m_VolumeLabel : "no name";
+    size_t labelLength = hasVolumeLabel ? FAT_VOLUME_LABEL_LENGTH : sizeof("no name") - 1;
+
+    while (labelLength > 0 && sourceLabel[labelLength - 1] == ' ') {
+        --labelLength;
+    }
+
+    for (size_t index = 0; index < labelLength; ++index)
+    {
+        char character = sourceLabel[index];
+        if ((character >= 'A') && (character <= 'Z')) {
+            character = char(character + ('a' - 'A'));
+        }
+        fsInfo->fi_volume_name[index] = character;
+    }
+    fsInfo->fi_volume_name[labelLength] = '\0';
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Doesn't do any name checking
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -2242,7 +2235,7 @@ uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name)
     info.CreateTime = FATInode::RoundTimeToFATCreateTime(currentTime);
     info.AccessTime = FATInode::RoundTimeToFATAccessTime(currentTime);
     info.ModificationTime = FATInode::RoundTimeToFATModificationTime(currentTime);
-    info.DOSAttribs = FAT_ARCHIVE | FAT_VOLUME;
+    info.DOSAttribs = FAT_VOLUME;
 
     // check if name already exists
     if (FindShortName(vol, vol->m_RootInode, name)) {

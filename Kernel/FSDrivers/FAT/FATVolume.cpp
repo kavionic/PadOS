@@ -43,7 +43,8 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
     m_Magic = MAGIC;
 
     m_VolumeLabelEntry = -2;	// for now, assume there is no volume entry
-    memset(m_VolumeLabel, ' ', 11);
+    memset(m_VolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
+    m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH] = '\0';
         
     m_RootInode = ptr_new<FATInode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
     m_RootNode = m_RootInode;
@@ -268,9 +269,9 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         if (superBlock->m_FSDependent.FAT16.m_BootSignature == 0x29)
         {
             // Fill in the volume label
-            if (memcmp(superBlock->m_FSDependent.FAT16.m_VolumeLabel, "           ", 11) != 0)
+            if (memcmp(superBlock->m_FSDependent.FAT16.m_VolumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
             {
-                memcpy(m_VolumeLabel, superBlock->m_FSDependent.FAT16.m_VolumeLabel, 11);
+                memcpy(m_VolumeLabel, superBlock->m_FSDependent.FAT16.m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH);
                 m_VolumeLabelEntry = -1;
             }
         }

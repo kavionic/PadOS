@@ -29,6 +29,8 @@ namespace kernel
 class FATFilesystem;    
 class FATInode;
 
+inline constexpr size_t FAT_VOLUME_LABEL_LENGTH = 11;
+
 struct FATSuperBlock
 {
     uint8_t  m_JmpBoot[3];        // 0x00
@@ -55,7 +57,7 @@ struct FATSuperBlock
             uint8_t  m_Reserved1;       // 0x25 Reserved (used by Windows NT). Code that formats FAT volumes should always set this byte to 0.
             uint8_t  m_BootSignature;   // 0x26 Extended boot signature (0x29). This is a signature byte that indicates that the following three fields in the boot sector are present.
             uint32_t m_VolumeID;        // 0x27
-            uint8_t  m_VolumeLabel[11]; // 0x2B
+            uint8_t  m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH]; // 0x2B
             uint8_t  m_FilesType[8];    // 0x36
             uint8_t  m_Reserved[28];    // 0x3E
         } __attribute__((packed)) FAT16;
@@ -72,7 +74,7 @@ struct FATSuperBlock
             uint8_t  m_Reserved1;        // 0x41 Reserved (used by Windows NT). Code that formats FAT volumes should always set this byte to 0.
             uint8_t  m_BootSignature;    // 0x42 Extended boot signature (0x29). This is a signature byte that indicates that the following three fields in the boot sector are present.
             uint32_t m_VolumeID;         // 0x43
-            uint8_t  m_VolumeLabel[11];  // 0x47
+            uint8_t  m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH]; // 0x47
             uint8_t  m_FilesType[8];     // 0x52
         } __attribute__((packed)) FAT32; // 54
     } __attribute__((packed)) m_FSDependent;
@@ -171,7 +173,7 @@ public:
     uint32_t	  m_RootSectorCount = 0;  // for fat12 + fat16 only
     Ptr<FATInode> m_RootInode;            // root directory
     int32_t	  m_VolumeLabelEntry = 0; // index in root directory
-    char	  m_VolumeLabel[12];      // lfn's need not apply
+    char	  m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH + 1]; // lfn's need not apply
 
     uint32_t	  m_FirstDataSector = 0;
     uint32_t      m_LastAllocatedCluster = 0; // last allocated cluster

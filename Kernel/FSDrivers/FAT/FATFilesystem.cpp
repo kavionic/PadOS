@@ -675,21 +675,57 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
 
         if (vol->m_VolumeLabelEntry == -1)
         {
-            // stored in the bpb
-            KCacheBlockDesc bufferDesc = vol->m_BCache.GetBlock_trw(0);
-            uint8_t* buffer = static_cast<uint8_t*>(bufferDesc.m_Buffer);
-            if (buffer == nullptr) {
+            // Stored in the BPB.
+            KCacheBlockDesc primaryBufferDesc = vol->m_BCache.GetBlock_trw(0);
+            FATSuperBlock* primarySuperBlock = static_cast<FATSuperBlock*>(primaryBufferDesc.m_Buffer);
+            if (primarySuperBlock == nullptr) {
                 PERROR_THROW_CODE(PErrorCode::IO);
             }
-            if ((buffer[0x26] != 0x29) || memcmp(buffer + 0x2b, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0)
+
+            const bool isFAT32 = vol->m_FATBits == 32;
+            uint8_t* const primaryVolumeLabel = isFAT32 ?
+                primarySuperBlock->m_FSDependent.FAT32.m_VolumeLabel :
+                primarySuperBlock->m_FSDependent.FAT16.m_VolumeLabel;
+            const uint8_t primaryBootSignature = isFAT32 ?
+                primarySuperBlock->m_FSDependent.FAT32.m_BootSignature :
+                primarySuperBlock->m_FSDependent.FAT16.m_BootSignature;
+
+            if (primarySuperBlock->m_Signature != 0xaa55 ||
+                primaryBootSignature != 0x29 ||
+                memcmp(primaryVolumeLabel, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0)
             {
                 kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): label mismatch.");
                 PERROR_THROW_CODE(PErrorCode::INVAL);
             }
-            else
+
+            KCacheBlockDesc backupBufferDesc;
+            uint8_t* backupVolumeLabel = nullptr;
+            if (vol->m_BackupBootSector != 0)
             {
-                memcpy(buffer + 0x2b, sanitizedName, FAT_VOLUME_LABEL_LENGTH);
-                bufferDesc.MarkDirty();
+                KCacheBlockDesc loadedBackupBufferDesc = vol->m_BCache.GetBlock_trw(vol->m_BackupBootSector);
+                FATSuperBlock* backupSuperBlock = static_cast<FATSuperBlock*>(loadedBackupBufferDesc.m_Buffer);
+                if (backupSuperBlock == nullptr ||
+                    backupSuperBlock->m_Signature != 0xaa55 ||
+                    backupSuperBlock->m_BytesPerSector != vol->m_BytesPerSector ||
+                    backupSuperBlock->m_FSDependent.FAT32.m_BootSignature != 0x29 ||
+                    backupSuperBlock->m_FSDependent.FAT32.m_VolumeID != primarySuperBlock->m_FSDependent.FAT32.m_VolumeID ||
+                    backupSuperBlock->m_FSDependent.FAT32.m_RootDirectory != primarySuperBlock->m_FSDependent.FAT32.m_RootDirectory ||
+                    backupSuperBlock->m_FSDependent.FAT32.m_FSInfoSector != vol->m_FSInfoSector ||
+                    backupSuperBlock->m_FSDependent.FAT32.m_BackupBootSector != vol->m_BackupBootSector)
+                {
+                    kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): backup boot sector mismatch.");
+                    PERROR_THROW_CODE(PErrorCode::INVAL);
+                }
+                backupVolumeLabel = backupSuperBlock->m_FSDependent.FAT32.m_VolumeLabel;
+                backupBufferDesc = std::move(loadedBackupBufferDesc);
+            }
+
+            memcpy(primaryVolumeLabel, sanitizedName, FAT_VOLUME_LABEL_LENGTH);
+            primaryBufferDesc.MarkDirty();
+            if (backupVolumeLabel != nullptr)
+            {
+                memcpy(backupVolumeLabel, sanitizedName, FAT_VOLUME_LABEL_LENGTH);
+                backupBufferDesc.MarkDirty();
             }
         }
         else if (vol->m_VolumeLabelEntry >= 0)

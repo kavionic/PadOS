@@ -164,6 +164,7 @@ public:
     uint32_t	m_TotalSectors = 0;
     uint8_t	m_MediaDescriptor = 0;
     uint16_t	m_FSInfoSector = 0;
+    uint16_t	m_BackupBootSector = 0;
 
     uint32_t	m_TotalClusters = 0;      // data clusters, that is
     uint32_t	m_FreeClusters = 0;

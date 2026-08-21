@@ -231,6 +231,13 @@ void FATVolume::ReadSuperBlock(int deviceFile)
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
 
+        m_BackupBootSector = superBlock->m_FSDependent.FAT32.m_BackupBootSector;
+        if (m_BackupBootSector != 0 && m_BackupBootSector >= m_ReservedSectors)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid backup boot sector ({}).", m_BackupBootSector);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+
         const uint16_t extendedFlags = superBlock->m_FSDependent.FAT32.m_ExtendedFlags;
         m_FATMirrored = (extendedFlags & 0x80) == 0;
         m_ActiveFAT = m_FATMirrored ? 0 : uint8_t(extendedFlags & 0x0f);
@@ -257,6 +264,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         }
 
         m_FSInfoSector = 0xffff;
+        m_BackupBootSector = 0;
         m_FATMirrored = true;
         m_ActiveFAT = 0;
 
@@ -265,15 +273,21 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         rootStartCluster = 1;
         rootEndCluster = 1;
         rootSize = m_RootSectorCount * m_BytesPerSector;
+    }
 
-        if (superBlock->m_FSDependent.FAT16.m_BootSignature == 0x29)
+    const uint8_t bootSignature = (m_FATBits == 32) ?
+        superBlock->m_FSDependent.FAT32.m_BootSignature :
+        superBlock->m_FSDependent.FAT16.m_BootSignature;
+    const uint8_t* const volumeLabel = (m_FATBits == 32) ?
+        superBlock->m_FSDependent.FAT32.m_VolumeLabel :
+        superBlock->m_FSDependent.FAT16.m_VolumeLabel;
+    if (bootSignature == 0x29)
+    {
+        // Fill in the volume label.
+        if (memcmp(volumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
         {
-            // Fill in the volume label
-            if (memcmp(superBlock->m_FSDependent.FAT16.m_VolumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
-            {
-                memcpy(m_VolumeLabel, superBlock->m_FSDependent.FAT16.m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH);
-                m_VolumeLabelEntry = -1;
-            }
+            memcpy(m_VolumeLabel, volumeLabel, FAT_VOLUME_LABEL_LENGTH);
+            m_VolumeLabelEntry = -1;
         }
     }
 

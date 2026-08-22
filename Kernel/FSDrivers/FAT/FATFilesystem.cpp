@@ -549,6 +549,11 @@ void FATFilesystem::Unmount(Ptr<KFSVolume> volume)
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
+    {
+        KScopedLock volumeLock(vol->m_Mutex);
+        vol->FlushDirtyInodes();
+    }
+
     KVFSManager::DetachVolume_trw(vol);
     PScopeExit volumeShutdownGuard([&vol]()
     {
@@ -581,6 +586,7 @@ void FATFilesystem::Sync(Ptr<KFSVolume> _vol)
     
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Sync() called on volume {:x}", vol->m_VolumeID);
 
+    vol->FlushDirtyInodes();
     vol->UpdateFSInfo();
     if (!vol->m_BCache.Sync()) {
         PERROR_THROW_CODE(PErrorCode::IO);
@@ -805,48 +811,55 @@ void FATFilesystem::ReleaseInode(KInode* inode)
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    if (node->IsDeleted())
+    if (node->IsDeleted() || node->IsMetadataDirty())
     {
-        CRITICAL_SCOPE(vol->m_Mutex);
+        KScopedLock volumeLock(vol->m_Mutex);
 
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::ReleaseInode({:x})", node->m_InodeID);
 
-        PScopeExit removeMappings([&vol, node]()
+        PScopeExit discardPendingMetadata([node]()
         {
-            if (vol->HasInodeIDToLocationIDMapping(node->m_InodeID)) {
-                vol->RemoveInodeIDToLocationIDMapping(node->m_InodeID);
-            }
-            if (node->IsDirectory() && !vol->RemoveDirectoryMapping(node->m_StartCluster, node->m_InodeID)) {
-                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): failed to remove directory mapping for inode {:x}.", node->m_InodeID);
-            }
+            node->DiscardPendingMetadata();
         });
 
-        if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): deleted inode on read-only volume.");
-            PERROR_THROW_CODE(PErrorCode::ROFS);
-        }
-
-        if (node->m_StartCluster == 0)
+        if (node->IsDeleted())
         {
-            if (node->m_Size != 0 || node->IsDirectory())
+            PScopeExit removeMappings([&vol, node]()
             {
-                kernel_log<PLogSeverity::ERROR>(
-                    LogCat_FATFS,
-                    "FATFilesystem::ReleaseInode(): inode {:x} has no start cluster (size {}, directory {}).",
-                    node->m_InodeID,
-                    node->m_Size,
-                    node->IsDirectory());
-                PERROR_THROW_CODE(PErrorCode::IO);
+                if (vol->HasInodeIDToLocationIDMapping(node->m_InodeID)) {
+                    vol->RemoveInodeIDToLocationIDMapping(node->m_InodeID);
+                }
+                if (node->IsDirectory() && !vol->RemoveDirectoryMapping(node->m_StartCluster, node->m_InodeID)) {
+                    kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): failed to remove directory mapping for inode {:x}.", node->m_InodeID);
+                }
+            });
+
+            if (node->m_StartCluster == 0)
+            {
+                if (node->m_Size != 0 || node->IsDirectory())
+                {
+                    kernel_log<PLogSeverity::ERROR>(
+                        LogCat_FATFS,
+                        "FATFilesystem::ReleaseInode(): inode {:x} has no start cluster (size {}, directory {}).",
+                        node->m_InodeID,
+                        node->m_Size,
+                        node->IsDirectory());
+                    PERROR_THROW_CODE(PErrorCode::IO);
+                }
+            }
+            else
+            {
+                if (!vol->IsDataCluster(node->m_StartCluster))
+                {
+                    kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): invalid start cluster {}.", node->m_StartCluster);
+                    PERROR_THROW_CODE(PErrorCode::IO);
+                }
+                vol->GetFATTable()->ClearFATChain(node->m_StartCluster);
             }
         }
         else
         {
-            if (!vol->IsDataCluster(node->m_StartCluster))
-            {
-                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): invalid start cluster {}.", node->m_StartCluster);
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
-            vol->GetFATTable()->ClearFATChain(node->m_StartCluster);
+            node->Write();
         }
     }
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::ReleaseInode() (inode ID {:x}).", node->m_InodeID);
@@ -902,7 +915,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> _node,
     if (truncateRequested)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::OpenFile() called with O_TRUNC set.");
-        ResizeFile(vol, node, 0);
+        ResizeFile(vol, node, 0, true);
     }
 
     Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>(openFlags);
@@ -947,7 +960,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         PERROR_THROW_CODE(PErrorCode::PERM);
     }
 
-    uint8_t dosAttribs = 0;
+    uint8_t dosAttribs = FAT_ARCHIVE;
     if ((perms & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0) {
         dosAttribs |= FAT_READ_ONLY;
     }
@@ -982,7 +995,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         }
         if (truncateRequested)
         {
-            ResizeFile(vol, file, 0);
+            ResizeFile(vol, file, 0, true);
         }
         fileNode = ptr_new<FATFileNode>(openFlags);
     }
@@ -1536,11 +1549,13 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     sourceNode->m_ParentInodeID = newDirectory->m_InodeID;
     sourceNode->m_DirStartIndex = newStartIndex;
     sourceNode->m_DirEndIndex = newEndIndex;
+    sourceNode->DiscardPendingMetadata();
 
     if (destinationNode != nullptr)
     {
         // ReleaseInode() clears the replaced file's chain after its final open
         // handle is closed.
+        destinationNode->DiscardPendingMetadata();
         destinationNode->SetDeletedFlag(true);
     }
 
@@ -1784,6 +1799,14 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
     const off64_t writeEnd = pos + off64_t(len);
     const uint32_t requiredClusterCount = GetFileClusterCount(vol, writeEnd);
 
+    bool modificationMetadataUpdated = false;
+    PScopeFail markPartiallyWrittenFileModified([&node, &bytesWritten, &modificationMetadataUpdated]()
+    {
+        if (bytesWritten != 0 && !modificationMetadataUpdated) {
+            node->MarkContentsModified();
+        }
+    });
+
     uint32_t cluster1;
 
     if (node->m_Size && (fileNode->m_FATIteration == node->m_Iteration) && (pos >= fileNode->m_FATChainIndex * vol->m_BytesPerSector * vol->m_SectorsPerCluster))
@@ -1895,6 +1918,9 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
         }
         bytesWritten += amt;
     }
+
+    node->MarkContentsModified();
+    modificationMetadataUpdated = true;
 
     if (writeEnd > oldFileSize)
     {
@@ -2182,7 +2208,7 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
     if ((mask & WSTAT_SIZE) && st->st_size != node->m_Size)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting file size to {:x}.", st->st_size);
-        ResizeFile(vol, node, st->st_size);
+        ResizeFile(vol, node, st->st_size, (mask & WSTAT_MTIME) == 0);
 #ifdef FAT_VERIFY_FAT_CHAINS
         kassert(node->m_Size == 0 || vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, uint32_t((node->m_Size - 1) / (vol->m_BytesPerSector * vol->m_SectorsPerCluster)), node->m_EndCluster));
 #endif // FAT_VERIFY_FAT_CHAINS
@@ -2603,7 +2629,7 @@ void FATFilesystem::ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, of
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize)
+void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime)
 {
     if (fileSize < 0) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
@@ -2621,25 +2647,44 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
 
     const uint32_t oldClusterCount = node->m_AllocatedClusterCount;
     const uint32_t newClusterCount = GetFileClusterCount(volume, fileSize);
+    const TimeValNanos oldModificationTime = node->m_MTime;
+    const uint8_t oldDOSAttribs = node->m_DOSAttribs;
+    const bool metadataWasDirty = node->IsMetadataDirty();
+
+    auto restoreModificationMetadata = [&]()
+    {
+        node->m_MTime = oldModificationTime;
+        node->m_DOSAttribs = oldDOSAttribs;
+        if (!metadataWasDirty) {
+            node->DiscardPendingMetadata();
+        }
+    };
 
     if (fileSize < oldFileSize)
     {
-        PScopeFail restoreFileSize([&node, oldFileSize]()
+        PScopeFail restoreFileMetadata([&node, oldFileSize, newClusterCount, &restoreModificationMetadata]()
         {
-            node->m_Size = oldFileSize;
+            if (newClusterCount != 0)
+            {
+                node->m_Size = oldFileSize;
+                restoreModificationMetadata();
+            }
         });
 
         node->m_Size = fileSize;
+        node->MarkContentsModified(updateModificationTime);
         if (newClusterCount != 0) {
             node->Write();
         }
     }
 
     {
-        PScopeFail restoreFileSize([&node, oldFileSize, oldClusterCount, newClusterCount]()
+        PScopeFail restoreFileMetadata([&node, oldFileSize, oldClusterCount, newClusterCount, &restoreModificationMetadata]()
         {
-            if (node->m_AllocatedClusterCount == oldClusterCount && newClusterCount == 0) {
+            if (node->m_AllocatedClusterCount == oldClusterCount && newClusterCount == 0)
+            {
                 node->m_Size = oldFileSize;
+                restoreModificationMetadata();
             }
         });
         volume->GetFATTable()->SetChainLength(node, newClusterCount, true);
@@ -2649,12 +2694,14 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
     {
         ClearFileRange(volume, node, oldFileSize, fileSize);
 
-        PScopeFail restoreFileSize([&node, oldFileSize]()
+        PScopeFail restoreFileMetadata([&node, oldFileSize, &restoreModificationMetadata]()
         {
             node->m_Size = oldFileSize;
+            restoreModificationMetadata();
         });
 
         node->m_Size = fileSize;
+        node->MarkContentsModified(updateModificationTime);
         node->Write();
     }
 }
@@ -3198,6 +3245,7 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
     vol->SetInodeIDToLocationIDMapping(file->m_InodeID, vol->AllocUniqueInodeID());
 
     EraseDirectoryEntry(vol, dir->m_StartCluster, file->m_DirStartIndex, file->m_DirEndIndex);
+    file->DiscardPendingMetadata();
     file->SetDeletedFlag(true);
 
     CompactDirectoryNoThrow(vol, dir);

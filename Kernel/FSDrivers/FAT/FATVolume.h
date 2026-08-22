@@ -104,12 +104,12 @@ public:
     
     FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PString& devicePath);
     ~FATVolume();
-    
-    
+
     void ReadSuperBlock(int deviceFile);
     void UpdateFSInfo();
 
     void Shutdown();
+    void FlushDirtyInodes();
 
     bool CheckMagic(const char* functionName);
     
@@ -132,6 +132,9 @@ public:
     bool  RemoveDirectoryMapping(uint32_t startCluster, ino_t inodeID);
     ino_t GetDirectoryMapping(uint32_t startCluster) const;
     void  DumpDirectoryMap();
+
+    void AddDirtyInode(FATInode* inode) noexcept;
+    void RemoveDirtyInode(FATInode* inode) noexcept;
     
     uint32_t	   m_Magic;
     mutable KMutex m_Mutex;
@@ -178,6 +181,11 @@ public:
 
     uint32_t	  m_FirstDataSector = 0;
     uint32_t      m_LastAllocatedCluster = 0; // last allocated cluster
+
+private:
+    using DirtyInodeList = PIntrusiveList<FATInode, &FATInode::m_DirtyListNode>;
+
+    DirtyInodeList m_DirtyInodes;
 };
 
 

@@ -56,30 +56,9 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
 
 FATVolume::~FATVolume()
 {
+    kassert(m_DirtyInodes.IsEmpty());
     m_Magic = ~MAGIC;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FATVolume::Shutdown()
-{
-    m_FATTable = nullptr;
-    m_BCache.SetDevice(-1, 0, 0);
-
-    if (m_DeviceFile != -1)
-    {
-        kclose(m_DeviceFile);
-        m_DeviceFile = -1;
-    }
-
-    if (m_RootInode != nullptr) {
-        m_RootInode->Detach();
-    }
-    m_RootNode = nullptr;
-    m_RootInode = nullptr;
-}    
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -309,6 +288,77 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     m_RootInode->m_EndCluster   = rootEndCluster;
     
     m_FATTable = ptr_new<FATTable>(ptr_tmp_cast(this)); // WARNING: Circular reference! Manually broken in Shutdown().
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::Shutdown()
+{
+    kassert(m_DirtyInodes.IsEmpty());
+    m_FATTable = nullptr;
+    m_BCache.SetDevice(-1, 0, 0);
+
+    if (m_DeviceFile != -1)
+    {
+        kclose(m_DeviceFile);
+        m_DeviceFile = -1;
+    }
+
+    if (m_RootInode != nullptr) {
+        m_RootInode->Detach();
+    }
+    m_RootNode = nullptr;
+    m_RootInode = nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::FlushDirtyInodes()
+{
+    kassert(m_Mutex.IsLocked());
+
+    const size_t dirtyInodeCount = m_DirtyInodes.GetCount();
+    PErrorCode firstError = PErrorCode::Success;
+
+    for (size_t dirtyInodeIndex = 0; dirtyInodeIndex < dirtyInodeCount; ++dirtyInodeIndex)
+    {
+        FATInode* dirtyInode = m_DirtyInodes.GetFirst();
+        kassert(dirtyInode != nullptr);
+
+        try
+        {
+            dirtyInode->Write();
+            if (dirtyInode->IsMetadataDirty())
+            {
+                kernel_log<PLogSeverity::CRITICAL>(
+                    LogCat_FATFS,
+                    "FATVolume::FlushDirtyInodes(): inode {:x} remained dirty after a successful write.",
+                    dirtyInode->m_InodeID);
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
+        }
+        PERROR_CATCH([&firstError](PErrorCode error)
+        {
+            if (firstError == PErrorCode::Success) {
+                firstError = error;
+            }
+        });
+
+        if (dirtyInode->IsMetadataDirty())
+        {
+            kassert(dirtyInode->m_DirtyListNode.IsListMember(&m_DirtyInodes));
+            m_DirtyInodes.Remove(dirtyInode);
+            m_DirtyInodes.Append(dirtyInode);
+        }
+    }
+
+    if (firstError != PErrorCode::Success) {
+        PERROR_THROW_CODE(firstError);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -583,6 +633,37 @@ bool FATVolume::CheckMagic(const char* functionName)
         return false;
     }
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::AddDirtyInode(FATInode* inode) noexcept
+{
+    kassert(m_Mutex.IsLocked());
+    kassert(inode != nullptr);
+    kassert(inode->m_Volume == this);
+    kassert(!inode->m_DirtyListNode.IsListMember());
+
+    m_DirtyInodes.Append(inode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::RemoveDirtyInode(FATInode* inode) noexcept
+{
+    kassert(m_Mutex.IsLocked());
+    kassert(inode != nullptr);
+    kassert(inode->m_Volume == this);
+
+    if (inode->m_DirtyListNode.IsListMember())
+    {
+        kassert(inode->m_DirtyListNode.IsListMember(&m_DirtyInodes));
+        m_DirtyInodes.Remove(inode);
+    }
 }
 
 

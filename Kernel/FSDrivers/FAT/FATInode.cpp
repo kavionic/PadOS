@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include <System/ExceptionHandling.h>
+#include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 
 #include "FATInode.h"
@@ -177,6 +178,8 @@ FATInode::FATInode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t 
 
 FATInode::~FATInode()
 {
+    kassert(!m_MetadataDirty);
+    kassert(!m_DirtyListNode.IsListMember());
     m_Magic = ~MAGIC;
 }
 
@@ -198,12 +201,58 @@ bool FATInode::CheckMagic(const char* functionName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATInode::MarkMetadataDirty() noexcept
+{
+    if (!m_MetadataDirty)
+    {
+        FATVolume* volume = static_cast<FATVolume*>(ptr_raw_pointer_cast(m_Volume));
+        kassert(volume != nullptr);
+        volume->AddDirtyInode(this);
+        m_MetadataDirty = true;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATInode::DiscardPendingMetadata() noexcept
+{
+    if (m_MetadataDirty)
+    {
+        FATVolume* volume = static_cast<FATVolume*>(ptr_raw_pointer_cast(m_Volume));
+        kassert(volume != nullptr);
+        volume->RemoveDirtyInode(this);
+        m_MetadataDirty = false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATInode::MarkContentsModified(bool updateModificationTime) noexcept
+{
+    if (updateModificationTime) {
+        m_MTime = RoundTimeToFATModificationTime(get_real_time());
+    }
+    m_DOSAttribs |= FAT_ARCHIVE;
+
+    if (!IsDeleted()) {
+        MarkMetadataDirty();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATInode::Write()
 {
-    FATDirectoryEntryCombo* buffer;
-
     // don't update entries of deleted files
-    if (IsDeleted()) {
+    if (IsDeleted())
+    {
+        DiscardPendingMetadata();
         return;
     }
 
@@ -220,36 +269,40 @@ void FATInode::Write()
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    FATDirectoryIterator diri(volume, parentCluster, m_DirEndIndex);
-    buffer = diri.GetCurrentEntry();
-    if (buffer == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::IO);
-    }
-    if (!IsFATInodeWriteEntryValid(*this, *volume, buffer->m_Normal, expectedStartCluster)) {
-        PERROR_THROW_CODE(PErrorCode::IO);
+    {
+        FATDirectoryIterator directoryIterator(volume, parentCluster, m_DirEndIndex);
+        FATDirectoryEntryCombo* buffer = directoryIterator.GetCurrentEntry();
+        if (buffer == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        if (!IsFATInodeWriteEntryValid(*this, *volume, buffer->m_Normal, expectedStartCluster)) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        buffer->m_Normal.m_Attribs = m_DOSAttribs; // file attributes
+
+        const uint32_t createTime = UnixTimeToFATTime(m_CTime.AsSecondsI());
+        const uint32_t accessTime = UnixTimeToFATTime(m_ATime.AsSecondsI());
+        const uint32_t modificationTime = UnixTimeToFATTime(m_MTime.AsSecondsI());
+
+        buffer->m_Normal.m_CreateTimeFine = TimeValToFATCreateTimeFine(m_CTime);
+        buffer->m_Normal.m_CreateTime = uint16_t(createTime & 0xffff);
+        buffer->m_Normal.m_CreateDate = uint16_t(createTime >> 16);
+        buffer->m_Normal.m_AccessDate = uint16_t(accessTime >> 16);
+        buffer->m_Normal.m_ModificationTime = uint16_t(modificationTime & 0xffff);
+        buffer->m_Normal.m_ModificationDate = uint16_t(modificationTime >> 16);
+        buffer->m_Normal.m_FirstClusterLow = uint16_t(m_StartCluster & 0xffff);
+        buffer->m_Normal.m_FirstClusterHigh = uint16_t(m_StartCluster >> 16);
+
+        if (IsDirectory()) {
+            buffer->m_Normal.m_FileSize = 0;
+        } else {
+            buffer->m_Normal.m_FileSize = uint32_t(m_Size);
+        }
+        directoryIterator.MarkDirty();
     }
 
-    buffer->m_Normal.m_Attribs = m_DOSAttribs; // file attributes
-    
-    const uint32_t createTime = UnixTimeToFATTime(m_CTime.AsSecondsI());
-    const uint32_t accessTime = UnixTimeToFATTime(m_ATime.AsSecondsI());
-    const uint32_t modificationTime = UnixTimeToFATTime(m_MTime.AsSecondsI());
-
-    buffer->m_Normal.m_CreateTimeFine = TimeValToFATCreateTimeFine(m_CTime);
-    buffer->m_Normal.m_CreateTime = uint16_t(createTime & 0xffff);
-    buffer->m_Normal.m_CreateDate = uint16_t(createTime >> 16);
-    buffer->m_Normal.m_AccessDate = uint16_t(accessTime >> 16);
-    buffer->m_Normal.m_ModificationTime = uint16_t(modificationTime & 0xffff);
-    buffer->m_Normal.m_ModificationDate = uint16_t(modificationTime >> 16);
-    buffer->m_Normal.m_FirstClusterLow  = uint16_t(m_StartCluster & 0xffff);	// starting cluster
-    buffer->m_Normal.m_FirstClusterHigh = uint16_t(m_StartCluster >> 16);
-    
-    if (IsDirectory()) {
-        buffer->m_Normal.m_FileSize = 0;
-    } else {
-        buffer->m_Normal.m_FileSize = uint32_t(m_Size);
-    }
-    diri.MarkDirty();
+    DiscardPendingMetadata();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

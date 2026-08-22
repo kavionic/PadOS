@@ -111,8 +111,8 @@ static bool UTF16ToCP437(uint16_t unicode, uint8_t* result)
 
 static uint8_t ConvertCP437CharacterCase(uint8_t character, bool toLowercase)
 {
-    static const char lowercaseCharacters[] = "\x81\x82\x84\x86\x87\x91\x94\xA4";
-    static const char uppercaseCharacters[] = "\x9A\x90\x8E\x8F\x80\x92\x99\xA5";
+    static const char lowercaseCharacters[] = "\x81\x82\x84\x86\x87\x91\x94\xA4\xE5\xED";
+    static const char uppercaseCharacters[] = "\x9A\x90\x8E\x8F\x80\x92\x99\xA5\xE4\xE8";
 
     if (toLowercase && character >= 'A' && character <= 'Z') {
         return uint8_t(character - 'A' + 'a');

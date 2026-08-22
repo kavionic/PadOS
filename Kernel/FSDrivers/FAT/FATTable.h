@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,6 +37,13 @@ class FATInode;
 // Root directory for FAT12 and FAT16 is hard-coded to 1.
 #define IS_FIXED_ROOT(cluster) ((cluster) == 1)
 
+struct FATVolumeStatus
+{
+    bool IsSupported = false;
+    bool IsClean = true;
+    bool HasHardError = false;
+};
+
 class FATTable : public PtrTarget
 {
 public:
@@ -44,6 +51,9 @@ public:
 public:
     FATTable(Ptr<FATVolume> volume);
     ~FATTable();
+
+    FATVolumeStatus ReadVolumeStatus();
+    void SetVolumeClean(bool isClean);
     
     uint32_t GetEntry(uint32_t cluster);
     void SetEntry(uint32_t cluster, uint32_t value);
@@ -61,6 +71,16 @@ public:
     void DumpChain(uint32_t startCluster);
     
 private:
+    struct VolumeStatusMasks
+    {
+        uint32_t CleanShutdown;
+        uint32_t NoHardError;
+        uint32_t ReservedOneBits;
+    };
+
+    static VolumeStatusMasks GetVolumeStatusMasks(uint8_t fatBits);
+    static uint32_t ReadVolumeStatusEntry(const uint8_t* fatSector, uint8_t fatBits);
+    static void WriteVolumeStatusEntry(uint8_t* fatSector, uint8_t fatBits, uint32_t value);
 
     Ptr<FATVolume> m_Volume;
 

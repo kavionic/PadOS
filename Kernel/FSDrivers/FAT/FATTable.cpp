@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/05/25 23:04:14
 
+#include <array>
 #include <utility>
 #include <string.h>
 
@@ -58,6 +59,85 @@ FATTable::FATTable(Ptr<FATVolume> volume) : m_Volume(volume), m_TableIterator(vo
 
 FATTable::~FATTable()
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FATVolumeStatus FATTable::ReadVolumeStatus()
+{
+    FATVolumeStatus status;
+    if (m_Volume->m_FATBits == 12) {
+        return status;
+    }
+
+    const off64_t fatStartSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    KCacheBlockDesc fatBlock = m_Volume->m_BCache.GetBlock_trw(fatStartSector, true);
+    if (fatBlock.m_Buffer == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    const VolumeStatusMasks masks = GetVolumeStatusMasks(m_Volume->m_FATBits);
+    const uint32_t entryValue = ReadVolumeStatusEntry(static_cast<const uint8_t*>(fatBlock.m_Buffer), m_Volume->m_FATBits);
+    if ((entryValue & masks.ReservedOneBits) != masks.ReservedOneBits)
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::ReadVolumeStatus(): reserved FAT[1] entry has invalid value {:#010x}.", entryValue);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    status.IsSupported = true;
+    status.IsClean = (entryValue & masks.CleanShutdown) != 0;
+    status.HasHardError = (entryValue & masks.NoHardError) == 0;
+    return status;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATTable::SetVolumeClean(bool isClean)
+{
+    if (m_Volume->m_FATBits == 12) {
+        return;
+    }
+
+//    kernel_log<PLogSeverity::WARNING>(LogCat_FATTABLE, "FATTable::SetVolumeClean(): Mark volume {}.", isClean ? "clean" : "dirty");
+
+    const VolumeStatusMasks masks = GetVolumeStatusMasks(m_Volume->m_FATBits);
+    std::array<KCacheBlockDesc, FAT_MAX_SUPPORTED_FAT_COUNT> fatBlocks;
+    std::array<uint32_t, FAT_MAX_SUPPORTED_FAT_COUNT> entryValues;
+    size_t fatBlockCount = 0;
+
+    const size_t firstFATIndex = m_Volume->m_FATMirrored ? 0 : m_Volume->m_ActiveFAT;
+    const size_t endFATIndex = m_Volume->m_FATMirrored ? m_Volume->m_FATCount : firstFATIndex + 1;
+    for (size_t fatIndex = firstFATIndex; fatIndex < endFATIndex; ++fatIndex)
+    {
+        kassert(fatBlockCount < fatBlocks.size());
+        const off64_t fatStartSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(fatIndex) * m_Volume->m_SectorsPerFAT;
+        fatBlocks[fatBlockCount] = m_Volume->m_BCache.GetBlock_trw(fatStartSector, true);
+        if (fatBlocks[fatBlockCount].m_Buffer == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+
+        entryValues[fatBlockCount] = ReadVolumeStatusEntry(static_cast<const uint8_t*>(fatBlocks[fatBlockCount].m_Buffer), m_Volume->m_FATBits);
+        if ((entryValues[fatBlockCount] & masks.ReservedOneBits) != masks.ReservedOneBits)
+        {
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetVolumeClean(): FAT {} reserved FAT[1] entry has invalid value {:#010x}.", fatIndex, entryValues[fatBlockCount]);
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        ++fatBlockCount;
+    }
+
+    for (size_t blockIndex = 0; blockIndex < fatBlockCount; ++blockIndex)
+    {
+        const uint32_t newEntryValue = isClean ? (entryValues[blockIndex] | masks.CleanShutdown) : (entryValues[blockIndex] & ~masks.CleanShutdown);
+        if (newEntryValue != entryValues[blockIndex])
+        {
+            WriteVolumeStatusEntry(static_cast<uint8_t*>(fatBlocks[blockIndex].m_Buffer), m_Volume->m_FATBits, newEntryValue);
+            fatBlocks[blockIndex].MarkDirty();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -465,6 +545,60 @@ void FATTable::DumpChain(uint32_t startCluster)
     }
     if (m_Volume->IsDataCluster(cluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::DumpChain(): circular FAT chain detected.");
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FATTable::VolumeStatusMasks FATTable::GetVolumeStatusMasks(uint8_t fatBits)
+{
+    if (fatBits == 16) {
+        return {0x00008000, 0x00004000, 0x00003fff};
+    }
+    if (fatBits == 32) {
+        return {0x08000000, 0x04000000, 0x03ffffff};
+    }
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t FATTable::ReadVolumeStatusEntry(const uint8_t* fatSector, uint8_t fatBits)
+{
+    const size_t entryOffset = fatBits / 8;
+    if (fatBits == 16) {
+        return uint32_t(fatSector[entryOffset]) | (uint32_t(fatSector[entryOffset + 1]) << 8);
+    }
+    if (fatBits == 32)
+    {
+        return uint32_t(fatSector[entryOffset]) |
+               (uint32_t(fatSector[entryOffset + 1]) << 8) |
+               (uint32_t(fatSector[entryOffset + 2]) << 16) |
+               (uint32_t(fatSector[entryOffset + 3]) << 24);
+    }
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATTable::WriteVolumeStatusEntry(uint8_t* fatSector, uint8_t fatBits, uint32_t value)
+{
+    const size_t entryOffset = fatBits / 8;
+    fatSector[entryOffset] = uint8_t(value);
+    fatSector[entryOffset + 1] = uint8_t(value >> 8);
+    if (fatBits == 32)
+    {
+        fatSector[entryOffset + 2] = uint8_t(value >> 16);
+        fatSector[entryOffset + 3] = uint8_t(value >> 24);
+    }
+    else if (fatBits != 16) {
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 }
 

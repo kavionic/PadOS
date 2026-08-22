@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -188,10 +188,13 @@ bool PtrTarget::HandleLastRefGone() const
             notifier->AddRef();
         }
         m_ReferenceCount++; // In case the destructor convert "this" to a smart pointer.
-        const_cast<PtrTarget*>(this)->LastReferenceGone();
+        const bool objectDeleted = const_cast<PtrTarget*>(this)->LastReferenceGone();
         if ( notifier != nullptr ) {
             notifier->Unlock();
             notifier->Release();
+        }
+        if (!objectDeleted) {
+            --m_ReferenceCount;
         }
         return true;
     }
@@ -221,4 +224,3 @@ void PtrTarget::ValidateRefCount(int minCount) const
     assert(( GetPtrCount() > minCount ));
 }
 #endif // NDEBUG
-

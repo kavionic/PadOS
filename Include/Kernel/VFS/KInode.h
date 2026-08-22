@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ public:
     KFilesystemFileOps* m_FileOps;
     Ptr<KInode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
     ino_t               m_InodeID = 0;
-    time_t              m_LastUseTime = 0; // If the reference count is 0, this record the time (in seconds) when it reach 0.
+    TimeValNanos        m_LastUseTime; // If the reference count is 0, this record the time when it reached 0.
     mode_t              m_FileMode = 0;
     
     TimeValNanos        m_CTime;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -66,18 +66,23 @@ public:
     static void           DetachVolume_trw(Ptr<KFSVolume> volume);
     static Ptr<KFSVolume> GetVolume(fs_id volumeID);
     static Ptr<KInode>    GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
-    static void           InodeReleased(KInode* inode);
+    static bool           InodeReleased(KInode* inode);
     static void           FlushInodes();
 private:
+    static Ptr<KInode> TryAcquireInodeReference(KInode* inode);
+    static KInode* FindFirstUnusedInode();
+    static KInode* FindFirstExpiredUnusedInode(TimeValNanos currentTime);
     static void DiscardInode(KInode* inode);
+    static void DeleteInode(KInode* inode);
     
-    static const int     MAX_INODE_CACHE_COUNT = 5;
-    static KInode* const PENDING_INODE;
+    static constexpr size_t         MAX_INODE_CACHE_COUNT = 256;
+    static constexpr TimeValNanos   INODE_CACHE_EXPIRATION_TIME = TimeValNanos::FromSeconds(60.0);
+
+    static inline KInode* const PENDING_INODE = reinterpret_cast<KInode*>(intptr_t(1));
     
     static KMutex                                     s_InodeMapMutex;
     static std::map<std::pair<fs_id, ino_t>, KInode*> s_InodeMap;
     static PIntrusiveList<KInode>                     s_InodeMRUList;
-    static int                                        s_UnusedInodeCount;
     static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
     static KConditionVariable                         s_InodeMapConditionVar;
 

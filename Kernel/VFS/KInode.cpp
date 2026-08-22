@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -62,9 +62,8 @@ bool KInode::LastReferenceGone()
         return true;
     }
 
-    m_LastUseTime = kget_monotonic_time().AsSecondsI();
-    KVFSManager::InodeReleased(this);
-    return true;
+    m_LastUseTime = kget_monotonic_time();
+    return KVFSManager::InodeReleased(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

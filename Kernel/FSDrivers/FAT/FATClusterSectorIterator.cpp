@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -167,7 +167,7 @@ PErrorCode FATClusterSectorIterator::MarkBlockDirty()
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
         return PErrorCode::INVAL;
     }
-    return m_Volume->m_BCache.MarkBlockDirty(GetBlockSector()) ? PErrorCode::Success : PErrorCode::NOENT;
+    return m_Volume->m_BCache.MarkBlockDirty(GetBlockSector());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

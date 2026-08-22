@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -97,6 +97,7 @@ private:
   
     template<class Y> friend Ptr<Y> ptr_new_cast(Y*);
     template<class Y> friend Ptr<Y> ptr_tmp_cast(Y*);
+    template<class Y> friend Ptr<Y> ptr_lock_cast(Y*);
 
     template<class Y> friend Y* ptr_raw_pointer_cast(const Ptr<Y>&);
     template<class Y,class X> friend Y* ptr_raw_pointer_static_cast(const Ptr<X>& src);
@@ -126,6 +127,23 @@ Ptr<T> ptr_tmp_cast(T* obj)
 //        obj->ValidateRefCount(0);
 //#endif
         ptr.Set(obj);
+    }
+    return ptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Attempt to create a strong reference to an externally retained object.
+/// The caller must guarantee that the raw object remains allocated throughout
+/// this call. Returns nullptr if the object has no strong references.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<class T> inline
+Ptr<T> ptr_lock_cast(T* obj)
+{
+    Ptr<T> ptr;
+    if (obj != nullptr && obj->AddPtrRefIfNotZero()) {
+        ptr.m_Object = obj;
     }
     return ptr;
 }

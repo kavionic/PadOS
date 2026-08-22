@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -145,6 +145,7 @@ public:
         return m_ReferenceCount;
     }
 
+    // Return true if the object was deleted, or false to retain it.
     virtual bool LastReferenceGone() {
         delete this;
         return true;
@@ -161,6 +162,7 @@ private:
     template<class Y> friend class NoPtr;
     template<class Y> friend Ptr<Y> ptr_new_cast(Y*);
     template<class Y> friend Ptr<Y> ptr_tmp_cast(Y*);
+    template<class Y> friend Ptr<Y> ptr_lock_cast(Y*);
 
     enum { e_PreInitRefCount = 1000000000, e_ManagedRefCount = e_PreInitRefCount + 1000000, e_UnmanagedRefCount = e_ManagedRefCount + 1000000 };  
 

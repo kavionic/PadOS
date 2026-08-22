@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -328,13 +328,19 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): {} is removable.", devicePath);
         volumeFlags |= uint32_t(FSVolumeFlags::FS_IS_REMOVABLE);
     }
-    if (geo.read_only || (flags & MOUNT_READ_ONLY))
+    if (geo.read_only)
     {
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): {} is read-only.", devicePath);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): {} is on read-only media.", devicePath);
         volumeFlags |= uint32_t(FSVolumeFlags::FS_IS_READONLY);
     }
     else
     {
+        if ((flags & MOUNT_READ_ONLY) != 0)
+        {
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): {} mounted read-only.", devicePath);
+            volumeFlags |= uint32_t(FSVolumeFlags::FS_IS_READONLY);
+        }
+
         // reopen it with read/write permissions
         kclose(deviceFile);
         deviceFile = kopen_trw(devicePath, O_RDWR);
@@ -419,9 +425,31 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
     vol->m_LastAllocatedCluster = FATTable::FIRST_DATA_CLUSTER;
 
-    if (!vol->m_BCache.SetDevice(deviceFile, vol->m_TotalSectors, vol->m_BytesPerSector)) {
+    if (!vol->m_BCache.SetDevice(deviceFile, vol->m_TotalSectors, vol->m_BytesPerSector, geo.read_only)) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error initializing block cache ({}).", strerror(get_last_error()));
         PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+
+    const FATVolumeStatus volumeStatus = vol->GetFATTable()->ReadVolumeStatus();
+    const bool canTrustFSInfo = !volumeStatus.IsSupported || (volumeStatus.IsClean && !volumeStatus.HasHardError);
+
+    if (volumeStatus.IsSupported)
+    {
+        if (!volumeStatus.IsClean) {
+            kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): volume was not unmounted cleanly and may require repair.");
+        }
+        if (volumeStatus.HasHardError) {
+            kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): volume reports a previous disk I/O error and may require repair.");
+        }
+    }
+
+    {
+        KScopedLock volumeLock(vol->m_Mutex);
+        vol->InitializeCleanFlagState(volumeStatus);
+    }
+
+    if (!canTrustFSInfo && vol->m_FSInfoSector != 0xffff) {
+        kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): ignoring FSInfo allocation hints because the recorded volume state is unsafe.");
     }
 
     bool isFreeClustersValid = false;
@@ -433,22 +461,25 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         {
             if (fsInfo->m_Signature1 == 0x41615252 && fsInfo->m_Signature2 == 0x61417272 && fsInfo->m_Signature3 == 0xaa550000)
             {
-                const uint32_t freeClusterCount = fsInfo->m_FreeClusters;
-                const uint32_t lastAllocatedCluster = fsInfo->m_LastAllocatedCluster;
-                if (freeClusterCount <= vol->m_TotalClusters)
+                if (canTrustFSInfo)
                 {
-                    vol->m_FreeClusters = freeClusterCount;
-                    isFreeClustersValid = true;
-                }
-                else if (freeClusterCount != 0xffffffff)
-                {
-                    kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): FSInfo free-cluster count {} exceeds volume cluster count {}.", freeClusterCount, vol->m_TotalClusters);
-                }
+                    const uint32_t freeClusterCount = fsInfo->m_FreeClusters;
+                    const uint32_t lastAllocatedCluster = fsInfo->m_LastAllocatedCluster;
+                    if (freeClusterCount <= vol->m_TotalClusters)
+                    {
+                        vol->m_FreeClusters = freeClusterCount;
+                        isFreeClustersValid = true;
+                    }
+                    else if (freeClusterCount != 0xffffffff)
+                    {
+                        kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): FSInfo free-cluster count {} exceeds volume cluster count {}.", freeClusterCount, vol->m_TotalClusters);
+                    }
 
-                if (vol->IsDataCluster(lastAllocatedCluster)) {
-                    vol->m_LastAllocatedCluster = lastAllocatedCluster;
-                } else if (lastAllocatedCluster != 0xffffffff) {
-                    kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): ignoring invalid FSInfo next-free hint {}.", lastAllocatedCluster);
+                    if (vol->IsDataCluster(lastAllocatedCluster)) {
+                        vol->m_LastAllocatedCluster = lastAllocatedCluster;
+                    } else if (lastAllocatedCluster != 0xffffffff) {
+                        kernel_log<PLogSeverity::WARNING>(LogCat_FATFS, "FATFilesystem::Mount(): ignoring invalid FSInfo next-free hint {}.", lastAllocatedCluster);
+                    }
                 }
             }
             else
@@ -555,6 +586,7 @@ void FATFilesystem::Unmount(Ptr<KFSVolume> volume)
     }
 
     KVFSManager::DetachVolume_trw(vol);
+    vol->StopCleanFlagUpdater();
     PScopeExit volumeShutdownGuard([&vol]()
     {
         vol->Shutdown();
@@ -564,7 +596,7 @@ void FATFilesystem::Unmount(Ptr<KFSVolume> volume)
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Unmount(): {:x}", vol->m_VolumeID);
 
-    vol->UpdateFSInfo();
+    vol->FlushAndMarkClean();
     if (!vol->m_BCache.Shutdown(true)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
@@ -586,11 +618,7 @@ void FATFilesystem::Sync(Ptr<KFSVolume> _vol)
     
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Sync() called on volume {:x}", vol->m_VolumeID);
 
-    vol->FlushDirtyInodes();
-    vol->UpdateFSInfo();
-    if (!vol->m_BCache.Sync()) {
-        PERROR_THROW_CODE(PErrorCode::IO);
-    }
+    vol->FlushAndMarkClean();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -655,7 +683,7 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat() called.");
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+    if (vol->IsReadOnly()) {
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
 
@@ -688,6 +716,12 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{:11.11}].", sanitizedName);
+
+        if (memcmp(sanitizedName, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) == 0) {
+            return;
+        }
+
+        FATVolume::ModificationScope modificationScope(*vol);
 
         if (vol->m_VolumeLabelEntry == -1)
         {
@@ -834,30 +868,45 @@ void FATFilesystem::ReleaseInode(KInode* inode)
                 }
             });
 
-            if (node->m_StartCluster == 0)
+            if (vol->m_BCache.IsReadOnly())
             {
-                if (node->m_Size != 0 || node->IsDirectory())
-                {
-                    kernel_log<PLogSeverity::ERROR>(
-                        LogCat_FATFS,
-                        "FATFilesystem::ReleaseInode(): inode {:x} has no start cluster (size {}, directory {}).",
-                        node->m_InodeID,
-                        node->m_Size,
-                        node->IsDirectory());
-                    PERROR_THROW_CODE(PErrorCode::IO);
-                }
+                vol->CompleteDeferredDeletion(false);
             }
             else
             {
-                if (!vol->IsDataCluster(node->m_StartCluster))
+                FATVolume::ModificationScope modificationScope(*vol);
+                bool deletionCompleted = false;
+                PScopeExit completeDeferredDeletion([&vol, &deletionCompleted]()
                 {
-                    kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): invalid start cluster {}.", node->m_StartCluster);
-                    PERROR_THROW_CODE(PErrorCode::IO);
+                    vol->CompleteDeferredDeletion(deletionCompleted);
+                });
+
+                if (node->m_StartCluster == 0)
+                {
+                    if (node->m_Size != 0 || node->IsDirectory())
+                    {
+                        kernel_log<PLogSeverity::ERROR>(
+                            LogCat_FATFS,
+                            "FATFilesystem::ReleaseInode(): inode {:x} has no start cluster (size {}, directory {}).",
+                            node->m_InodeID,
+                            node->m_Size,
+                            node->IsDirectory());
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
                 }
-                vol->GetFATTable()->ClearFATChain(node->m_StartCluster);
+                else
+                {
+                    if (!vol->IsDataCluster(node->m_StartCluster))
+                    {
+                        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): invalid start cluster {}.", node->m_StartCluster);
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
+                    vol->GetFATTable()->ClearFATChain(node->m_StartCluster);
+                }
+                deletionCompleted = true;
             }
         }
-        else
+        else if (!vol->m_BCache.IsReadOnly())
         {
             node->Write();
         }
@@ -891,7 +940,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> _node,
     const bool writeAccessRequested = (openFlags & O_ACCMODE) != O_RDONLY;
     const bool truncateRequested = (openFlags & O_TRUNC) != 0;
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) && (writeAccessRequested || truncateRequested))
+    if (vol->IsReadOnly() && (writeAccessRequested || truncateRequested))
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::OpenFile(): write access requested on read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
@@ -915,6 +964,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> _node,
     if (truncateRequested)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::OpenFile() called with O_TRUNC set.");
+        FATVolume::ModificationScope modificationScope(*vol);
         ResizeFile(vol, node, 0, true);
     }
 
@@ -950,7 +1000,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::CreateFile() called: {:x}/{} perms={:o} openFlags={:o}", dir->m_InodeID, name.c_str(), perms, openFlags);
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+    if (vol->IsReadOnly()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CreateFile() called on read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
@@ -995,12 +1045,14 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         }
         if (truncateRequested)
         {
+            FATVolume::ModificationScope modificationScope(*vol);
             ResizeFile(vol, file, 0, true);
         }
         fileNode = ptr_new<FATFileNode>(openFlags);
     }
     else
     {
+        FATVolume::ModificationScope modificationScope(*vol);
         NoPtr<FATInode> dummyObj(ptr_tmp_cast(this), vol, fileMode); // Used only to create directory entry
         Ptr<FATInode> dummy(dummyObj);
         
@@ -1214,11 +1266,13 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
         PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    if (vol->IsReadOnly())
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CreateDirectory() called on read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
+
+    FATVolume::ModificationScope modificationScope(*vol);
 
     std::vector<uint8_t> buffer;
     buffer.resize(vol->m_BytesPerSector);
@@ -1372,7 +1426,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename() called: {:x}/{}->{:x}/{}", oldDirectory->m_InodeID, oldName.c_str(), newDirectory->m_InodeID, newName.c_str());
 
-    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+    if (volume->IsReadOnly()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): called on read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
@@ -1420,6 +1474,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
         newStartIndex = destinationNode->m_DirStartIndex;
         newEndIndex = destinationNode->m_DirEndIndex;
     }
+
+    FATVolume::ModificationScope modificationScope(*volume);
 
     ino_t originalSourceLocationID;
     if (!volume->GetInodeIDToLocationIDMapping(sourceNode->m_InodeID, &originalSourceLocationID)) {
@@ -1557,6 +1613,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
         // handle is closed.
         destinationNode->DiscardPendingMetadata();
         destinationNode->SetDeletedFlag(true);
+        volume->RegisterDeferredDeletion();
     }
 
     CompactDirectoryNoThrow(volume, oldDirectory);
@@ -1763,7 +1820,7 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write(): called on file opened as read-only.");
         PERROR_THROW_CODE(PErrorCode::PERM);
     }
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    if (vol->IsReadOnly())
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write(): called on read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
@@ -1794,6 +1851,8 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
     if (len > size_t(maximumWriteLength)) {
         len = size_t(maximumWriteLength);
     }
+
+    FATVolume::ModificationScope modificationScope(*vol);
 
     const off64_t oldFileSize = node->m_Size;
     const off64_t writeEnd = pos + off64_t(len);
@@ -2082,7 +2141,7 @@ void FATFilesystem::CheckAccess(Ptr<KFSVolume> _vol, Ptr<KInode> _node, int mode
 
     if ((mode & O_ACCMODE) != O_RDONLY)
     {
-        if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+        if (vol->IsReadOnly()) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CheckAccess(): can't write on read-only volume.");
             PERROR_THROW_CODE(PErrorCode::ROFS);
         } else if (node->IsDirectory()) {
@@ -2133,7 +2192,7 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(inode ID {:x})", node->m_InodeID);
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+    if (vol->IsReadOnly()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::WriteStat(): read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
@@ -2152,6 +2211,15 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
             PERROR_THROW_CODE(PErrorCode::FBIG);
         }
     }
+
+    const uint32_t metadataMask = WSTAT_MODE | WSTAT_ATIME | WSTAT_MTIME | WSTAT_CTIME;
+    const bool metadataChangeRequested = (mask & metadataMask) != 0;
+    const bool sizeChangeRequested = (mask & WSTAT_SIZE) != 0 && st->st_size != node->m_Size;
+    if (!metadataChangeRequested && !sizeChangeRequested) {
+        return;
+    }
+
+    FATVolume::ModificationScope modificationScope(*vol);
 
     const mode_t oldFileMode = node->m_FileMode;
     const uint8_t oldDOSAttribs = node->m_DOSAttribs;
@@ -2348,7 +2416,7 @@ uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name)
 
 void FATVolume::UpdateFSInfo()
 {
-    if (m_FSInfoSector != 0xffff && !HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    if (m_FSInfoSector != 0xffff && !IsReadOnly())
     {
         KCacheBlockDesc bufferDesc = m_BCache.GetBlock_trw(m_FSInfoSector);
         FATFSInfo* buffer = static_cast<FATFSInfo*>(bufferDesc.m_Buffer);
@@ -2356,15 +2424,18 @@ void FATVolume::UpdateFSInfo()
         {
             if (buffer->m_Signature1 == 0x41615252 && buffer->m_Signature2 == 0x61417272 && buffer->m_Signature3 == 0xaa550000)
             {
-                buffer->m_FreeClusters         = m_FreeClusters;
-                buffer->m_LastAllocatedCluster = m_LastAllocatedCluster;
-                bufferDesc.MarkDirty();
+                if (buffer->m_FreeClusters != m_FreeClusters || buffer->m_LastAllocatedCluster != m_LastAllocatedCluster)
+                {
+                    buffer->m_FreeClusters = m_FreeClusters;
+                    buffer->m_LastAllocatedCluster = m_LastAllocatedCluster;
+                    bufferDesc.MarkDirty();
+                }
             }
             else
             {
-                uint32_t signature1 = buffer->m_Signature1;
-                uint32_t signature2 = buffer->m_Signature2;
-                uint32_t signature3 = buffer->m_Signature3;
+                const uint32_t signature1 = buffer->m_Signature1;
+                const uint32_t signature2 = buffer->m_Signature2;
+                const uint32_t signature3 = buffer->m_Signature3;
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::UpdateFSInfo(): fsinfo block has invalid magic number {:08x}, {:08x}, {:08x}", signature1, signature2, signature3);
             }
         }
@@ -3185,7 +3256,7 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::DoUnlink(): {:x}/{}", dir->m_InodeID, name.c_str());
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+    if (vol->IsReadOnly()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::DoUnlink(): read-only volume.");
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
@@ -3221,6 +3292,8 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
         }
     }
 
+    FATVolume::ModificationScope modificationScope(*vol);
+
     ino_t originalLocationID;
     if (!vol->GetInodeIDToLocationIDMapping(file->m_InodeID, &originalLocationID)) {
         originalLocationID = file->m_InodeID;
@@ -3247,6 +3320,7 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
     EraseDirectoryEntry(vol, dir->m_StartCluster, file->m_DirStartIndex, file->m_DirEndIndex);
     file->DiscardPendingMetadata();
     file->SetDeletedFlag(true);
+    vol->RegisterDeferredDeletion();
 
     CompactDirectoryNoThrow(vol, dir);
 }

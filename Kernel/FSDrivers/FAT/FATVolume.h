@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KBlockCache.h"
+#include "Signals/SignalTarget.h"
 #include "FATTable.h"
 #include "FATInode.h"
 
@@ -97,10 +98,24 @@ struct FATFSInfo
 
 static_assert(sizeof(FATFSInfo) == 512);
 
-class FATVolume : public KFSVolume
+class FATVolume : public KFSVolume, public SignalTarget
 {
 public:
     static const uint32_t MAGIC = 0x2ecf6059;
+
+    class ModificationScope
+    {
+    public:
+        explicit ModificationScope(FATVolume& volume);
+        ~ModificationScope();
+
+    private:
+        FATVolume& m_Volume;
+        bool       m_IsActive;
+
+        ModificationScope(const ModificationScope&) = delete;
+        ModificationScope& operator=(const ModificationScope&) = delete;
+    };
     
     FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PString& devicePath);
     ~FATVolume();
@@ -108,10 +123,18 @@ public:
     void ReadSuperBlock(int deviceFile);
     void UpdateFSInfo();
 
+    void InitializeCleanFlagState(const FATVolumeStatus& volumeStatus);
+    void StopCleanFlagUpdater();
+    void FlushAndMarkClean();
+
+    void RegisterDeferredDeletion() noexcept;
+    void CompleteDeferredDeletion(bool cleanupSucceeded) noexcept;
+
     void Shutdown();
     void FlushDirtyInodes();
 
     bool CheckMagic(const char* functionName);
+    bool IsReadOnly() const { return HasFlag(FSVolumeFlags::FS_IS_READONLY) || m_BCache.IsReadOnly(); }
     
     bool IsDataCluster(uint32_t cluster) const { return cluster >= FATTable::FIRST_DATA_CLUSTER && cluster < (m_TotalClusters + FATTable::FIRST_DATA_CLUSTER); }
     
@@ -185,7 +208,28 @@ public:
 private:
     using DirtyInodeList = PIntrusiveList<FATInode, &FATInode::m_DirtyListNode>;
 
+    static constexpr TimeValNanos CLEAN_FLAG_UPDATE_DELAY = TimeValNanos::FromSeconds(5.0);
+
+    bool BeginModification();
+    void FinishModification() noexcept;
+    void SlotBlockCacheReadOnly(PErrorCode error);
+
+    void StartCleanFlagUpdater();
+    static void* CleanFlagUpdaterEntry(void* argument);
+    void* RunCleanFlagUpdater();
+
+    void SyncCache();
+
+    KConditionVariable m_CleanFlagCondition;
     DirtyInodeList m_DirtyInodes;
+    thread_id       m_CleanFlagUpdaterThread = INVALID_HANDLE;
+    TimeValNanos    m_CleanCheckpointDeadline = TimeValNanos::infinit;
+    size_t          m_ActiveModificationCount = 0;
+    size_t          m_DeferredDeletionCount = 0;
+    bool            m_CanClearCleanFlag = false;
+    bool            m_CanMarkCleanFlag = false;
+    bool            m_IsVolumeMarkedClean = false;
+    bool            m_StopCleanFlagUpdater = false;
 };
 
 

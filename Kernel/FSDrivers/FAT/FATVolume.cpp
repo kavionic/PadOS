@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 
 #include <string.h>
 
+#include <Kernel/KTime.h>
+#include <Kernel/KThread.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/FSDrivers/FAT/FATFilesystem.h>
 #include <Kernel/VFS/FileIO.h>
@@ -37,14 +39,40 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+FATVolume::ModificationScope::ModificationScope(FATVolume& volume)
+    : m_Volume(volume)
+    , m_IsActive(volume.BeginModification())
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FATVolume::ModificationScope::~ModificationScope()
+{
+    if (m_IsActive) {
+        m_Volume.FinishModification();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PString& devicePath)
-    : KFSVolume(volumeID, devicePath), m_Mutex("fatfs_vol_mutex", PEMutexRecursionMode_RaiseError), m_InodeIDMapMutex("fatfs_inodemap_mutex", PEMutexRecursionMode_RaiseError)
+    : KFSVolume(volumeID, devicePath)
+    , m_Mutex("fatfs_vol_mutex", PEMutexRecursionMode_RaiseError)
+    , m_InodeIDMapMutex("fatfs_inodemap_mutex", PEMutexRecursionMode_RaiseError)
+    , m_CleanFlagCondition("fat_clean_flag")
 {
     m_Magic = MAGIC;
 
     m_VolumeLabelEntry = -2;	// for now, assume there is no volume entry
     memset(m_VolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
     m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH] = '\0';
+
+    m_BCache.SignalBecameReadOnly.Connect(this, &FATVolume::SlotBlockCacheReadOnly);
         
     m_RootInode = ptr_new<FATInode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
     m_RootNode = m_RootInode;
@@ -57,6 +85,9 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
 FATVolume::~FATVolume()
 {
     kassert(m_DirtyInodes.IsEmpty());
+    kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
+    kassert(m_ActiveModificationCount == 0);
+    kassert(m_DeferredDeletionCount == 0);
     m_Magic = ~MAGIC;
 }
 
@@ -294,8 +325,116 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATVolume::InitializeCleanFlagState(const FATVolumeStatus& volumeStatus)
+{
+    kassert(m_Mutex.IsLocked());
+    kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
+
+    m_CanClearCleanFlag     = volumeStatus.IsSupported && !IsReadOnly();
+    m_CanMarkCleanFlag      = m_CanClearCleanFlag&& volumeStatus.IsClean && !volumeStatus.HasHardError;
+    m_IsVolumeMarkedClean   = volumeStatus.IsSupported&& volumeStatus.IsClean;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::StopCleanFlagUpdater()
+{
+    thread_id updaterThread;
+    {
+        KScopedLock volumeLock(m_Mutex);
+
+        updaterThread = m_CleanFlagUpdaterThread;
+        if (updaterThread == INVALID_HANDLE) {
+            return;
+        }
+        m_StopCleanFlagUpdater = true;
+        m_CleanFlagCondition.WakeupAll();
+    }
+
+    kthread_join_trw(updaterThread);
+
+    KScopedLock volumeLock(m_Mutex);
+    kassert(m_CleanFlagUpdaterThread == updaterThread);
+    m_CleanFlagUpdaterThread = INVALID_HANDLE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::FlushAndMarkClean()
+{
+    kassert(m_Mutex.IsLocked());
+
+    const bool shouldMarkClean =
+        m_CanMarkCleanFlag &&
+        !m_IsVolumeMarkedClean &&
+        m_ActiveModificationCount == 0 &&
+        m_DeferredDeletionCount == 0;
+
+    FlushDirtyInodes();
+    UpdateFSInfo();
+    SyncCache();
+
+    if (shouldMarkClean)
+    {
+        m_FATTable->SetVolumeClean(true);
+        SyncCache();
+        m_IsVolumeMarkedClean = true;
+        m_CleanCheckpointDeadline = TimeValNanos::infinit;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::RegisterDeferredDeletion() noexcept
+{
+    kassert(m_Mutex.IsLocked());
+    ++m_DeferredDeletionCount;
+    m_CleanFlagCondition.WakeupAll();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::CompleteDeferredDeletion(bool cleanupSucceeded) noexcept
+{
+    kassert(m_Mutex.IsLocked());
+    kassert(m_DeferredDeletionCount != 0);
+
+    if (m_DeferredDeletionCount != 0) {
+        --m_DeferredDeletionCount;
+    }
+
+    if (!cleanupSucceeded)
+    {
+        m_CanMarkCleanFlag = false;
+        m_CleanCheckpointDeadline = TimeValNanos::infinit;
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::CompleteDeferredDeletion(): disabling clean-flag updates after a deferred deletion failed.");
+    }
+    else if (
+        m_CanMarkCleanFlag &&
+        !m_IsVolumeMarkedClean &&
+        m_DeferredDeletionCount == 0 &&
+        m_ActiveModificationCount == 0)
+    {
+        m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
+    }
+    m_CleanFlagCondition.WakeupAll();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATVolume::Shutdown()
 {
+    kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
     kassert(m_DirtyInodes.IsEmpty());
     m_FATTable = nullptr;
     m_BCache.SetDevice(-1, 0, 0);
@@ -663,6 +802,174 @@ void FATVolume::RemoveDirtyInode(FATInode* inode) noexcept
     {
         kassert(inode->m_DirtyListNode.IsListMember(&m_DirtyInodes));
         m_DirtyInodes.Remove(inode);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FATVolume::BeginModification()
+{
+    kassert(m_Mutex.IsLocked());
+
+    if (!m_CanClearCleanFlag) {
+        return false;
+    }
+
+    if (m_CanMarkCleanFlag)
+    {
+        StartCleanFlagUpdater();
+        m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
+        m_CleanFlagCondition.WakeupAll();
+    }
+
+    if (m_IsVolumeMarkedClean)
+    {
+        m_IsVolumeMarkedClean = false;
+        m_FATTable->SetVolumeClean(false);
+        SyncCache();
+    }
+
+    if (!m_CanMarkCleanFlag) {
+        return false;
+    }
+
+    ++m_ActiveModificationCount;
+    m_CleanCheckpointDeadline = TimeValNanos::infinit;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::FinishModification() noexcept
+{
+    kassert(m_Mutex.IsLocked());
+    kassert(m_ActiveModificationCount != 0);
+
+    if (m_ActiveModificationCount != 0) {
+        --m_ActiveModificationCount;
+    }
+    if (m_ActiveModificationCount == 0)
+    {
+        m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
+        m_CleanFlagCondition.WakeupAll();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::SlotBlockCacheReadOnly(PErrorCode error)
+{
+    KScopedLock volumeLock(m_Mutex);
+
+    if (!HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    {
+        SetFlags(GetFlags() | uint32_t(FSVolumeFlags::FS_IS_READONLY));
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FAT volume {} became read-only after a device write failure: {}.", m_DevicePath.c_str(), p_strerror(error));
+    }
+
+    m_CanClearCleanFlag = false;
+    m_CanMarkCleanFlag = false;
+    m_IsVolumeMarkedClean = false;
+    m_CleanCheckpointDeadline = TimeValNanos::infinit;
+
+    while (m_DirtyInodes.GetFirst() != nullptr) {
+        m_DirtyInodes.GetFirst()->DiscardPendingMetadata();
+    }
+    m_CleanFlagCondition.WakeupAll();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::StartCleanFlagUpdater()
+{
+    kassert(m_Mutex.IsLocked());
+
+    if (m_CleanFlagUpdaterThread == INVALID_HANDLE)
+    {
+        PThreadAttribs threadAttributes("fat_clean_flag", 0, PThreadDetachState_Joinable, 4096);
+        m_CleanFlagUpdaterThread = kthread_spawn_trw(
+            &threadAttributes,
+            nullptr,
+#ifdef PADOS_MODULE_USER_SPACE
+            nullptr,
+#endif // PADOS_MODULE_USER_SPACE
+            KSpawnThreadFlag::Privileged,
+            nullptr,
+            CleanFlagUpdaterEntry,
+            this);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* FATVolume::CleanFlagUpdaterEntry(void* argument)
+{
+    return static_cast<FATVolume*>(argument)->RunCleanFlagUpdater();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* FATVolume::RunCleanFlagUpdater()
+{
+    KScopedLock volumeLock(m_Mutex);
+
+    for (;;)
+    {
+        if (m_StopCleanFlagUpdater) {
+            break;
+        }
+
+        if (
+            !m_CanMarkCleanFlag ||
+            m_IsVolumeMarkedClean ||
+            m_ActiveModificationCount != 0 ||
+            m_DeferredDeletionCount != 0)
+        {
+            m_CleanFlagCondition.Wait(m_Mutex);
+            continue;
+        }
+
+        const TimeValNanos currentTime = kget_monotonic_time();
+        if (currentTime < m_CleanCheckpointDeadline)
+        {
+            m_CleanFlagCondition.WaitDeadline(m_Mutex, m_CleanCheckpointDeadline);
+            continue;
+        }
+
+        try {
+            FlushAndMarkClean();
+        }
+        PERROR_CATCH(([this](PErrorCode error)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FAT clean-flag update failed with error {}. Retrying after the idle delay.", p_strerror(error));
+            m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
+        }));
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::SyncCache()
+{
+    kassert(m_Mutex.IsLocked());
+
+    if (!m_BCache.Sync() || m_BCache.GetDeviceDirtyBlockCount() != 0) {
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 }
 

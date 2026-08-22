@@ -22,7 +22,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/uio.h>
-#include <tuple>
 #include <utility>
 
 #include <Kernel/KLogging.h>
@@ -99,13 +98,18 @@ void KBlockCache::ValidateFlushBlockList(KCacheBlockHeader** blockList, size_t b
             continue;
         }
 
-        KBlockCache* cache = GetDeviceCache(block->m_Device);
+        KBlockCache* cache = block->m_BlockCache;
         if (cache == nullptr)
         {
+            kernel_log<PLogSeverity::CRITICAL>(
+                LogCatKernel_BlockCache,
+                "Dirty block {} has no owning block cache.",
+                block->m_bufferNumber);
             kassert(cache != nullptr);
             continue;
         }
 
+        const int device = cache->m_Device;
         const auto mapping = cache->m_BlockMap.find(block->m_bufferNumber);
         if (mapping == cache->m_BlockMap.end() || mapping->second != block)
         {
@@ -113,7 +117,7 @@ void KBlockCache::ValidateFlushBlockList(KCacheBlockHeader** blockList, size_t b
                 LogCatKernel_BlockCache,
                 "Dirty block {} for device {} is not mapped to its flush-list header.",
                 block->m_bufferNumber,
-                block->m_Device);
+                device);
             kassert(mapping != cache->m_BlockMap.end() && mapping->second == block);
         }
 
@@ -121,15 +125,15 @@ void KBlockCache::ValidateFlushBlockList(KCacheBlockHeader** blockList, size_t b
         {
             KCacheBlockHeader* previousBlock = blockList[blockIndex - 1];
             if (previousBlock != nullptr &&
-                previousBlock->m_Device == block->m_Device &&
+                previousBlock->m_BlockCache == cache &&
                 previousBlock->m_bufferNumber == block->m_bufferNumber)
             {
                 kernel_log<PLogSeverity::CRITICAL>(
                     LogCatKernel_BlockCache,
                     "Block cache flush list contains device {} block {} more than once.",
-                    block->m_Device,
+                    device,
                     block->m_bufferNumber);
-                kassert(previousBlock->m_bufferNumber != block->m_bufferNumber || previousBlock->m_Device != block->m_Device);
+                kassert(previousBlock->m_bufferNumber != block->m_bufferNumber || previousBlock->m_BlockCache != cache);
             }
         }
     }
@@ -232,11 +236,11 @@ static bool VerifyBlockCacheDiagnosticWrite(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KBlockCache::FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockList, size_t blockCount)
+bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, size_t blockCount)
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "KBlockCache::FlushBlockList() flushing {} blocks.", blockCount);
 
-    std::sort(blockList, blockList + blockCount, [](const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs) { return std::tie(lhs->m_Device, lhs->m_bufferNumber) < std::tie(rhs->m_Device, rhs->m_bufferNumber); });
+    std::sort(blockList, blockList + blockCount, CompareCacheBlockOrder);
 
     ValidateFlushBlockList(blockList, blockCount);
 
@@ -249,7 +253,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockLis
     bool    requiredSegment = false;
     bool    hasTimedOutBlocks = false;
 
-    bool anythingFlushed = false;
+    bool anythingProcessed = false;
     for (size_t i = 0; i <= blockCount; ++i)
     {
 //        if (i < blockCount)
@@ -266,11 +270,19 @@ bool KBlockCache::FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockLis
                 hasTimedOutBlocks = true;
             }
         }
-        if (i == blockCount || (i > start && (blockList[i-1]->m_Device != blockList[i]->m_Device || (blockList[i-1]->m_bufferNumber + 1) != blockList[i]->m_bufferNumber)))
+        if (
+            i == blockCount ||
+            (i > start &&
+                (blockList[i - 1]->m_BlockCache != blockList[i]->m_BlockCache ||
+                    blockList[i - 1]->m_bufferNumber + 1 != blockList[i]->m_bufferNumber)))
         {
             size_t segmentCount = i - start;
             if (requiredSegment || hasTimedOutBlocks || segmentCount >= MIN_FLUSH_BLOCK_COUNT)
             {
+                KBlockCache* blockCache = blockList[start]->m_BlockCache;
+                kassert(blockCache != nullptr);
+                const int device = blockCache->m_Device;
+
                 for (size_t j = start; j < i; ++j) {
                     blockList[j]->ClearDirtyPending();
                 }
@@ -280,16 +292,17 @@ bool KBlockCache::FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockLis
                 for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
                 {
                     KCacheBlockHeader* block = blockList[start + segmentIndex];
+                    kassert(block->m_BlockCache == blockCache);
                     kassert(block->m_bufferNumber == blockList[start]->m_bufferNumber + off64_t(segmentIndex));
                     kassert(segments[segmentIndex].iov_base == block->m_Buffer);
                     kassert(segments[segmentIndex].iov_len == KBlockCache::BUFFER_BLOCK_SIZE);
                     gk_DiagnosticSubmittedChecksums[segmentIndex] = CalculateBlockCacheDiagnosticChecksum(block->m_Buffer);
                 }
 
+                PErrorCode writeError = PErrorCode::Success;
                 s_Mutex.Unlock();
                 try
                 {
-                    const int device = blockList[start]->m_Device;
                     const off64_t firstBlockNumber = blockList[start]->m_bufferNumber;
                     for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
                     {
@@ -743,28 +756,33 @@ bool KBlockCache::FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockLis
                         fflush(stdout);
                     }
                     kassert(writeVerified);
-                    anythingFlushed = true;
+                    anythingProcessed = true;
                 }
-                PERROR_CATCH(([&blockList, &start, &segmentCount](PErrorCode error)
+                PERROR_CATCH(([&writeError](PErrorCode error)
                     {
-                        kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_BlockCache, "Failed to flush block {}:{} from device {}", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
+                        writeError = error;
                     }
                 ));
                 s_Mutex.Lock();
 
-                for (size_t j = start; j < i; ++j)
+                if (writeError == PErrorCode::Success)
                 {
-                    if (!blockList[j]->IsDirtyPending())
+                    for (size_t blockIndex = start; blockIndex < i; ++blockIndex)
                     {
-                        blockList[j]->SetDirty(false);
-                        blockList[j]->SetFlushRequested(false);
-                        blockList[j]->SetIsFlushing(false);
+                        if (!blockList[blockIndex]->IsDirtyPending())
+                        {
+                            blockList[blockIndex]->SetDirty(false);
+                            blockList[blockIndex]->SetFlushRequested(false);
+                        }
                     }
                 }
-
-                if (requiredSegment)
+                else
                 {
-                    s_FlushingDoneConditionVar.WakeupAll();
+                    anythingProcessed = true;
+                    blockCache->SetReadOnlyAfterWriteError(writeError);
+                    for (size_t blockIndex = start; blockIndex < i; ++blockIndex) {
+                        blockCache->AbandonBlockWriteback(blockList[blockIndex]);
+                    }
                 }
             }
             start = i;
@@ -777,7 +795,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics_trw(KCacheBlockHeader** blockLis
             segments[i - start].iov_len = KBlockCache::BUFFER_BLOCK_SIZE;
         }
     }
-    return anythingFlushed;
+    return anythingProcessed;
 }
 
 

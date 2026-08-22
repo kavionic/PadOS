@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -87,24 +87,24 @@ public:
 
     static mode_t DOSAttribsToFileMode(uint8_t dosAttribs);
 private:
-    static void CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo);
-    uint32_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
-    bool FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName);
-    bool FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode);
-    Ptr<FATInode> DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName);
-    bool IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir);
-    bool IsDirectoryAncestor(Ptr<FATVolume> volume, Ptr<FATInode> ancestor, Ptr<FATInode> directory);
-    void EnsureClusterChainMetadataLoaded(Ptr<FATVolume> volume, Ptr<FATInode> node);
-    uint32_t GetFileClusterCount(Ptr<FATVolume> volume, off64_t fileSize);
-    void ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t startPosition, off64_t endPosition);
-    void ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime);
-    void UpdateDirectoryParentEntry(Ptr<FATVolume> volume, Ptr<FATInode> directory, Ptr<FATInode> parent);
-    void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex);
-    void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex);
-    void CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir);
-    void CompactDirectoryNoThrow(Ptr<FATVolume> vol, Ptr<FATInode> dir) noexcept;
-    void EraseDirectoryEntry(Ptr<FATVolume> vol, uint32_t parentCluster, uint32_t startIndex, uint32_t endIndex);
-    void DoUnlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const PString& name, bool removeFile);
+    static void     CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo);
+    uint32_t        CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
+    bool            FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName);
+    bool            FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode);
+    Ptr<FATInode>   DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName);
+    bool            IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir);
+    bool            IsDirectoryAncestor(Ptr<FATVolume> volume, Ptr<FATInode> ancestor, Ptr<FATInode> directory);
+    void            EnsureClusterChainMetadataLoaded(Ptr<FATVolume> volume, Ptr<FATInode> node);
+    uint32_t        GetFileClusterCount(Ptr<FATVolume> volume, off64_t fileSize);
+    void            ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t startPosition, off64_t endPosition);
+    void            ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime);
+    void            UpdateDirectoryParentEntry(Ptr<FATVolume> volume, Ptr<FATInode> directory, Ptr<FATInode> parent);
+    void            CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex);
+    void            DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex);
+    void            CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir);
+    void            CompactDirectoryNoThrow(Ptr<FATVolume> vol, Ptr<FATInode> dir) noexcept;
+    void            EraseDirectoryEntry(Ptr<FATVolume> vol, uint32_t parentCluster, uint32_t startIndex, uint32_t endIndex);
+    void            DoUnlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const PString& name, bool removeFile);
 
 };
 

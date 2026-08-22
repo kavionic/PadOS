@@ -241,6 +241,7 @@ static void RestoreFATDirectoryEntriesNoThrow(
         }
         catch (const std::exception& exception)
         {
+            volume->MarkMetadataInconsistent();
             kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "RestoreFATDirectoryEntriesNoThrow(): failed to restore directory entries after an entry-creation error: {}", exception.what());
         }
     }
@@ -1501,6 +1502,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
             try {
                 UpdateDirectoryParentEntry(volume, sourceNode, oldDirectory);
             } catch (const std::exception& exception) {
+                volume->MarkMetadataInconsistent();
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to restore the source directory's '..' entry: {}", exception.what());
             }
         }
@@ -1510,6 +1512,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
             try {
                 EraseDirectoryEntry(volume, newDirectory->m_StartCluster, newStartIndex, newEndIndex);
             } catch (const std::exception& exception) {
+                volume->MarkMetadataInconsistent();
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to remove the new directory entry during rollback: {}", exception.what());
             }
         }
@@ -1527,6 +1530,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
             }
             catch (const std::exception& exception)
             {
+                volume->MarkMetadataInconsistent();
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::Rename(): failed to restore the overwritten destination entry: {}", exception.what());
             }
         }
@@ -3214,6 +3218,7 @@ void FATFilesystem::EraseDirectoryEntry(Ptr<FATVolume> vol, uint32_t parentClust
             }
             catch (const std::exception& exception)
             {
+                vol->MarkMetadataInconsistent();
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::EraseDirectoryEntry(): failed to restore a partially erased directory entry: {}", exception.what());
             }
         }

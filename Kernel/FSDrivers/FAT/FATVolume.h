@@ -126,6 +126,7 @@ public:
     void InitializeCleanFlagState(const FATVolumeStatus& volumeStatus);
     void StopCleanFlagUpdater();
     void FlushAndMarkClean();
+    void MarkMetadataInconsistent() noexcept;
 
     void RegisterDeferredDeletion() noexcept;
     void CompleteDeferredDeletion(bool cleanupSucceeded) noexcept;

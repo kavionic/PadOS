@@ -331,7 +331,7 @@ void FATVolume::InitializeCleanFlagState(const FATVolumeStatus& volumeStatus)
     kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
 
     m_CanClearCleanFlag     = volumeStatus.IsSupported && !IsReadOnly();
-    m_CanMarkCleanFlag      = m_CanClearCleanFlag&& volumeStatus.IsClean && !volumeStatus.HasHardError;
+    m_CanMarkCleanFlag      = m_CanClearCleanFlag && volumeStatus.IsClean;
     m_IsVolumeMarkedClean   = volumeStatus.IsSupported&& volumeStatus.IsClean;
 }
 
@@ -391,6 +391,19 @@ void FATVolume::FlushAndMarkClean()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATVolume::MarkMetadataInconsistent() noexcept
+{
+    kassert(m_Mutex.IsLocked());
+
+    m_CanMarkCleanFlag = false;
+    m_CleanCheckpointDeadline = TimeValNanos::infinit;
+    m_CleanFlagCondition.WakeupAll();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATVolume::RegisterDeferredDeletion() noexcept
 {
     kassert(m_Mutex.IsLocked());
@@ -413,8 +426,7 @@ void FATVolume::CompleteDeferredDeletion(bool cleanupSucceeded) noexcept
 
     if (!cleanupSucceeded)
     {
-        m_CanMarkCleanFlag = false;
-        m_CleanCheckpointDeadline = TimeValNanos::infinit;
+        MarkMetadataInconsistent();
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::CompleteDeferredDeletion(): disabling clean-flag updates after a deferred deletion failed.");
     }
     else if (

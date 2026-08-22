@@ -32,19 +32,6 @@
 namespace kernel
 {
 
-static void ClearFATChainAfterFailureNoThrow(FATTable& table, uint32_t startCluster, const char* operation) noexcept
-{
-    if (startCluster != 0)
-    {
-        try {
-            table.ClearFATChain(startCluster);
-        } catch (const std::exception& exception) {
-            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "{}: failed to release FAT chain {} during rollback: {}.", operation, startCluster, exception.what());
-        }
-    }
-}
-
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -341,7 +328,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
                 node->m_StartCluster = 0;
                 node->m_EndCluster = 0;
                 node->m_AllocatedClusterCount = 0;
-                ClearFATChainAfterFailureNoThrow(*this, newStartCluster, "FATTable::SetChainLength()");
+                ClearFATChainAfterFailureNoThrow(newStartCluster, "FATTable::SetChainLength()");
             });
 
             node->m_StartCluster = newStartCluster;
@@ -369,7 +356,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
 
         PScopeFail rollbackExtension([this, newStartCluster]()
         {
-            ClearFATChainAfterFailureNoThrow(*this, newStartCluster, "FATTable::SetChainLength()");
+            ClearFATChainAfterFailureNoThrow(newStartCluster, "FATTable::SetChainLength()");
         });
 
         SetEntry(node->m_EndCluster, newStartCluster);
@@ -427,8 +414,8 @@ uint32_t FATTable::AllocateClusters(size_t clusterCount, uint32_t* endCluster)
     PScopeFail scopeCleanup(
         [this, &firstCluster, &detachedCluster]()
         {
-            ClearFATChainAfterFailureNoThrow(*this, firstCluster, "FATTable::AllocateClusters()");
-            ClearFATChainAfterFailureNoThrow(*this, detachedCluster, "FATTable::AllocateClusters()");
+            ClearFATChainAfterFailureNoThrow(firstCluster, "FATTable::AllocateClusters()");
+            ClearFATChainAfterFailureNoThrow(detachedCluster, "FATTable::AllocateClusters()");
         });
 
     for (uint32_t clusterIndex = 0; clusterIndex < m_Volume->m_TotalClusters; ++clusterIndex)
@@ -545,6 +532,23 @@ void FATTable::DumpChain(uint32_t startCluster)
     }
     if (m_Volume->IsDataCluster(cluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::DumpChain(): circular FAT chain detected.");
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATTable::ClearFATChainAfterFailureNoThrow(uint32_t startCluster, const char* operation) noexcept
+{
+    if (startCluster != 0)
+    {
+        try {
+            ClearFATChain(startCluster);
+        } catch (const std::exception& exception) {
+            m_Volume->MarkMetadataInconsistent();
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "{}: failed to release FAT chain {} during rollback: {}.", operation, startCluster, exception.what());
+        }
     }
 }
 

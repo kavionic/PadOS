@@ -71,6 +71,8 @@ public:
     void DumpChain(uint32_t startCluster);
     
 private:
+    void ClearFATChainAfterFailureNoThrow(uint32_t startCluster, const char* operation) noexcept;
+
     struct VolumeStatusMasks
     {
         uint32_t CleanShutdown;

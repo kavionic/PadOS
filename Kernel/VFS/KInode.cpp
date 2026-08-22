@@ -56,9 +56,26 @@ KInode::~KInode()
 
 bool KInode::LastReferenceGone()
 {
+    if (!IsActive())
+    {
+        delete this;
+        return true;
+    }
+
     m_LastUseTime = kget_monotonic_time().AsSecondsI();
     KVFSManager::InodeReleased(this);
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInode::Detach() noexcept
+{
+    m_FileOps = nullptr;
+    m_Filesystem = nullptr;
+    m_Volume = nullptr;
 }
 
 } // namespace kernel

@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <assert.h>
+#include <vector>
 
 #include <PadOS/DeviceControl.h>
 
@@ -229,11 +230,155 @@ void KVFSManager::RegisterVolume_trw(Ptr<KFSVolume> volume)
     if (volume == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
+
+    KScopedLock inodeMapLock(s_InodeMapMutex);
+
+    if (volume->m_Filesystem == nullptr ||
+        volume->m_RootNode == nullptr ||
+        !volume->m_RootNode->IsActive() ||
+        volume->m_RootNode->m_Filesystem != volume->m_Filesystem ||
+        volume->m_RootNode->m_Volume != volume)
+    {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
     if (s_VolumeMap.find(volume->m_VolumeID) != s_VolumeMap.end()) {
         kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::RegisterVolume() failed to register volume {:#x}", intptr_t(ptr_raw_pointer_cast(volume)));
         PERROR_THROW_CODE(PErrorCode::EXIST);
     }
+
+    if (volume->m_MountPoint != nullptr)
+    {
+        if (!volume->m_MountPoint->IsActive()) {
+            PERROR_THROW_CODE(PErrorCode(ENODEV));
+        }
+        if (volume->m_MountPoint->m_MountRoot != nullptr) {
+            PERROR_THROW_CODE(PErrorCode::BUSY);
+        }
+    }
+
     s_VolumeMap[volume->m_VolumeID] = volume;
+
+    if (volume->m_MountPoint != nullptr) {
+        volume->m_MountPoint->m_MountRoot = volume->m_RootNode;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
+{
+    if (volume == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    std::vector<Ptr<KInode>> volumeInodes;
+    const Ptr<KInode> rootNode = volume->m_RootNode;
+    {
+        KScopedLock inodeMapLock(s_InodeMapMutex);
+
+        for (;;)
+        {
+            bool hasPendingInode = false;
+            size_t volumeInodeCount = 0;
+
+            for (const auto& inodeEntry : s_InodeMap)
+            {
+                if (inodeEntry.first.first == volume->m_VolumeID)
+                {
+                    if (inodeEntry.second == PENDING_INODE)
+                    {
+                        hasPendingInode = true;
+                        break;
+                    }
+                    if (inodeEntry.second->m_Volume == volume)
+                    {
+                        if (inodeEntry.second->m_MountRoot != nullptr) {
+                            PERROR_THROW_CODE(PErrorCode::BUSY);
+                        }
+                        ++volumeInodeCount;
+                    }
+                }
+            }
+
+            if (hasPendingInode)
+            {
+                s_InodeMapConditionVar.Wait(s_InodeMapMutex);
+                continue;
+            }
+
+            if (rootNode != nullptr && rootNode->m_MountRoot != nullptr) {
+                PERROR_THROW_CODE(PErrorCode::BUSY);
+            }
+
+            volumeInodes.reserve(volumeInodeCount + 1);
+            break;
+        }
+
+        auto registeredVolume = s_VolumeMap.find(volume->m_VolumeID);
+        if (registeredVolume != s_VolumeMap.end() && registeredVolume->second == volume) {
+            s_VolumeMap.erase(registeredVolume);
+        }
+
+        for (auto inodeIterator = s_InodeMap.begin(); inodeIterator != s_InodeMap.end();)
+        {
+            KInode* inode = inodeIterator->second;
+            if (inodeIterator->first.first != volume->m_VolumeID || inode == PENDING_INODE || inode->m_Volume != volume)
+            {
+                ++inodeIterator;
+                continue;
+            }
+
+            if (inode->IsListMember(&s_InodeMRUList))
+            {
+                s_InodeMRUList.Remove(inode);
+                --s_UnusedInodeCount;
+            }
+
+            volumeInodes.push_back(ptr_tmp_cast(inode));
+            inodeIterator = s_InodeMap.erase(inodeIterator);
+        }
+
+        if (rootNode != nullptr)
+        {
+            bool rootNodeIncluded = false;
+            for (const Ptr<KInode>& inode : volumeInodes)
+            {
+                if (inode == rootNode)
+                {
+                    rootNodeIncluded = true;
+                    break;
+                }
+            }
+            if (!rootNodeIncluded) {
+                volumeInodes.push_back(rootNode);
+            }
+        }
+
+        if (volume->m_MountPoint != nullptr && volume->m_MountPoint->m_MountRoot == rootNode) {
+            volume->m_MountPoint->m_MountRoot = nullptr;
+        }
+        volume->m_MountPoint = nullptr;
+        volume->m_RootNode = nullptr;
+    }
+
+    for (Ptr<KInode>& inode : volumeInodes)
+    {
+        try
+        {
+            if (inode->IsActive()) {
+                inode->m_Filesystem->ReleaseInode(ptr_raw_pointer_cast(inode));
+            }
+        }
+        catch (const std::exception& exception)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::DetachVolume_trw(): failed to release inode {:x}: {}", inode->m_InodeID, exception.what());
+        }
+        inode->Detach();
+    }
+    volume->m_Filesystem = nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -242,6 +387,8 @@ void KVFSManager::RegisterVolume_trw(Ptr<KFSVolume> volume)
 
 Ptr<KFSVolume> KVFSManager::GetVolume(fs_id volumeID)
 {
+    KScopedLock inodeMapLock(s_InodeMapMutex);
+
     auto i = s_VolumeMap.find(volumeID);
     if (i != s_VolumeMap.end()) {
         return i->second;
@@ -285,10 +432,11 @@ Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossM
                 return inode;
             }
 
-            volume = GetVolume(volumeID);
-            if (volume == nullptr || volume->m_Filesystem == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::IO);
+            auto volumeIterator = s_VolumeMap.find(volumeID);
+            if (volumeIterator == s_VolumeMap.end() || volumeIterator->second->m_Filesystem == nullptr) {
+                PERROR_THROW_CODE(PErrorCode(ENODEV));
             }
+            volume = volumeIterator->second;
 
             s_InodeMap[key] = PENDING_INODE;
         }

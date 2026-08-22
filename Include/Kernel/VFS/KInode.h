@@ -44,6 +44,9 @@ public:
     virtual ~KInode();
     
     virtual bool LastReferenceGone() override;
+
+    bool IsActive() const noexcept { return m_Filesystem != nullptr && m_Volume != nullptr && m_FileOps != nullptr; }
+    void Detach() noexcept;
     
     inline void SetDeletedFlag(bool isDeleted)  noexcept { m_IsDeleted = isDeleted; }
     inline bool IsDeleted() const  noexcept { return m_IsDeleted; }

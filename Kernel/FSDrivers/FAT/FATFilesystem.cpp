@@ -347,9 +347,13 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
     Ptr<FATVolume>  vol = ptr_new<FATVolume>(ptr_tmp_cast(this), volumeID, devicePath);
 
+    PScopeFail volumeShutdownGuard([&vol]()
+    {
+        vol->Shutdown();
+    });
+
     vol->ReadSuperBlock(deviceFile);
 
-    vol->m_DeviceFile = deviceFile;
     vol->SetFlags(volumeFlags);
 
     // Check that the partition is large enough to contain the file system.
@@ -529,6 +533,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Root inode ID = {:x}.", vol->m_RootInode->m_InodeID);
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Volume label [{:11.11}] ({}).", vol->m_VolumeLabel, vol->m_VolumeLabelEntry);
 
+    vol->m_DeviceFile = deviceFile;
     return vol;
 }
 
@@ -540,19 +545,24 @@ void FATFilesystem::Unmount(Ptr<KFSVolume> volume)
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
 
-    CRITICAL_SCOPE(vol->m_Mutex);
-	
     if (!vol->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
+
+    KVFSManager::DetachVolume_trw(vol);
+    PScopeExit volumeShutdownGuard([&vol]()
+    {
+        vol->Shutdown();
+    });
+
+    CRITICAL_SCOPE(vol->m_Mutex);
+
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Unmount(): {:x}", vol->m_VolumeID);
 
     vol->UpdateFSInfo();
-    vol->m_BCache.Shutdown(true);
-
-    kclose(vol->m_DeviceFile);
-
-    vol->Shutdown();
+    if (!vol->m_BCache.Shutdown(true)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -65,7 +65,20 @@ FATVolume::~FATVolume()
 
 void FATVolume::Shutdown()
 {
-    m_FATTable = nullptr; // Must reset manually to break the reference loop.
+    m_FATTable = nullptr;
+    m_BCache.SetDevice(-1, 0, 0);
+
+    if (m_DeviceFile != -1)
+    {
+        kclose(m_DeviceFile);
+        m_DeviceFile = -1;
+    }
+
+    if (m_RootInode != nullptr) {
+        m_RootInode->Detach();
+    }
+    m_RootNode = nullptr;
+    m_RootInode = nullptr;
 }    
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -113,6 +113,11 @@ bool KBlockCache::SetDevice(int device, off64_t blockCount, size_t blockSize)
         return false;        
     }
     m_Device     = device;
+
+    if (m_Device == -1) {
+        return true;
+    }
+
     s_DeviceMap[m_Device] = this;
     
     m_BlockCount = blockCount;

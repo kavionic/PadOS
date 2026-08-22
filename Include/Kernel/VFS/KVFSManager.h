@@ -63,6 +63,7 @@ public:
     static std::vector<disk_partition_desc> DecodeDiskPartitions_trw(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, disk_read_op* readCallback, void* userData);
 
     static void           RegisterVolume_trw(Ptr<KFSVolume> volume);
+    static void           DetachVolume_trw(Ptr<KFSVolume> volume);
     static Ptr<KFSVolume> GetVolume(fs_id volumeID);
     static Ptr<KInode>    GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
     static void           InodeReleased(KInode* inode);

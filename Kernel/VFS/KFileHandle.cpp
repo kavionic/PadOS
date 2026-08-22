@@ -31,7 +31,9 @@ bool KFileNode::LastReferenceGone()
     try
     {
         Ptr<KInode> inode = GetInode();
-        inode->m_FileOps->CloseFile(inode->m_Volume, this);
+        if (inode != nullptr && inode->IsActive()) {
+            inode->m_FileOps->CloseFile(inode->m_Volume, this);
+        }
     }
     catch (const std::exception&) {}
     return KFileTableNode::LastReferenceGone();
@@ -42,7 +44,7 @@ bool KDirectoryNode::LastReferenceGone()
     try
     {
         Ptr<KInode> inode = GetInode();
-        if (inode->m_FileOps != nullptr) {
+        if (inode != nullptr && inode->IsActive()) {
             inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
         }
     }
@@ -53,8 +55,11 @@ bool KDirectoryNode::LastReferenceGone()
 size_t KDirectoryNode::ReadDirectory(void* buffer, size_t bufferSize)
 {
     Ptr<KInode> inode = GetInode();
-    if (inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
+    if (inode == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::BADF);
+    }
+    if (!inode->IsActive()) {
+        PERROR_THROW_CODE(PErrorCode(ENODEV));
     }
     return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), buffer, bufferSize);
 }
@@ -62,8 +67,11 @@ size_t KDirectoryNode::ReadDirectory(void* buffer, size_t bufferSize)
 void KDirectoryNode::RewindDirectory()
 {
     Ptr<KInode> inode = GetInode();
-    if (inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
+    if (inode == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::BADF);
+    }
+    if (!inode->IsActive()) {
+        PERROR_THROW_CODE(PErrorCode(ENODEV));
     }
     inode->m_FileOps->RewindDirectory(inode->m_Volume, ptr_tmp_cast(this));
 }

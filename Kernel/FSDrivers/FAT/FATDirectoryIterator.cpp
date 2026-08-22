@@ -23,6 +23,7 @@
 #include <algorithm>
 
 #include <System/ExceptionHandling.h>
+#include <Utils/UTF8Utils.h>
 #include <Utils/Utils.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/FSDrivers/FAT/FATFilesystem.h>
@@ -142,6 +143,91 @@ static bool IsCharacterValid(uint16_t character)
 		return false;
 	}
 	return character >= 0x80 || strchr(illegal, char(character)) == nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool CopyLFNNamePart(
+    const FATDirectoryEntryLFN& entry,
+    wchar16_t* destination,
+    bool isLastNamePart,
+    size_t& outCharacterCount,
+    bool& needsHighSurrogate)
+{
+    wchar16_t nameCharacters[FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY];
+
+    memcpy(nameCharacters, entry.m_NamePart1, sizeof(entry.m_NamePart1));
+    memcpy(nameCharacters + ARRAY_COUNT(entry.m_NamePart1), entry.m_NamePart2, sizeof(entry.m_NamePart2));
+    memcpy(nameCharacters + ARRAY_COUNT(entry.m_NamePart1) + ARRAY_COUNT(entry.m_NamePart2), entry.m_NamePart3, sizeof(entry.m_NamePart3));
+
+    size_t characterCount = ARRAY_COUNT(nameCharacters);
+    if (isLastNamePart)
+    {
+        bool terminatorFound = false;
+        for (size_t characterIndex = 0; characterIndex < ARRAY_COUNT(nameCharacters); ++characterIndex)
+        {
+            if (!terminatorFound)
+            {
+                if (nameCharacters[characterIndex] == 0)
+                {
+                    characterCount = characterIndex;
+                    terminatorFound = true;
+                }
+                else if (nameCharacters[characterIndex] == 0xffff)
+                {
+                    return false;
+                }
+            }
+            else if (nameCharacters[characterIndex] != 0xffff)
+            {
+                return false;
+            }
+        }
+
+        if (characterCount != 0 &&
+            (nameCharacters[characterCount - 1] == ' ' ||
+             nameCharacters[characterCount - 1] == '.'))
+        {
+            return false;
+        }
+    }
+
+    // LFN entries are encountered from the end of the name toward its
+    // beginning. Validate UTF-16 in that same direction so surrogate pairs
+    // spanning two entries do not require another pass over the full name.
+    for (size_t characterIndex = characterCount; characterIndex > 0; --characterIndex)
+    {
+        const uint16_t character = nameCharacters[characterIndex - 1];
+        if (character == 0 || character == 0xffff) {
+            return false;
+        }
+
+        if (is_utf16_low_surrogate(character))
+        {
+            if (needsHighSurrogate) {
+                return false;
+            }
+            needsHighSurrogate = true;
+        }
+        else if (is_utf16_high_surrogate(character))
+        {
+            if (!needsHighSurrogate) {
+                return false;
+            }
+            needsHighSurrogate = false;
+        }
+        else if (needsHighSurrogate || !IsCharacterValid(character))
+        {
+            return false;
+        }
+
+        destination[characterIndex - 1] = character;
+    }
+
+    outCharacterCount = characterCount;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -528,9 +614,11 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): {}", m_CurrentIndex);
 
     // LFN state
-    uint32_t startIndex  = 0xffff;
-    uint32_t filenameLen = 0;
-    uint32_t lfnCount    = 0;
+    bool hasLongName = false;
+    bool needsHighSurrogate = false;
+    uint32_t startIndex = 0;
+    size_t filenameLen = 0;
+    uint32_t lfnCount = 0;
 
     FATDirectoryEntryCombo* buffer;
     for (buffer = GetCurrentEntry(); buffer != nullptr; buffer = GetNextRawEntry())
@@ -538,7 +626,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): {:x}/{:x}/{}", m_SectorIterator.m_CurrentCluster, m_SectorIterator.m_CurrentSector, m_CurrentIndex);
         if (buffer->m_LFN.m_SequenceNumber == 0) // quit if at end of table
         {
-            if (startIndex != 0xffff) {
+            if (hasLongName) {
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry ({}) with no alias.", (filename != nullptr) ? filename->c_str() : "*none*");
             }
             return false;
@@ -546,9 +634,9 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
         
         if (buffer->m_LFN.m_SequenceNumber == 0xe5) // skip erased entries
         {
-            if (startIndex != 0xffff) {
+            if (hasLongName) {
                 kernel_log<PLogSeverity::WARNING>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry ({}) with intervening erased entries.", (filename != nullptr) ? filename->c_str() : "*none*");
-                startIndex = 0xffff;
+                hasLongName = false;
             }
             kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Entry erased, skipping...");
             continue;
@@ -556,11 +644,13 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
         
         if ((buffer->m_LFN.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) == FAT_LONG_NAME_ATTRIBUTES)
         {
-            if ((buffer->m_LFN.m_Reserved1 != 0) || (buffer->m_LFN.m_Reserved2[0] != 0) || (buffer->m_LFN.m_Reserved2[1] != 0)) {
+            if ((buffer->m_LFN.m_Reserved1 != 0) || (buffer->m_LFN.m_Reserved2[0] != 0) || (buffer->m_LFN.m_Reserved2[1] != 0))
+            {
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Invalid LFN entry: reserved fields clobbered.");
+                hasLongName = false;
                 continue;
             }
-            if (startIndex == 0xffff)
+            if (!hasLongName)
             {
                 const uint8_t sequenceNumber = buffer->m_LFN.m_SequenceNumber;
                 const uint32_t entryCount = sequenceNumber & 0x1f;
@@ -572,70 +662,58 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
 
                 hash = buffer->m_LFN.m_Hash;
                 lfnCount = entryCount;
-                startIndex = m_CurrentIndex;
-                
-                if (filename == nullptr) {
-                    continue;
-                }
-                
-                wchar16_t* dst = utf16Buffer.data() + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY * (lfnCount - 1);
-                
-                bool done = false;
-                for (int i = 0; !done && i < ARRAY_COUNT(buffer->m_LFN.m_NamePart1); ++i) {
-                    if (buffer->m_LFN.m_NamePart1[i] != 0xffff) {
-                        *dst++ = buffer->m_LFN.m_NamePart1[i];
-                    } else {
-                        done = true;
-                    }
-                }
-                for (int i = 0; !done && i < ARRAY_COUNT(buffer->m_LFN.m_NamePart2); ++i) {
-                    if (buffer->m_LFN.m_NamePart2[i] != 0xffff) {
-                        *dst++ = buffer->m_LFN.m_NamePart2[i];
-                    } else {
-                        done = true;
-                    }
-                }
-                for (int i = 0; !done && i < ARRAY_COUNT(buffer->m_LFN.m_NamePart3); ++i) {
-                    if (buffer->m_LFN.m_NamePart3[i] != 0xffff) {
-                        *dst++ = buffer->m_LFN.m_NamePart3[i];
-                    } else {
-                        done = true;
-                    }
-                }
-                filenameLen = static_cast<uint32_t>(dst - utf16Buffer.data());
-                if (filenameLen > 0 && utf16Buffer[filenameLen - 1] == 0) {
-                    --filenameLen;
-                }
-                if (filenameLen > FAT_LONG_NAME_MAX_LENGTH)
+
+                if (filename != nullptr)
                 {
-                    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): long file name exceeds {} characters.", FAT_LONG_NAME_MAX_LENGTH);
-                    startIndex = 0xffff;
+                    wchar16_t* destination = utf16Buffer.data() + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY * (lfnCount - 1);
+                    size_t namePartLength = 0;
+                    needsHighSurrogate = false;
+                    if (!CopyLFNNamePart(buffer->m_LFN, destination, true, namePartLength, needsHighSurrogate) ||
+                        (namePartLength == 0 && lfnCount == 1))
+                    {
+                        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): invalid final LFN name payload.");
+                        continue;
+                    }
+
+                    filenameLen = size_t(destination - utf16Buffer.data()) + namePartLength;
+                    if (filenameLen > FAT_LONG_NAME_MAX_LENGTH)
+                    {
+                        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): long file name exceeds {} characters.", FAT_LONG_NAME_MAX_LENGTH);
+                        continue;
+                    }
                 }
+
+                startIndex = m_CurrentIndex;
+                hasLongName = true;
                 continue;
             }
             else
             {
-                if (buffer->m_LFN.m_Hash != hash) {
+                if (buffer->m_LFN.m_Hash != hash)
+                {
                     kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Error in long file name: hash values don't match.");
-                    startIndex = 0xffff;
+                    hasLongName = false;
                     continue;
                 }
                 if (lfnCount <= 1 || buffer->m_LFN.m_SequenceNumber != lfnCount - 1)
                 {
                     kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN sequence number.");
-                    startIndex = 0xffff;
+                    hasLongName = false;
                     continue;
                 }
                 --lfnCount;
                 if (filename != nullptr)
                 {
-                    wchar16_t* dst = utf16Buffer.data() + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY * (lfnCount - 1);
-                    memcpy(dst, buffer->m_LFN.m_NamePart1, sizeof(buffer->m_LFN.m_NamePart1));
-                    dst += ARRAY_COUNT(buffer->m_LFN.m_NamePart1);
-                    memcpy(dst, buffer->m_LFN.m_NamePart2, sizeof(buffer->m_LFN.m_NamePart2));
-                    dst += ARRAY_COUNT(buffer->m_LFN.m_NamePart2);
-                    memcpy(dst, buffer->m_LFN.m_NamePart3, sizeof(buffer->m_LFN.m_NamePart3));
-                }                
+                    wchar16_t* destination = utf16Buffer.data() + FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY * (lfnCount - 1);
+                    size_t namePartLength = 0;
+                    if (!CopyLFNNamePart(buffer->m_LFN, destination, false, namePartLength, needsHighSurrogate))
+                    {
+                        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): invalid LFN name payload.");
+                        hasLongName = false;
+                        continue;
+                    }
+                    kassert(namePartLength == FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY);
+                }
                 continue;
             }
         }
@@ -648,12 +726,17 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
     }        
 
     // Process long name
-    if (startIndex != 0xffff)
+    if (hasLongName)
     {
         if (lfnCount != 1)
         {
             kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): Unfinished LFN in directory");
-            startIndex = 0xffff;
+            hasLongName = false;
+        }
+        else if (filename != nullptr && needsHighSurrogate)
+        {
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): LFN begins with an unmatched low surrogate.");
+            hasLongName = false;
         }
         else
         {
@@ -663,13 +746,13 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
             if (HashMSDOSName(buffer->m_Normal.m_Filename) != hash)
             {
                 kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): long file name ({}) hash and short file name ({:11.11}) don't match", ((filename != nullptr) ? filename->c_str() : "*none*"), buffer->m_Normal.m_Filename);
-                startIndex = 0xffff;
+                hasLongName = false;
             }
         }
     }
 
     // Process short name
-    if (startIndex == 0xffff)
+    if (!hasLongName)
     {
         startIndex = m_CurrentIndex;
         if (filename != nullptr) {

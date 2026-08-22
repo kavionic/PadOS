@@ -3181,14 +3181,9 @@ void FATFilesystem::CompactDirectory(Ptr<FATVolume> vol, Ptr<FATInode> dir)
 
     while (diri.m_CurrentIndex < directoryEntryCount && diri.GetCurrentEntry() != nullptr)
     {
-        FATDirectoryEntryInfo info;
-
-        if (diri.GetNextLFNEntry(&info, nullptr))
+        if (diri.GetNextLFNEntry(nullptr, nullptr))
         {
-            // don't compact away volume labels in the root dir
-            if (!(info.m_DOSAttribs & FAT_VOLUME) || (dir->m_InodeID != vol->m_RootInode->m_InodeID)) {
-                last = diri.m_CurrentIndex;
-            }            
+            last = diri.m_CurrentIndex;
         }
         else
         {

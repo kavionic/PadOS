@@ -65,7 +65,7 @@ public:
     void MarkMetadataDirty() noexcept;
     void DiscardPendingMetadata() noexcept;
     bool IsMetadataDirty() const noexcept { return m_MetadataDirty; }
-    void MarkContentsModified(bool updateModificationTime = true) noexcept;
+    void MarkContentsModified(bool updateModificationTime = true, bool updateAccessTime = true) noexcept;
     void Write();
 
     static time_t       FATTimeToUnixTime(uint32_t fatTime);

@@ -231,10 +231,17 @@ void FATInode::DiscardPendingMetadata() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATInode::MarkContentsModified(bool updateModificationTime) noexcept
+void FATInode::MarkContentsModified(bool updateModificationTime, bool updateAccessTime) noexcept
 {
-    if (updateModificationTime) {
-        m_MTime = RoundTimeToFATModificationTime(get_real_time());
+    if (updateModificationTime || updateAccessTime)
+    {
+        const TimeValNanos currentTime = get_real_time();
+        if (updateModificationTime) {
+            m_MTime = RoundTimeToFATModificationTime(currentTime);
+        }
+        if (updateAccessTime) {
+            m_ATime = RoundTimeToFATAccessTime(currentTime);
+        }
     }
     m_DOSAttribs |= FAT_ARCHIVE;
 

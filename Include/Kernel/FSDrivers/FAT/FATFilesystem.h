@@ -97,7 +97,7 @@ private:
     void            EnsureClusterChainMetadataLoaded(Ptr<FATVolume> volume, Ptr<FATInode> node);
     uint32_t        GetFileClusterCount(Ptr<FATVolume> volume, off64_t fileSize);
     void            ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t startPosition, off64_t endPosition);
-    void            ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime);
+    void            ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime, bool updateAccessTime);
     void            UpdateDirectoryParentEntry(Ptr<FATVolume> volume, Ptr<FATInode> directory, Ptr<FATInode> parent);
     static void     MarkDirectoryContentsModified(FATVolume& volume, FATInode& directory, TimeValNanos modificationTime) noexcept;
     void            CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex);

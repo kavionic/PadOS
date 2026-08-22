@@ -966,7 +966,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> _node,
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::OpenFile() called with O_TRUNC set.");
         FATVolume::ModificationScope modificationScope(*vol);
-        ResizeFile(vol, node, 0, true);
+        ResizeFile(vol, node, 0, true, true);
     }
 
     Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>(openFlags);
@@ -1047,7 +1047,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         if (truncateRequested)
         {
             FATVolume::ModificationScope modificationScope(*vol);
-            ResizeFile(vol, file, 0, true);
+            ResizeFile(vol, file, 0, true, true);
         }
         fileNode = ptr_new<FATFileNode>(openFlags);
     }
@@ -2296,7 +2296,9 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
     if ((mask & WSTAT_SIZE) && st->st_size != node->m_Size)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting file size to {:x}.", st->st_size);
-        ResizeFile(vol, node, st->st_size, (mask & WSTAT_MTIME) == 0);
+        const bool updateModificationTime = (mask & WSTAT_MTIME) == 0;
+        const bool updateAccessTime = (mask & WSTAT_ATIME) == 0;
+        ResizeFile(vol, node, st->st_size, updateModificationTime, updateAccessTime);
 #ifdef FAT_VERIFY_FAT_CHAINS
         kassert(node->m_Size == 0 || vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, uint32_t((node->m_Size - 1) / (vol->m_BytesPerSector * vol->m_SectorsPerCluster)), node->m_EndCluster));
 #endif // FAT_VERIFY_FAT_CHAINS
@@ -2720,7 +2722,7 @@ void FATFilesystem::ClearFileRange(Ptr<FATVolume> volume, Ptr<FATInode> node, of
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime)
+void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_t fileSize, bool updateModificationTime, bool updateAccessTime)
 {
     if (fileSize < 0) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
@@ -2738,12 +2740,14 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
 
     const uint32_t oldClusterCount = node->m_AllocatedClusterCount;
     const uint32_t newClusterCount = GetFileClusterCount(volume, fileSize);
+    const TimeValNanos oldAccessTime = node->m_ATime;
     const TimeValNanos oldModificationTime = node->m_MTime;
     const uint8_t oldDOSAttribs = node->m_DOSAttribs;
     const bool metadataWasDirty = node->IsMetadataDirty();
 
-    auto restoreModificationMetadata = [&]()
+    auto restoreContentMetadata = [&]()
     {
+        node->m_ATime = oldAccessTime;
         node->m_MTime = oldModificationTime;
         node->m_DOSAttribs = oldDOSAttribs;
         if (!metadataWasDirty) {
@@ -2753,29 +2757,29 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
 
     if (fileSize < oldFileSize)
     {
-        PScopeFail restoreFileMetadata([&node, oldFileSize, newClusterCount, &restoreModificationMetadata]()
+        PScopeFail restoreFileMetadata([&node, oldFileSize, newClusterCount, &restoreContentMetadata]()
         {
             if (newClusterCount != 0)
             {
                 node->m_Size = oldFileSize;
-                restoreModificationMetadata();
+                restoreContentMetadata();
             }
         });
 
         node->m_Size = fileSize;
-        node->MarkContentsModified(updateModificationTime);
+        node->MarkContentsModified(updateModificationTime, updateAccessTime);
         if (newClusterCount != 0) {
             node->Write();
         }
     }
 
     {
-        PScopeFail restoreFileMetadata([&node, oldFileSize, oldClusterCount, newClusterCount, &restoreModificationMetadata]()
+        PScopeFail restoreFileMetadata([&node, oldFileSize, oldClusterCount, newClusterCount, &restoreContentMetadata]()
         {
             if (node->m_AllocatedClusterCount == oldClusterCount && newClusterCount == 0)
             {
                 node->m_Size = oldFileSize;
-                restoreModificationMetadata();
+                restoreContentMetadata();
             }
         });
         volume->GetFATTable()->SetChainLength(node, newClusterCount, true);
@@ -2786,7 +2790,7 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
         ClearFileRange(volume, node, oldFileSize, fileSize);
 
         node->m_Size = fileSize;
-        node->MarkContentsModified(updateModificationTime);
+        node->MarkContentsModified(updateModificationTime, updateAccessTime);
         node->Write();
     }
 }

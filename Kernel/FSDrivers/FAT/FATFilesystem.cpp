@@ -1468,10 +1468,15 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
 
         if (destinationNode->IsDirectory())
         {
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): destination already occupied by a directory.");
-            PERROR_THROW_CODE(PErrorCode::PERM);
+            if (!sourceNode->IsDirectory()) {
+                PERROR_THROW_CODE(PErrorCode::ISDIR);
+            }
+            if (!IsDirectoryEmpty(volume, destinationNode)) {
+                PERROR_THROW_CODE(PErrorCode::NOTEMPTY);
+            }
         }
-        if (sourceNode->IsDirectory()) {
+        else if (sourceNode->IsDirectory())
+        {
             PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
 
@@ -1616,8 +1621,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
 
     if (destinationNode != nullptr)
     {
-        // ReleaseInode() clears the replaced file's chain after its final open
-        // handle is closed.
+        // ReleaseInode() clears the replaced node's chain after its final
+        // reference is released.
         destinationNode->DiscardPendingMetadata();
         destinationNode->SetDeletedFlag(true);
         volume->RegisterDeferredDeletion();

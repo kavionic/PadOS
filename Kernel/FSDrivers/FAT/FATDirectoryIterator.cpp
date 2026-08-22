@@ -211,6 +211,7 @@ static void FATRawShortNameToUTF8(const FATDirectoryEntry& entry, PString& desti
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATRawShortNameToUTF8().");
 
+    destination.clear();
     const bool lowercaseBase = (entry.m_ShortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_BASE) != 0;
     const bool lowercaseExtension = (entry.m_ShortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_EXTENSION) != 0;
 

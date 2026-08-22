@@ -407,23 +407,104 @@ bool FATDirectoryIterator::RequiresLongName(const wchar16_t* longName, size_t lo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
+static size_t GetShortNameNumericTailStart(const char shortName[11], size_t numericTailLength)
 {
-    char buffer[8];
+    kassert(numericTailLength >= 2 && numericTailLength <= 7);
 
+    size_t baseLength = 8;
+    while (baseLength > 0 && shortName[baseLength - 1] == ' ') {
+        --baseLength;
+    }
+
+    kassert(baseLength != 0);
+    return std::min(baseLength, size_t(8) - numericTailLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(
+    const char shortName[11],
+    const char baseShortName[11],
+    uint32_t& outNumericTailValue)
+{
+    size_t numericTailMarkerIndex = 8;
+    size_t characterIndex = 0;
+    for (; characterIndex < 8; ++characterIndex)
+    {
+        const char shortNameCharacter = shortName[characterIndex];
+        if (shortNameCharacter != baseShortName[characterIndex])
+        {
+            if (shortNameCharacter == '~') {
+                numericTailMarkerIndex = characterIndex;
+            }
+            break;
+        }
+
+        // The generated marker can overlap a '~' already present in the base.
+        if (shortNameCharacter == '~') {
+            numericTailMarkerIndex = characterIndex;
+        }
+    }
+
+    if (characterIndex == 8 ||
+        numericTailMarkerIndex == 0 ||
+        numericTailMarkerIndex == 8)
+    {
+        return false;
+    }
+
+    characterIndex = numericTailMarkerIndex + 1;
+
+    uint32_t numericTailValue = 0;
+    while (characterIndex < 8 && shortName[characterIndex] >= '0' && shortName[characterIndex] <= '9')
+    {
+        numericTailValue = numericTailValue * 10 + uint32_t(shortName[characterIndex] - '0');
+        ++characterIndex;
+    }
+    if (numericTailValue == 0) {
+        return false;
+    }
+
+    while (characterIndex < 8 && shortName[characterIndex] == ' ') {
+        ++characterIndex;
+    }
+
+    if (characterIndex != 8) {
+        return false;
+    }
+    if (memcmp(shortName + 8, baseShortName + 8, 3) != 0) {
+        return false;
+    }
+
+    outNumericTailValue = numericTailValue;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATDirectoryIterator::MungeShortName(char* shortName, uint32_t numericTailValue)
+{
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::MungeShortName().");
 
-    // Short names must have only numbers following the tilde and cannot begin with 0
-    sprintf(buffer, "~%" PRIu32, value);
-    int len = strlen(buffer);
-    int i = 7 - len;
+    kassert(numericTailValue > 0 && numericTailValue <= FAT_SHORT_NAME_MAX_NUMERIC_TAIL_VALUE);
 
-    kassert(i > 0 && i < 8);
+    char numericTail[7];
+    size_t numericTailBufferIndex = sizeof(numericTail);
+    uint32_t remainingValue = numericTailValue;
+    do
+    {
+        numericTail[--numericTailBufferIndex] = char('0' + remainingValue % 10);
+        remainingValue /= 10;
+    } while (remainingValue != 0);
+    numericTail[--numericTailBufferIndex] = '~';
 
-    while (shortName[i] == ' ' && i > 0) i--;
-    i++;
-
-    memcpy(shortName + i, buffer, len);
+    const size_t numericTailLength = sizeof(numericTail) - numericTailBufferIndex;
+    const size_t numericTailStart = GetShortNameNumericTailStart(shortName, numericTailLength);
+    memcpy(shortName + numericTailStart, numericTail + numericTailBufferIndex, numericTailLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

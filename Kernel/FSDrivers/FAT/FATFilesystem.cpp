@@ -19,8 +19,10 @@
 
 #include <System/Platform.h>
 
+#include <algorithm>
 #include <string_view>
 #include <utility>
+#include <vector>
 #include <string.h>
 #include <fcntl.h>
 #include <set>
@@ -2500,6 +2502,58 @@ bool FATFilesystem::FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATFilesystem::SelectUniqueShortName(Ptr<FATVolume> volume, Ptr<FATInode> parent, char shortName[11])
+{
+    char baseShortName[11];
+    memcpy(baseShortName, shortName, sizeof(baseShortName));
+
+    std::vector<uint32_t> usedNumericTailValues;
+    FATDirectoryIterator iterator(volume, parent->m_StartCluster, 0);
+
+    for (FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry(); entry != nullptr; entry = iterator.GetNextRawEntry())
+    {
+        const uint8_t firstFilenameCharacter = uint8_t(entry->m_Normal.m_Filename[0]);
+        if (firstFilenameCharacter == 0) {
+            break;
+        }
+
+        const bool isLongNameEntry =
+            (entry->m_Normal.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) == FAT_LONG_NAME_ATTRIBUTES;
+        if (firstFilenameCharacter != 0xe5 && !isLongNameEntry)
+        {
+            uint32_t numericTailValue;
+            if (FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(
+                    entry->m_Normal.m_Filename,
+                    baseShortName,
+                    numericTailValue))
+            {
+                usedNumericTailValues.push_back(numericTailValue);
+            }
+        }
+    }
+
+    std::sort(usedNumericTailValues.begin(), usedNumericTailValues.end());
+
+    uint32_t numericTailValue = 1;
+    for (const uint32_t usedNumericTailValue : usedNumericTailValues) {
+        if (usedNumericTailValue == numericTailValue) {
+            ++numericTailValue;
+        } else if (usedNumericTailValue > numericTailValue) {
+            break;
+        }
+    }
+
+    if (numericTailValue > FAT_SHORT_NAME_MAX_NUMERIC_TAIL_VALUE) {
+        PERROR_THROW_CODE(PErrorCode::NOSPC);
+    }
+
+    FATDirectoryIterator::MungeShortName(shortName, numericTailValue);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool FATFilesystem::FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode)
 {
     FATDirectoryIterator iterator(volume, parent->m_StartCluster, 0);
@@ -2887,46 +2941,11 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
     // Otherwise, preserve uniformly lowercase components with the NT case flags.
     if (FATDirectoryIterator::RequiresLongName(longName.data(), nameLength, info.ShortNameCaseFlags))
     {
-        char tempName[11]; // Temporary short name
-
-        memcpy(tempName, shortName, 11);
-
-        bool foundFreeName = false;
-        for (int i = 1; i <= 10; ++i)
-        {
-            FATDirectoryIterator::MungeShortName(shortName, i);
-            
-            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): trying short name [{:11.11}].", shortName);
-            
-            if (!FindShortName(vol, parent, shortName))
-            {
-                foundFreeName = true;
-                break;
-            }
-            memcpy(shortName, tempName, 11);
-        }
-
-        if (!foundFreeName)
-        {
-            for (int i = 0; i < 1000; ++i)
-            {
-                memcpy(shortName, tempName, 11);
-                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): trying short name [{:11.11}].", shortName);
-                
-                int value = (uint32_t(kget_monotonic_time().AsMicroseconds() / 1024)) % 99999 + 1;
-
-                FATDirectoryIterator::MungeShortName(shortName, value);
-                if (!FindShortName(vol, parent, shortName))
-                {
-                    foundFreeName = true;
-                    break;
-                }
-            }
-        }
-        if (!foundFreeName)
-        {
-            PERROR_THROW_CODE(PErrorCode::NOSPC); // Failed to find an unused short name.
-        }
+        SelectUniqueShortName(vol, parent, shortName);
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(
+            LogCat_FATDIR,
+            "FATFilesystem::CreateDirectoryEntry(): selected short name [{:11.11}].",
+            shortName);
     }
     else
     {

@@ -35,6 +35,7 @@ class FATInode;
 
 inline constexpr uint8_t FAT_SHORT_NAME_LOWERCASE_BASE = 0x08;
 inline constexpr uint8_t FAT_SHORT_NAME_LOWERCASE_EXTENSION = 0x10;
+inline constexpr uint32_t FAT_SHORT_NAME_MAX_NUMERIC_TAIL_VALUE = 999999;
 
 inline constexpr uint8_t FAT_LONG_NAME_ATTRIBUTES = 0x0f;
 inline constexpr uint8_t FAT_LONG_NAME_ATTRIBUTE_MASK = 0x3f;
@@ -117,7 +118,8 @@ public:
     void MarkDirty() { m_IsDirty = true; }
 
     static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength, uint8_t& outShortNameCaseFlags);
-    static void MungeShortName(char* shortName, uint32_t iteration);
+    static bool GetGeneratedShortNameNumericTailValue(const char shortName[11], const char baseShortName[11], uint32_t& outNumericTailValue);
+    static void MungeShortName(char* shortName, uint32_t numericTailValue);
     static void GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName);
 
     static uint8_t HashMSDOSName(const char *name);

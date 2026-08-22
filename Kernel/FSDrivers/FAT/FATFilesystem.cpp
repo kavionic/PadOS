@@ -1504,9 +1504,12 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     bool sourceMappingChangeAttempted = false;
     bool destinationMappingChangeAttempted = false;
     bool directoryParentEntryUpdated = false;
+    const uint8_t originalSourceDOSAttribs = sourceNode->m_DOSAttribs;
 
     PScopeFail rollbackRename([&]()
     {
+        sourceNode->m_DOSAttribs = originalSourceDOSAttribs;
+
         if (directoryParentEntryUpdated)
         {
             try {
@@ -1562,6 +1565,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
             }
         }
     });
+
+    sourceNode->m_DOSAttribs |= FAT_ARCHIVE;
 
     if (destinationNode != nullptr)
     {

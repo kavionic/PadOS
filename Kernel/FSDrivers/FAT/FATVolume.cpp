@@ -281,6 +281,14 @@ void FATVolume::ReadSuperBlock(int deviceFile)
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT12/16 volume contains no root-directory entries.");
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
+        if ((rootDirectoryByteCount % m_BytesPerSector) != 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(
+                LogCat_FATFS,
+                "FATFilesystem::Mount(): FAT12/16 root-directory entry count {} does not fill a whole number of sectors.",
+                m_RootEntriesCount);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
 
         m_FSInfoSector = 0xffff;
         m_BackupBootSector = 0;

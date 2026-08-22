@@ -1871,9 +1871,14 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
     const uint32_t requiredClusterCount = GetFileClusterCount(vol, writeEnd);
 
     bool modificationMetadataUpdated = false;
-    PScopeFail markPartiallyWrittenFileModified([&node, &bytesWritten, &modificationMetadataUpdated]()
+    PScopeFail preservePartiallyWrittenFileState([&node, oldFileSize, pos, &bytesWritten, &modificationMetadataUpdated]()
     {
-        if (bytesWritten != 0 && !modificationMetadataUpdated) {
+        if (bytesWritten != 0 && !modificationMetadataUpdated)
+        {
+            const off64_t partialWriteEnd = pos + off64_t(bytesWritten);
+            if (partialWriteEnd > oldFileSize) {
+                node->m_Size = partialWriteEnd;
+            }
             node->MarkContentsModified();
         }
     });
@@ -1995,11 +2000,6 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
 
     if (writeEnd > oldFileSize)
     {
-        PScopeFail restoreFileSize([&node, oldFileSize]()
-        {
-            node->m_Size = oldFileSize;
-        });
-
         node->m_Size = writeEnd;
         node->Write();
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Write(): setting file size to {} ({} clusters).", node->m_Size, requiredClusterCount);
@@ -2776,12 +2776,6 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, off64_
     if (fileSize > oldFileSize)
     {
         ClearFileRange(volume, node, oldFileSize, fileSize);
-
-        PScopeFail restoreFileMetadata([&node, oldFileSize, &restoreModificationMetadata]()
-        {
-            node->m_Size = oldFileSize;
-            restoreModificationMetadata();
-        });
 
         node->m_Size = fileSize;
         node->MarkContentsModified(updateModificationTime);

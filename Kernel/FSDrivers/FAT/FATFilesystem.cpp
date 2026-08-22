@@ -1068,6 +1068,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         dummy->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
 
         CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
+        MarkDirectoryContentsModified(*vol, *dir, currentTime);
 
         dummy->m_InodeID = GENERATE_DIR_INDEX_INODEID(dummy->m_ParentInodeID, dummy->m_DirStartIndex);
         if (vol->HasInodeIDToLocationIDMapping(dummy->m_InodeID))
@@ -1385,6 +1386,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     // Publishing the parent entry commits the new directory after its contents
     // are fully initialized.
     CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
+    MarkDirectoryContentsModified(*vol, *dir, currentTime);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1626,6 +1628,12 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
         destinationNode->DiscardPendingMetadata();
         destinationNode->SetDeletedFlag(true);
         volume->RegisterDeferredDeletion();
+    }
+
+    const TimeValNanos modificationTime = get_real_time();
+    MarkDirectoryContentsModified(*volume, *oldDirectory, modificationTime);
+    if (oldDirectory->m_InodeID != newDirectory->m_InodeID) {
+        MarkDirectoryContentsModified(*volume, *newDirectory, modificationTime);
     }
 
     CompactDirectoryNoThrow(volume, oldDirectory);
@@ -2819,6 +2827,24 @@ void FATFilesystem::UpdateDirectoryParentEntry(Ptr<FATVolume> volume, Ptr<FATIno
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATFilesystem::MarkDirectoryContentsModified(FATVolume& volume, FATInode& directory, TimeValNanos modificationTime) noexcept
+{
+    kassert(directory.IsDirectory());
+
+    directory.m_MTime = FATInode::RoundTimeToFATModificationTime(modificationTime);
+
+    // The FAT root has no containing directory entry in which to persist its
+    // timestamp. Keep its in-memory stat data current without queuing an inode
+    // write that cannot succeed.
+    if (directory.m_InodeID != volume.m_RootInode->m_InodeID) {
+        directory.MarkMetadataDirty();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> parent, Ptr<FATInode> node, const PString& name, FATInode* collisionExclusion, uint32_t* startIndex, uint32_t* endIndex)
 {
     struct FATNewDirEntryInfo info;
@@ -3329,6 +3355,7 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
     file->SetDeletedFlag(true);
     vol->RegisterDeferredDeletion();
 
+    MarkDirectoryContentsModified(*vol, *dir, get_real_time());
     CompactDirectoryNoThrow(vol, dir);
 }
 

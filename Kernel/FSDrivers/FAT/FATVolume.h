@@ -102,6 +102,7 @@ class FATVolume : public KFSVolume, public SignalTarget
 {
 public:
     static const uint32_t MAGIC = 0x2ecf6059;
+    static constexpr int32_t INVALID_VOLUME_LABEL_ENTRY = -1;
 
     class ModificationScope
     {
@@ -200,8 +201,9 @@ public:
     uint32_t      m_RootStart = 0;        // for fat12 + fat16 only
     uint32_t	  m_RootSectorCount = 0;  // for fat12 + fat16 only
     Ptr<FATInode> m_RootInode;            // root directory
-    int32_t	  m_VolumeLabelEntry = 0; // index in root directory
-    char	  m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH + 1]; // lfn's need not apply
+    bool          m_HasVolumeLabel = false;
+    int32_t	      m_VolumeLabelEntry = INVALID_VOLUME_LABEL_ENTRY; // index in root directory
+    char	      m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH + 1] = "           "; // lfn's need not apply
 
     uint32_t	  m_FirstDataSector = 0;
     uint32_t      m_LastAllocatedCluster = 0; // last allocated cluster

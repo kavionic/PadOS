@@ -68,10 +68,6 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
 {
     m_Magic = MAGIC;
 
-    m_VolumeLabelEntry = -2;	// for now, assume there is no volume entry
-    memset(m_VolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
-    m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH] = '\0';
-
     m_BCache.SignalBecameReadOnly.Connect(this, &FATVolume::SlotBlockCacheReadOnly);
         
     m_RootInode = ptr_new<FATInode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
@@ -304,14 +300,12 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     const uint8_t* const volumeLabel = (m_FATBits == 32) ?
         superBlock->m_FSDependent.FAT32.m_VolumeLabel :
         superBlock->m_FSDependent.FAT16.m_VolumeLabel;
-    if (bootSignature == 0x29)
+    if (bootSignature == 0x29 &&
+        memcmp(volumeLabel, "NO NAME    ", FAT_VOLUME_LABEL_LENGTH) != 0 &&
+        memcmp(volumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
     {
-        // Fill in the volume label.
-        if (memcmp(volumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
-        {
-            memcpy(m_VolumeLabel, volumeLabel, FAT_VOLUME_LABEL_LENGTH);
-            m_VolumeLabelEntry = -1;
-        }
+        memcpy(m_VolumeLabel, volumeLabel, FAT_VOLUME_LABEL_LENGTH);
+        m_HasVolumeLabel = true;
     }
 
     m_RootInode->m_Size         = rootSize;

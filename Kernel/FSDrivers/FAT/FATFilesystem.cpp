@@ -801,30 +801,43 @@ void FATFilesystem::ReleaseInode(KInode* inode)
 
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::ReleaseInode({:x})", node->m_InodeID);
 
+        PScopeExit removeMappings([&vol, node]()
+        {
+            if (vol->HasInodeIDToLocationIDMapping(node->m_InodeID)) {
+                vol->RemoveInodeIDToLocationIDMapping(node->m_InodeID);
+            }
+            if (node->IsDirectory() && !vol->RemoveDirectoryMapping(node->m_StartCluster, node->m_InodeID)) {
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): failed to remove directory mapping for inode {:x}.", node->m_InodeID);
+            }
+        });
+
         if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): deleted inode on read-only volume.");
             PERROR_THROW_CODE(PErrorCode::ROFS);
         }
 
-        // clear the fat chain
-        if (node->m_StartCluster != 0 && !vol->IsDataCluster(node->m_StartCluster)) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): invalid start cluster {}.", node->m_StartCluster);
+        if (node->m_StartCluster == 0)
+        {
+            if (node->m_Size != 0 || node->IsDirectory())
+            {
+                kernel_log<PLogSeverity::ERROR>(
+                    LogCat_FATFS,
+                    "FATFilesystem::ReleaseInode(): inode {:x} has no start cluster (size {}, directory {}).",
+                    node->m_InodeID,
+                    node->m_Size,
+                    node->IsDirectory());
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
         }
-        /* XXX: the following assertion was tripped */
-        if (node->m_StartCluster == 0 && node->m_Size == 0) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): inode have start cluster {} and no size.", node->m_StartCluster);
-        }
-        if (node->m_StartCluster != 0) {
+        else
+        {
+            if (!vol->IsDataCluster(node->m_StartCluster))
+            {
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::ReleaseInode(): invalid start cluster {}.", node->m_StartCluster);
+                PERROR_THROW_CODE(PErrorCode::IO);
+            }
             vol->GetFATTable()->ClearFATChain(node->m_StartCluster);
         }
-        // Remove inode ID from the cache.
-        if (vol->HasInodeIDToLocationIDMapping(node->m_InodeID)) {
-            vol->RemoveInodeIDToLocationIDMapping(node->m_InodeID);
-        }
-        // If directory, remove from directory mapping.
-        if (node->IsDirectory()) {
-            vol->RemoveDirectoryMapping(node->m_StartCluster, node->m_InodeID);
-        }      
     }
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::ReleaseInode() (inode ID {:x}).", node->m_InodeID);
 }

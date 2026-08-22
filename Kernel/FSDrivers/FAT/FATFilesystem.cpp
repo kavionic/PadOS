@@ -1251,11 +1251,6 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
-    if (dir->IsDeleted())
-    {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CreateDirectory() called in removed directory.");
-        PERROR_THROW_CODE(PErrorCode::PERM);
-    }
     ValidateFATNameBuffer(_name, nameLength);
     name.assign(_name, nameLength);
     ValidateNewFATName(name);
@@ -1263,6 +1258,12 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     CRITICAL_SCOPE(vol->m_Mutex);
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::CreateDirectory() called: {:x}/{} (perm {:o})", dir->m_InodeID, name.c_str(), perms);
+
+    if (dir->IsDeleted())
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CreateDirectory() called in removed directory.");
+        PERROR_THROW_CODE(PErrorCode::PERM);
+    }
 
     if (!dir->IsDirectory())
     {
@@ -1430,6 +1431,12 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
 
     if (!volume->CheckMagic(__func__) || !oldDirectory->CheckMagic(__func__) || !newDirectory->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    if (oldDirectory->IsDeleted() || newDirectory->IsDeleted())
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): called with removed source or destination directory.");
+        PERROR_THROW_CODE(PErrorCode::PERM);
     }
     
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename() called: {:x}/{}->{:x}/{}", oldDirectory->m_InodeID, oldName.c_str(), newDirectory->m_InodeID, newName.c_str());

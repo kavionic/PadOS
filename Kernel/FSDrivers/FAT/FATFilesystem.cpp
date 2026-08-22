@@ -1290,7 +1290,10 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     dummy->m_ParentInodeID = dir->m_InodeID;
     dummy->m_StartCluster = vol->GetFATTable()->AllocateClusters(1);
 
-    PScopeFail scopeCleanupFATChain([&vol, &dummy]() {vol->GetFATTable()->ClearFATChain(dummy->m_StartCluster); });
+    PScopeFail scopeCleanupFATChain([&vol, &dummy]()
+    {
+        vol->GetFATTable()->ClearFATChainAfterFailureNoThrow(dummy->m_StartCluster, "FATFilesystem::CreateDirectory()");
+    });
 
     dummy->m_EndCluster = dummy->m_StartCluster;
     dummy->m_AllocatedClusterCount = 1;

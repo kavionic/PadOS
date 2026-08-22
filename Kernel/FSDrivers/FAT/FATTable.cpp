@@ -307,6 +307,11 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
             node->Write();
         }
 
+        PScopeFail markCommittedChainChangeInconsistent([this]()
+        {
+            m_Volume->MarkMetadataInconsistent();
+        });
+
         node->m_Iteration++;
         if (updateICache) {
             m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_INDEX_INODEID(node->m_ParentInodeID, node->m_DirStartIndex));
@@ -381,6 +386,12 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): clearing trailing fat entries.");
     SetEntry(newEndCluster, END_FAT_ENTRY);
+
+    PScopeFail markCommittedChainChangeInconsistent([this]()
+    {
+        m_Volume->MarkMetadataInconsistent();
+    });
+
     node->m_EndCluster = newEndCluster;
     node->m_AllocatedClusterCount = clusterCount;
     node->m_Iteration++;
@@ -518,6 +529,23 @@ void FATTable::ClearFATChain(uint32_t cluster)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void FATTable::ClearFATChainAfterFailureNoThrow(uint32_t startCluster, const char* operation) noexcept
+{
+    if (startCluster != 0)
+    {
+        try {
+            ClearFATChain(startCluster);
+        } catch (const std::exception& exception) {
+            m_Volume->MarkMetadataInconsistent();
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "{}: failed to release FAT chain {} during rollback: {}.", operation, startCluster, exception.what());
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void FATTable::DumpChain(uint32_t startCluster)
 {
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FAT chain: {:x}", startCluster);
@@ -532,23 +560,6 @@ void FATTable::DumpChain(uint32_t startCluster)
     }
     if (m_Volume->IsDataCluster(cluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::DumpChain(): circular FAT chain detected.");
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FATTable::ClearFATChainAfterFailureNoThrow(uint32_t startCluster, const char* operation) noexcept
-{
-    if (startCluster != 0)
-    {
-        try {
-            ClearFATChain(startCluster);
-        } catch (const std::exception& exception) {
-            m_Volume->MarkMetadataInconsistent();
-            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "{}: failed to release FAT chain {} during rollback: {}.", operation, startCluster, exception.what());
-        }
     }
 }
 

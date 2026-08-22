@@ -67,12 +67,11 @@ public:
     void        SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool updateICache);
     uint32_t    AllocateClusters(size_t clusterCount, uint32_t* endCluster = nullptr);
     void        ClearFATChain(uint32_t cluster);
+    void        ClearFATChainAfterFailureNoThrow(uint32_t startCluster, const char* operation) noexcept;
 
     void DumpChain(uint32_t startCluster);
-    
-private:
-    void ClearFATChainAfterFailureNoThrow(uint32_t startCluster, const char* operation) noexcept;
 
+private:
     struct VolumeStatusMasks
     {
         uint32_t CleanShutdown;

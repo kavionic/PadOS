@@ -301,7 +301,12 @@ static void FATRawShortNameToUTF8(const FATDirectoryEntry& entry, PString& desti
     const bool lowercaseBase = (entry.m_ShortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_BASE) != 0;
     const bool lowercaseExtension = (entry.m_ShortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_EXTENSION) != 0;
 
-    for (size_t characterIndex = 0; characterIndex < 8 && entry.m_Filename[characterIndex] != ' '; ++characterIndex)
+    size_t baseLength = 8;
+    while (baseLength > 0 && entry.m_Filename[baseLength - 1] == ' ') {
+        --baseLength;
+    }
+
+    for (size_t characterIndex = 0; characterIndex < baseLength; ++characterIndex)
     {
         uint8_t character = (characterIndex == 0 && entry.m_Filename[characterIndex] == 5) ? 0xe5 : uint8_t(entry.m_Filename[characterIndex]);
         if (lowercaseBase) {
@@ -310,10 +315,15 @@ static void FATRawShortNameToUTF8(const FATDirectoryEntry& entry, PString& desti
         destination.append_utf32_char(CP437ToUTF16(character));
     }
 
-    if (entry.m_Filename[8] != ' ')
+    size_t extensionLength = 3;
+    while (extensionLength > 0 && entry.m_Filename[8 + extensionLength - 1] == ' ') {
+        --extensionLength;
+    }
+
+    if (extensionLength != 0)
     {
         destination += ".";
-        for (size_t characterIndex = 8; characterIndex < 11 && entry.m_Filename[characterIndex] != ' '; ++characterIndex)
+        for (size_t characterIndex = 8; characterIndex < 8 + extensionLength; ++characterIndex)
         {
             uint8_t character = uint8_t(entry.m_Filename[characterIndex]);
             if (lowercaseExtension) {

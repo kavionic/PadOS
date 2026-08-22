@@ -87,7 +87,7 @@ public:
 
     static mode_t DOSAttribsToFileMode(uint8_t dosAttribs);
 private:
-    void            UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabel);
+    void            UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabel, bool removeVolumeLabel);
     static void     CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo);
     uint32_t        CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
     bool            FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName);

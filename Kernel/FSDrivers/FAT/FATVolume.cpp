@@ -309,7 +309,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         superBlock->m_FSDependent.FAT32.m_VolumeLabel :
         superBlock->m_FSDependent.FAT16.m_VolumeLabel;
     if (bootSignature == 0x29 &&
-        memcmp(volumeLabel, "NO NAME    ", FAT_VOLUME_LABEL_LENGTH) != 0 &&
+        memcmp(volumeLabel, FAT_NO_VOLUME_LABEL, FAT_VOLUME_LABEL_LENGTH) != 0 &&
         memcmp(volumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
     {
         memcpy(m_VolumeLabel, volumeLabel, FAT_VOLUME_LABEL_LENGTH);

@@ -701,6 +701,7 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
             ++inputNameLength;
         }
         const std::string_view inputName(fss->fi_volume_name, inputNameLength);
+        const bool removeVolumeLabel = inputNameLength == 0;
 
         memset(sanitizedName, ' ', sizeof(sanitizedName));
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): setting name to '{}'.", inputName);
@@ -716,20 +717,27 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
                 sanitizedName[outputIndex++] = character;
             }
         }
-        if (outputIndex == 0) {
+        if (removeVolumeLabel && !vol->m_HasVolumeLabel) {
+            return;
+        }
+        if (!removeVolumeLabel && outputIndex == 0) {
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{:11.11}].", sanitizedName);
+        if (removeVolumeLabel) {
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): removing volume label.");
+        } else {
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{:11.11}].", sanitizedName);
+        }
 
-        if (vol->m_HasVolumeLabel &&
+        if (!removeVolumeLabel &&
+            vol->m_HasVolumeLabel &&
             vol->m_VolumeLabelEntry != FATVolume::INVALID_VOLUME_LABEL_ENTRY &&
-            memcmp(sanitizedName, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) == 0)
-        {
+            memcmp(sanitizedName, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) == 0) {
             return;
         }
 
         FATVolume::ModificationScope modificationScope(*vol);
-        UpdateVolumeLabel(vol, sanitizedName);
+        UpdateVolumeLabel(vol, sanitizedName, removeVolumeLabel);
     }
 }
 
@@ -2330,7 +2338,7 @@ mode_t FATFilesystem::DOSAttribsToFileMode(uint8_t dosAttribs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabel)
+void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabel, bool removeVolumeLabel)
 {
     KCacheBlockDesc primaryBufferDesc = volume->m_BCache.GetBlock_trw(0);
     FATSuperBlock* primarySuperBlock = static_cast<FATSuperBlock*>(primaryBufferDesc.m_Buffer);
@@ -2354,6 +2362,7 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
     }
 
     const bool hasBPBVolumeLabelField = primaryBootSignature == 0x29;
+    const char* const newBPBLabel = removeVolumeLabel ? FAT_NO_VOLUME_LABEL : newLabel;
     if (volume->m_VolumeLabelEntry == FATVolume::INVALID_VOLUME_LABEL_ENTRY &&
         volume->m_HasVolumeLabel &&
         (!hasBPBVolumeLabelField || memcmp(primaryVolumeLabel, volume->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0))
@@ -2427,12 +2436,12 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
         if (hasBPBVolumeLabelField)
         {
             bpbLabelsModified = true;
-            memcpy(primaryVolumeLabel, newLabel, FAT_VOLUME_LABEL_LENGTH);
+            memcpy(primaryVolumeLabel, newBPBLabel, FAT_VOLUME_LABEL_LENGTH);
             primaryBufferDesc.MarkDirty();
 
             if (backupVolumeLabel != nullptr)
             {
-                memcpy(backupVolumeLabel, newLabel, FAT_VOLUME_LABEL_LENGTH);
+                memcpy(backupVolumeLabel, newBPBLabel, FAT_VOLUME_LABEL_LENGTH);
                 backupBufferDesc.MarkDirty();
             }
         }
@@ -2451,17 +2460,35 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
         }
 
         updateBPBLabels();
-        memcpy(directoryEntry->m_Normal.m_Filename, newLabel, FAT_VOLUME_LABEL_LENGTH);
-        directoryIterator.MarkDirty();
+        if (removeVolumeLabel)
+        {
+            EraseDirectoryEntry(volume, volume->m_RootInode->m_StartCluster, volume->m_VolumeLabelEntry, volume->m_VolumeLabelEntry);
+        }
+        else
+        {
+            memcpy(directoryEntry->m_Normal.m_Filename, newLabel, FAT_VOLUME_LABEL_LENGTH);
+            directoryIterator.MarkDirty();
+        }
     }
     else
     {
         updateBPBLabels();
-        volume->m_VolumeLabelEntry = CreateVolumeLabel(volume, newLabel);
+        if (!removeVolumeLabel) {
+            volume->m_VolumeLabelEntry = CreateVolumeLabel(volume, newLabel);
+        }
     }
 
-    memcpy(volume->m_VolumeLabel, newLabel, FAT_VOLUME_LABEL_LENGTH);
-    volume->m_HasVolumeLabel = true;
+    if (removeVolumeLabel)
+    {
+        memset(volume->m_VolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
+        volume->m_VolumeLabelEntry = FATVolume::INVALID_VOLUME_LABEL_ENTRY;
+        volume->m_HasVolumeLabel = false;
+    }
+    else
+    {
+        memcpy(volume->m_VolumeLabel, newLabel, FAT_VOLUME_LABEL_LENGTH);
+        volume->m_HasVolumeLabel = true;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -31,6 +31,7 @@ class FATFilesystem;
 class FATInode;
 
 inline constexpr size_t FAT_VOLUME_LABEL_LENGTH = 11;
+inline constexpr char FAT_NO_VOLUME_LABEL[FAT_VOLUME_LABEL_LENGTH + 1] = "NO NAME    ";
 
 struct FATSuperBlock
 {

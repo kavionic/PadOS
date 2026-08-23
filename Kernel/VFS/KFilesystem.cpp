@@ -303,15 +303,6 @@ void KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, int mode)
-{
-    PERROR_THROW_CODE(PErrorCode::NOSYS);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* outStats)
 {
     *outStats = {};

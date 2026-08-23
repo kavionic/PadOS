@@ -97,8 +97,6 @@ public:
     virtual size_t  ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, void* buffer, size_t bufferSize);
     virtual void    RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
 
-    virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> inode, int mode);
-
     virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) = 0;
     virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, const struct stat* value, uint32_t mask);
 

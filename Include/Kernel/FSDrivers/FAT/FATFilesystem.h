@@ -77,8 +77,6 @@ public:
     virtual void                RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
     virtual size_t              ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> node, char* buffer, size_t bufferSize) override;
 
-    virtual void                CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, int mode) override;
-
     virtual void                ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
     virtual void                WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> node, const struct stat* stat, uint32_t mask) override;
     virtual void                Sync(Ptr<KFileNode> file) override;

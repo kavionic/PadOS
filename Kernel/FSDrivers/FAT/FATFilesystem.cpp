@@ -2133,35 +2133,6 @@ size_t FATFilesystem::ReadLink(Ptr<KFSVolume> _vol, Ptr<KInode> _node, char* buf
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::CheckAccess(Ptr<KFSVolume> _vol, Ptr<KInode> _node, int mode)
-{
-    Ptr<FATVolume> vol  = ptr_static_cast<FATVolume>(_vol);
-    Ptr<FATInode>  node = ptr_static_cast<FATInode>(_node);
-
-    CRITICAL_SCOPE(vol->m_Mutex);
-
-    if (!vol->CheckMagic(__func__) || !node->CheckMagic(__func__)) {
-        PERROR_THROW_CODE(PErrorCode::IO);
-    }
-
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATFilesystem::CheckAccess(inode ID {:x}, mode {:x})", node->m_InodeID, mode);
-
-    if ((mode & O_ACCMODE) != O_RDONLY)
-    {
-        if (vol->IsReadOnly()) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CheckAccess(): can't write on read-only volume.");
-            PERROR_THROW_CODE(PErrorCode::ROFS);
-        } else if (node->IsDirectory()) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CheckAccess(): can't open read-only file for writing.");
-            PERROR_THROW_CODE(PErrorCode::PERM);
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void FATFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     Ptr<FATVolume> fsVolume = ptr_static_cast<FATVolume>(volume);

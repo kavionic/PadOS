@@ -1190,7 +1190,7 @@ Ptr<KInode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KDirectoryNode> FATFilesystem::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> _node)
+Ptr<KDirectoryNode> FATFilesystem::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> _node, int openFlags)
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATInode>  node = ptr_static_cast<FATInode>(_node);
@@ -1209,7 +1209,7 @@ Ptr<KDirectoryNode> FATFilesystem::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KIno
         PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
 
-    Ptr<FATDirectoryNode> dirNode = ptr_new<FATDirectoryNode>(O_RDONLY);
+    Ptr<FATDirectoryNode> dirNode = ptr_new<FATDirectoryNode>(openFlags);
     dirNode->m_CurrentIndex = 0;
     return dirNode;
 }

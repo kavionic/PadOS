@@ -154,7 +154,7 @@ Ptr<KInode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node)
+Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags)
 {
     PERROR_THROW_CODE(PErrorCode::NOSYS);
 }

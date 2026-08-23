@@ -63,7 +63,7 @@ public:
     void                        DoMount(Ptr<KVirtualFSVolume> volume, uint32_t flags, const char* args, size_t argLength);
     virtual Ptr<KInode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength) override;
 
-	virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node) override;
+	virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags) override;
 	virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
 
 	virtual size_t              ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, void* buffer, size_t bufferSize) override;

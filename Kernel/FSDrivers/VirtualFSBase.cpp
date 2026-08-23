@@ -237,9 +237,9 @@ Ptr<KInode> KVirtualFilesystemBase::LocateInodeInternal(Ptr<KFSVolume> volume, P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KDirectoryNode> KVirtualFilesystemBase::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node)
+Ptr<KDirectoryNode> KVirtualFilesystemBase::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags)
 {
-    Ptr<KVirtualFSBaseDirectoryNode> dirNode = ptr_new<KVirtualFSBaseDirectoryNode>(O_RDONLY);
+    Ptr<KVirtualFSBaseDirectoryNode> dirNode = ptr_new<KVirtualFSBaseDirectoryNode>(openFlags);
     return dirNode;
 }
 

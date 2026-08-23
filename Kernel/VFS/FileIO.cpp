@@ -251,6 +251,24 @@ Ptr<KDirectoryNode> kget_directory_node_trw(int handle)
     return ptr_static_cast<KDirectoryNode>(node);
 }
 
+static void ValidateOpenFlagsForInode(const KInode& inode, int openFlags)
+{
+    const bool isDirectory = inode.IsDirectory();
+    const bool pathOnly = (openFlags & O_PATH) != 0;
+    const bool writeAccessRequested = (openFlags & O_ACCMODE) != O_RDONLY;
+    const bool truncateRequested = (openFlags & O_TRUNC) != 0;
+
+    if (!pathOnly && (openFlags & O_NOFOLLOW) != 0 && S_ISLNK(inode.m_FileMode)) {
+        PERROR_THROW_CODE(PErrorCode::LOOP);
+    }
+    if ((openFlags & O_DIRECTORY) != 0 && !isDirectory) {
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
+    }
+    if (isDirectory && !pathOnly && (writeAccessRequested || truncateRequested)) {
+        PERROR_THROW_CODE(PErrorCode::ISDIR);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -291,6 +309,9 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
         {
             if (error == PErrorCode::NOENT && (openFlags & O_CREAT))
             {
+                if ((openFlags & O_DIRECTORY) != 0) {
+                    PERROR_THROW_CODE(PErrorCode::NOTDIR);
+                }
                 const Ptr<KFileTableNode> file = parent->m_Filesystem->CreateFile(parent->m_Volume, parent, name, nameLength, openFlags, permissions);
                 kset_filehandle(handle, file);
                 return handle;
@@ -306,6 +327,8 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
         PERROR_THROW_CODE(PErrorCode::EXIST);
     }
     RequireActiveInode(inode);
+    ValidateOpenFlagsForInode(*inode, openFlags);
+
     Ptr<KFileTableNode> file;
     if (openFlags & O_PATH)
     {
@@ -313,11 +336,8 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     }
     else
     {
-        if ((openFlags & O_NOFOLLOW) && S_ISLNK(inode->m_FileMode)) {
-            PERROR_THROW_CODE(PErrorCode::LOOP);
-        }
         if (inode->IsDirectory()) {
-            file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode);
+            file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode, openFlags);
         } else {
             file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
         }
@@ -1453,12 +1473,20 @@ int kopen_from_inode_trw(Ptr<KInode> inode, int openFlags)
     PScopeFail handleGuard([handle]() { kfree_filehandle(handle); });
 
     RequireActiveInode(inode);
+    ValidateOpenFlagsForInode(*inode, openFlags);
 
     Ptr<KFileTableNode> file;
-    if (inode->IsDirectory()) {
-        file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode);
-    } else {
-        file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
+    if (openFlags & O_PATH)
+    {
+        file = ptr_new<KFileTableNode>(openFlags);
+    }
+    else
+    {
+        if (inode->IsDirectory()) {
+            file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode, openFlags);
+        } else {
+            file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
+        }
     }
     file->SetInode(inode);
 

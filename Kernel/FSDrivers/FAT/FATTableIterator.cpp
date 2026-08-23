@@ -272,20 +272,22 @@ void FATTableIterator::Update()
         if (m_Block1.m_Buffer == nullptr) {
             PERROR_THROW_CODE(PErrorCode::IO);
         }
-        PScopeFail releaseBlock1([this]()
-            {
-                m_Block1.Reset();
-                m_LoadedSector1 = -1;
-            });
         m_LoadedSector1 = m_CurrentSector;
-        if (m_OffsetInSector == m_Volume->m_BytesPerSector - 1)
-        {
-            m_Block2 = m_Volume->m_BCache.GetBlock_trw(m_CurrentSector + 1, true);
-            if (m_Block2.m_Buffer == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
-            m_LoadedSector2 = m_CurrentSector + 1;
+    }
+
+    // A FAT12 entry may start in an already loaded sector while its final
+    // byte resides in the following sector.
+    if (m_OffsetInSector == m_Volume->m_BytesPerSector - 1 &&
+        m_LoadedSector2 != m_CurrentSector + 1)
+    {
+        m_Block2.Reset();
+        m_LoadedSector2 = -1;
+
+        m_Block2 = m_Volume->m_BCache.GetBlock_trw(m_CurrentSector + 1, true);
+        if (m_Block2.m_Buffer == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
+        m_LoadedSector2 = m_CurrentSector + 1;
     }
 }
 

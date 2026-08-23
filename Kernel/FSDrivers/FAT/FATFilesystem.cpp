@@ -350,7 +350,12 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
     int deviceFile = kopen_trw(devicePath, O_RDONLY);
 
-    PScopeFail deviceFileGuard([&deviceFile]() { kclose(deviceFile); });
+    PScopeFail deviceFileGuard([&deviceFile]()
+    {
+        if (deviceFile >= 0) {
+            kclose(deviceFile);
+        }
+    });
 
     // get device characteristics
     const PErrorCode result = kdevice_control(deviceFile, DEVCTL_GET_DEVICE_GEOMETRY, nullptr, 0, &geo, sizeof(geo));
@@ -394,11 +399,8 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
         // reopen it with read/write permissions
         kclose(deviceFile);
+        deviceFile = -1;
         deviceFile = kopen_trw(devicePath, O_RDWR);
-        if (deviceFile < 0) {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount() unable to reopen {} ({}).", devicePath, strerror(get_last_error()));
-            PERROR_THROW_CODE(PErrorCode(get_last_error()));
-        }
     }
 
 
@@ -433,7 +435,10 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     buffer.resize(512);
 
     // the media descriptor in active FAT should match the one in the BPB
-    if (kpread_trw(deviceFile, buffer.data(), buffer.size(), vol->m_BytesPerSector * (vol->m_ReservedSectors + vol->m_ActiveFAT * vol->m_SectorsPerFAT)) != buffer.size()) {
+    const off64_t activeFATByteOffset =
+        off64_t(vol->m_BytesPerSector) *
+        (off64_t(vol->m_ReservedSectors) + off64_t(vol->m_ActiveFAT) * vol->m_SectorsPerFAT);
+    if (kpread_trw(deviceFile, buffer.data(), buffer.size(), activeFATByteOffset) != buffer.size()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error reading FAT.");
         PERROR_THROW_CODE(PErrorCode::IO);
     }
@@ -455,7 +460,10 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
             {
                 kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): checking fat #{}", i);
                 buffer2[0] = uint8_t(~buffer[0]);
-                if (kpread_trw(deviceFile, buffer2.data(), buffer2.size(), vol->m_BytesPerSector * (vol->m_ReservedSectors + vol->m_SectorsPerFAT * i)) != buffer2.size()) {
+                const off64_t mirrorFATByteOffset =
+                    off64_t(vol->m_BytesPerSector) *
+                    (off64_t(vol->m_ReservedSectors) + off64_t(vol->m_SectorsPerFAT) * i);
+                if (kpread_trw(deviceFile, buffer2.data(), buffer2.size(), mirrorFATByteOffset) != buffer2.size()) {
                     kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error reading FAT {}", i);
                     PERROR_THROW_CODE(PErrorCode::IO);
                 }
@@ -477,8 +485,8 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     vol->m_LastAllocatedCluster = FATTable::FIRST_DATA_CLUSTER;
 
     if (!vol->m_BCache.SetDevice(deviceFile, vol->m_TotalSectors, vol->m_BytesPerSector, geo.read_only)) {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error initializing block cache ({}).", strerror(get_last_error()));
-        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error initializing block cache.");
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     const FATVolumeStatus volumeStatus = vol->GetFATTable()->ReadVolumeStatus();
@@ -809,7 +817,7 @@ Ptr<KInode> FATFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent
     const Ptr<FATInode> inode = DoLocateInode(vol, dir, file);
     if (inode == nullptr)
     {
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::LocateInode(): Error finding inode ID for file {} ({}).", file.c_str(), strerror(get_last_error()));
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::LocateInode(): error finding inode ID for file {}.", file.c_str());
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
     return inode;
@@ -1137,7 +1145,7 @@ Ptr<KInode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
     {
         if (!iter.GetNextLFNEntry(&info, nullptr))
         {
-            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATFilesystem::LoadInode(): error finding inode {:x} (loc {:x}) ({}).", inodeID, loc, strerror(get_last_error()));
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATFilesystem::LoadInode(): error finding inode {:x} (loc {:x}).", inodeID, loc);
             PERROR_THROW_CODE(PErrorCode::IO);
         }
 
@@ -1152,7 +1160,7 @@ Ptr<KInode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
             if (info.m_StartIndex == INDEX_OF_DIR_INDEX_INODEID(loc)) {
                 break;
             }
-            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATFilesystem::LoadInode(): error finding inode {:x} (loc {:x}) ({}).", inodeID, loc, strerror(get_last_error()));
+            kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATFilesystem::LoadInode(): error finding inode {:x} (loc {:x}).", inodeID, loc);
             PERROR_THROW_CODE(PErrorCode::IO);
         }
     }
@@ -1709,7 +1717,7 @@ size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t p
         if (!vol->IsDataCluster(fileNode->m_CachedCluster))
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Read() invalid m_CachedCluster {} on inode {:x}.", fileNode->m_CachedCluster, node->m_InodeID);
-            PERROR_THROW_CODE(PErrorCode::INVAL);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
 #ifdef FAT_VERIFY_FAT_CHAINS
         kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, fileNode->m_FATChainIndex, fileNode->m_CachedCluster));
@@ -1885,7 +1893,7 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
         if (!vol->IsDataCluster(fileNode->m_CachedCluster))
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write() invalid m_CachedCluster {} on inode {:x}.", fileNode->m_CachedCluster, node->m_InodeID);
-            PERROR_THROW_CODE(PErrorCode::INVAL);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
 
 #ifdef FAT_VERIFY_FAT_CHAINS
@@ -2722,7 +2730,7 @@ bool FATFilesystem::IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATInode> dir)
         if ((i == 0 && filename != ".") || (i == 1 && filename != "..") || (i < 2 && iter.m_CurrentIndex != i + 1))
         {
             kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::IsDirectoryEmpty(): malformed directory.");
-            PERROR_THROW_CODE(PErrorCode::NOTDIR);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
     }
     return false;

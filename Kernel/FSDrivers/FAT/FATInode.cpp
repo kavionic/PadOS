@@ -264,6 +264,16 @@ void FATInode::Write()
     }
 
     Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(m_Volume);
+
+    // The root inode has no containing directory entry in which to persist
+    // metadata. Keep explicit metadata changes in memory, consistent with
+    // directory-content timestamp updates.
+    if (m_InodeID == volume->m_RootInode->m_InodeID)
+    {
+        DiscardPendingMetadata();
+        return;
+    }
+
     if ((m_StartCluster != 0) && !volume->IsDataCluster(m_StartCluster))
     {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATInode::Write() called on invalid cluster ({}).", m_StartCluster);

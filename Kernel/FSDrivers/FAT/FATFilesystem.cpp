@@ -20,7 +20,6 @@
 #include <System/Platform.h>
 
 #include <algorithm>
-#include <string_view>
 #include <utility>
 #include <vector>
 #include <string.h>
@@ -42,6 +41,7 @@
 
 #include "FATVolume.h"
 #include "FATInode.h"
+#include "FATCodePage.h"
 #include "FATDirectoryNode.h"
 #include "FATDirectoryIterator.h"
 #include "FATFileNode.h"
@@ -98,6 +98,54 @@ static std::set<PString> g_DOSDeviceBaseNames =
     "$IDLE$",   // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
     "CONFIG$"   // Only in MS-DOS 7.0-8.0.
 };
+
+static bool IsFATVolumeLabelCharacterValid(uint8_t character)
+{
+    static constexpr char acceptableCharacters[] = "!#$%&'()-0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`{}~ ";
+    return character >= 0x80 || strchr(acceptableCharacters, character) != nullptr;
+}
+
+static bool SanitizeFATVolumeLabel(const PString& inputName, char rawVolumeLabel[FAT_VOLUME_LABEL_LENGTH])
+{
+    memset(rawVolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
+
+    size_t outputIndex = 0;
+    for (PString::utf32_iterator iterator = inputName.utf32_begin(); iterator != inputName.utf32_end(); ++iterator)
+    {
+        uint8_t character;
+        if (UnicodeToCP437(*iterator, &character))
+        {
+            character = ConvertCP437CharacterCase(character, false);
+            if (IsFATVolumeLabelCharacterValid(character))
+            {
+                rawVolumeLabel[outputIndex++] = char(character);
+                if (outputIndex == FAT_VOLUME_LABEL_LENGTH) {
+                    break;
+                }
+            }
+        }
+    }
+    return outputIndex != 0;
+}
+
+static PString RawFATVolumeLabelToUTF8(const char rawVolumeLabel[FAT_VOLUME_LABEL_LENGTH], bool toLowercase)
+{
+    size_t labelLength = FAT_VOLUME_LABEL_LENGTH;
+    while (labelLength > 0 && rawVolumeLabel[labelLength - 1] == ' ') {
+        --labelLength;
+    }
+
+    PString result;
+    for (size_t characterIndex = 0; characterIndex < labelLength; ++characterIndex)
+    {
+        uint8_t character = ((characterIndex == 0 && rawVolumeLabel[characterIndex] == 5) ? 0xe5 : uint8_t(rawVolumeLabel[characterIndex]));
+        if (toLowercase) {
+            character = ConvertCP437CharacterCase(character, true);
+        }
+        result.append_utf32_char(CP437ToUnicode(character));
+    }
+    return result;
+}
 
 static void ValidateFATNameBuffer(const char* name, int nameLength)
 {
@@ -543,7 +591,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
                 (buffer->m_Normal.m_Filename[0] != 0xe5))
             {
                 vol->m_VolumeLabelEntry = diri.m_CurrentIndex;
-                memcpy(vol->m_VolumeLabel, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename));
+                memcpy(vol->m_RawVolumeLabel, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename));
                 vol->m_HasVolumeLabel = true;
                 break;
             }
@@ -566,7 +614,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     }
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Root inode ID = {:x}.", vol->m_RootInode->m_InodeID);
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Volume label [{:11.11}] ({}).", vol->m_VolumeLabel, vol->m_VolumeLabelEntry);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Volume label [{}] ({}).", RawFATVolumeLabelToUTF8(vol->m_RawVolumeLabel, false), vol->m_VolumeLabelEntry);
 
     vol->m_DeviceFile = deviceFile;
     return vol;
@@ -693,51 +741,46 @@ void FATFilesystem::WriteFSStat(Ptr<KFSVolume> _vol, const fs_info* fss, uint32_
 
     if (mask & WFSSTAT_NAME)
     {
-        char sanitizedName[FAT_VOLUME_LABEL_LENGTH];
-        static constexpr char acceptableCharacters[] = "!#$%&'()-0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`{}~ ";
-
         size_t inputNameLength = 0;
         while (inputNameLength < sizeof(fss->fi_volume_name) && fss->fi_volume_name[inputNameLength] != '\0') {
             ++inputNameLength;
         }
-        const std::string_view inputName(fss->fi_volume_name, inputNameLength);
+        const PString inputName(fss->fi_volume_name, inputNameLength);
         const bool removeVolumeLabel = inputNameLength == 0;
 
-        memset(sanitizedName, ' ', sizeof(sanitizedName));
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): setting name to '{}'.", inputName);
 
-        size_t outputIndex = 0;
-        for (size_t inputIndex = 0; outputIndex < FAT_VOLUME_LABEL_LENGTH && inputIndex < inputNameLength; ++inputIndex)
-        {
-            char character = fss->fi_volume_name[inputIndex];
-            if ((character >= 'a') && (character <= 'z')) {
-                character = char(character + ('A' - 'a'));
-            }
-            if (strchr(acceptableCharacters, character) != nullptr) {
-                sanitizedName[outputIndex++] = character;
-            }
+        if (!inputName.is_valid_utf8()) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
+
+        char rawVolumeLabel[FAT_VOLUME_LABEL_LENGTH];
+        const bool hasValidCharacters = SanitizeFATVolumeLabel(inputName, rawVolumeLabel);
         if (removeVolumeLabel && !vol->m_HasVolumeLabel) {
             return;
         }
-        if (!removeVolumeLabel && outputIndex == 0) {
+        if (!removeVolumeLabel && !hasValidCharacters) {
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        if (removeVolumeLabel) {
+        if (removeVolumeLabel)
+        {
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): removing volume label.");
-        } else {
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{:11.11}].", sanitizedName);
+        }
+        else
+        {
+            const PString sanitizedName = RawFATVolumeLabelToUTF8(rawVolumeLabel, false);
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::WriteFSStat(): sanitized to [{}].", sanitizedName);
         }
 
         if (!removeVolumeLabel &&
             vol->m_HasVolumeLabel &&
             vol->m_VolumeLabelEntry != FATVolume::INVALID_VOLUME_LABEL_ENTRY &&
-            memcmp(sanitizedName, vol->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) == 0) {
+            memcmp(rawVolumeLabel, vol->m_RawVolumeLabel, FAT_VOLUME_LABEL_LENGTH) == 0) {
             return;
         }
 
         FATVolume::ModificationScope modificationScope(*vol);
-        UpdateVolumeLabel(vol, sanitizedName, removeVolumeLabel);
+        UpdateVolumeLabel(vol, rawVolumeLabel, removeVolumeLabel);
     }
 }
 
@@ -2293,7 +2336,7 @@ void FATFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void* 
 	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "fat mirroring is {}, fs info sector at sector {:x}", (vol->m_FATMirrored) ? "on" : "off", vol->m_FSInfoSector);
 	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "last allocated cluster = {:x}", vol->m_LastAllocatedCluster);
 	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "root inode id = {:x}", vol->m_RootInode->m_InodeID);
-	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "volume label [{:11.11}]", vol->m_VolumeLabel);
+	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "volume label [{}]", RawFATVolumeLabelToUTF8(vol->m_RawVolumeLabel, false));
 	    return;
 			
 	case 100001 :
@@ -2334,7 +2377,7 @@ mode_t FATFilesystem::DOSAttribsToFileMode(uint8_t dosAttribs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabel, bool removeVolumeLabel)
+void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* rawVolumeLabel, bool removeVolumeLabel)
 {
     KCacheBlockDesc primaryBufferDesc = volume->m_BCache.GetBlock_trw(0);
     FATSuperBlock* primarySuperBlock = static_cast<FATSuperBlock*>(primaryBufferDesc.m_Buffer);
@@ -2358,10 +2401,10 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
     }
 
     const bool hasBPBVolumeLabelField = primaryBootSignature == 0x29;
-    const char* const newBPBLabel = removeVolumeLabel ? FAT_NO_VOLUME_LABEL : newLabel;
+    const char* const newBPBLabel = removeVolumeLabel ? FAT_NO_VOLUME_LABEL : rawVolumeLabel;
     if (volume->m_VolumeLabelEntry == FATVolume::INVALID_VOLUME_LABEL_ENTRY &&
         volume->m_HasVolumeLabel &&
-        (!hasBPBVolumeLabelField || memcmp(primaryVolumeLabel, volume->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0))
+        (!hasBPBVolumeLabelField || memcmp(primaryVolumeLabel, volume->m_RawVolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0))
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::UpdateVolumeLabel(): BPB label mismatch.");
         PERROR_THROW_CODE(PErrorCode::IO);
@@ -2449,7 +2492,7 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
         FATDirectoryEntryCombo* directoryEntry = directoryIterator.GetCurrentEntry();
 
         if (directoryEntry == nullptr ||
-            memcmp(directoryEntry->m_Normal.m_Filename, volume->m_VolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0)
+            memcmp(directoryEntry->m_Normal.m_Filename, volume->m_RawVolumeLabel, FAT_VOLUME_LABEL_LENGTH) != 0)
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::UpdateVolumeLabel(): root-directory label mismatch.");
             PERROR_THROW_CODE(PErrorCode::IO);
@@ -2462,7 +2505,7 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
         }
         else
         {
-            memcpy(directoryEntry->m_Normal.m_Filename, newLabel, FAT_VOLUME_LABEL_LENGTH);
+            memcpy(directoryEntry->m_Normal.m_Filename, rawVolumeLabel, FAT_VOLUME_LABEL_LENGTH);
             directoryIterator.MarkDirty();
         }
     }
@@ -2470,19 +2513,19 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
     {
         updateBPBLabels();
         if (!removeVolumeLabel) {
-            volume->m_VolumeLabelEntry = CreateVolumeLabel(volume, newLabel);
+            volume->m_VolumeLabelEntry = CreateVolumeLabel(volume, rawVolumeLabel);
         }
     }
 
     if (removeVolumeLabel)
     {
-        memset(volume->m_VolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
+        memset(volume->m_RawVolumeLabel, ' ', FAT_VOLUME_LABEL_LENGTH);
         volume->m_VolumeLabelEntry = FATVolume::INVALID_VOLUME_LABEL_ENTRY;
         volume->m_HasVolumeLabel = false;
     }
     else
     {
-        memcpy(volume->m_VolumeLabel, newLabel, FAT_VOLUME_LABEL_LENGTH);
+        memcpy(volume->m_RawVolumeLabel, rawVolumeLabel, FAT_VOLUME_LABEL_LENGTH);
         volume->m_HasVolumeLabel = true;
     }
 }
@@ -2493,22 +2536,10 @@ void FATFilesystem::UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabe
 
 void FATFilesystem::CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo)
 {
-    const char* const sourceLabel = volume.m_HasVolumeLabel ? volume.m_VolumeLabel : "no name";
-    size_t labelLength = volume.m_HasVolumeLabel ? FAT_VOLUME_LABEL_LENGTH : sizeof("no name") - 1;
-
-    while (labelLength > 0 && sourceLabel[labelLength - 1] == ' ') {
-        --labelLength;
-    }
-
-    for (size_t index = 0; index < labelLength; ++index)
-    {
-        char character = sourceLabel[index];
-        if ((character >= 'A') && (character <= 'Z')) {
-            character = char(character + ('a' - 'A'));
-        }
-        fsInfo->fi_volume_name[index] = character;
-    }
-    fsInfo->fi_volume_name[labelLength] = '\0';
+    const PString volumeLabel = volume.m_HasVolumeLabel ? RawFATVolumeLabelToUTF8(volume.m_RawVolumeLabel, true) : PString::zero;
+    kassert(volumeLabel.size() < sizeof(fsInfo->fi_volume_name));
+    volumeLabel.copy(fsInfo->fi_volume_name, volumeLabel.size());
+    fsInfo->fi_volume_name[volumeLabel.size()] = '\0';
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2516,7 +2547,7 @@ void FATFilesystem::CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fs
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name)
+uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* rawVolumeLabel)
 {
     uint32_t dummy;
     FATNewDirEntryInfo info;
@@ -2527,7 +2558,7 @@ uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name)
     info.DOSAttribs = FAT_VOLUME;
 
     uint32_t index;
-    DoCreateDirectoryEntry(vol, vol->m_RootInode, &info, name, nullptr, 0, &index, &dummy);
+    DoCreateDirectoryEntry(vol, vol->m_RootInode, &info, rawVolumeLabel, nullptr, 0, &index, &dummy);
     return index;
 }
 

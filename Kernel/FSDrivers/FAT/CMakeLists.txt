@@ -1,4 +1,6 @@
 target_sources(PadOS_FATFS PRIVATE
+	FATCodePage.cpp
+	FATCodePage.h
 	FATClusterSectorIterator.cpp
 	FATClusterSectorIterator.h
 	FATDirectoryIterator.cpp

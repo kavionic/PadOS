@@ -312,7 +312,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         memcmp(volumeLabel, FAT_NO_VOLUME_LABEL, FAT_VOLUME_LABEL_LENGTH) != 0 &&
         memcmp(volumeLabel, "           ", FAT_VOLUME_LABEL_LENGTH) != 0)
     {
-        memcpy(m_VolumeLabel, volumeLabel, FAT_VOLUME_LABEL_LENGTH);
+        memcpy(m_RawVolumeLabel, volumeLabel, FAT_VOLUME_LABEL_LENGTH);
         m_HasVolumeLabel = true;
     }
 

@@ -204,7 +204,7 @@ public:
     Ptr<FATInode> m_RootInode;            // root directory
     bool          m_HasVolumeLabel = false;
     int32_t	      m_VolumeLabelEntry = INVALID_VOLUME_LABEL_ENTRY; // index in root directory
-    char	      m_VolumeLabel[FAT_VOLUME_LABEL_LENGTH + 1] = "           "; // lfn's need not apply
+    char	      m_RawVolumeLabel[FAT_VOLUME_LABEL_LENGTH] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
 
     uint32_t	  m_FirstDataSector = 0;
     uint32_t      m_LastAllocatedCluster = 0; // last allocated cluster

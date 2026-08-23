@@ -2530,10 +2530,6 @@ uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name)
     info.ModificationTime = FATInode::RoundTimeToFATModificationTime(currentTime);
     info.DOSAttribs = FAT_VOLUME;
 
-    // check if name already exists
-    if (FindShortName(vol, vol->m_RootInode, name)) {
-        PERROR_THROW_CODE(PErrorCode::EXIST);
-    }
     uint32_t index;
     DoCreateDirectoryEntry(vol, vol->m_RootInode, &info, name, nullptr, 0, &index, &dummy);
     return index;
@@ -2575,33 +2571,6 @@ void FATVolume::UpdateFSInfo()
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// Name is array of char[11] as returned by findfile
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool FATFilesystem::FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName)
-{
-    FATDirectoryIterator diri(vol, parent->m_StartCluster, 0);
-    
-    for (FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry(); buffer != nullptr; buffer = diri.GetNextRawEntry())
-    {
-        if (buffer->m_Normal.m_Filename[0] == 0) {
-            break;
-        }
-        if ((buffer->m_Normal.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) != FAT_LONG_NAME_ATTRIBUTES) {
-            if (memcmp(rawShortName, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename)) == 0) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void FATFilesystem::SelectUniqueShortName(Ptr<FATVolume> volume, Ptr<FATInode> parent, char shortName[11])
 {
     char baseShortName[11];
@@ -2619,7 +2588,8 @@ void FATFilesystem::SelectUniqueShortName(Ptr<FATVolume> volume, Ptr<FATInode> p
 
         const bool isLongNameEntry =
             (entry->m_Normal.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) == FAT_LONG_NAME_ATTRIBUTES;
-        if (firstFilenameCharacter != 0xe5 && !isLongNameEntry)
+        const bool isVolumeLabel = (entry->m_Normal.m_Attribs & FAT_VOLUME) != 0;
+        if (firstFilenameCharacter != 0xe5 && !isLongNameEntry && !isVolumeLabel)
         {
             uint32_t numericTailValue;
             if (FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(
@@ -2667,6 +2637,10 @@ bool FATFilesystem::FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> paren
         shortFilename.clear();
         if (!iterator.GetNextLFNEntry(&entryInfo, &filename, &shortFilename)) {
             return false;
+        }
+
+        if ((entryInfo.m_DOSAttribs & FAT_VOLUME) != 0) {
+            continue;
         }
 
         const bool isExcludedEntry = excludedNode != nullptr &&

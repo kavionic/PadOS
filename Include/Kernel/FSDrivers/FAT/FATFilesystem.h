@@ -90,7 +90,6 @@ private:
     void            UpdateVolumeLabel(Ptr<FATVolume> volume, const char* newLabel, bool removeVolumeLabel);
     static void     CopyVolumeLabelToFSInfo(const FATVolume& volume, fs_info* fsInfo);
     uint32_t        CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
-    bool            FindShortName(Ptr<FATVolume> vol, Ptr<FATInode> parent, const char* rawShortName);
     static void     SelectUniqueShortName(Ptr<FATVolume> volume, Ptr<FATInode> parent, char shortName[11]);
     bool            FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode);
     Ptr<FATInode>   DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir, const PString& fileName);

@@ -35,7 +35,7 @@ namespace kernel
 
 static bool GetFATInodeWriteLocation(const FATInode& inode, FATVolume& volume, uint32_t& parentCluster, uint32_t& expectedStartCluster)
 {
-    if (!IS_DIR_CLUSTER_INODEID(inode.m_ParentInodeID))
+    if (!volume.GetDirectoryStartCluster(inode.m_ParentInodeID, &parentCluster))
     {
         kernel_log<PLogSeverity::CRITICAL>(
             LogCat_FATFS,
@@ -45,9 +45,7 @@ static bool GetFATInodeWriteLocation(const FATInode& inode, FATVolume& volume, u
         return false;
     }
 
-    parentCluster = CLUSTER_OF_DIR_CLUSTER_INODEID(inode.m_ParentInodeID);
-    if ((!volume.IsDataCluster(parentCluster) && !IS_FIXED_ROOT(parentCluster)) ||
-        inode.m_DirEndIndex < inode.m_DirStartIndex ||
+    if (inode.m_DirEndIndex < inode.m_DirStartIndex ||
         inode.m_DirEndIndex - inode.m_DirStartIndex > FAT_LONG_NAME_MAX_ENTRY_COUNT)
     {
         kernel_log<PLogSeverity::CRITICAL>(

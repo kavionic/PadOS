@@ -153,7 +153,8 @@ public:
     bool  HasLocationIDToInodeIDMapping(ino_t locationID) const;
 
     void  DumpInodeIDMap();
-    
+
+    bool  GetDirectoryStartCluster(ino_t inodeID, uint32_t* startCluster) const;
     bool  AddDirectoryMapping(uint32_t startCluster, ino_t inodeID);
     bool  RemoveDirectoryMapping(uint32_t startCluster, ino_t inodeID);
     ino_t GetDirectoryMapping(uint32_t startCluster) const;

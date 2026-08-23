@@ -881,8 +881,15 @@ static void ValidateFATDirectoryEntry(Ptr<FATVolume> volume, Ptr<FATInode> direc
     else if (filename == "..")
     {
         uint32_t expectedParentCluster = 0;
-        if (directory->m_ParentInodeID != volume->m_RootInode->m_InodeID) {
-            expectedParentCluster = CLUSTER_OF_DIR_CLUSTER_INODEID(directory->m_ParentInodeID);
+        if (directory->m_ParentInodeID != volume->m_RootInode->m_InodeID &&
+            !volume->GetDirectoryStartCluster(directory->m_ParentInodeID, &expectedParentCluster))
+        {
+            kernel_log<PLogSeverity::ERROR>(
+                LogCat_FATDIR,
+                "FAT directory inode {:x} has invalid parent inode {:x}.",
+                directory->m_InodeID,
+                directory->m_ParentInodeID);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         if (directory->m_InodeID == volume->m_RootInode->m_InodeID || info.m_StartIndex != 1 || info.m_EndIndex != 1 || !(info.m_DOSAttribs & FAT_SUBDIR) || info.m_StartCluster != expectedParentCluster || info.m_Size != 0)
         {
@@ -945,22 +952,32 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t*
     {
         if (outInodeID != nullptr)
         {
-            ino_t loc = (m_SectorIterator.m_Volume->IsDataCluster(info.m_StartCluster)) ? GENERATE_DIR_CLUSTER_INODEID(directory->m_InodeID, info.m_StartCluster) : GENERATE_DIR_INDEX_INODEID(directory->m_InodeID, info.m_StartIndex);
+            const ino_t locationID = (m_SectorIterator.m_Volume->IsDataCluster(info.m_StartCluster))
+                ? GENERATE_DIR_CLUSTER_INODEID(directory->m_StartCluster, info.m_StartCluster)
+                : GENERATE_DIR_INDEX_INODEID(directory->m_StartCluster, info.m_StartIndex);
+            bool inodeMappingCreated = false;
+            PScopeFail removeInodeMappingOnFailure([&]()
+            {
+                if (inodeMappingCreated) {
+                    m_SectorIterator.m_Volume->RemoveInodeIDToLocationIDMapping(*outInodeID);
+                }
+            });
 
             // If an inode ID is already associated with the location, use that.
-            if (!m_SectorIterator.m_Volume->GetLocationIDToInodeIDMapping(loc, outInodeID))
+            if (!m_SectorIterator.m_Volume->GetLocationIDToInodeIDMapping(locationID, outInodeID))
             {
                 // ...else check if another inode is already using our preferred ID
-                if (m_SectorIterator.m_Volume->HasInodeIDToLocationIDMapping(loc))
+                if (m_SectorIterator.m_Volume->HasInodeIDToLocationIDMapping(locationID))
                 {
                     // if one does, create a random one to prevent a collision
                     *outInodeID = m_SectorIterator.m_Volume->AllocUniqueInodeID();
                     // and add it to the inode cache
-                    m_SectorIterator.m_Volume->SetInodeIDToLocationIDMapping(*outInodeID, loc);
+                    m_SectorIterator.m_Volume->SetInodeIDToLocationIDMapping(*outInodeID, locationID);
+                    inodeMappingCreated = true;
                 }
                 else
                 {
-                    *outInodeID = loc;
+                    *outInodeID = locationID;
                 }
             }
 

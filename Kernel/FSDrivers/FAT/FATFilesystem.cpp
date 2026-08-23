@@ -1057,11 +1057,12 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
         MarkDirectoryContentsModified(*vol, *dir, currentTime);
 
-        dummy->m_InodeID = GENERATE_DIR_INDEX_INODEID(dummy->m_ParentInodeID, dummy->m_DirStartIndex);
+        const ino_t locationID = GENERATE_DIR_INDEX_INODEID(dir->m_StartCluster, dummy->m_DirStartIndex);
+        dummy->m_InodeID = locationID;
         if (vol->HasInodeIDToLocationIDMapping(dummy->m_InodeID))
         {
             dummy->m_InodeID = vol->AllocUniqueInodeID();
-            vol->SetInodeIDToLocationIDMapping(dummy->m_InodeID, GENERATE_DIR_INDEX_INODEID(dummy->m_ParentInodeID, dummy->m_DirStartIndex));
+            vol->SetInodeIDToLocationIDMapping(dummy->m_InodeID, locationID);
         }
         ino_t inodeID = dummy->m_InodeID;
 
@@ -1293,16 +1294,27 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     dummy->m_CTime = FATInode::RoundTimeToFATCreateTime(currentTime);
     dummy->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
 
-    dummy->m_InodeID = GENERATE_DIR_CLUSTER_INODEID(dummy->m_ParentInodeID, dummy->m_StartCluster);
-    if(vol->HasInodeIDToLocationIDMapping(dummy->m_InodeID))
+    const ino_t locationID = GENERATE_DIR_CLUSTER_INODEID(dir->m_StartCluster, dummy->m_StartCluster);
+    if (vol->HasLocationIDToInodeIDMapping(locationID))
     {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::CreateDirectory(): already have ID->location mapping for inode {:x}.", dummy->m_InodeID);
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::CreateDirectory(): location {:x} already belongs to another inode.", locationID);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
-    if (vol->HasLocationIDToInodeIDMapping(dummy->m_InodeID))
+
+    bool inodeMappingCreated = false;
+    PScopeFail removeInodeMappingOnFailure([&]()
     {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::CreateDirectory(): already have location->ID mapping for inode {:x}.", dummy->m_InodeID);
-        PERROR_THROW_CODE(PErrorCode::IO);
+        if (inodeMappingCreated) {
+            vol->RemoveInodeIDToLocationIDMapping(dummy->m_InodeID);
+        }
+    });
+
+    dummy->m_InodeID = locationID;
+    if (vol->HasInodeIDToLocationIDMapping(dummy->m_InodeID))
+    {
+        dummy->m_InodeID = vol->AllocUniqueInodeID();
+        vol->SetInodeIDToLocationIDMapping(dummy->m_InodeID, locationID);
+        inodeMappingCreated = true;
     }
 
     if (!vol->AddDirectoryMapping(dummy->m_StartCluster, dummy->m_InodeID)) {
@@ -1594,8 +1606,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     }
 
     const ino_t newLocationID = volume->IsDataCluster(sourceNode->m_StartCluster)
-        ? GENERATE_DIR_CLUSTER_INODEID(newDirectory->m_InodeID, sourceNode->m_StartCluster)
-        : GENERATE_DIR_INDEX_INODEID(newDirectory->m_InodeID, newStartIndex);
+        ? GENERATE_DIR_CLUSTER_INODEID(newDirectory->m_StartCluster, sourceNode->m_StartCluster)
+        : GENERATE_DIR_INDEX_INODEID(newDirectory->m_StartCluster, newStartIndex);
 
     if (destinationNode != nullptr)
     {

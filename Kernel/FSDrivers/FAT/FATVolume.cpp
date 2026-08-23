@@ -703,11 +703,37 @@ void FATVolume::DumpInodeIDMap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool FATVolume::GetDirectoryStartCluster(ino_t inodeID, uint32_t* startCluster) const
+{
+    ino_t locationID = inodeID;
+    if (IS_ARTIFICIAL_INODEID(locationID) && !GetInodeIDToLocationIDMapping(inodeID, &locationID)) {
+        return false;
+    }
+    if (!IS_DIR_CLUSTER_INODEID(locationID)) {
+        return false;
+    }
+
+    const uint32_t cluster = CLUSTER_OF_DIR_CLUSTER_INODEID(locationID);
+    if (!IsDataCluster(cluster) && !IS_FIXED_ROOT(cluster)) {
+        return false;
+    }
+
+    *startCluster = cluster;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool FATVolume::AddDirectoryMapping(uint32_t startCluster, ino_t inodeID)
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::AddDirectoryMapping({}, {:x})", startCluster, inodeID);
 
-    if ((!IsDataCluster(startCluster) && !IS_FIXED_ROOT(startCluster)) || !IS_DIR_CLUSTER_INODEID(inodeID) || inodeID == 0 || CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID) != startCluster)
+    uint32_t inodeStartCluster;
+    if ((!IsDataCluster(startCluster) && !IS_FIXED_ROOT(startCluster)) ||
+        !GetDirectoryStartCluster(inodeID, &inodeStartCluster) ||
+        inodeStartCluster != startCluster)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::AddDirectoryMapping(): invalid mapping from cluster {} to inode {:x}.", startCluster, inodeID);
         return false;
@@ -732,7 +758,7 @@ bool FATVolume::RemoveDirectoryMapping(uint32_t startCluster, ino_t inodeID)
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::RemoveDirectoryMapping({}, {:x})", startCluster, inodeID);
 
-    if ((!IsDataCluster(startCluster) && !IS_FIXED_ROOT(startCluster)) || !IS_DIR_CLUSTER_INODEID(inodeID) || inodeID == 0 || CLUSTER_OF_DIR_CLUSTER_INODEID(inodeID) != startCluster)
+    if ((!IsDataCluster(startCluster) && !IS_FIXED_ROOT(startCluster)) || inodeID == 0 || IS_INVALID_INODEID(inodeID))
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::RemoveDirectoryMapping(): invalid mapping from cluster {} to inode {:x}.", startCluster, inodeID);
         return false;

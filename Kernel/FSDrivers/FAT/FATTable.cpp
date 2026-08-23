@@ -285,6 +285,15 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
         return;
     }
 
+    uint32_t parentCluster = 0;
+    if (updateICache &&
+        (clusterCount == 0 || !hasClusterChain) &&
+        !m_Volume->GetDirectoryStartCluster(node->m_ParentInodeID, &parentCluster))
+    {
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetChainLength(): inode {:x} has invalid parent inode {:x}.", node->m_InodeID, node->m_ParentInodeID);
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
     if (clusterCount == 0)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): truncating node to zero bytes.");
@@ -314,7 +323,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
 
         node->m_Iteration++;
         if (updateICache) {
-            m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_INDEX_INODEID(node->m_ParentInodeID, node->m_DirStartIndex));
+            m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_INDEX_INODEID(parentCluster, node->m_DirStartIndex));
         }
         ClearFATChain(oldStartCluster);
         return;
@@ -345,7 +354,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusterCount, bool up
 
         node->m_Iteration++;
         if (updateICache) {
-            m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_CLUSTER_INODEID(node->m_ParentInodeID, node->m_StartCluster));
+            m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_CLUSTER_INODEID(parentCluster, node->m_StartCluster));
         }
         return;
     }

@@ -602,36 +602,6 @@ FATDirectoryIterator::~FATDirectoryIterator()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FATDirectoryEntryCombo* FATDirectoryIterator::Set(uint32_t cluster, uint32_t index)
-{
-    m_CurrentBlock.Reset();;
-
-    if (cluster >= m_SectorIterator.m_Volume->m_TotalClusters + 2) {
-        PERROR_THROW_CODE(PErrorCode::IO);
-    }
-    ;
-    m_SectorIterator.Set(cluster, 0);
-
-    m_IsDirty = false;
-    m_StartingCluster = cluster;
-    m_CurrentIndex    = index;
-    if (index >= m_EntriesPerSector)
-    {
-        m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector);
-    }
-
-    m_CurrentBlock = m_SectorIterator.GetBlock_(true);
-
-    if (m_CurrentBlock.m_Buffer == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::IO);
-    }
-    return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex % m_EntriesPerSector);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 FATDirectoryEntryCombo* FATDirectoryIterator::GetCurrentEntry()
 {
     if (m_CurrentBlock.m_Buffer == nullptr) {
@@ -1004,24 +974,6 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t*
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextDirectoryEntry(): found {}.", *outFilename);
     }
     return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-FATDirectoryEntryCombo* FATDirectoryIterator::Rewind()
-{
-    if (m_CurrentIndex > (m_EntriesPerSector - 1))
-    {
-        if (m_CurrentBlock.m_Buffer != nullptr) {
-            ReleaseCurrentBlock();
-        }            
-        m_SectorIterator.Set(m_StartingCluster, 0);
-        m_CurrentBlock = m_SectorIterator.GetBlock_(true);
-    }
-    m_CurrentIndex = 0;
-    return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

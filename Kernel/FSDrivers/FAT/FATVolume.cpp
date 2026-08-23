@@ -866,9 +866,9 @@ bool FATVolume::BeginModification()
 
     if (m_IsVolumeMarkedClean)
     {
-        m_IsVolumeMarkedClean = false;
         m_FATTable->SetVolumeClean(false);
         SyncCache();
+        m_IsVolumeMarkedClean = false;
     }
 
     if (!m_CanMarkCleanFlag) {

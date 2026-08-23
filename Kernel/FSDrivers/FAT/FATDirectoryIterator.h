@@ -100,21 +100,18 @@ struct FATDirectoryEntryInfo
 };
 
 
-#define DIRI_MAGIC '!duM'
 class FATDirectoryIterator
 {
 public:
     FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster, uint32_t index);
     ~FATDirectoryIterator();
     
-    FATDirectoryEntryCombo* Set(uint32_t cluster, uint32_t index);
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
     bool GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename, PString* outShortFilename = nullptr, char* outRawShortName = nullptr);
     bool GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
 
-    FATDirectoryEntryCombo* Rewind();
     void MarkDirty() { m_IsDirty = true; }
 
     static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength, uint8_t& outShortNameCaseFlags);

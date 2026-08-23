@@ -214,6 +214,32 @@ Ptr<KFileNode> kget_file_node_trw(int handle, Ptr<KInode>& outInode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+static Ptr<KFileNode> kget_readable_file_node_trw(int handle, Ptr<KInode>& outInode)
+{
+    Ptr<KFileNode> file = kget_file_node_trw(handle, outInode);
+    if (!file->HasReadAccess()) {
+        PERROR_THROW_CODE(PErrorCode::BADF);
+    }
+    return file;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static Ptr<KFileNode> kget_writable_file_node_trw(int handle, Ptr<KInode>& outInode)
+{
+    Ptr<KFileNode> file = kget_file_node_trw(handle, outInode);
+    if (!file->HasWriteAccess()) {
+        PERROR_THROW_CODE(PErrorCode::BADF);
+    }
+    return file;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KDirectoryNode> kget_directory_node_trw(int handle)
 {
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
@@ -394,7 +420,7 @@ size_t kpread_trw(int handle, void* buffer, size_t length, off_t position)
 size_t kreadv_trw(int handle, const iovec_t* segments, size_t segmentCount)
 {
     Ptr<KInode> inode;
-    Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
+    Ptr<KFileNode> file = kget_readable_file_node_trw(handle, inode);
     const size_t bytesRead = inode->m_FileOps->Read(file, segments, segmentCount, file->m_Position);
     file->m_Position += bytesRead;
     return bytesRead;
@@ -407,7 +433,7 @@ size_t kreadv_trw(int handle, const iovec_t* segments, size_t segmentCount)
 size_t kpreadv_trw(int handle, const iovec_t* segments, size_t segmentCount, off_t position)
 {
     Ptr<KInode> inode;
-    Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
+    Ptr<KFileNode> file = kget_readable_file_node_trw(handle, inode);
     return inode->m_FileOps->Read(file, segments, segmentCount, position);
 }
 
@@ -494,7 +520,7 @@ size_t kpwrite_trw(int handle, const void* buffer, size_t length, off_t position
 size_t kwritev_trw(int handle, const iovec_t* segments, size_t segmentCount)
 {
     Ptr<KInode> inode;
-    Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
+    Ptr<KFileNode> file = kget_writable_file_node_trw(handle, inode);
     ssize_t bytesWritten = inode->m_FileOps->Write(file, segments, segmentCount, file->m_Position);
     file->m_Position += bytesWritten;
     return bytesWritten;
@@ -507,7 +533,7 @@ size_t kwritev_trw(int handle, const iovec_t* segments, size_t segmentCount)
 size_t kpwritev_trw(int handle, const iovec_t* segments, size_t segmentCount, off_t position)
 {
     Ptr<KInode> inode;
-    Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
+    Ptr<KFileNode> file = kget_writable_file_node_trw(handle, inode);
     return inode->m_FileOps->Write(file, segments, segmentCount, position);
 }
 

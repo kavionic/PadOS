@@ -1787,10 +1787,6 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
 
     kernel_log<PLogSeverity::INFO_FLOODING>(LogCat_FATFILE, "FATFilesystem::Write() called {} bytes at {} from buffer at {:x} (inode ID {:x}).", len, pos, (intptr_t)buf, node->m_InodeID);
 
-    if ((fileNode->GetOpenFlags() & O_ACCMODE) == O_RDONLY) {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write(): called on file opened as read-only.");
-        PERROR_THROW_CODE(PErrorCode::PERM);
-    }
     if (vol->IsReadOnly())
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write(): called on read-only volume.");

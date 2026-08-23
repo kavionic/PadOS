@@ -63,6 +63,10 @@ static constexpr UnicodeToCP437Mapping g_UnicodeToCP437[] =
     {0x2566, 0xcb}, {0x2567, 0xcf}, {0x2568, 0xd0}, {0x2569, 0xca}, {0x256A, 0xd8}, {0x256B, 0xd7}, {0x256C, 0xce}, {0x2580, 0xdf}, {0x2584, 0xdc}, {0x2588, 0xdb}, {0x258C, 0xdd}, {0x2590, 0xde}, {0x2591, 0xb0}, {0x2592, 0xb1}, {0x2593, 0xb2}, {0x25A0, 0xfe}
 };
 
+static constexpr char g_CP437LowercaseCharacters[] = "\x81\x82\x84\x86\x87\x91\x94\xA4\xE5\xED";
+static constexpr char g_CP437UppercaseCharacters[] = "\x9A\x90\x8E\x8F\x80\x92\x99\xA5\xE4\xE8";
+static_assert(sizeof(g_CP437LowercaseCharacters) == sizeof(g_CP437UppercaseCharacters));
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -101,20 +105,8 @@ bool UnicodeToCP437(uint32_t unicode, uint8_t* result)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint8_t ConvertCP437CharacterCase(uint8_t character, bool toLowercase)
+static uint8_t MapCP437Character(uint8_t character, const char* sourceCharacters, const char* destinationCharacters)
 {
-    static constexpr char lowercaseCharacters[] = "\x81\x82\x84\x86\x87\x91\x94\xA4\xE5\xED";
-    static constexpr char uppercaseCharacters[] = "\x9A\x90\x8E\x8F\x80\x92\x99\xA5\xE4\xE8";
-
-    if (toLowercase && character >= 'A' && character <= 'Z') {
-        return uint8_t(character - 'A' + 'a');
-    }
-    if (!toLowercase && character >= 'a' && character <= 'z') {
-        return uint8_t(character - 'a' + 'A');
-    }
-
-    const char* sourceCharacters = toLowercase ? uppercaseCharacters : lowercaseCharacters;
-    const char* destinationCharacters = toLowercase ? lowercaseCharacters : uppercaseCharacters;
     const char* sourceCharacter = strchr(sourceCharacters, character);
     if (sourceCharacter != nullptr)
     {
@@ -122,6 +114,30 @@ uint8_t ConvertCP437CharacterCase(uint8_t character, bool toLowercase)
         return uint8_t(destinationCharacters[mappingIndex]);
     }
     return character;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint8_t CP437CharacterToLower(uint8_t character)
+{
+    if (character >= 'A' && character <= 'Z') {
+        return uint8_t(character - 'A' + 'a');
+    }
+    return MapCP437Character(character, g_CP437UppercaseCharacters, g_CP437LowercaseCharacters);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint8_t CP437CharacterToUpper(uint8_t character)
+{
+    if (character >= 'a' && character <= 'z') {
+        return uint8_t(character - 'a' + 'A');
+    }
+    return MapCP437Character(character, g_CP437LowercaseCharacters, g_CP437UppercaseCharacters);
 }
 
 } // namespace kernel

@@ -36,7 +36,7 @@
 namespace kernel
 {
     
-const char g_ValidShortNameCharacters[]="!#$%&'()-0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`{}~";
+const char g_ValidUncasedShortNameCharacters[]="!#$%&'()-0123456789@^_`{}~";
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -150,14 +150,14 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
 	uint8_t character;
     if (UnicodeToCP437(utf16, &character))
     {
-        const uint8_t uppercaseCharacter = ConvertCP437CharacterCase(character, false);
+        const uint8_t uppercaseCharacter = CP437CharacterToUpper(character);
         if (uppercaseCharacter != character) {
             *result = uppercaseCharacter;
             return true;
         } else if (strchr(underbar, character)) {
             *result = '_';
             return true;
-        } else if (strchr(g_ValidShortNameCharacters, character) != nullptr || ConvertCP437CharacterCase(character, true) != character) {
+        } else if (strchr(g_ValidUncasedShortNameCharacters, character) != nullptr || CP437CharacterToLower(character) != character) {
             *result = character;
             return true;
         }
@@ -171,10 +171,10 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
 
 static bool IsShortNameCharacterCompatible(uint8_t character, bool& hasUppercase, bool& hasLowercase)
 {
-    const uint8_t uppercaseCharacter = ConvertCP437CharacterCase(character, false);
-    const bool isCasedCharacter = ConvertCP437CharacterCase(uppercaseCharacter, true) != uppercaseCharacter;
+    const uint8_t uppercaseCharacter = CP437CharacterToUpper(character);
+    const bool hasCaseMapping = CP437CharacterToLower(uppercaseCharacter) != uppercaseCharacter;
 
-    if (strchr(g_ValidShortNameCharacters, uppercaseCharacter) == nullptr && !isCasedCharacter) {
+    if (strchr(g_ValidUncasedShortNameCharacters, uppercaseCharacter) == nullptr && !hasCaseMapping) {
         return false;
     }
 
@@ -185,7 +185,7 @@ static bool IsShortNameCharacterCompatible(uint8_t character, bool& hasUppercase
         }
         hasLowercase = true;
     }
-    else if (isCasedCharacter)
+    else if (hasCaseMapping)
     {
         if (hasLowercase) {
             return false;
@@ -199,30 +199,41 @@ static bool IsShortNameCharacterCompatible(uint8_t character, bool& hasUppercase
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void FATRawShortNameToUTF8(const FATDirectoryEntry& entry, PString& destination)
+static bool IsShortNameCharacterCompatible(uint8_t character)
+{
+    bool hasUppercase = false;
+    bool hasLowercase = false;
+    return IsShortNameCharacterCompatible(character, hasUppercase, hasLowercase);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PString FATRawShortNameToUTF8(const char shortName[11], uint8_t shortNameCaseFlags)
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATRawShortNameToUTF8().");
 
-    destination.clear();
-    const bool lowercaseBase = (entry.m_ShortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_BASE) != 0;
-    const bool lowercaseExtension = (entry.m_ShortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_EXTENSION) != 0;
+    PString destination;
+    const bool lowercaseBase = (shortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_BASE) != 0;
+    const bool lowercaseExtension = (shortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_EXTENSION) != 0;
 
     size_t baseLength = 8;
-    while (baseLength > 0 && entry.m_Filename[baseLength - 1] == ' ') {
+    while (baseLength > 0 && shortName[baseLength - 1] == ' ') {
         --baseLength;
     }
 
     for (size_t characterIndex = 0; characterIndex < baseLength; ++characterIndex)
     {
-        uint8_t character = (characterIndex == 0 && entry.m_Filename[characterIndex] == 5) ? 0xe5 : uint8_t(entry.m_Filename[characterIndex]);
+        uint8_t character = (characterIndex == 0 && shortName[characterIndex] == 5) ? 0xe5 : uint8_t(shortName[characterIndex]);
         if (lowercaseBase) {
-            character = ConvertCP437CharacterCase(character, true);
+            character = CP437CharacterToLower(character);
         }
         destination.append_utf32_char(CP437ToUnicode(character));
     }
 
     size_t extensionLength = 3;
-    while (extensionLength > 0 && entry.m_Filename[8 + extensionLength - 1] == ' ') {
+    while (extensionLength > 0 && shortName[8 + extensionLength - 1] == ' ') {
         --extensionLength;
     }
 
@@ -231,13 +242,14 @@ static void FATRawShortNameToUTF8(const FATDirectoryEntry& entry, PString& desti
         destination += ".";
         for (size_t characterIndex = 8; characterIndex < 8 + extensionLength; ++characterIndex)
         {
-            uint8_t character = uint8_t(entry.m_Filename[characterIndex]);
+            uint8_t character = uint8_t(shortName[characterIndex]);
             if (lowercaseExtension) {
-                character = ConvertCP437CharacterCase(character, true);
+                character = CP437CharacterToLower(character);
             }
             destination.append_utf32_char(CP437ToUnicode(character));
         }
     }
+    return destination;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -385,6 +397,61 @@ bool FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(
     }
 
     outNumericTailValue = numericTailValue;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FATDirectoryIterator::ConvertToCanonicalRawShortName(
+    const PString& filename,
+    char outShortName[11])
+{
+    memset(outShortName, ' ', 11);
+
+    size_t baseLength = 0;
+    size_t extensionLength = 0;
+    bool parsingExtension = false;
+
+    for (PString::utf32_iterator iterator = filename.utf32_begin(); iterator != filename.utf32_end(); ++iterator)
+    {
+        const uint32_t unicodeCharacter = *iterator;
+        if (unicodeCharacter == '.')
+        {
+            if (parsingExtension || baseLength == 0) {
+                return false;
+            }
+            parsingExtension = true;
+        }
+        else
+        {
+            uint8_t character;
+            if (!UnicodeToCP437(unicodeCharacter, &character) || !IsShortNameCharacterCompatible(character)) {
+                return false;
+            }
+
+            character = CP437CharacterToUpper(character);
+            if (parsingExtension)
+            {
+                if (extensionLength == 3) {
+                    return false;
+                }
+                outShortName[8 + extensionLength++] = char(character);
+            }
+            else
+            {
+                if (baseLength == 8) {
+                    return false;
+                }
+                outShortName[baseLength++] = char(character);
+            }
+        }
+    }
+
+    if (baseLength == 0 || (parsingExtension && extensionLength == 0)) {
+        return false;
+    }
     return true;
 }
 
@@ -600,7 +667,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* filename, PString* outShortFilename)
+bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* filename, PString* outShortFilename, char* outRawShortName)
 {
     uint8_t            hash = 0;
     std::vector<wchar16_t> utf16Buffer;
@@ -753,12 +820,19 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
     {
         startIndex = m_CurrentIndex;
         if (filename != nullptr) {
-            FATRawShortNameToUTF8(buffer->m_Normal, *filename);
+            *filename = FATRawShortNameToUTF8(
+                buffer->m_Normal.m_Filename,
+                buffer->m_Normal.m_ShortNameCaseFlags);
         }            
     }
 
     if (outShortFilename != nullptr) {
-        FATRawShortNameToUTF8(buffer->m_Normal, *outShortFilename);
+        *outShortFilename = FATRawShortNameToUTF8(
+            buffer->m_Normal.m_Filename,
+            buffer->m_Normal.m_ShortNameCaseFlags);
+    }
+    if (outRawShortName != nullptr) {
+        memcpy(outRawShortName, buffer->m_Normal.m_Filename, sizeof(buffer->m_Normal.m_Filename));
     }
 
     if (outInfo != nullptr)

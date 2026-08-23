@@ -26,7 +26,8 @@ namespace kernel
 
 uint32_t CP437ToUnicode(uint8_t character);
 bool UnicodeToCP437(uint32_t unicode, uint8_t* result);
-uint8_t ConvertCP437CharacterCase(uint8_t character, bool toLowercase);
+uint8_t CP437CharacterToLower(uint8_t character);
+uint8_t CP437CharacterToUpper(uint8_t character);
 
 } // namespace kernel
 

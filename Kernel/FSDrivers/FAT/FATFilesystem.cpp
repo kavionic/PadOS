@@ -115,7 +115,7 @@ static bool SanitizeFATVolumeLabel(const PString& inputName, char rawVolumeLabel
         uint8_t character;
         if (UnicodeToCP437(*iterator, &character))
         {
-            character = ConvertCP437CharacterCase(character, false);
+            character = CP437CharacterToUpper(character);
             if (IsFATVolumeLabelCharacterValid(character))
             {
                 rawVolumeLabel[outputIndex++] = char(character);
@@ -140,7 +140,7 @@ static PString RawFATVolumeLabelToUTF8(const char rawVolumeLabel[FAT_VOLUME_LABE
     {
         uint8_t character = ((characterIndex == 0 && rawVolumeLabel[characterIndex] == 5) ? 0xe5 : uint8_t(rawVolumeLabel[characterIndex]));
         if (toLowercase) {
-            character = ConvertCP437CharacterCase(character, true);
+            character = CP437CharacterToLower(character);
         }
         result.append_utf32_char(CP437ToUnicode(character));
     }
@@ -2598,72 +2598,31 @@ void FATVolume::UpdateFSInfo()
     }
 }
 
-void FATFilesystem::SelectUniqueShortName(Ptr<FATVolume> volume, Ptr<FATInode> parent, char shortName[11])
+void FATFilesystem::ValidateNameAndSelectShortName(
+    Ptr<FATVolume> volume,
+    Ptr<FATInode> parent,
+    const PString& name,
+    FATInode* excludedNode,
+    char shortName[11],
+    bool requiresLongName)
 {
     char baseShortName[11];
     memcpy(baseShortName, shortName, sizeof(baseShortName));
 
     std::vector<uint32_t> usedNumericTailValues;
     FATDirectoryIterator iterator(volume, parent->m_StartCluster, 0);
-
-    for (FATDirectoryEntryCombo* entry = iterator.GetCurrentEntry(); entry != nullptr; entry = iterator.GetNextRawEntry())
-    {
-        const uint8_t firstFilenameCharacter = uint8_t(entry->m_Normal.m_Filename[0]);
-        if (firstFilenameCharacter == 0) {
-            break;
-        }
-
-        const bool isLongNameEntry =
-            (entry->m_Normal.m_Attribs & FAT_LONG_NAME_ATTRIBUTE_MASK) == FAT_LONG_NAME_ATTRIBUTES;
-        const bool isVolumeLabel = (entry->m_Normal.m_Attribs & FAT_VOLUME) != 0;
-        if (firstFilenameCharacter != 0xe5 && !isLongNameEntry && !isVolumeLabel)
-        {
-            uint32_t numericTailValue;
-            if (FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(
-                    entry->m_Normal.m_Filename,
-                    baseShortName,
-                    numericTailValue))
-            {
-                usedNumericTailValues.push_back(numericTailValue);
-            }
-        }
-    }
-
-    std::sort(usedNumericTailValues.begin(), usedNumericTailValues.end());
-
-    uint32_t numericTailValue = 1;
-    for (const uint32_t usedNumericTailValue : usedNumericTailValues) {
-        if (usedNumericTailValue == numericTailValue) {
-            ++numericTailValue;
-        } else if (usedNumericTailValue > numericTailValue) {
-            break;
-        }
-    }
-
-    if (numericTailValue > FAT_SHORT_NAME_MAX_NUMERIC_TAIL_VALUE) {
-        PERROR_THROW_CODE(PErrorCode::NOSPC);
-    }
-
-    FATDirectoryIterator::MungeShortName(shortName, numericTailValue);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool FATFilesystem::FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> parent, const PString& name, FATInode* excludedNode)
-{
-    FATDirectoryIterator iterator(volume, parent->m_StartCluster, 0);
     FATDirectoryEntryInfo entryInfo;
     PString filename;
     PString shortFilename;
+    char existingRawShortName[11];
+    char existingVisibleShortName[11];
 
     for (;;)
     {
         filename.clear();
         shortFilename.clear();
-        if (!iterator.GetNextLFNEntry(&entryInfo, &filename, &shortFilename)) {
-            return false;
+        if (!iterator.GetNextLFNEntry(&entryInfo, &filename, &shortFilename, existingRawShortName)) {
+            break;
         }
 
         if ((entryInfo.m_DOSAttribs & FAT_VOLUME) != 0) {
@@ -2677,10 +2636,45 @@ bool FATFilesystem::FindNameCollision(Ptr<FATVolume> volume, Ptr<FATInode> paren
         {
             const bool longNameCollision = filename.compare_nocase(name) == 0;
             const bool shortNameCollision = shortFilename != filename && shortFilename.compare_nocase(name) == 0;
-            if (longNameCollision || shortNameCollision) {
-                return true;
+            if (longNameCollision || shortNameCollision)
+            {
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): {} conflicts with an existing name or short-name alias in directory {:x}.", name.c_str(), parent->m_InodeID);
+                PERROR_THROW_CODE(PErrorCode::EXIST);
             }
         }
+
+        if (requiresLongName)
+        {
+            uint32_t numericTailValue;
+            if (FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(existingRawShortName, baseShortName, numericTailValue)) {
+                usedNumericTailValues.push_back(numericTailValue);
+            }
+            if (filename != shortFilename &&
+                FATDirectoryIterator::ConvertToCanonicalRawShortName(filename, existingVisibleShortName) &&
+                FATDirectoryIterator::GetGeneratedShortNameNumericTailValue(existingVisibleShortName, baseShortName, numericTailValue)) {
+                usedNumericTailValues.push_back(numericTailValue);
+            }
+        }
+    }
+
+    if (requiresLongName)
+    {
+        std::sort(usedNumericTailValues.begin(), usedNumericTailValues.end());
+
+        uint32_t numericTailValue = 1;
+        for (const uint32_t usedNumericTailValue : usedNumericTailValues) {
+            if (usedNumericTailValue == numericTailValue) {
+                ++numericTailValue;
+            } else if (usedNumericTailValue > numericTailValue) {
+                break;
+            }
+        }
+
+        if (numericTailValue > FAT_SHORT_NAME_MAX_NUMERIC_TAIL_VALUE) {
+            PERROR_THROW_CODE(PErrorCode::NOSPC);
+        }
+
+        FATDirectoryIterator::MungeShortName(shortName, numericTailValue);
     }
 }
 
@@ -3013,20 +3007,10 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
 {
     struct FATNewDirEntryInfo info;
 
-    // FAT names and their 8.3 aliases share a case-insensitive namespace even
-    // though PadOS deliberately performs ordinary path lookup case-sensitively.
-    if (FindNameCollision(vol, parent, name, collisionExclusion))
-    {
-        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): {} conflicts with an existing name or short-name alias in directory {:x}.", name.c_str(), parent->m_InodeID);
-        PERROR_THROW_CODE(PErrorCode::EXIST);
-    }
-
     std::vector<wchar16_t> longName;
-
     longName.resize(FAT_LONG_NAME_MAX_ENTRY_COUNT * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY, 0xffff);
 
     const size_t nameLength = name.copy_utf16(longName.data(), longName.size());
-
     if (nameLength > FAT_LONG_NAME_MAX_LENGTH)
     {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): Error converting utf8 name '{}' to UNICODE. Result too long.", name.c_str());
@@ -3047,11 +3031,14 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
         PERROR_THROW_CODE(PErrorCode::PERM);
     }
 
-    // If there is a long name, patch the short name and check for duplication.
-    // Otherwise, preserve uniformly lowercase components with the NT case flags.
-    if (FATDirectoryIterator::RequiresLongName(longName.data(), nameLength, info.ShortNameCaseFlags))
+    const bool requiresLongName = FATDirectoryIterator::RequiresLongName(longName.data(), nameLength, info.ShortNameCaseFlags);
+
+    // FAT names and their 8.3 aliases share a case-insensitive namespace even
+    // though PadOS deliberately performs ordinary path lookup case-sensitively.
+    ValidateNameAndSelectShortName(vol, parent, name, collisionExclusion, shortName, requiresLongName);
+
+    if (requiresLongName)
     {
-        SelectUniqueShortName(vol, parent, shortName);
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(
             LogCat_FATDIR,
             "FATFilesystem::CreateDirectoryEntry(): selected short name [{:11.11}].",
@@ -3059,7 +3046,8 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
     }
     else
     {
-        longNameLength = 0; // Entry doesn't need a long name.
+        // Preserve uniformly lowercase components with the NT case flags.
+        longNameLength = 0;
     }
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): creating directory entry [{:11.11}].", shortName);

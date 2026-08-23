@@ -111,7 +111,7 @@ public:
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
-    bool GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename, PString* outShortFilename = nullptr);
+    bool GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename, PString* outShortFilename = nullptr, char* outRawShortName = nullptr);
     bool GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();
@@ -119,6 +119,7 @@ public:
 
     static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength, uint8_t& outShortNameCaseFlags);
     static bool GetGeneratedShortNameNumericTailValue(const char shortName[11], const char baseShortName[11], uint32_t& outNumericTailValue);
+    static bool ConvertToCanonicalRawShortName(const PString& filename, char outShortName[11]);
     static void MungeShortName(char* shortName, uint32_t numericTailValue);
     static void GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName);
 

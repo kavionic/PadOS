@@ -3038,6 +3038,15 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
     char shortName[11];
     FATDirectoryIterator::GenerateShortName(longName.data(), nameLength, shortName);
 
+    size_t shortNameBaseLength = 0;
+    while (shortNameBaseLength < 8 && shortName[shortNameBaseLength] != ' ') {
+        ++shortNameBaseLength;
+    }
+    if (g_DOSDeviceBaseNames.count(PString(shortName, shortNameBaseLength)) != 0)
+    {
+        PERROR_THROW_CODE(PErrorCode::PERM);
+    }
+
     // If there is a long name, patch the short name and check for duplication.
     // Otherwise, preserve uniformly lowercase components with the NT case flags.
     if (FATDirectoryIterator::RequiresLongName(longName.data(), nameLength, info.ShortNameCaseFlags))
@@ -3071,14 +3080,6 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
 
 void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t longNameLength, uint32_t* startIndex, uint32_t* endIndex)
 {
-    size_t shortNameBaseLength = 0;
-    while (shortNameBaseLength < 8 && shortName[shortNameBaseLength] != ' ') {
-        ++shortNameBaseLength;
-    }
-    if (g_DOSDeviceBaseNames.count(PString(shortName, shortNameBaseLength)) != 0)
-    {
-        PERROR_THROW_CODE(PErrorCode::PERM);
-    }
     if ((info->Cluster != 0) && !vol->IsDataCluster(info->Cluster))
     {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): for bad cluster ({}).", info->Cluster);

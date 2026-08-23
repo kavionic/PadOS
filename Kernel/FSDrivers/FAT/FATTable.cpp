@@ -139,10 +139,20 @@ uint32_t FATTable::GetEntry(uint32_t cluster)
     if (value == 0 || m_Volume->IsDataCluster(value)) {
         return value;
     }
-    if (value >= END_FAT_ENTRY) {
+
+    // FAT12 and FAT16 data cluster numbers overlap the range used for special
+    // entry values. Normalize only values that were not valid data clusters.
+    uint32_t normalizedValue = value;
+    if (m_Volume->m_FATBits == 12) {
+        normalizedValue |= 0x0ffff000;
+    } else if (m_Volume->m_FATBits == 16) {
+        normalizedValue |= 0x0fff0000;
+    }
+
+    if (normalizedValue >= END_FAT_ENTRY) {
         return END_FAT_ENTRY;
     }	
-    if (value >= BAD_FAT_ENTRY) {
+    if (normalizedValue >= BAD_FAT_ENTRY) {
         return BAD_FAT_ENTRY;
     }
     kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "FATTable::GetEntry(): invalid FAT entry {:x} for cluster {}.", value, cluster);

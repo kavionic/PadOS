@@ -181,14 +181,12 @@ uint32_t FATTableIterator::GetEntry()
         } else {
             val &= 0xfff;
         }
-        if (val >= 0xff0) val |= 0x0ffff000;
         
         return val;
     }
     else if (m_Volume->m_FATBits == 16)
     {
         uint32_t val = block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector+1];
-        if (val >= 0xfff0) val |= 0x0fff0000;
         return val;
     }
     else if (m_Volume->m_FATBits == 32)

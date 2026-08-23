@@ -258,6 +258,7 @@ Ptr<KDirectoryNode> kget_directory_node_trw(int handle)
 int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions)
 {
     const KLocateFlags locateFlags = (openFlags & O_KERNEL) ? KLocateFlag::KernelCtx : KLocateFlag::None;
+    const bool isExclusiveCreate = (openFlags & (O_CREAT | O_EXCL)) == (O_CREAT | O_EXCL);
     int handle = kallocate_filehandle_trw(locateFlags);
 
     PScopeFail handleGuard([handle]() { kfree_filehandle(handle); });
@@ -281,7 +282,7 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     try
     {
         KLocateFlags flags(locateFlags | KLocateFlag::CrossMount);
-        if ((openFlags & O_NOFOLLOW) == 0) {
+        if ((openFlags & O_NOFOLLOW) == 0 && !isExclusiveCreate) {
             flags.SetFlag(KLocateFlag::FollowSymlinks);
         }
         inode = klocate_inode_by_name_trw(flags, parent, name, nameLength);
@@ -300,6 +301,10 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
             }
         }
     ));
+
+    if (isExclusiveCreate) {
+        PERROR_THROW_CODE(PErrorCode::EXIST);
+    }
     RequireActiveInode(inode);
     Ptr<KFileTableNode> file;
     if (openFlags & O_PATH)

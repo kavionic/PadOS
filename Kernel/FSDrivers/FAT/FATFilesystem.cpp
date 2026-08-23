@@ -999,8 +999,6 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
     }
     const mode_t fileMode = DOSAttribsToFileMode(dosAttribs);
 
-    Ptr<FATFileNode> fileNode;
-
     Ptr<FATInode> file = DoLocateInode(vol, dir, name);
     if (file != nullptr)
     {
@@ -1031,7 +1029,6 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
             FATVolume::ModificationScope modificationScope(*vol);
             ResizeFile(vol, file, 0, true, true);
         }
-        fileNode = ptr_new<FATFileNode>(openFlags);
     }
     else
     {
@@ -1061,10 +1058,10 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         ino_t inodeID = dummy->m_InodeID;
 
         file = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, inodeID, false));
-        fileNode = ptr_new<FATFileNode>(openFlags);
-        fileNode->SetInode(file);
     }
 
+    const Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>(openFlags);
+    fileNode->SetInode(file);
     fileNode->m_FATIteration  = file->m_Iteration;
     fileNode->m_FATChainIndex = 0;
     fileNode->m_CachedCluster = file->m_StartCluster;

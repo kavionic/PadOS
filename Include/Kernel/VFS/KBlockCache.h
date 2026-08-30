@@ -42,6 +42,7 @@ enum
 };
 
 class KBlockCache;
+class KCacheBuffer;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -73,6 +74,23 @@ struct KCacheBlockHeader : PIntrusiveListNode<KCacheBlockHeader>
     void*        m_Buffer       = nullptr;
     TimeValNanos m_DirtyTime;
     uint32_t     m_Flags        = 0;
+    KCacheBuffer* CacheBuffer   = nullptr;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+class KCacheBuffer : public PIntrusiveListNode<KCacheBuffer>
+{
+private:
+    friend class KBlockCache;
+
+    uint8_t*           m_Buffer         = nullptr;
+    KCacheBlockHeader* m_Blocks         = nullptr;
+    size_t             m_BlockSize      = 0;
+    size_t             m_BlockCount     = 0;
+    size_t             m_UsedBlockCount = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -82,7 +100,7 @@ struct KCacheBlockHeader : PIntrusiveListNode<KCacheBlockHeader>
 struct KCacheBlockDesc
 {
     inline KCacheBlockDesc() : m_Block(nullptr), m_Buffer(nullptr) {}
-    inline KCacheBlockDesc(KCacheBlockHeader* block, size_t blockOffset) : m_Block(block), m_Buffer(static_cast<uint8_t*>(block->m_Buffer) + blockOffset) {}
+    inline KCacheBlockDesc(KCacheBlockHeader* block) : m_Block(block), m_Buffer(block->m_Buffer) {}
     ~KCacheBlockDesc();
 
     void MarkDirty();
@@ -106,9 +124,9 @@ struct KCacheBlockDesc
 class KBlockCache
 {
 public:
-    static const size_t BUFFER_BLOCK_SIZE = 512; //4096;
+    static const size_t CACHE_BUFFER_SIZE = 4096;
     static const size_t MIN_BLOCK_SIZE    = 512;
-    static const size_t MAX_BLOCK_SIZE    = BUFFER_BLOCK_SIZE;
+    static const size_t MAX_BLOCK_SIZE    = CACHE_BUFFER_SIZE;
     
     KBlockCache() = default;
     ~KBlockCache();
@@ -135,14 +153,33 @@ public:
     Signal<void, PErrorCode> SignalBecameReadOnly;
         
 private:
+    static constexpr size_t BLOCK_SIZE_ORDER_COUNT = 4;
+
     friend struct KCacheBlockHeader;
     friend struct KCacheBlockDesc;
 
     static constexpr TimeValNanos FLUSH_PERIOD = TimeValNanos::FromMilliseconds(1000);
     static constexpr size_t MAX_FLUSH_BLOCK_COUNT = 128;
-    static constexpr size_t MIN_FLUSH_WAKEUP_BLOCK_COUNT = 64;
-    static constexpr size_t MIN_FLUSH_BLOCK_COUNT = 96;
+    static constexpr size_t MIN_FLUSH_WAKEUP_SIZE = MIN_BLOCK_SIZE * 64;
+    static constexpr size_t MIN_FLUSH_SIZE = MIN_BLOCK_SIZE * 96;
 
+    static inline KCacheBuffer* GetBlockBuffer(KCacheBlockHeader* block) { return block->CacheBuffer; }
+    static size_t GetBlockSizeOrder(size_t blockSize);
+    static inline void TouchBuffer(KCacheBuffer* buffer)
+    {
+        if (s_BufferLRUList.GetLast() != buffer)
+        {
+            s_BufferLRUList.Remove(buffer);
+            s_BufferLRUList.Append(buffer);
+        }
+    }
+    static void ConfigureBuffer(KCacheBuffer* buffer, size_t blockSize, size_t blockSizeOrder);
+    static void ReleaseBuffer(KCacheBuffer* buffer);
+    static void ReleaseUnusedBlock(KCacheBlockHeader* block);
+    static void ReuseBlock(KCacheBlockHeader* block);
+    static KCacheBuffer* FindReclaimableBuffer(size_t requestedBlockSize, bool hasSameSizeCandidate, bool& shouldWaitForFlushing);
+    static void ReclaimBuffer(KCacheBuffer* buffer);
+    static KCacheBlockHeader* AllocateBlock(size_t blockSize, size_t blockSizeOrder);
     bool DetachBlocks(bool waitForBusyBlocks, bool discardDirtyBlocks);
     void AbandonBlockWriteback(KCacheBlockHeader* block);
     void DiscardBlock(KCacheBlockHeader* block);
@@ -162,13 +199,17 @@ private:
 #endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
     
     static std::map<int, KBlockCache*>      s_DeviceMap;
-    static PIntrusiveList<KCacheBlockHeader> s_FreeList;
-    static PIntrusiveList<KCacheBlockHeader> s_MRUList;
+    static PIntrusiveList<KCacheBuffer>      s_FreeBufferList;
+    static PIntrusiveList<KCacheBuffer>      s_BufferLRUList;
+    static PIntrusiveList<KCacheBlockHeader> s_FreeBlockLists[BLOCK_SIZE_ORDER_COUNT];
+    static PIntrusiveList<KCacheBlockHeader> s_BlockLRULists[BLOCK_SIZE_ORDER_COUNT];
     static KMutex                           s_Mutex;
     static KConditionVariable               s_FlushingRequestConditionVar;
     static KConditionVariable               s_FlushingDoneConditionVar;
     static std::atomic_int                  s_DirtyBlockCount;
+    static std::atomic_size_t               s_DirtyByteCount;
     static size_t                           s_PendingReadOnlySignalCount;
+    static size_t                           s_NextFlushBlockSizeOrder;
     
     int                                     m_Device = -1;
     std::atomic_size_t                      m_DirtyBlockCount = 0;
@@ -177,10 +218,8 @@ private:
     bool                                    m_ReadOnlySignalPending = false;
     bool                                    m_ReadOnlySignalInProgress = false;
     size_t                                  m_BlockSize = 0;
+    size_t                                  m_BlockSizeOrder = 0;
     off64_t                                 m_BlockCount = 0;
-    int                                     m_BlocksPerBuffer = 1;
-    int                                     m_BlockToBufferShift = 0;
-    uint32_t                                m_BufferOffsetMask = 0x00;
     std::map<off64_t, KCacheBlockHeader*>   m_BlockMap;
     
     KBlockCache(const KBlockCache&) = delete;

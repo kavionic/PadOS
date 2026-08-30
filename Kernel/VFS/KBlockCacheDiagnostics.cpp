@@ -46,7 +46,7 @@ static uint8_t* gk_DiagnosticReadbackBuffer;
 
 alignas(DCACHE_LINE_SIZE)
 static uint8_t gk_BlockCacheInternalRetryBuffer[
-    KBlockCache::BUFFER_BLOCK_SIZE * DIAGNOSTIC_INTERNAL_RETRY_BLOCK_COUNT]
+    KBlockCache::CACHE_BUFFER_SIZE * DIAGNOSTIC_INTERNAL_RETRY_BLOCK_COUNT]
     __attribute__((section(".bss.block_cache_diagnostic")));
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,8 +56,8 @@ static uint8_t gk_BlockCacheInternalRetryBuffer[
 size_t KBlockCache::GetFlushDiagnosticBufferSize()
 {
     return sizeof(uint32_t) * MAX_FLUSH_BLOCK_COUNT * 2
-        + BUFFER_BLOCK_SIZE * MAX_FLUSH_BLOCK_COUNT
-        + BUFFER_BLOCK_SIZE;
+        + CACHE_BUFFER_SIZE * MAX_FLUSH_BLOCK_COUNT
+        + CACHE_BUFFER_SIZE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ void KBlockCache::InitializeFlushDiagnostics(void* buffer)
     currentBuffer += sizeof(uint32_t) * MAX_FLUSH_BLOCK_COUNT;
 
     gk_DiagnosticPreviousData = currentBuffer;
-    currentBuffer += BUFFER_BLOCK_SIZE * MAX_FLUSH_BLOCK_COUNT;
+    currentBuffer += CACHE_BUFFER_SIZE * MAX_FLUSH_BLOCK_COUNT;
 
     gk_DiagnosticReadbackBuffer = currentBuffer;
 }
@@ -143,12 +143,12 @@ void KBlockCache::ValidateFlushBlockList(KCacheBlockHeader** blockList, size_t b
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static uint32_t CalculateBlockCacheDiagnosticChecksum(const void* buffer)
+static uint32_t CalculateBlockCacheDiagnosticChecksum(const void* buffer, size_t blockSize)
 {
     const uint8_t* bytes = static_cast<const uint8_t*>(buffer);
     uint32_t checksum = 2166136261u;
 
-    for (size_t byteIndex = 0; byteIndex < KBlockCache::BUFFER_BLOCK_SIZE; ++byteIndex) {
+    for (size_t byteIndex = 0; byteIndex < blockSize; ++byteIndex) {
         checksum = (checksum ^ bytes[byteIndex]) * 16777619u;
     }
     return checksum;
@@ -164,6 +164,7 @@ static bool VerifyBlockCacheDiagnosticWrite(
     const uint32_t* expectedChecksums,
     size_t blockCount,
     uint8_t* readbackBuffer,
+    size_t blockSize,
     const char* retryDescription)
 {
     for (size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
@@ -172,14 +173,14 @@ static bool VerifyBlockCacheDiagnosticWrite(
         const size_t bytesRead = kpread_trw(
             device,
             readbackBuffer,
-            KBlockCache::BUFFER_BLOCK_SIZE,
-            blockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+            blockSize,
+            blockNumber * off64_t(blockSize));
         const uint32_t readbackChecksum =
-            (bytesRead == KBlockCache::BUFFER_BLOCK_SIZE)
-                ? CalculateBlockCacheDiagnosticChecksum(readbackBuffer)
+            (bytesRead == blockSize)
+                ? CalculateBlockCacheDiagnosticChecksum(readbackBuffer, blockSize)
                 : 0;
 
-        if (bytesRead != KBlockCache::BUFFER_BLOCK_SIZE
+        if (bytesRead != blockSize
             || readbackChecksum != expectedChecksums[blockIndex])
         {
             printf(
@@ -194,9 +195,9 @@ static bool VerifyBlockCacheDiagnosticWrite(
             ksnooze(TimeValNanos::FromMilliseconds(1));
             SCB_InvalidateDCache_by_Addr(
                 reinterpret_cast<uint32_t*>(readbackBuffer),
-                KBlockCache::BUFFER_BLOCK_SIZE);
+                blockSize);
             const uint32_t delayedReadbackChecksum =
-                CalculateBlockCacheDiagnosticChecksum(readbackBuffer);
+                CalculateBlockCacheDiagnosticChecksum(readbackBuffer, blockSize);
             printf(
                 "Block cache diagnostic: %s delayed memory reread for device %d block %lu issued no new device command, raw %08lx.\n",
                 retryDescription,
@@ -211,11 +212,11 @@ static bool VerifyBlockCacheDiagnosticWrite(
                 const size_t repeatedBytesRead = kpread_trw(
                     device,
                     readbackBuffer,
-                    KBlockCache::BUFFER_BLOCK_SIZE,
-                    blockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+                    blockSize,
+                    blockNumber * off64_t(blockSize));
                 const uint32_t repeatedReadbackChecksum =
-                    (repeatedBytesRead == KBlockCache::BUFFER_BLOCK_SIZE)
-                        ? CalculateBlockCacheDiagnosticChecksum(readbackBuffer)
+                    (repeatedBytesRead == blockSize)
+                        ? CalculateBlockCacheDiagnosticChecksum(readbackBuffer, blockSize)
                         : 0;
                 printf(
                     "Block cache diagnostic: %s reread %lu for device %d block %lu returned %lu bytes, raw %08lx.\n",
@@ -240,6 +241,10 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "KBlockCache::FlushBlockList() flushing {} blocks.", blockCount);
 
+    if (blockCount == 0) {
+        return false;
+    }
+
     std::sort(blockList, blockList + blockCount, CompareCacheBlockOrder);
 
     ValidateFlushBlockList(blockList, blockCount);
@@ -261,15 +266,6 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
 //            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "    {}", blockList[i]->m_bufferNumber);
 //        }
 
-        if (i < blockCount)
-        {
-            if (!requiredSegment && blockList[i]->IsFlushRequested()) {
-                requiredSegment = true;
-            }
-            if (!requiredSegment && (curTime - blockList[i]->m_DirtyTime) >= FLUSH_PERIOD) {
-                hasTimedOutBlocks = true;
-            }
-        }
         if (
             i == blockCount ||
             (i > start &&
@@ -277,10 +273,11 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                     blockList[i - 1]->m_bufferNumber + 1 != blockList[i]->m_bufferNumber)))
         {
             size_t segmentCount = i - start;
-            if (requiredSegment || hasTimedOutBlocks || segmentCount >= MIN_FLUSH_BLOCK_COUNT)
+            KBlockCache* blockCache = blockList[start]->m_BlockCache;
+            kassert(blockCache != nullptr);
+            const size_t blockSize = blockCache->m_BlockSize;
+            if (requiredSegment || hasTimedOutBlocks || segmentCount * blockSize >= MIN_FLUSH_SIZE)
             {
-                KBlockCache* blockCache = blockList[start]->m_BlockCache;
-                kassert(blockCache != nullptr);
                 const int device = blockCache->m_Device;
 
                 for (size_t j = start; j < i; ++j) {
@@ -295,8 +292,9 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                     kassert(block->m_BlockCache == blockCache);
                     kassert(block->m_bufferNumber == blockList[start]->m_bufferNumber + off64_t(segmentIndex));
                     kassert(segments[segmentIndex].iov_base == block->m_Buffer);
-                    kassert(segments[segmentIndex].iov_len == KBlockCache::BUFFER_BLOCK_SIZE);
-                    gk_DiagnosticSubmittedChecksums[segmentIndex] = CalculateBlockCacheDiagnosticChecksum(block->m_Buffer);
+                    kassert(segments[segmentIndex].iov_len == blockSize);
+                    gk_DiagnosticSubmittedChecksums[segmentIndex] =
+                        CalculateBlockCacheDiagnosticChecksum(block->m_Buffer, blockSize);
                 }
 
                 PErrorCode writeError = PErrorCode::Success;
@@ -308,19 +306,19 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                     {
                         const off64_t blockNumber = firstBlockNumber + off64_t(segmentIndex);
                         uint8_t* previousData =
-                            gk_DiagnosticPreviousData + segmentIndex * KBlockCache::BUFFER_BLOCK_SIZE;
+                            gk_DiagnosticPreviousData + segmentIndex * blockSize;
                         const size_t bytesRead = kpread_trw(
                             device,
                             previousData,
-                            KBlockCache::BUFFER_BLOCK_SIZE,
-                            blockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
-                        kassert(bytesRead == KBlockCache::BUFFER_BLOCK_SIZE);
+                            blockSize,
+                            blockNumber * off64_t(blockSize));
+                        kassert(bytesRead == blockSize);
                         gk_DiagnosticPreviousChecksums[segmentIndex] =
-                            CalculateBlockCacheDiagnosticChecksum(previousData);
+                            CalculateBlockCacheDiagnosticChecksum(previousData, blockSize);
                     }
 
-                    const size_t bytesWritten = kpwritev_trw(device, segments, segmentCount, firstBlockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
-                    if (bytesWritten != segmentCount * KBlockCache::BUFFER_BLOCK_SIZE)
+                    const size_t bytesWritten = kpwritev_trw(device, segments, segmentCount, firstBlockNumber * off64_t(blockSize));
+                    if (bytesWritten != segmentCount * blockSize)
                     {
                         printf(
                             "Block cache diagnostic: write of device %d blocks %lu:%lu returned %lu bytes.\n",
@@ -329,7 +327,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                             static_cast<unsigned long>(segmentCount),
                             static_cast<unsigned long>(bytesWritten));
                         fflush(stdout);
-                        kassert(bytesWritten == segmentCount * KBlockCache::BUFFER_BLOCK_SIZE);
+                        kassert(bytesWritten == segmentCount * blockSize);
                     }
 
                     bool writeVerified = true;
@@ -341,11 +339,13 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                         const size_t bytesRead = kpread_trw(
                             device,
                             gk_DiagnosticReadbackBuffer,
-                            KBlockCache::BUFFER_BLOCK_SIZE,
-                            blockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+                            blockSize,
+                            blockNumber * off64_t(blockSize));
                         const uint32_t submittedChecksum = gk_DiagnosticSubmittedChecksums[segmentIndex];
-                        const uint32_t readbackChecksum = CalculateBlockCacheDiagnosticChecksum(gk_DiagnosticReadbackBuffer);
-                        const uint32_t currentSourceChecksum = CalculateBlockCacheDiagnosticChecksum(block->m_Buffer);
+                        const uint32_t readbackChecksum =
+                            CalculateBlockCacheDiagnosticChecksum(gk_DiagnosticReadbackBuffer, blockSize);
+                        const uint32_t currentSourceChecksum =
+                            CalculateBlockCacheDiagnosticChecksum(block->m_Buffer, blockSize);
                         const bool sourceChanged = currentSourceChecksum != submittedChecksum;
 
                         if (sourceChanged)
@@ -361,7 +361,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                             fflush(stdout);
                         }
 
-                        if (bytesRead != KBlockCache::BUFFER_BLOCK_SIZE || readbackChecksum != submittedChecksum)
+                        if (bytesRead != blockSize || readbackChecksum != submittedChecksum)
                         {
                             bool dirtyPending;
                             {
@@ -369,13 +369,13 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                 dirtyPending = block->IsDirtyPending();
                             }
 
-                            if (bytesRead != KBlockCache::BUFFER_BLOCK_SIZE || (!sourceChanged && !dirtyPending)) {
+                            if (bytesRead != blockSize || (!sourceChanged && !dirtyPending)) {
                                 writeVerified = false;
                             }
 
                             size_t matchingSegmentIndex = segmentCount;
                             size_t differingByteCount = 0;
-                            size_t firstDifferingByte = KBlockCache::BUFFER_BLOCK_SIZE;
+                            size_t firstDifferingByte = blockSize;
                             size_t lastDifferingByte = 0;
                             size_t changedBeforeWriteByteCount = 0;
                             size_t submittedValueByteCount = 0;
@@ -383,7 +383,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                             size_t neitherValueByteCount = 0;
                             const uint8_t* submittedBytes = static_cast<const uint8_t*>(block->m_Buffer);
                             const uint8_t* previousBytes =
-                                gk_DiagnosticPreviousData + segmentIndex * KBlockCache::BUFFER_BLOCK_SIZE;
+                                gk_DiagnosticPreviousData + segmentIndex * blockSize;
                             for (size_t candidateIndex = 0; candidateIndex < segmentCount; ++candidateIndex)
                             {
                                 if (gk_DiagnosticSubmittedChecksums[candidateIndex] == readbackChecksum)
@@ -392,9 +392,9 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                     break;
                                 }
                             }
-                            if (bytesRead == KBlockCache::BUFFER_BLOCK_SIZE)
+                            if (bytesRead == blockSize)
                             {
-                                for (size_t byteIndex = 0; byteIndex < KBlockCache::BUFFER_BLOCK_SIZE; ++byteIndex)
+                                for (size_t byteIndex = 0; byteIndex < blockSize; ++byteIndex)
                                 {
                                     if (submittedBytes[byteIndex] != previousBytes[byteIndex])
                                     {
@@ -446,7 +446,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                     static_cast<unsigned long>(blockNumber),
                                     static_cast<unsigned long>(gk_DiagnosticPreviousChecksums[segmentIndex]));
                             }
-                            if (bytesRead == KBlockCache::BUFFER_BLOCK_SIZE && differingByteCount != 0)
+                            if (bytesRead == blockSize && differingByteCount != 0)
                             {
                                 printf(
                                     "Block cache diagnostic: %lu differing bytes, first %lu (%02x -> %02x), last %lu (%02x -> %02x).\n",
@@ -486,7 +486,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                             }
 
                             if (retrySegmentIndex == segmentCount
-                                && bytesRead == KBlockCache::BUFFER_BLOCK_SIZE
+                                && bytesRead == blockSize
                                 && !sourceChanged
                                 && !dirtyPending) {
                                 retrySegmentIndex = segmentIndex;
@@ -506,7 +506,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                             const off64_t internalRetryFirstBlock =
                                 firstBlockNumber + off64_t(internalRetryStartSegment);
                             const size_t internalRetryByteLength =
-                                sizeof(gk_BlockCacheInternalRetryBuffer);
+                                blockSize * DIAGNOSTIC_INTERNAL_RETRY_BLOCK_COUNT;
                             size_t changedInternalRetrySegmentIndex = segmentCount;
 
                             for (size_t internalRetrySegmentOffset = 0;
@@ -519,13 +519,13 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                     blockList[start + sourceSegmentIndex];
                                 uint8_t* retryTarget =
                                     gk_BlockCacheInternalRetryBuffer
-                                    + internalRetrySegmentOffset * KBlockCache::BUFFER_BLOCK_SIZE;
+                                    + internalRetrySegmentOffset * blockSize;
                                 memcpy(
                                     retryTarget,
                                     sourceBlock->m_Buffer,
-                                    KBlockCache::BUFFER_BLOCK_SIZE);
+                                    blockSize);
 
-                                if (CalculateBlockCacheDiagnosticChecksum(retryTarget)
+                                if (CalculateBlockCacheDiagnosticChecksum(retryTarget, blockSize)
                                     != gk_DiagnosticSubmittedChecksums[sourceSegmentIndex])
                                 {
                                     changedInternalRetrySegmentIndex = sourceSegmentIndex;
@@ -546,9 +546,9 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                 {
                                     segments[internalRetrySegmentOffset].iov_base =
                                         gk_BlockCacheInternalRetryBuffer
-                                        + internalRetrySegmentOffset * KBlockCache::BUFFER_BLOCK_SIZE;
+                                        + internalRetrySegmentOffset * blockSize;
                                     segments[internalRetrySegmentOffset].iov_len =
-                                        KBlockCache::BUFFER_BLOCK_SIZE;
+                                        blockSize;
                                 }
 
                                 try
@@ -557,7 +557,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                         device,
                                         segments,
                                         DIAGNOSTIC_INTERNAL_RETRY_BLOCK_COUNT,
-                                        internalRetryFirstBlock * KBlockCache::BUFFER_BLOCK_SIZE);
+                                        internalRetryFirstBlock * off64_t(blockSize));
                                     const bool internalDoubleBufferRetryVerified =
                                         internalDoubleBufferRetryBytesWritten == internalRetryByteLength
                                         && VerifyBlockCacheDiagnosticWrite(
@@ -566,6 +566,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                             gk_DiagnosticSubmittedChecksums + internalRetryStartSegment,
                                             DIAGNOSTIC_INTERNAL_RETRY_BLOCK_COUNT,
                                             gk_BlockCacheInternalRetryBuffer,
+                                            blockSize,
                                             "on-chip AXI SRAM double-buffer CMD25 retry");
                                     printf(
                                         "Block cache diagnostic: immutable on-chip AXI SRAM double-buffer CMD25 retry from %08lx wrote %lu bytes: %s.\n",
@@ -595,9 +596,9 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                         internalRetryStartSegment + internalRetrySegmentOffset;
                                     const uint8_t* restoredSegment =
                                         gk_BlockCacheInternalRetryBuffer
-                                        + internalRetrySegmentOffset * KBlockCache::BUFFER_BLOCK_SIZE;
+                                        + internalRetrySegmentOffset * blockSize;
 
-                                    if (CalculateBlockCacheDiagnosticChecksum(restoredSegment)
+                                    if (CalculateBlockCacheDiagnosticChecksum(restoredSegment, blockSize)
                                         != gk_DiagnosticSubmittedChecksums[sourceSegmentIndex])
                                     {
                                         changedRestoredSegmentIndex = sourceSegmentIndex;
@@ -613,7 +614,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                             device,
                                             gk_BlockCacheInternalRetryBuffer,
                                             internalRetryByteLength,
-                                            internalRetryFirstBlock * KBlockCache::BUFFER_BLOCK_SIZE);
+                                            internalRetryFirstBlock * off64_t(blockSize));
                                         const bool internalSingleBufferRetryVerified =
                                             internalSingleBufferRetryBytesWritten == internalRetryByteLength
                                             && VerifyBlockCacheDiagnosticWrite(
@@ -622,6 +623,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                                 gk_DiagnosticSubmittedChecksums + internalRetryStartSegment,
                                                 DIAGNOSTIC_INTERNAL_RETRY_BLOCK_COUNT,
                                                 gk_BlockCacheInternalRetryBuffer,
+                                                blockSize,
                                                 "on-chip AXI SRAM single-buffer CMD25 retry");
                                         printf(
                                             "Block cache diagnostic: immutable on-chip AXI SRAM single-buffer CMD25 retry from %08lx wrote %lu bytes: %s.\n",
@@ -657,13 +659,13 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                         {
                             KCacheBlockHeader* snapshotBlock = blockList[start + snapshotSegmentIndex];
                             uint8_t* retrySnapshot =
-                                gk_DiagnosticPreviousData + snapshotSegmentIndex * KBlockCache::BUFFER_BLOCK_SIZE;
+                                gk_DiagnosticPreviousData + snapshotSegmentIndex * blockSize;
                             memcpy(
                                 retrySnapshot,
                                 snapshotBlock->m_Buffer,
-                                KBlockCache::BUFFER_BLOCK_SIZE);
+                                blockSize);
 
-                            if (CalculateBlockCacheDiagnosticChecksum(retrySnapshot)
+                            if (CalculateBlockCacheDiagnosticChecksum(retrySnapshot, blockSize)
                                 != gk_DiagnosticSubmittedChecksums[snapshotSegmentIndex])
                             {
                                 changedSnapshotSegmentIndex = snapshotSegmentIndex;
@@ -674,7 +676,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                         if (changedSnapshotSegmentIndex == segmentCount)
                         {
                             const size_t retryByteLength =
-                                segmentCount * KBlockCache::BUFFER_BLOCK_SIZE;
+                                segmentCount * blockSize;
                             SCB_CleanDCache_by_Addr(
                                 reinterpret_cast<uint32_t*>(gk_DiagnosticPreviousData),
                                 static_cast<int32_t>(retryByteLength));
@@ -683,9 +685,9 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                             {
                                 segments[snapshotSegmentIndex].iov_base =
                                     gk_DiagnosticPreviousData
-                                    + snapshotSegmentIndex * KBlockCache::BUFFER_BLOCK_SIZE;
+                                    + snapshotSegmentIndex * blockSize;
                                 segments[snapshotSegmentIndex].iov_len =
-                                    KBlockCache::BUFFER_BLOCK_SIZE;
+                                    blockSize;
                             }
 
                             try
@@ -694,7 +696,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                     device,
                                     segments,
                                     segmentCount,
-                                    firstBlockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+                                    firstBlockNumber * off64_t(blockSize));
                                 const bool doubleBufferRetryVerified =
                                     doubleBufferRetryBytesWritten == retryByteLength
                                     && VerifyBlockCacheDiagnosticWrite(
@@ -703,6 +705,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                         gk_DiagnosticSubmittedChecksums,
                                         segmentCount,
                                         gk_BlockCacheInternalRetryBuffer,
+                                        blockSize,
                                         "double-buffer CMD25 retry");
                                 printf(
                                     "Block cache diagnostic: immutable double-buffer CMD25 retry wrote %lu bytes: %s.\n",
@@ -723,7 +726,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                     device,
                                     gk_DiagnosticPreviousData,
                                     retryByteLength,
-                                    firstBlockNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+                                    firstBlockNumber * off64_t(blockSize));
                                 const bool singleBufferRetryVerified =
                                     singleBufferRetryBytesWritten == retryByteLength
                                     && VerifyBlockCacheDiagnosticWrite(
@@ -732,6 +735,7 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
                                         gk_DiagnosticSubmittedChecksums,
                                         segmentCount,
                                         gk_BlockCacheInternalRetryBuffer,
+                                        blockSize,
                                         "single-buffer CMD25 retry");
                                 printf(
                                     "Block cache diagnostic: immutable single-buffer CMD25 retry wrote %lu bytes: %s.\n",
@@ -791,8 +795,11 @@ bool KBlockCache::FlushBlockListWithDiagnostics(KCacheBlockHeader** blockList, s
         }
         if (i < blockCount)
         {
+            requiredSegment = requiredSegment || blockList[i]->IsFlushRequested();
+            hasTimedOutBlocks =
+                hasTimedOutBlocks || (curTime - blockList[i]->m_DirtyTime) >= FLUSH_PERIOD;
             segments[i - start].iov_base = blockList[i]->m_Buffer;
-            segments[i - start].iov_len = KBlockCache::BUFFER_BLOCK_SIZE;
+            segments[i - start].iov_len = blockList[i]->m_BlockCache->m_BlockSize;
         }
     }
     return anythingProcessed;

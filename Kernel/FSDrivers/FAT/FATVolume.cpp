@@ -19,6 +19,7 @@
 
 #include <System/Platform.h>
 
+#include <bit>
 #include <string.h>
 
 #include <Kernel/KTime.h>
@@ -126,6 +127,8 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): unsupported bytes per sector ({})", m_BytesPerSector);
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
+    m_BytesPerSectorShift = static_cast<uint32_t>(std::countr_zero(m_BytesPerSector));
+    m_BytesPerSectorMask = m_BytesPerSector - 1;
 	
     m_SectorsPerCluster = superBlock->m_SectorsPerCluster;
     const bool validSectorsPerCluster =

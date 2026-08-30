@@ -63,6 +63,22 @@ off64_t FATClusterSectorIterator::GetBlockSector()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t FATClusterSectorIterator::GetRemainingContiguousSectorCount()
+{
+    if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    if (IS_FIXED_ROOT(m_CurrentCluster)) {
+        return m_Volume->m_RootSectorCount - m_CurrentSector;
+    }
+    return m_Volume->m_SectorsPerCluster - m_CurrentSector;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 FATClusterSectorIterator::FATClusterSectorIterator(Ptr<FATVolume> volume, uint32_t cluster, uint32_t sector)
 {
     m_Volume              = volume;
@@ -150,12 +166,12 @@ bool FATClusterSectorIterator::Increment(int sectors)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KCacheBlockDesc FATClusterSectorIterator::GetBlock_(bool doLoad)
+KCacheBlockDesc FATClusterSectorIterator::GetBlock_(bool doLoad, size_t readAheadBlockCount)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
-    return m_Volume->m_BCache.GetBlock_trw(GetBlockSector(), doLoad);
+    return m_Volume->m_BCache.GetBlock_trw(GetBlockSector(), doLoad, readAheadBlockCount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,12 +190,12 @@ PErrorCode FATClusterSectorIterator::MarkBlockDirty()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
+void FATClusterSectorIterator::ReadBlock(uint8_t* buffer, size_t readAheadBlockCount)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
-    m_Volume->m_BCache.CachedRead_trw(GetBlockSector(), buffer, 1);
+    m_Volume->m_BCache.CachedRead_trw(GetBlockSector(), buffer, 1, readAheadBlockCount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

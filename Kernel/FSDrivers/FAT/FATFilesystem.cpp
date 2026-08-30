@@ -1685,6 +1685,29 @@ void FATFilesystem::RemoveDirectory(Ptr<KFSVolume> vol, Ptr<KInode> dir, const c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+static size_t GetFATFileReadAheadSectorCount(
+    FATClusterSectorIterator& iterator, uint32_t filePosition, uint32_t fileSize)
+{
+    kassert(filePosition < fileSize);
+
+    const uint32_t bytesPerSectorShift = iterator.m_Volume->m_BytesPerSectorShift;
+    const uint32_t bytesPerSectorMask = iterator.m_Volume->m_BytesPerSectorMask;
+    const uint32_t sectorStartPosition = filePosition & ~bytesPerSectorMask;
+    const uint32_t remainingFileByteCount = fileSize - sectorStartPosition;
+    size_t remainingFileSectorCount = size_t(remainingFileByteCount >> bytesPerSectorShift);
+    if ((remainingFileByteCount & bytesPerSectorMask) != 0) {
+        ++remainingFileSectorCount;
+    }
+
+    return std::min(
+        iterator.GetRemainingContiguousSectorCount(),
+        remainingFileSectorCount);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t pos)
 {
     Ptr<FATInode>    node = ptr_static_cast<FATInode>(file->GetInode());
@@ -1758,11 +1781,31 @@ size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t p
     kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, uint32_t(pos / vol->m_BytesPerSector / vol->m_SectorsPerCluster), iter.m_CurrentCluster));
 #endif // FAT_VERIFY_FAT_CHAINS
 
+    const uint32_t readStartPosition = static_cast<uint32_t>(pos);
+    const uint32_t fileSize = static_cast<uint32_t>(node->m_Size);
+    size_t readAheadSectorCount =
+        GetFATFileReadAheadSectorCount(iter, readStartPosition, fileSize);
+    auto advanceReadIterator = [&]()
+    {
+        if (!iter.Increment(1)) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        kassert(readAheadSectorCount != 0);
+        --readAheadSectorCount;
+        if (readAheadSectorCount == 0) {
+            readAheadSectorCount =
+                GetFATFileReadAheadSectorCount(
+                    iter,
+                    readStartPosition + static_cast<uint32_t>(bytes_read),
+                    fileSize);
+        }
+    };
+
     if ((pos % vol->m_BytesPerSector) != 0)
     {
         // read in partial first sector if necessary
         size_t amt;
-        KCacheBlockDesc buffer = iter.GetBlock_(true);
+        KCacheBlockDesc buffer = iter.GetBlock_(true, readAheadSectorCount);
         if (buffer.m_Buffer == nullptr) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Read(): error reading cluster {}, sector {}.", iter.m_CurrentCluster, iter.m_CurrentSector);
             PERROR_THROW_CODE(PErrorCode::IO);
@@ -1774,23 +1817,19 @@ size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t p
 
         if (bytes_read < len)
         {
-            if (!iter.Increment(1)) {
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
+            advanceReadIterator();
         }
     }
 
     // read middle sectors
     while (bytes_read + vol->m_BytesPerSector <= len)
     {
-        iter.ReadBlock((uint8_t*)buf + bytes_read);
+        iter.ReadBlock(static_cast<uint8_t*>(buf) + bytes_read, readAheadSectorCount);
         bytes_read += vol->m_BytesPerSector;
 
         if (bytes_read < len)
         {
-            if (!iter.Increment(1)) {
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
+            advanceReadIterator();
         }
     }
 
@@ -1798,7 +1837,7 @@ size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t p
     if (bytes_read < len) {
         size_t amt;
 
-        KCacheBlockDesc buffer = iter.GetBlock_(true);
+        KCacheBlockDesc buffer = iter.GetBlock_(true, readAheadSectorCount);
         if (buffer.m_Buffer == nullptr)
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Read(): error reading cluster {}, sector {}.", iter.m_CurrentCluster, iter.m_CurrentSector);

@@ -235,7 +235,7 @@ void KBlockCache::Initialize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
+KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad, size_t requestedReadAheadBlockCount)
 {
     CRITICAL_SCOPE(s_Mutex);
 
@@ -270,28 +270,101 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
             return KCacheBlockDesc(block);
         }
 
-        KCacheBlockHeader* block = AllocateBlock(m_BlockSize, m_BlockSizeOrder);
-        kassert(block != nullptr);
-        kassert(block->m_BlockCache == nullptr);
-        PScopeFail contextCleanup([block]() { ReleaseUnusedBlock(block); });
+        KCacheBlockHeader* readBlocks[MAX_READ_AHEAD_BLOCK_COUNT];
+        size_t readBlockCount = 1;
+        readBlocks[0] = AllocateBlock(m_BlockSize, m_BlockSizeOrder);
+        kassert(readBlocks[0] != nullptr);
+        kassert(readBlocks[0]->m_BlockCache == nullptr);
+
+        PScopeFail contextCleanup([&readBlocks, &readBlockCount]()
+        {
+            for (size_t blockIndex = 0; blockIndex < readBlockCount; ++blockIndex) {
+                ReleaseUnusedBlock(readBlocks[blockIndex]);
+            }
+        });
+
         if (doLoad)
         {
-            const size_t bytesRead = kpread_trw(m_Device, block->m_Buffer, m_BlockSize, blockNum * off64_t(m_BlockSize));
-            if (bytesRead != m_BlockSize) {
+            const size_t maximumReadBlockCount = MAX_READ_AHEAD_SIZE / m_BlockSize;
+            size_t targetReadBlockCount =
+                std::clamp(requestedReadAheadBlockCount, size_t(1), maximumReadBlockCount);
+            const off64_t remainingDeviceBlockCount = m_BlockCount - blockNum;
+            if (off64_t(targetReadBlockCount) > remainingDeviceBlockCount) {
+                targetReadBlockCount = size_t(remainingDeviceBlockCount);
+            }
+
+            for (size_t blockIndex = 1; blockIndex < targetReadBlockCount; ++blockIndex)
+            {
+                if (m_BlockMap.find(blockNum + off64_t(blockIndex)) != m_BlockMap.end())
+                {
+                    targetReadBlockCount = blockIndex;
+                    break;
+                }
+            }
+
+            readBlockCount += TryAllocateReadAheadBlocks(
+                m_BlockSize,
+                m_BlockSizeOrder,
+                readBlocks + 1,
+                targetReadBlockCount - 1);
+
+            iovec_t segments[MAX_READ_AHEAD_BLOCK_COUNT];
+            size_t segmentCount = 0;
+            for (size_t blockIndex = 0; blockIndex < readBlockCount; ++blockIndex)
+            {
+                uint8_t* blockBuffer = static_cast<uint8_t*>(readBlocks[blockIndex]->m_Buffer);
+                if (segmentCount != 0)
+                {
+                    iovec_t& previousSegment = segments[segmentCount - 1];
+                    uint8_t* previousSegmentEnd =
+                        static_cast<uint8_t*>(previousSegment.iov_base) + previousSegment.iov_len;
+                    if (previousSegmentEnd == blockBuffer)
+                    {
+                        previousSegment.iov_len += m_BlockSize;
+                        continue;
+                    }
+                }
+                segments[segmentCount].iov_base = blockBuffer;
+                segments[segmentCount].iov_len = m_BlockSize;
+                ++segmentCount;
+            }
+
+            const size_t bytesRead = kpreadv_trw(
+                m_Device,
+                segments,
+                segmentCount,
+                blockNum * off64_t(m_BlockSize));
+            if (bytesRead != readBlockCount * m_BlockSize) {
                 PERROR_THROW_CODE(PErrorCode::IO);
             }
         }
-        const bool didInsert = m_BlockMap.emplace(blockNum, block).second;
-        kassert(didInsert);
 
-        block->m_BlockCache   = this;
-        block->m_bufferNumber = blockNum;
-        block->m_UseCount     = 1;
-        block->m_Flags        = 0;
-        s_BlockLRULists[m_BlockSizeOrder].Append(block);
-        TouchBuffer(block->CacheBuffer);
+        for (size_t blockIndex = 0; blockIndex < readBlockCount; ++blockIndex)
+        {
+            KCacheBlockHeader* block = readBlocks[blockIndex];
+            const off64_t readBlockNumber = blockNum + off64_t(blockIndex);
+            const bool didInsert = m_BlockMap.emplace(readBlockNumber, block).second;
+            kassert(didInsert);
 
-        return KCacheBlockDesc(block);
+            block->m_BlockCache = this;
+            block->m_bufferNumber = readBlockNumber;
+            block->m_UseCount = (blockIndex == 0) ? 1 : 0;
+            block->m_Flags = 0;
+        }
+
+        PIntrusiveList<KCacheBlockHeader>& blockLRUList = s_BlockLRULists[m_BlockSizeOrder];
+        for (size_t remainingReadBlockCount = readBlockCount;
+            remainingReadBlockCount > 1;
+            --remainingReadBlockCount)
+        {
+            KCacheBlockHeader* readAheadBlock = readBlocks[remainingReadBlockCount - 1];
+            blockLRUList.Append(readAheadBlock);
+            TouchBuffer(readAheadBlock->CacheBuffer);
+        }
+        blockLRUList.Append(readBlocks[0]);
+        TouchBuffer(readBlocks[0]->CacheBuffer);
+
+        return KCacheBlockDesc(readBlocks[0]);
     }
 }
 
@@ -316,11 +389,14 @@ PErrorCode KBlockCache::MarkBlockDirty(off64_t blockNum)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KBlockCache::CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount)
+void KBlockCache::CachedRead_trw(
+    off64_t blockNum, void* buffer, size_t blockCount, size_t readAheadBlockCount)
 {
+    readAheadBlockCount = std::max(readAheadBlockCount, blockCount);
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
-        KCacheBlockDesc block = GetBlock_trw(blockNum + i, true);
+        KCacheBlockDesc block =
+            GetBlock_trw(blockNum + off64_t(i), true, readAheadBlockCount - i);
         memcpy(reinterpret_cast<uint8_t*>(buffer) + i * m_BlockSize, block.m_Buffer, m_BlockSize);
     }
 }
@@ -383,8 +459,12 @@ void KBlockCache::ConfigureBuffer(KCacheBuffer* buffer, size_t blockSize, size_t
     buffer->m_BlockSize = blockSize;
     buffer->m_BlockCount = CACHE_BUFFER_SIZE / blockSize;
 
-    for (size_t blockIndex = 0; blockIndex < buffer->m_BlockCount; ++blockIndex)
+    // Return blocks from new buffers in ascending address order so sequential reads can coalesce their iovecs.
+    for (size_t remainingBlockCount = buffer->m_BlockCount;
+        remainingBlockCount != 0;
+        --remainingBlockCount)
     {
+        const size_t blockIndex = remainingBlockCount - 1;
         KCacheBlockHeader* block = &buffer->m_Blocks[blockIndex];
         kassert(!block->IsListMember());
         kassert(block->CacheBuffer == buffer);
@@ -397,6 +477,33 @@ void KBlockCache::ConfigureBuffer(KCacheBuffer* buffer, size_t blockSize, size_t
         s_FreeBlockLists[blockSizeOrder].Append(block);
     }
     s_BufferLRUList.Append(buffer);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KCacheBlockHeader* KBlockCache::TryAllocateFreeBlock(size_t blockSize, size_t blockSizeOrder)
+{
+    kassert(s_Mutex.IsLocked());
+
+    KCacheBlockHeader* block = s_FreeBlockLists[blockSizeOrder].GetLast();
+    if (block == nullptr)
+    {
+        KCacheBuffer* freeBuffer = s_FreeBufferList.GetLast();
+        if (freeBuffer == nullptr) {
+            return nullptr;
+        }
+        ConfigureBuffer(freeBuffer, blockSize, blockSizeOrder);
+        block = s_FreeBlockLists[blockSizeOrder].GetLast();
+        kassert(block != nullptr);
+    }
+
+    s_FreeBlockLists[blockSizeOrder].Remove(block);
+    KCacheBuffer* buffer = GetBlockBuffer(block);
+    kassert(buffer->m_BlockSize == blockSize);
+    ++buffer->m_UsedBlockCount;
+    return block;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -584,6 +691,47 @@ void KBlockCache::ReclaimBuffer(KCacheBuffer* buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t KBlockCache::TryAllocateReadAheadBlocks(
+    size_t blockSize, size_t blockSizeOrder, KCacheBlockHeader** blocks, size_t blockCount)
+{
+    kassert(s_Mutex.IsLocked());
+
+    size_t allocatedBlockCount = 0;
+    while (allocatedBlockCount < blockCount)
+    {
+        KCacheBlockHeader* block = TryAllocateFreeBlock(blockSize, blockSizeOrder);
+        if (block == nullptr) {
+            break;
+        }
+        blocks[allocatedBlockCount++] = block;
+    }
+
+    PIntrusiveList<KCacheBlockHeader>& blockLRUList = s_BlockLRULists[blockSizeOrder];
+    auto candidateIterator = blockLRUList.begin();
+    size_t candidateScanCount = 0;
+    while (allocatedBlockCount < blockCount &&
+        candidateIterator != blockLRUList.end() &&
+        candidateScanCount < MAX_READ_AHEAD_CANDIDATE_SCAN_COUNT)
+    {
+        KCacheBlockHeader* candidate = *candidateIterator;
+        ++candidateIterator;
+        ++candidateScanCount;
+
+        kassert(candidate->m_BlockCache != nullptr);
+        kassert(GetBlockBuffer(candidate)->m_BlockSize == blockSize);
+        if (candidate->m_UseCount == 0 && !candidate->IsDirty() && !candidate->IsFlushing())
+        {
+            ReuseBlock(candidate);
+            blocks[allocatedBlockCount++] = candidate;
+        }
+    }
+    return allocatedBlockCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 KCacheBlockHeader* KBlockCache::AllocateBlock(size_t blockSize, size_t blockSizeOrder)
 {
     kassert(s_Mutex.IsLocked());
@@ -591,21 +739,9 @@ KCacheBlockHeader* KBlockCache::AllocateBlock(size_t blockSize, size_t blockSize
     PIntrusiveList<KCacheBlockHeader>& blockLRUList = s_BlockLRULists[blockSizeOrder];
     for (;;)
     {
-        KCacheBlockHeader* block = s_FreeBlockLists[blockSizeOrder].GetLast();
-        if (block != nullptr)
-        {
-            s_FreeBlockLists[blockSizeOrder].Remove(block);
-            KCacheBuffer* buffer = GetBlockBuffer(block);
-            kassert(buffer->m_BlockSize == blockSize);
-            ++buffer->m_UsedBlockCount;
+        KCacheBlockHeader* block = TryAllocateFreeBlock(blockSize, blockSizeOrder);
+        if (block != nullptr) {
             return block;
-        }
-
-        KCacheBuffer* freeBuffer = s_FreeBufferList.GetLast();
-        if (freeBuffer != nullptr)
-        {
-            ConfigureBuffer(freeBuffer, blockSize, blockSizeOrder);
-            continue;
         }
 
         KCacheBlockHeader* sameSizeCandidate = nullptr;

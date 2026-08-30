@@ -185,6 +185,8 @@ public:
       // info from bpb
     uint8_t	m_FATBits = 0;
     uint32_t	m_BytesPerSector = 0;
+    uint32_t	m_BytesPerSectorShift = 0;
+    uint32_t	m_BytesPerSectorMask = 0;
     uint32_t	m_ReservedSectors = 0;
     uint32_t	m_SectorsPerFAT = 0;
     uint32_t	m_SectorsPerCluster = 0;

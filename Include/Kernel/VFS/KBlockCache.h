@@ -140,10 +140,10 @@ public:
     
     static void Initialize();
         
-    KCacheBlockDesc GetBlock_trw(off64_t blockNum, bool doLoad = true);
+    KCacheBlockDesc GetBlock_trw(off64_t blockNum, bool doLoad = true, size_t readAheadBlockCount = 1);
     PErrorCode      MarkBlockDirty(off64_t blockNum);
     
-    void CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount);
+    void CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount, size_t readAheadBlockCount = 0);
     void CachedWrite_trw(off64_t blockNum, const void* buffer, size_t blockCount);
 
     bool Flush();
@@ -154,6 +154,9 @@ public:
         
 private:
     static constexpr size_t BLOCK_SIZE_ORDER_COUNT = 4;
+    static constexpr size_t MAX_READ_AHEAD_SIZE = CACHE_BUFFER_SIZE;
+    static constexpr size_t MAX_READ_AHEAD_BLOCK_COUNT = MAX_READ_AHEAD_SIZE / MIN_BLOCK_SIZE;
+    static constexpr size_t MAX_READ_AHEAD_CANDIDATE_SCAN_COUNT = MAX_READ_AHEAD_BLOCK_COUNT * 4;
 
     friend struct KCacheBlockHeader;
     friend struct KCacheBlockDesc;
@@ -174,11 +177,14 @@ private:
         }
     }
     static void ConfigureBuffer(KCacheBuffer* buffer, size_t blockSize, size_t blockSizeOrder);
+    static KCacheBlockHeader* TryAllocateFreeBlock(size_t blockSize, size_t blockSizeOrder);
     static void ReleaseBuffer(KCacheBuffer* buffer);
     static void ReleaseUnusedBlock(KCacheBlockHeader* block);
     static void ReuseBlock(KCacheBlockHeader* block);
     static KCacheBuffer* FindReclaimableBuffer(size_t requestedBlockSize, bool hasSameSizeCandidate, bool& shouldWaitForFlushing);
     static void ReclaimBuffer(KCacheBuffer* buffer);
+    static size_t TryAllocateReadAheadBlocks(
+        size_t blockSize, size_t blockSizeOrder, KCacheBlockHeader** blocks, size_t blockCount);
     static KCacheBlockHeader* AllocateBlock(size_t blockSize, size_t blockSizeOrder);
     bool DetachBlocks(bool waitForBusyBlocks, bool discardDirtyBlocks);
     void AbandonBlockWriteback(KCacheBlockHeader* block);

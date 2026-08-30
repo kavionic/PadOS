@@ -586,7 +586,9 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     {
         m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector);
     }
-    m_CurrentBlock = m_SectorIterator.GetBlock_(true);
+    m_CurrentBlock = m_SectorIterator.GetBlock_(
+        true,
+        m_SectorIterator.GetRemainingContiguousSectorCount());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -625,7 +627,9 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
         if (!m_SectorIterator.Increment(1)) {
             return nullptr;
         }
-        m_CurrentBlock = m_SectorIterator.GetBlock_(true);
+        m_CurrentBlock = m_SectorIterator.GetBlock_(
+            true,
+            m_SectorIterator.GetRemainingContiguousSectorCount());
         if (m_CurrentBlock.m_Buffer == nullptr) {
             return nullptr;
         }            

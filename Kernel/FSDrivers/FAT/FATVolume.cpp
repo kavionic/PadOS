@@ -141,6 +141,11 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid cluster size ({} sectors, {} bytes).", m_SectorsPerCluster, bytesPerCluster);
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
+    m_BytesPerCluster = bytesPerCluster;
+    m_BytesPerClusterShift = static_cast<uint32_t>(std::countr_zero(m_BytesPerCluster));
+    m_BytesPerClusterMask = m_BytesPerCluster - 1;
+    m_SectorsPerClusterShift = static_cast<uint32_t>(std::countr_zero(m_SectorsPerCluster));
+    m_SectorsPerClusterMask = m_SectorsPerCluster - 1;
 
     m_ReservedSectors = superBlock->m_ReservedSectors;
     if (m_ReservedSectors == 0)
@@ -179,8 +184,8 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
-    const uint64_t rootDirectoryByteCount = uint64_t(m_RootEntriesCount) * 32;
-    const uint64_t rootDirectorySectorCount = (rootDirectoryByteCount + m_BytesPerSector - 1) / m_BytesPerSector;
+    const uint32_t rootDirectoryByteCount = m_RootEntriesCount * 32;
+    const uint32_t rootDirectorySectorCount = (rootDirectoryByteCount + m_BytesPerSectorMask) >> m_BytesPerSectorShift;
     const uint64_t fatRegionSectorCount = uint64_t(m_FATCount) * m_SectorsPerFAT;
     const uint64_t firstDataSector = uint64_t(m_ReservedSectors) + fatRegionSectorCount + rootDirectorySectorCount;
 
@@ -191,8 +196,8 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     }
 
     m_FirstDataSector = static_cast<uint32_t>(firstDataSector);
-    const uint64_t dataSectorCount = uint64_t(m_TotalSectors) - firstDataSector;
-    m_TotalClusters = static_cast<uint32_t>(dataSectorCount / m_SectorsPerCluster);
+    const uint32_t dataSectorCount = m_TotalSectors - m_FirstDataSector;
+    m_TotalClusters = dataSectorCount >> m_SectorsPerClusterShift;
     if (m_TotalClusters == 0)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): volume contains no data clusters.");
@@ -219,12 +224,15 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
-    const uint64_t fatEntryCount = uint64_t(m_TotalClusters) + FATTable::FIRST_DATA_CLUSTER;
-    const uint64_t requiredFATByteCount = (fatEntryCount * m_FATBits + 7) / 8;
-    const uint64_t availableFATByteCount = uint64_t(m_SectorsPerFAT) * m_BytesPerSector;
-    if (requiredFATByteCount > availableFATByteCount)
+    const uint32_t fatEntryCount = m_TotalClusters + FATTable::FIRST_DATA_CLUSTER;
+    uint32_t requiredFATByteCount = FATTable::GetEntryByteOffset(m_FATBits, fatEntryCount);
+    if (m_FATBits == 12 && (fatEntryCount & 1) != 0) {
+        ++requiredFATByteCount;
+    }
+    const uint32_t requiredFATSectorCount = (requiredFATByteCount + m_BytesPerSectorMask) >> m_BytesPerSectorShift;
+    if (requiredFATSectorCount > m_SectorsPerFAT)
     {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT is too small ({} bytes available, {} required).", availableFATByteCount, requiredFATByteCount);
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT is too small ({} sectors available, {} required).", m_SectorsPerFAT, requiredFATSectorCount);
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
@@ -284,7 +292,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): FAT12/16 volume contains no root-directory entries.");
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        if ((rootDirectoryByteCount % m_BytesPerSector) != 0)
+        if ((rootDirectoryByteCount & m_BytesPerSectorMask) != 0)
         {
             kernel_log<PLogSeverity::ERROR>(
                 LogCat_FATFS,
@@ -299,10 +307,10 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         m_ActiveFAT = 0;
 
         m_RootStart = m_ReservedSectors + m_FATCount * m_SectorsPerFAT;
-        m_RootSectorCount = static_cast<uint32_t>(rootDirectorySectorCount);
+        m_RootSectorCount = rootDirectorySectorCount;
         rootStartCluster = 1;
         rootEndCluster = 1;
-        rootSize = m_RootSectorCount * m_BytesPerSector;
+        rootSize = m_RootSectorCount << m_BytesPerSectorShift;
     }
 
     const uint8_t bootSignature = (m_FATBits == 32) ?

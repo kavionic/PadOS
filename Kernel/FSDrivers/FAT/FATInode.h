@@ -91,7 +91,7 @@ public:
     uint32_t m_StartCluster;       // Data starting cluster.
     uint32_t m_EndCluster = 0;     // Last data cluster.
     uint32_t m_AllocatedClusterCount = 0; // Zero if there is no chain or its metadata has not been loaded yet.
-    off_t    m_Size;             // Size in bytes.
+    uint32_t m_Size;             // Size in bytes.
     uint8_t  m_DOSAttribs;       // DOS-style attributes.
     PIntrusiveListNode<FATInode> m_DirtyListNode;
 

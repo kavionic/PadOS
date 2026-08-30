@@ -19,6 +19,7 @@
 
 #include "System/Platform.h"
 
+#include <bit>
 #include <string.h>
 #include <algorithm>
 
@@ -576,6 +577,8 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     m_IsDirty = false;
     
     m_EntriesPerSector = vol->m_BytesPerSector / sizeof(FATDirectoryEntry);
+    m_EntriesPerSectorShift = static_cast<uint32_t>(std::countr_zero(m_EntriesPerSector));
+    m_EntriesPerSectorMask = static_cast<uint32_t>(m_EntriesPerSector - 1);
 
     if (cluster >= vol->m_TotalClusters + 2) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATDirectoryIterator::FATDirectoryIterator() cluster {} outside volume.", cluster);
@@ -584,7 +587,7 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     m_CurrentIndex    = index;
     if (index >= m_EntriesPerSector)
     {
-        m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector);
+        m_SectorIterator.Increment(m_CurrentIndex >> m_EntriesPerSectorShift);
     }
     m_CurrentBlock = m_SectorIterator.GetBlock_(
         true,
@@ -609,7 +612,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetCurrentEntry()
     if (m_CurrentBlock.m_Buffer == nullptr) {
         return nullptr;
     }
-    return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex % m_EntriesPerSector);
+    return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex & m_EntriesPerSectorMask);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -621,7 +624,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
     if (m_CurrentBlock.m_Buffer == nullptr) {
         return nullptr;
     }
-    if ((++m_CurrentIndex % m_EntriesPerSector) == 0)
+    if ((++m_CurrentIndex & m_EntriesPerSectorMask) == 0)
     {
         ReleaseCurrentBlock();
         if (!m_SectorIterator.Increment(1)) {
@@ -634,7 +637,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
             return nullptr;
         }            
     }
-    return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex % m_EntriesPerSector);
+    return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex & m_EntriesPerSectorMask);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

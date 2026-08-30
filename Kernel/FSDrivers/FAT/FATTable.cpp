@@ -52,6 +52,24 @@ FATTable::~FATTable()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+uint32_t FATTable::GetEntryByteOffset(uint8_t fatBits, uint32_t entryIndex)
+{
+    if (fatBits == 12) {
+        return entryIndex + entryIndex / 2;
+    }
+    if (fatBits == 16) {
+        return entryIndex * 2;
+    }
+    if (fatBits == 32) {
+        return entryIndex * 4;
+    }
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 FATVolumeStatus FATTable::ReadVolumeStatus()
 {
     FATVolumeStatus status;
@@ -59,7 +77,7 @@ FATVolumeStatus FATTable::ReadVolumeStatus()
         return status;
     }
 
-    const off64_t fatStartSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    const uint32_t fatStartSector = m_Volume->m_ReservedSectors + uint32_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
     KCacheBlockDesc fatBlock = m_Volume->m_BCache.GetBlock_trw(fatStartSector, true);
     if (fatBlock.m_Buffer == nullptr) {
         PERROR_THROW_CODE(PErrorCode::IO);
@@ -101,7 +119,7 @@ void FATTable::SetVolumeClean(bool isClean)
     for (size_t fatIndex = firstFATIndex; fatIndex < endFATIndex; ++fatIndex)
     {
         kassert(fatBlockCount < fatBlocks.size());
-        const off64_t fatStartSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(fatIndex) * m_Volume->m_SectorsPerFAT;
+        const uint32_t fatStartSector = m_Volume->m_ReservedSectors + uint32_t(fatIndex) * m_Volume->m_SectorsPerFAT;
         fatBlocks[fatBlockCount] = m_Volume->m_BCache.GetBlock_trw(fatStartSector, true);
         if (fatBlocks[fatBlockCount].m_Buffer == nullptr) {
             PERROR_THROW_CODE(PErrorCode::IO);

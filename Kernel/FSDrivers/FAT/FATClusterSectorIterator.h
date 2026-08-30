@@ -30,7 +30,7 @@ struct FATClusterSectorIterator
     FATClusterSectorIterator(Ptr<FATVolume> volume, uint32_t cluster, uint32_t sector);
     void Set(uint32_t cluster, uint32_t sector);
     
-    off64_t         GetBlockSector();
+    uint32_t        GetBlockSector();
     size_t          GetRemainingContiguousSectorCount();
     KCacheBlockDesc GetBlock_(bool doLoad, size_t readAheadBlockCount = 1);
     

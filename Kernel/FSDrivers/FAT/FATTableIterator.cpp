@@ -38,13 +38,10 @@ FATTableIterator::FATTableIterator(Ptr<FATVolume> volume, uint32_t startCluster)
     if (!m_Volume->IsDataCluster(m_CurrentCluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATTableIterator constructed with invalid cluster {}", m_CurrentCluster);
     }
+    m_LoadedSector1 = INVALID_SECTOR;
+    m_LoadedSector2 = INVALID_SECTOR;
 
-    const uint64_t fatByteOffset = uint64_t(m_CurrentCluster) * m_Volume->m_FATBits / 8;
-    const uint64_t fatStartSector = uint64_t(m_Volume->m_ReservedSectors) + uint64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
-    m_CurrentSector = static_cast<off64_t>(fatStartSector + fatByteOffset / m_Volume->m_BytesPerSector);
-    m_OffsetInSector = static_cast<uint32_t>(fatByteOffset % m_Volume->m_BytesPerSector);
-    m_LoadedSector1 = -1;
-    m_LoadedSector2 = -1;
+    SetCluster(startCluster);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,12 +60,15 @@ FATTableIterator::~FATTableIterator()
 void FATTableIterator::SetCluster(uint32_t cluster)
 {
     m_CurrentCluster = cluster;
-    const uint64_t fatByteOffset = uint64_t(m_CurrentCluster) * m_Volume->m_FATBits / 8;
-    const uint64_t fatStartSector = uint64_t(m_Volume->m_ReservedSectors) + uint64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
-    const uint64_t fatEndSector = fatStartSector + m_Volume->m_SectorsPerFAT;
-    m_CurrentSector = static_cast<off64_t>(fatStartSector + fatByteOffset / m_Volume->m_BytesPerSector);
-    m_OffsetInSector = static_cast<uint32_t>(fatByteOffset % m_Volume->m_BytesPerSector);
-    kassert(static_cast<uint64_t>(m_CurrentSector) < fatEndSector);
+    
+    const uint32_t fatByteOffset  = FATTable::GetEntryByteOffset(m_Volume->m_FATBits, m_CurrentCluster);
+    const uint32_t fatStartSector = m_Volume->m_ReservedSectors + uint32_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    const uint32_t fatEndSector   = fatStartSector + m_Volume->m_SectorsPerFAT;
+
+    m_CurrentSector  = fatStartSector + (fatByteOffset >> m_Volume->m_BytesPerSectorShift);
+    m_OffsetInSector = fatByteOffset & m_Volume->m_BytesPerSectorMask;
+
+    kassert(m_CurrentSector < fatEndSector);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -95,7 +95,7 @@ void FATTableIterator::SetEntry(uint32_t value)
     MirrorBlockArray mirrorBlocks2;
     const size_t mirrorBlockCount1 = AcquireMirrorBlocks(m_LoadedSector1, mirrorBlocks1);
     size_t mirrorBlockCount2 = 0;
-    if (m_LoadedSector2 != -1) {
+    if (m_LoadedSector2 != INVALID_SECTOR) {
         mirrorBlockCount2 = AcquireMirrorBlocks(m_LoadedSector2, mirrorBlocks2);
     }
 
@@ -150,7 +150,7 @@ void FATTableIterator::SetEntry(uint32_t value)
 
     m_Block1.MarkDirty();
     CopyToMirrorBlocks(block1, mirrorBlocks1, mirrorBlockCount1);
-    if (m_LoadedSector2 != -1)
+    if (m_LoadedSector2 != INVALID_SECTOR)
     {
         m_Block2.MarkDirty();
         CopyToMirrorBlocks(block2, mirrorBlocks2, mirrorBlockCount2);
@@ -200,7 +200,7 @@ uint32_t FATTableIterator::GetEntry()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t FATTableIterator::AcquireMirrorBlocks(off64_t activeSector, MirrorBlockArray& mirrorBlocks)
+size_t FATTableIterator::AcquireMirrorBlocks(uint32_t activeSector, MirrorBlockArray& mirrorBlocks)
 {
     if (!m_Volume->m_FATMirrored) {
         return 0;
@@ -211,21 +211,21 @@ size_t FATTableIterator::AcquireMirrorBlocks(off64_t activeSector, MirrorBlockAr
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    const off64_t activeFATStartSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
+    const uint32_t activeFATStartSector = m_Volume->m_ReservedSectors + uint32_t(m_Volume->m_ActiveFAT) * m_Volume->m_SectorsPerFAT;
     if (activeSector < activeFATStartSector || activeSector >= activeFATStartSector + m_Volume->m_SectorsPerFAT)
     {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTableIterator::AcquireMirrorBlocks(): sector {} is outside the active FAT.", activeSector);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    const off64_t sectorOffset = activeSector - activeFATStartSector;
+    const uint32_t sectorOffset = activeSector - activeFATStartSector;
     size_t mirrorBlockCount = 0;
     for (size_t fatIndex = 0; fatIndex < m_Volume->m_FATCount; ++fatIndex)
     {
         if (fatIndex == m_Volume->m_ActiveFAT) {
             continue;
         }
-        const off64_t mirrorSector = off64_t(m_Volume->m_ReservedSectors) + off64_t(fatIndex) * m_Volume->m_SectorsPerFAT + sectorOffset;
+        const uint32_t mirrorSector = m_Volume->m_ReservedSectors + uint32_t(fatIndex) * m_Volume->m_SectorsPerFAT + sectorOffset;
         mirrorBlocks[mirrorBlockCount] = m_Volume->m_BCache.GetBlock_trw(mirrorSector, false);
         if (mirrorBlocks[mirrorBlockCount].m_Buffer == nullptr) {
             PERROR_THROW_CODE(PErrorCode::IO);
@@ -256,7 +256,7 @@ void FATTableIterator::CopyToMirrorBlocks(const uint8_t* sourceBuffer, MirrorBlo
 void FATTableIterator::Update()
 {
     kassert(m_Volume->IsDataCluster(m_CurrentCluster));
-    kassert(m_OffsetInSector == ((uint64_t(m_CurrentCluster) * m_Volume->m_FATBits / 8) % m_Volume->m_BytesPerSector));
+    kassert(m_OffsetInSector == (FATTable::GetEntryByteOffset(m_Volume->m_FATBits, m_CurrentCluster) & m_Volume->m_BytesPerSectorMask));
     
     if (m_LoadedSector1 != m_CurrentSector)
     {
@@ -266,8 +266,8 @@ void FATTableIterator::Update()
             m_Block1 = m_Volume->m_BCache.GetBlock_trw(m_CurrentSector, true);
             m_Block2.Reset();
         }
-        m_LoadedSector1 = -1;
-        m_LoadedSector2 = -1;
+        m_LoadedSector1 = INVALID_SECTOR;
+        m_LoadedSector2 = INVALID_SECTOR;
         
         if (m_Block1.m_Buffer == nullptr) {
             PERROR_THROW_CODE(PErrorCode::IO);
@@ -281,7 +281,7 @@ void FATTableIterator::Update()
         m_LoadedSector2 != m_CurrentSector + 1)
     {
         m_Block2.Reset();
-        m_LoadedSector2 = -1;
+        m_LoadedSector2 = INVALID_SECTOR;
 
         m_Block2 = m_Volume->m_BCache.GetBlock_trw(m_CurrentSector + 1, true);
         if (m_Block2.m_Buffer == nullptr) {

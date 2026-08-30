@@ -52,6 +52,8 @@ public:
     FATTable(Ptr<FATVolume> volume);
     ~FATTable();
 
+    static uint32_t GetEntryByteOffset(uint8_t fatBits, uint32_t entryIndex);
+
     FATVolumeStatus ReadVolumeStatus();
     void SetVolumeClean(bool isClean);
     

@@ -45,18 +45,19 @@ public:
     
 private:
     using MirrorBlockArray = std::array<KCacheBlockDesc, FAT_MAX_SUPPORTED_FAT_COUNT - 1>;
+    static constexpr uint32_t INVALID_SECTOR = UINT32_MAX;
 
-    size_t AcquireMirrorBlocks(off64_t activeSector, MirrorBlockArray& mirrorBlocks);
+    size_t AcquireMirrorBlocks(uint32_t activeSector, MirrorBlockArray& mirrorBlocks);
     void CopyToMirrorBlocks(const uint8_t* sourceBuffer, MirrorBlockArray& mirrorBlocks, size_t mirrorBlockCount);
     void Update();
     
     Ptr<FATVolume>  m_Volume;
     uint32_t        m_CurrentCluster;
-    off64_t         m_CurrentSector;
+    uint32_t        m_CurrentSector;
     uint32_t        m_OffsetInSector;
     
-    off64_t         m_LoadedSector1;
-    off64_t         m_LoadedSector2;
+    uint32_t        m_LoadedSector1;
+    uint32_t        m_LoadedSector2;
     KCacheBlockDesc m_Block1;
     KCacheBlockDesc m_Block2;
 };

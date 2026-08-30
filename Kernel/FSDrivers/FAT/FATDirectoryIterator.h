@@ -128,6 +128,8 @@ private:
 public:    
     FATClusterSectorIterator m_SectorIterator;
     size_t                   m_EntriesPerSector;
+    uint32_t                 m_EntriesPerSectorShift;
+    uint32_t                 m_EntriesPerSectorMask;
     bool                     m_IsDirty;
     uint32_t                 m_StartingCluster;
     uint32_t                 m_CurrentIndex;

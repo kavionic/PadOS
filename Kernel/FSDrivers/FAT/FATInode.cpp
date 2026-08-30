@@ -312,7 +312,7 @@ void FATInode::Write()
         if (IsDirectory()) {
             buffer->m_Normal.m_FileSize = 0;
         } else {
-            buffer->m_Normal.m_FileSize = uint32_t(m_Size);
+            buffer->m_Normal.m_FileSize = m_Size;
         }
         directoryIterator.MarkDirty();
     }

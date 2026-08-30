@@ -48,7 +48,7 @@ static bool IsValidClusterSector(Ptr<FATVolume> volume, uint32_t cluster, uint32
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-off64_t FATClusterSectorIterator::GetBlockSector()
+uint32_t FATClusterSectorIterator::GetBlockSector()
 {
     // Presumes the caller has already called IsValidClusterSector() on the argument.
     kassert(IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector));
@@ -56,7 +56,7 @@ off64_t FATClusterSectorIterator::GetBlockSector()
     if (IS_FIXED_ROOT(m_CurrentCluster)) {
         return m_Volume->m_RootStart + m_CurrentSector;
     }
-    return m_Volume->m_FirstDataSector + off64_t(m_CurrentCluster - 2) * m_Volume->m_SectorsPerCluster + m_CurrentSector;
+    return m_Volume->m_FirstDataSector + ((m_CurrentCluster - 2) << m_Volume->m_SectorsPerClusterShift) + m_CurrentSector;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,7 +131,7 @@ bool FATClusterSectorIterator::Increment(int sectors)
             return true;
         }
 
-        const uint32_t clusterAdvanceCount = m_CurrentSector / m_Volume->m_SectorsPerCluster;
+        const uint32_t clusterAdvanceCount = m_CurrentSector >> m_Volume->m_SectorsPerClusterShift;
         const uint32_t nextCluster = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, clusterAdvanceCount);
 
         if (nextCluster == END_FAT_ENTRY)
@@ -151,7 +151,7 @@ bool FATClusterSectorIterator::Increment(int sectors)
             }
 
             m_CurrentCluster = nextCluster;
-            m_CurrentSector %= m_Volume->m_SectorsPerCluster;
+            m_CurrentSector &= m_Volume->m_SectorsPerClusterMask;
             m_VisitedClusterCount += clusterAdvanceCount;
             return true;
         }

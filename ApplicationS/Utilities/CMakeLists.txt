@@ -5,6 +5,8 @@ target_sources(PadOS_WindowManager PRIVATE
 	cp.h
 	find.cpp
 	find.h
+	fsstress.cpp
+	fsstress.h
 	grep.cpp
 	grep.h
 	less.cpp

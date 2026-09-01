@@ -21,6 +21,7 @@
 
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KBlockCache.h"
+#include "Kernel/VFS/KDirectoryCache.h"
 #include "Signals/SignalTarget.h"
 #include "FATTable.h"
 #include "FATInode.h"
@@ -168,6 +169,7 @@ public:
     mutable KMutex m_InodeIDMapMutex;
     int		   m_DeviceFile = -1;       // Block-device file descriptor
     KBlockCache    m_BCache;
+    KDirectoryCache m_DirectoryCache;
     Ptr<FATTable>  m_FATTable;
     
     struct InodeMapEntry {

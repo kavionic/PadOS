@@ -1,6 +1,7 @@
 target_sources(PadOS_Kernel PRIVATE
 	FileIO.cpp
 	KBlockCache.cpp
+	KDirectoryCache.cpp
 	KDriverManager.cpp
 	KFileHandle.cpp
 	KFilesystem.cpp

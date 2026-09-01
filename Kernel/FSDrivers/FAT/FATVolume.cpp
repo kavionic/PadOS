@@ -461,6 +461,7 @@ void FATVolume::Shutdown()
 {
     kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
     kassert(m_DirtyInodes.IsEmpty());
+    m_DirectoryCache.SetVolume(-1);
     m_FATTable = nullptr;
     m_BCache.SetDevice(-1, 0, 0);
 

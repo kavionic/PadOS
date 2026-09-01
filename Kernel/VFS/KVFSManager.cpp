@@ -28,6 +28,7 @@
 #include <System/ExceptionHandling.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
+#include <Kernel/VFS/KDirectoryCache.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KInode.h>
@@ -375,6 +376,8 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
         volume->m_RootNode = nullptr;
     }
 
+    KDirectoryCache::RemoveVolume(volume->m_VolumeID);
+
     for (Ptr<KInode>& inode : volumeInodes)
     {
         try
@@ -389,6 +392,7 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
         }
         inode->Detach();
     }
+    KDirectoryCache::RemoveVolume(volume->m_VolumeID);
     volume->m_Filesystem = nullptr;
 }
 
@@ -638,6 +642,9 @@ void KVFSManager::DeleteInode(KInode* inode)
     }
 
     s_InodeMapMutex.Unlock();
+    if (inode->IsDeleted() && inode->IsDirectory()) {
+        KDirectoryCache::RemoveDirectory(key.first, key.second);
+    }
     try
     {
         inode->m_Filesystem->ReleaseInode(inode);

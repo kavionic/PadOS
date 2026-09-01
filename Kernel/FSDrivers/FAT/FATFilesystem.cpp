@@ -35,6 +35,7 @@
 #include <Utils/Utils.h>
 #include <Ptr/NoPtr.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KDirectoryCache.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <Storage/DirectoryEntry.h>
@@ -619,6 +620,12 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Root inode ID = {:x}.", vol->m_RootInode->m_InodeID);
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::Mount(): Volume label [{}] ({}).", RawFATVolumeLabelToUTF8(vol->m_RawVolumeLabel, false), vol->m_VolumeLabelEntry);
 
+    if (volumeID != -1 && !vol->m_DirectoryCache.SetVolume(volumeID))
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error initializing directory cache.");
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
     vol->m_DeviceFile = deviceFile;
     return vol;
 }
@@ -1035,6 +1042,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
     }
     else
     {
+        vol->m_DirectoryCache.RemoveEntry(dir->m_InodeID, name);
         FATVolume::ModificationScope modificationScope(*vol);
         NoPtr<FATInode> dummyObj(ptr_tmp_cast(this), vol, fileMode); // Used only to create directory entry
         Ptr<FATInode> dummy(dummyObj);
@@ -1061,6 +1069,10 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         }
         ino_t inodeID = dummy->m_InodeID;
 
+        vol->m_DirectoryCache.InsertPositive(
+            dir->m_InodeID,
+            name,
+            inodeID);
         file = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, inodeID, false));
     }
 
@@ -1258,6 +1270,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
         PERROR_THROW_CODE(PErrorCode::ROFS);
     }
 
+    vol->m_DirectoryCache.RemoveEntry(dir->m_InodeID, name);
     FATVolume::ModificationScope modificationScope(*vol);
 
     std::vector<uint8_t> buffer;
@@ -1381,6 +1394,10 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     // Publishing the parent entry commits the new directory after its contents
     // are fully initialized.
     CreateDirectoryEntry(vol, dir, dummy, name, nullptr, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
+    vol->m_DirectoryCache.InsertPositive(
+        dir->m_InodeID,
+        name,
+        dummy->m_InodeID);
     MarkDirectoryContentsModified(*vol, *dir, currentTime);
 }
 
@@ -1486,6 +1503,16 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
         newStartIndex = destinationNode->m_DirStartIndex;
         newEndIndex = destinationNode->m_DirEndIndex;
     }
+
+    PScopeFail invalidateCacheAfterRenameFailure(
+        [&]()
+        {
+            volume->m_DirectoryCache.RemoveEntry(oldDirectory->m_InodeID, oldName);
+            volume->m_DirectoryCache.RemoveEntry(newDirectory->m_InodeID, newName);
+            if (destinationNode != nullptr && destinationNode->IsDirectory()) {
+                KDirectoryCache::RemoveDirectory(volume->m_VolumeID, destinationNode->m_InodeID);
+            }
+        });
 
     FATVolume::ModificationScope modificationScope(*volume);
 
@@ -1621,6 +1648,15 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     // Removing the old entry commits the rename. EraseDirectoryEntry() restores
     // a partially erased entry before propagating an error.
     EraseDirectoryEntry(volume, oldDirectory->m_StartCluster, sourceNode->m_DirStartIndex, sourceNode->m_DirEndIndex);
+
+    volume->m_DirectoryCache.RemoveEntry(oldDirectory->m_InodeID, oldName);
+    if (destinationNode != nullptr && destinationNode->IsDirectory()) {
+        KDirectoryCache::RemoveDirectory(volume->m_VolumeID, destinationNode->m_InodeID);
+    }
+    volume->m_DirectoryCache.InsertPositive(
+        newDirectory->m_InodeID,
+        newName,
+        sourceNode->m_InodeID);
 
     sourceNode->m_ParentInodeID = newDirectory->m_InodeID;
     sourceNode->m_DirStartIndex = newStartIndex;
@@ -2720,9 +2756,33 @@ Ptr<FATInode> FATFilesystem::DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir
 
     if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IO);
-    }        
+    }
 
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::DoLocateInode(): {} in {:x}.", fileName.c_str(), dir->m_InodeID);
+
+    kassert(vol->m_Mutex.IsLocked());
+
+    const bool isCacheableName = !fileName.is_dot_or_dot_dot();
+    if (isCacheableName)
+    {
+        ino_t cachedInodeID;
+        const KDirectoryCacheLookupResult cacheResult = vol->m_DirectoryCache.Lookup(
+            dir->m_InodeID,
+            fileName,
+            &cachedInodeID);
+        if (cacheResult == KDirectoryCacheLookupResult::Negative) {
+            return nullptr;
+        }
+        if (cacheResult == KDirectoryCacheLookupResult::Positive)
+        {
+            PScopeFail invalidateCachedEntry(
+                [&]()
+                {
+                    vol->m_DirectoryCache.RemoveEntry(dir->m_InodeID, fileName);
+                });
+            return ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, cachedInodeID, false));
+        }
+    }
 
     if (fileName == "." && dir->m_InodeID == vol->m_RootInode->m_InodeID)
     {
@@ -2740,7 +2800,11 @@ Ptr<FATInode> FATFilesystem::DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir
         for(;;)
         {
             PString curName;
-            if (!diri.GetNextDirectoryEntry(dir, &inodeID, &curName, nullptr)) {
+            if (!diri.GetNextDirectoryEntry(dir, &inodeID, &curName, nullptr))
+            {
+                if (isCacheableName) {
+                    vol->m_DirectoryCache.InsertNegative(dir->m_InodeID, fileName);
+                }
                 return nullptr;
             }
             if (curName == fileName) {
@@ -2752,7 +2816,15 @@ Ptr<FATInode> FATFilesystem::DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir
             return nullptr;
         }
     }
-    return ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, inodeID, false));
+
+    Ptr<FATInode> inode = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, inodeID, false));
+    if (isCacheableName) {
+        vol->m_DirectoryCache.InsertPositive(
+            dir->m_InodeID,
+            fileName,
+            inodeID);
+    }
+    return inode;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3464,6 +3536,15 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
         }
     }
 
+    PScopeFail invalidateCacheAfterUnlinkFailure(
+        [&]()
+        {
+            vol->m_DirectoryCache.RemoveEntry(dir->m_InodeID, name);
+            if (!removeFile) {
+                KDirectoryCache::RemoveDirectory(vol->m_VolumeID, file->m_InodeID);
+            }
+        });
+
     FATVolume::ModificationScope modificationScope(*vol);
 
     ino_t originalLocationID;
@@ -3490,6 +3571,10 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
     vol->SetInodeIDToLocationIDMapping(file->m_InodeID, vol->AllocUniqueInodeID());
 
     EraseDirectoryEntry(vol, dir->m_StartCluster, file->m_DirStartIndex, file->m_DirEndIndex);
+    vol->m_DirectoryCache.InsertNegative(dir->m_InodeID, name);
+    if (!removeFile) {
+        KDirectoryCache::RemoveDirectory(vol->m_VolumeID, file->m_InodeID);
+    }
     file->DiscardPendingMetadata();
     file->SetDeletedFlag(true);
     vol->RegisterDeferredDeletion();

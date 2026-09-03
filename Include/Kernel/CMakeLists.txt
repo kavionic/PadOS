@@ -3,6 +3,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KAddressValidation.h
 	KCapabilities.h
 	KConditionVariable.h
+	KGProfSampler.h
 	Kernel.h
 	KHandleArray.h
 	KInterrupts.h

@@ -36,6 +36,9 @@
 #include <Kernel/Kernel.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KStackFrames.h>
+#ifdef PADOS_MODULE_GPROF_SAMPLING
+#include <Kernel/KGProfSampler.h>
+#endif // PADOS_MODULE_GPROF_SAMPLING
 #include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/Startup/KStartup.h>
@@ -99,6 +102,36 @@ void check_stack_overflow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef PADOS_MODULE_GPROF_SAMPLING
+extern "C" __attribute__((used, no_instrument_function)) void SysTick_HandlerImpl(const KExceptionStackFrame* exceptionFrame)
+{
+    Kernel::ResetWatchdog();
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    kgprof_record_sample(exceptionFrame);
+    Kernel::s_SystemTimeNS += 1000000;
+    Kernel::s_SystemTicks += SysTick->LOAD + 1;
+    wakeup_sleeping_threads();
+    KSWITCH_CONTEXT();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" __attribute__((naked, no_instrument_function)) void SysTick_Handler()
+{
+    __asm volatile
+    (
+        "mov     r0, lr\n"
+        "movs    r1, #4\n"
+        "tst     r0, r1\n"
+        "ite     eq\n"
+        "mrseq   r0, msp\n"
+        "mrsne   r0, psp\n"
+        "b       SysTick_HandlerImpl\n"
+    );
+}
+#else
 extern "C" void SysTick_Handler()
 {
     Kernel::ResetWatchdog();
@@ -108,6 +141,7 @@ extern "C" void SysTick_Handler()
     wakeup_sleeping_threads();
     KSWITCH_CONTEXT();
 }
+#endif // PADOS_MODULE_GPROF_SAMPLING
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

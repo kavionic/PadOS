@@ -9,3 +9,9 @@ target_sources(PadOS_KDebugConsole PRIVATE
 	ps.cpp
 	reboot.cpp
 )
+
+if(PADOS_MODULE_GPROF_SAMPLING)
+	target_sources(PadOS_KDebugConsole PRIVATE
+		profile.cpp
+	)
+endif()

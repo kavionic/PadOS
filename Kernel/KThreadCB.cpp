@@ -50,6 +50,15 @@ extern uint8_t __tdata_size;
 extern uint8_t __tbss_size;
 extern uint8_t __tls_align;
 
+#ifdef PADOS_MODULE_GPROF_SAMPLING
+extern uint8_t _iflash_text_start;
+extern uint8_t _iflash_text_end;
+extern uint8_t _sram_text_start;
+extern uint8_t _sram_text_end;
+extern uint8_t _sdram_text_start;
+extern uint8_t _sdram_text_end;
+#endif // PADOS_MODULE_GPROF_SAMPLING
+
 #ifdef PADOS_MODULE_USER_SPACE
 SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
 {
@@ -71,7 +80,21 @@ SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
         .TLSDataSize = uint32_t(&__tdata_size),
         .TLSBSSSize = uint32_t(&__tbss_size),
         .TLSAlign = uint32_t(&__tls_align)
+    },
+#ifdef PADOS_MODULE_GPROF_SAMPLING
+    .ProfileInfo =
+    {
+        .Magic = PFIRMWARE_PROFILE_INFO_MAGIC,
+        .Version = PFIRMWARE_PROFILE_INFO_VERSION,
+        .RegionCount = PFIRMWARE_PROFILE_REGION_COUNT,
+        .Regions =
+        {
+            {.Start = &_iflash_text_start, .End = &_iflash_text_end},
+            {.Start = &_sram_text_start, .End = &_sram_text_end},
+            {.Start = &_sdram_text_start, .End = &_sdram_text_end}
+        }
     }
+#endif // PADOS_MODULE_GPROF_SAMPLING
 };
 
 #endif // PADOS_MODULE_USER_SPACE

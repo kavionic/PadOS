@@ -31,6 +31,26 @@
 struct PThreadUserData;
 struct PThreadReaperQueue;
 
+#ifdef PADOS_MODULE_GPROF_SAMPLING
+inline constexpr uint32_t PFIRMWARE_PROFILE_INFO_MAGIC = 0x464f5250;
+inline constexpr uint16_t PFIRMWARE_PROFILE_INFO_VERSION = 1;
+inline constexpr uint16_t PFIRMWARE_PROFILE_REGION_COUNT = 3;
+
+struct PFirmwareExecutableRegion
+{
+    const uint8_t* Start;
+    const uint8_t* End;
+};
+
+struct PFirmwareProfileInfo
+{
+    uint32_t Magic;
+    uint16_t Version;
+    uint16_t RegionCount;
+    PFirmwareExecutableRegion Regions[PFIRMWARE_PROFILE_REGION_COUNT];
+};
+#endif // PADOS_MODULE_GPROF_SAMPLING
+
 class PAppDefinition
 {
 public:
@@ -72,6 +92,9 @@ struct PFirmwareImageDefinition
     PThreadReaperQueue*     ThreadReaperQueue;
 #endif // PADOS_MODULE_USER_SPACE
     PModuleTLSDefinition    TLSDefinition;
+#ifdef PADOS_MODULE_GPROF_SAMPLING
+    PFirmwareProfileInfo    ProfileInfo;
+#endif // PADOS_MODULE_GPROF_SAMPLING
 };
 
 extern "C"

@@ -43,6 +43,12 @@ target_sources(PadOS_Kernel PRIVATE
 	ThreadSyncDebugTracker.cpp
 )
 
+if(PADOS_MODULE_GPROF_SAMPLING)
+	target_sources(PadOS_Kernel PRIVATE
+		KGProfSampler.cpp
+	)
+endif()
+
 target_sources(PadOS_KernelExt PRIVATE
 	KThreadExitTrampoline.cpp
 )

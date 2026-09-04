@@ -20,11 +20,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 #include <Kernel/KGProfSampler.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/KTime.h>
 #include <System/ErrorCodes.h>
 
 namespace kernel
@@ -43,6 +46,81 @@ struct ProfileCommandOutputContext
 };
 
 static KMutex gk_ProfileCommandMutex("gprof_output", PEMutexRecursionMode_RaiseError);
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool ProfileCommandIsDirectory(const PString& path)
+{
+    struct stat pathStat;
+    return stat(path.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PErrorCode ProfileCommandEnsureDirectory(const PString& path)
+{
+    if (mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IRWXO) < 0 && errno != EEXIST) {
+        return PErrorCode(errno);
+    }
+
+    struct stat pathStat;
+    if (stat(path.c_str(), &pathStat) < 0) {
+        return PErrorCode(errno);
+    }
+    return S_ISDIR(pathStat.st_mode) ? PErrorCode::Success : PErrorCode::NOTDIR;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PErrorCode ProfileCommandAppendTimestamp(PString& pathPrefix)
+{
+    const time_t currentTime = static_cast<time_t>(kget_real_time().AsSecondsI());
+    tm localTime = {};
+    if (localtime_r(&currentTime, &localTime) == nullptr) {
+        return PErrorCode::OVERFLOW;
+    }
+
+    char timestamp[16] = {};
+    if (strftime(timestamp, sizeof(timestamp), "%y%m%d_%H%M%S", &localTime) == 0) {
+        return PErrorCode::OVERFLOW;
+    }
+
+    if (pathPrefix.back() != '/') {
+        pathPrefix += '/';
+    }
+    pathPrefix += timestamp;
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PErrorCode ProfileCommandResolveOutputPrefix(
+    const PString& requestedPrefix,
+    bool createDirectory,
+    PString& outputPrefix)
+{
+    if (createDirectory)
+    {
+        const PErrorCode result = ProfileCommandEnsureDirectory(requestedPrefix);
+        if (result != PErrorCode::Success) {
+            return result;
+        }
+    }
+
+    outputPrefix = requestedPrefix;
+    if (ProfileCommandIsDirectory(outputPrefix)) {
+        return ProfileCommandAppendTimestamp(outputPrefix);
+    }
+    return PErrorCode::Success;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -244,10 +322,23 @@ public:
             return 0;
         }
 
-        if (args.size() == 3 && args[1] == "dump")
+        if ((args.size() == 2 || args.size() == 3) && args[1] == "dump")
         {
-            const PString kernelPath = PString::format_string("{}-kernel.gmon", args[2]);
-            const PString applicationPath = PString::format_string("{}-application.gmon", args[2]);
+            const bool useDefaultDirectory = args.size() == 2;
+            const PString requestedPrefix = useDefaultDirectory ? PString("/var/profiles") : PString(args[2]);
+            PString pathPrefix;
+            const PErrorCode pathResult = ProfileCommandResolveOutputPrefix(
+                requestedPrefix,
+                useDefaultDirectory,
+                pathPrefix);
+            if (pathResult != PErrorCode::Success)
+            {
+                Print("Failed to prepare profile output: {}\n", p_strerror(pathResult));
+                return 1;
+            }
+
+            const PString kernelPath = PString::format_string("{}-kernel.gmon", pathPrefix);
+            const PString applicationPath = PString::format_string("{}-application.gmon", pathPrefix);
             const PErrorCode result = ProfileCommandDump(kernelPath, applicationPath);
             if (result != PErrorCode::Success)
             {
@@ -265,7 +356,7 @@ public:
             return 0;
         }
 
-        Print("Usage: profile start|stop|status|dump <path-prefix>\n");
+        Print("Usage: profile start|stop|status|dump [path-prefix]\n");
         return 1;
     }
 

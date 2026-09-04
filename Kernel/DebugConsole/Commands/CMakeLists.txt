@@ -8,6 +8,7 @@ target_sources(PadOS_KDebugConsole PRIVATE
 	kill.cpp
 	ps.cpp
 	reboot.cpp
+	time.cpp
 )
 
 if(PADOS_MODULE_GPROF_SAMPLING)

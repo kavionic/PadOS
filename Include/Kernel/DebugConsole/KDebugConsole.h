@@ -22,6 +22,7 @@
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 #include <Kernel/KSemaphore.h>
 #include <Kernel/KThread.h>
+#include <System/TimeValue.h>
 #include <Utils/TerminalLineEditor.h>
 
 class PPOSIXTokenizer;
@@ -40,6 +41,16 @@ public:
         bool               Stopped = false;
     };
 
+    struct CommandExecutionResult
+    {
+        CommandExecutionResult() = default;
+        explicit CommandExecutionResult(int exitCode) : ExitCode(exitCode) {}
+
+        TimeValNanos UserTime;
+        TimeValNanos SystemTime;
+        int          ExitCode = 0;
+    };
+
     struct CommandEntry
     {
         std::function<Ptr<KConsoleCommand>(KDebugConsole* console)> Creator;
@@ -55,6 +66,7 @@ public:
     void Setup();
     void Terminate(int exitCode);
     int  GetLastExitCode() const { return m_LastExitCode; }
+    CommandExecutionResult ExecuteCommand(std::vector<std::string>&& arguments);
 
     virtual void* Run() override;
 
@@ -75,9 +87,9 @@ public:
     const JobEntry& GetJobInfo(int jobNum) const;
     void SetJobStopped(int jobNum, bool stopped);
 
-    void WaitForForegroundProcess(pid_t pid, const PString& commandLine);
-    void WaitForForegroundProcesses(int jobNum);
-    void WaitForForegroundProcesses(pid_t processGroupID, std::vector<pid_t> processIDs, PString commandLine);
+    CommandExecutionResult WaitForForegroundProcess(pid_t pid, const PString& commandLine);
+    CommandExecutionResult WaitForForegroundProcesses(int jobNum);
+    CommandExecutionResult WaitForForegroundProcesses(pid_t processGroupID, std::vector<pid_t> processIDs, PString commandLine);
     void CheckBackgroundJobs();
 
 private:
@@ -90,8 +102,9 @@ private:
     PTerminalLineEditor::CompletionResult ExpandCommandName(const PTerminalLineEditor::CompletionContext& context);
     PTerminalLineEditor::CompletionResult ExpandFilePath(const PTerminalLineEditor::CompletionContext& context);
 
+    CommandExecutionResult ExecuteCommand(std::vector<std::string>&& arguments, const PString& commandLine);
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
-    void ExecutePipeline(std::vector<std::vector<std::string>>&& commands, const PString& commandLine);
+    CommandExecutionResult ExecutePipeline(std::vector<std::vector<std::string>>&& commands, const PString& commandLine);
 #ifdef PADOS_MODULE_POSIX_SPAWN
     pid_t SpawnInternalPipelineCommand(const CommandEntry& commandEntry, std::vector<std::string>&& arguments, pid_t processGroupID, int inputFileDescriptor, int outputFileDescriptor, int unusedFileDescriptor);
 #endif // PADOS_MODULE_POSIX_SPAWN

@@ -48,6 +48,7 @@ static constexpr size_t KBLOCK_CACHE_MEMORY_SIZE = 2 * 1024 * 1024;
 static constexpr size_t KBLOCK_CACHE_BUFFER_COUNT = KBLOCK_CACHE_MEMORY_SIZE / KBlockCache::CACHE_BUFFER_SIZE;
 static constexpr size_t KBLOCK_CACHE_BLOCKS_PER_BUFFER = KBlockCache::CACHE_BUFFER_SIZE / KBlockCache::MIN_BLOCK_SIZE;
 static constexpr size_t KBLOCK_CACHE_BLOCK_HEADER_COUNT = KBLOCK_CACHE_BUFFER_COUNT * KBLOCK_CACHE_BLOCKS_PER_BUFFER;
+static constexpr int    KBLOCK_CACHE_FLUSHER_THREAD_PRIORITY = 15;
 
 static uint8_t* gk_BCacheBuffer;
 static KCacheBuffer* gk_BCacheBuffers;
@@ -217,7 +218,7 @@ void KBlockCache::Initialize()
         }
         s_FreeBufferList.Append(buffer);
     }
-    PThreadAttribs attrs("disk_cache_flusher", 0, PThreadDetachState_Detached, 4096);
+    PThreadAttribs attrs("disk_cache_flusher", KBLOCK_CACHE_FLUSHER_THREAD_PRIORITY, PThreadDetachState_Detached, 4096);
     kthread_spawn_trw(
         &attrs,
         nullptr,

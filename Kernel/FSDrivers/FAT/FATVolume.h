@@ -19,10 +19,13 @@
 
 #pragma once
 
+#include <array>
+
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KBlockCache.h"
 #include "Kernel/VFS/KDirectoryCache.h"
 #include "Signals/SignalTarget.h"
+#include "FATDirectoryIterator.h"
 #include "FATTable.h"
 #include "FATInode.h"
 
@@ -220,7 +223,12 @@ public:
     uint32_t      m_LastAllocatedCluster = 0; // last allocated cluster
 
 private:
+    friend class FATDirectoryIterator;
+
     using DirtyInodeList = PIntrusiveList<FATInode, &FATInode::m_DirtyListNode>;
+    using LFNDecodeBuffer = std::array<
+        wchar16_t,
+        FAT_LONG_NAME_MAX_ENTRY_COUNT * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY>;
 
     static constexpr TimeValNanos CLEAN_FLAG_UPDATE_DELAY = TimeValNanos::FromSeconds(5.0);
 
@@ -233,6 +241,10 @@ private:
     void* RunCleanFlagUpdater();
 
     void SyncCache();
+
+    // Borrowed by GetNextLFNEntry() while m_Mutex is held.
+    LFNDecodeBuffer m_LFNDecodeBuffer = {};
+    bool            m_IsLFNDecodeBufferInUse = false;
 
     KConditionVariable m_CleanFlagCondition;
     DirtyInodeList m_DirtyInodes;

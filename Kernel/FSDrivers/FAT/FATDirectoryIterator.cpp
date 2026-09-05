@@ -45,11 +45,25 @@ const char g_ValidUncasedShortNameCharacters[]="!#$%&'()-0123456789@^_`{}~";
 
 static bool IsCharacterValid(uint16_t character)
 {
-	static const char illegal[]   = "\\/:*?\"<>|";
-	if (character < 0x20 || character == 0xfffe || character == 0xffff) {
-		return false;
-	}
-	return character >= 0x80 || strchr(illegal, char(character)) == nullptr;
+    if (character < 0x20 || character >= 0xfffe) {
+        return false;
+    }
+    if (character >= 0x80) {
+        return true;
+    }
+    if (character >= 0x40) {
+        return character != '\\' && character != '|';
+    }
+
+    constexpr uint32_t illegalCharacterMask =
+        (uint32_t(1) << ('"' - 0x20)) |
+        (uint32_t(1) << ('*' - 0x20)) |
+        (uint32_t(1) << ('/' - 0x20)) |
+        (uint32_t(1) << (':' - 0x20)) |
+        (uint32_t(1) << ('<' - 0x20)) |
+        (uint32_t(1) << ('>' - 0x20)) |
+        (uint32_t(1) << ('?' - 0x20));
+    return (illegalCharacterMask & (uint32_t(1) << (character - 0x20))) == 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,39 +77,54 @@ static bool CopyLFNNamePart(
     size_t& outCharacterCount,
     bool& needsHighSurrogate)
 {
-    wchar16_t nameCharacters[FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY];
+    const uint8_t* namePart1 = reinterpret_cast<const uint8_t*>(entry.m_NamePart1);
+    const uint8_t* namePart2 = reinterpret_cast<const uint8_t*>(entry.m_NamePart2);
+    const uint8_t* namePart3 = reinterpret_cast<const uint8_t*>(entry.m_NamePart3);
+    wchar16_t* destinationCharacter = destination;
 
-    memcpy(nameCharacters, entry.m_NamePart1, sizeof(entry.m_NamePart1));
-    memcpy(nameCharacters + ARRAY_COUNT(entry.m_NamePart1), entry.m_NamePart2, sizeof(entry.m_NamePart2));
-    memcpy(nameCharacters + ARRAY_COUNT(entry.m_NamePart1) + ARRAY_COUNT(entry.m_NamePart2), entry.m_NamePart3, sizeof(entry.m_NamePart3));
+    for (size_t characterIndex = 0; characterIndex < ARRAY_COUNT(entry.m_NamePart1); ++characterIndex)
+    {
+        *destinationCharacter++ = uint16_t(namePart1[0]) | (uint16_t(namePart1[1]) << 8);
+        namePart1 += sizeof(uint16_t);
+    }
+    for (size_t characterIndex = 0; characterIndex < ARRAY_COUNT(entry.m_NamePart2); ++characterIndex)
+    {
+        *destinationCharacter++ = uint16_t(namePart2[0]) | (uint16_t(namePart2[1]) << 8);
+        namePart2 += sizeof(uint16_t);
+    }
+    for (size_t characterIndex = 0; characterIndex < ARRAY_COUNT(entry.m_NamePart3); ++characterIndex)
+    {
+        *destinationCharacter++ = uint16_t(namePart3[0]) | (uint16_t(namePart3[1]) << 8);
+        namePart3 += sizeof(uint16_t);
+    }
 
-    size_t characterCount = ARRAY_COUNT(nameCharacters);
+    size_t characterCount = FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY;
     if (isLastNamePart)
     {
         bool terminatorFound = false;
-        for (size_t characterIndex = 0; characterIndex < ARRAY_COUNT(nameCharacters); ++characterIndex)
+        for (size_t characterIndex = 0; characterIndex < FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY; ++characterIndex)
         {
             if (!terminatorFound)
             {
-                if (nameCharacters[characterIndex] == 0)
+                if (destination[characterIndex] == 0)
                 {
                     characterCount = characterIndex;
                     terminatorFound = true;
                 }
-                else if (nameCharacters[characterIndex] == 0xffff)
+                else if (destination[characterIndex] == 0xffff)
                 {
                     return false;
                 }
             }
-            else if (nameCharacters[characterIndex] != 0xffff)
+            else if (destination[characterIndex] != 0xffff)
             {
                 return false;
             }
         }
 
         if (characterCount != 0 &&
-            (nameCharacters[characterCount - 1] == ' ' ||
-             nameCharacters[characterCount - 1] == '.'))
+            (destination[characterCount - 1] == ' ' ||
+             destination[characterCount - 1] == '.'))
         {
             return false;
         }
@@ -106,7 +135,7 @@ static bool CopyLFNNamePart(
     // spanning two entries do not require another pass over the full name.
     for (size_t characterIndex = characterCount; characterIndex > 0; --characterIndex)
     {
-        const uint16_t character = nameCharacters[characterIndex - 1];
+        const uint16_t character = destination[characterIndex - 1];
         if (character == 0 || character == 0xffff) {
             return false;
         }
@@ -129,8 +158,6 @@ static bool CopyLFNNamePart(
         {
             return false;
         }
-
-        destination[characterIndex - 1] = character;
     }
 
     outCharacterCount = characterCount;
@@ -646,12 +673,25 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
 
 bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* filename, PString* outShortFilename, char* outRawShortName)
 {
-    uint8_t            hash = 0;
-    std::vector<wchar16_t> utf16Buffer;
+    FATVolume& volume = *m_SectorIterator.m_Volume;
+    const bool usesLFNDecodeBuffer = filename != nullptr;
 
-    if (filename != nullptr) {
-        utf16Buffer.resize(FAT_LONG_NAME_MAX_ENTRY_COUNT * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY);
+    if (usesLFNDecodeBuffer)
+    {
+        kassert(volume.m_Mutex.IsLocked());
+        kassert(!volume.m_IsLFNDecodeBufferInUse);
+        volume.m_IsLFNDecodeBufferInUse = true;
     }
+    PScopeExit releaseLFNDecodeBuffer([&volume, usesLFNDecodeBuffer]()
+    {
+        if (usesLFNDecodeBuffer) {
+            volume.m_IsLFNDecodeBufferInUse = false;
+        }
+    });
+
+    auto& utf16Buffer = volume.m_LFNDecodeBuffer;
+    uint8_t hash = 0;
+
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATDirectoryIterator::GetNextLFNEntry(): {}", m_CurrentIndex);
 
     // LFN state

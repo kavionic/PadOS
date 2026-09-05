@@ -103,9 +103,12 @@ private:
     template<class Y,class X> friend Y* ptr_raw_pointer_static_cast(const Ptr<X>& src);
     template<class Y,class X> friend Y* ptr_raw_pointer_dynamic_cast(const Ptr<X>& src);
 
-    template<class Y,class X> friend Ptr<Y> ptr_static_cast(const Ptr<X>& src);
-    template<class Y,class X> friend Ptr<Y> ptr_const_cast(const Ptr<X>& src);
-    template<class Y,class X> friend Ptr<Y> ptr_dynamic_cast(const Ptr<X>& src);
+    template<class Y,class X> friend Ptr<Y> ptr_static_cast(const Ptr<X>& src) noexcept;
+    template<class TargetType,class SourceType> friend Ptr<TargetType> ptr_static_cast(Ptr<SourceType>&& source) noexcept;
+    template<class Y,class X> friend Ptr<Y> ptr_const_cast(const Ptr<X>& src) noexcept;
+    template<class TargetType,class SourceType> friend Ptr<TargetType> ptr_const_cast(Ptr<SourceType>&& source) noexcept;
+    template<class Y,class X> friend Ptr<Y> ptr_dynamic_cast(const Ptr<X>& src) noexcept;
+    template<class TargetType,class SourceType> friend Ptr<TargetType> ptr_dynamic_cast(Ptr<SourceType>&& source) noexcept;
 
     void Set(T* obj) noexcept;
     T*   Get() const noexcept;
@@ -232,11 +235,20 @@ Y* ptr_raw_pointer_dynamic_cast(const Ptr<T>& src)
 ///////////////////////////////////////////////////////////////////////////////
 
 template<class Y,class T> inline
-Ptr<Y> ptr_static_cast(const Ptr<T>& src)
+Ptr<Y> ptr_static_cast(const Ptr<T>& src) noexcept
 {
     Ptr<Y> ptr;
     ptr.Set(static_cast<Y*>(src.Get()));
     return ptr;
+}
+
+template<class TargetType,class SourceType> inline
+Ptr<TargetType> ptr_static_cast(Ptr<SourceType>&& source) noexcept
+{
+    Ptr<TargetType> result;
+    result.m_Object = static_cast<TargetType*>(source.m_Object);
+    source.m_Object = nullptr;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -251,11 +263,20 @@ Ptr<Y> ptr_static_cast(const Ptr<T>& src)
 ///////////////////////////////////////////////////////////////////////////////
 
 template<class Y,class T> inline
-Ptr<Y> ptr_const_cast(const Ptr<T>& src)
+Ptr<Y> ptr_const_cast(const Ptr<T>& src) noexcept
 {
     Ptr<Y> ptr;
     ptr.Set(const_cast<Y*>(src.Get()));
     return ptr;
+}
+
+template<class TargetType,class SourceType> inline
+Ptr<TargetType> ptr_const_cast(Ptr<SourceType>&& source) noexcept
+{
+    Ptr<TargetType> result;
+    result.m_Object = const_cast<TargetType*>(source.m_Object);
+    source.m_Object = nullptr;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -270,11 +291,24 @@ Ptr<Y> ptr_const_cast(const Ptr<T>& src)
 ///////////////////////////////////////////////////////////////////////////////
 
 template<class Y,class T> inline
-Ptr<Y> ptr_dynamic_cast(const Ptr<T>& src)
+Ptr<Y> ptr_dynamic_cast(const Ptr<T>& src) noexcept
 {
     Ptr<Y> ptr;
     ptr.Set(dynamic_cast<Y*>(src.Get()));
     return ptr;
+}
+
+template<class TargetType,class SourceType> inline
+Ptr<TargetType> ptr_dynamic_cast(Ptr<SourceType>&& source) noexcept
+{
+    Ptr<TargetType> result;
+    TargetType* targetObject = dynamic_cast<TargetType*>(source.m_Object);
+    if (targetObject != nullptr)
+    {
+        result.m_Object = targetObject;
+        source.m_Object = nullptr;
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

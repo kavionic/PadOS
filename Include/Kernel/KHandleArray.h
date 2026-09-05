@@ -41,7 +41,7 @@ struct KHandleArrayBlock : public PtrTarget
 
 struct KHandleArrayEmptyBlock : KHandleArrayBlock
 {
-    static Ptr<KHandleArrayEmptyBlock> GetInstance();
+    static const Ptr<KHandleArrayEmptyBlock>& GetInstance();
     KHandleArrayEmptyBlock();
 
     static Ptr<KHandleArrayEmptyBlock> g_KHandleArrayEmptyBlock;
@@ -111,10 +111,14 @@ public:
             int index3 = handle & 0xff;
             CRITICAL_BEGIN(CRITICAL_IRQ)
             {
-                Ptr<PtrTarget> object = ptr_static_cast<KHandleArrayBlock>(ptr_static_cast<KHandleArrayBlock>(m_TopLevel.m_Array[index1])->m_Array[index2])->m_Array[index3];
-                if (object != KHandleArrayEmptyBlock::GetInstance())
+                const KHandleArrayBlock* secondLevelBlock =
+                    ptr_raw_pointer_static_cast<const KHandleArrayBlock>(m_TopLevel.m_Array[index1]);
+                const KHandleArrayBlock* thirdLevelBlock =
+                    ptr_raw_pointer_static_cast<const KHandleArrayBlock>(secondLevelBlock->m_Array[index2]);
+                const Ptr<PtrTarget>& objectEntry = thirdLevelBlock->m_Array[index3];
+                if (objectEntry != KHandleArrayEmptyBlock::GetInstance())
                 {
-                    return ptr_static_cast<T>(object);
+                    return ptr_static_cast<T>(objectEntry);
                 }
             } CRITICAL_END;
         }

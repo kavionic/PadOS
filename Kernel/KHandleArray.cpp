@@ -32,7 +32,7 @@ Ptr<KHandleArrayEmptyBlock> KHandleArrayEmptyBlock::g_KHandleArrayEmptyBlock;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KHandleArrayEmptyBlock> KHandleArrayEmptyBlock::GetInstance()
+const Ptr<KHandleArrayEmptyBlock>& KHandleArrayEmptyBlock::GetInstance()
 {
     if (__builtin_expect(g_KHandleArrayEmptyBlock == nullptr, 0))
     {

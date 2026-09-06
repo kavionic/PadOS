@@ -37,7 +37,7 @@
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KStackFrames.h>
 #ifdef PADOS_MODULE_GPROF_SAMPLING
-#include <Kernel/KGProfSampler.h>
+#include <Kernel/Profiler/KGProfSampler.h>
 #endif // PADOS_MODULE_GPROF_SAMPLING
 #include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/VFS/FileIO.h>

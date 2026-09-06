@@ -26,56 +26,21 @@
 
 #include <string.h>
 
-#include <Kernel/KGProfSampler.h>
-#include <Kernel/KStackFrames.h>
+#include "KGProfData.h"
+#include <Kernel/Profiler/KGProf.h>
+#include <Kernel/Profiler/KGProfSampler.h>
 #include <Kernel/Scheduler.h>
 #include <System/AppDefinition.h>
 
 namespace kernel
 {
 
-enum class KGProfState : uint8_t
-{
-    Stopped,
-    Preparing,
-    Running,
-    Writing
-};
+static constexpr uint32_t KGPROF_GMON_VERSION = 1;
+static constexpr uint8_t KGPROF_GMON_HISTOGRAM_TAG = 0;
+static constexpr uint32_t KGPROF_MAX_WIRE_COUNT = std::numeric_limits<uint16_t>::max();
+static constexpr size_t KGPROF_COUNTERS_PER_WRITE = 256;
 
-struct KGProfRegionData
-{
-    uint32_t ActualLowPC = 0;
-    uint32_t ActualHighPC = 0;
-    uint32_t HistogramLowPC = 0;
-    uint32_t HistogramHighPC = 0;
-    size_t BinCount = 0;
-    std::unique_ptr<uint32_t[]> Counters;
-};
-
-struct KGProfImageData
-{
-    std::array<KGProfRegionData, PFIRMWARE_PROFILE_REGION_COUNT> Regions;
-};
-
-static constexpr size_t     KGPROF_IMAGE_COUNT          = std::to_underlying(KGProfImage::Application) + 1;
-static constexpr uint32_t   KGPROF_GMON_VERSION         = 1;
-static constexpr uint8_t    KGPROF_GMON_HISTOGRAM_TAG   = 0;
-static constexpr uint32_t   KGPROF_MAX_WIRE_COUNT       = std::numeric_limits<uint16_t>::max();
-static constexpr size_t     KGPROF_COUNTERS_PER_WRITE   = 256;
-
-static std::array<KGProfImageData, KGPROF_IMAGE_COUNT> g_KGProfImages;
-static volatile KGProfState g_KGProfState = KGProfState::Stopped;
-static bool     g_KGProfHasCapture = false;
-static uint32_t g_KGProfSamplePhase = 0;
-static uint32_t g_KGProfTotalSamples = 0;
-static uint32_t g_KGProfKernelSamples = 0;
-static uint32_t g_KGProfApplicationSamples = 0;
-static uint32_t g_KGProfUnmappedSamples = 0;
-static uint32_t g_KGProfSaturatedSamples = 0;
-static size_t g_KGProfCounterBytes = 0;
-
-static_assert(KGPROF_SAMPLE_RATE_HZ > 0 && KGPROF_SAMPLE_RATE_HZ <= SYS_TICKS_PER_SEC);
-static_assert(KGPROF_BIN_SIZE_BYTES > 0 && (KGPROF_BIN_SIZE_BYTES & (KGPROF_BIN_SIZE_BYTES - 1)) == 0);
+KGProfData g_KGProfData;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -179,9 +144,9 @@ static PErrorCode KGProfInitializeImage(const PFirmwareProfileInfo& definition, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void KGProfClearImages()
+static void KGProfClearImages(KGProfData& profilerData)
 {
-    for (KGProfImageData& image : g_KGProfImages)
+    for (KGProfImageData& image : profilerData.Images)
     {
         for (KGProfRegionData& region : image.Regions) {
             std::fill_n(region.Counters.get(), region.BinCount, uint32_t(0));
@@ -193,14 +158,14 @@ static void KGProfClearImages()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void KGProfResetStatistics()
+static void KGProfResetStatistics(KGProfData& profilerData)
 {
-    g_KGProfSamplePhase = 0;
-    g_KGProfTotalSamples = 0;
-    g_KGProfKernelSamples = 0;
-    g_KGProfApplicationSamples = 0;
-    g_KGProfUnmappedSamples = 0;
-    g_KGProfSaturatedSamples = 0;
+    profilerData.SamplePhase = 0;
+    profilerData.TotalSamples = 0;
+    profilerData.KernelSamples = 0;
+    profilerData.ApplicationSamples = 0;
+    profilerData.UnmappedSamples = 0;
+    profilerData.SaturatedSamples = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,23 +257,24 @@ static PErrorCode KGProfWriteImage(
 
 PErrorCode kgprof_start()
 {
+    KGProfData& profilerData = g_KGProfData;
     bool reuseCapture = false;
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
-        if (g_KGProfState != KGProfState::Stopped) {
+        if (profilerData.State != KGProfState::Stopped) {
             return PErrorCode::BUSY;
         }
-        g_KGProfState = KGProfState::Preparing;
-        reuseCapture = g_KGProfHasCapture;
+        profilerData.State = KGProfState::Preparing;
+        reuseCapture = profilerData.HasCapture;
     }
 
     if (reuseCapture)
     {
-        KGProfClearImages();
+        KGProfClearImages(profilerData);
         {
             CRITICAL_SCOPE(CRITICAL_IRQ);
-            KGProfResetStatistics();
-            g_KGProfState = KGProfState::Running;
+            KGProfResetStatistics(profilerData);
+            profilerData.State = KGProfState::Running;
         }
         return PErrorCode::Success;
     }
@@ -330,17 +296,17 @@ PErrorCode kgprof_start()
     if (result != PErrorCode::Success)
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
-        g_KGProfState = KGProfState::Stopped;
+        profilerData.State = KGProfState::Stopped;
         return result;
     }
 
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
-        g_KGProfImages.swap(images);
-        KGProfResetStatistics();
-        g_KGProfCounterBytes = counterBytes;
-        g_KGProfHasCapture = true;
-        g_KGProfState = KGProfState::Running;
+        profilerData.Images.swap(images);
+        KGProfResetStatistics(profilerData);
+        profilerData.CounterBytes = counterBytes;
+        profilerData.HasCapture = true;
+        profilerData.State = KGProfState::Running;
     }
     return PErrorCode::Success;
 }
@@ -351,11 +317,12 @@ PErrorCode kgprof_start()
 
 PErrorCode kgprof_stop() noexcept
 {
+    KGProfData& profilerData = g_KGProfData;
     CRITICAL_SCOPE(CRITICAL_IRQ);
-    if (g_KGProfState == KGProfState::Preparing || g_KGProfState == KGProfState::Writing) {
+    if (profilerData.State == KGProfState::Preparing || profilerData.State == KGProfState::Writing) {
         return PErrorCode::BUSY;
     }
-    g_KGProfState = KGProfState::Stopped;
+    profilerData.State = KGProfState::Stopped;
     return PErrorCode::Success;
 }
 
@@ -365,20 +332,21 @@ PErrorCode kgprof_stop() noexcept
 
 KGProfStatus kgprof_get_status() noexcept
 {
+    KGProfData& profilerData = g_KGProfData;
     CRITICAL_SCOPE(CRITICAL_IRQ);
     return
     {
-        .Running = g_KGProfState == KGProfState::Running,
-        .Busy = g_KGProfState == KGProfState::Preparing || g_KGProfState == KGProfState::Writing,
-        .HasCapture = g_KGProfHasCapture,
+        .Running = profilerData.State == KGProfState::Running,
+        .Busy = profilerData.State == KGProfState::Preparing || profilerData.State == KGProfState::Writing,
+        .HasCapture = profilerData.HasCapture,
         .SampleRateHz = KGPROF_SAMPLE_RATE_HZ,
         .BinSizeBytes = KGPROF_BIN_SIZE_BYTES,
-        .TotalSamples = g_KGProfTotalSamples,
-        .KernelSamples = g_KGProfKernelSamples,
-        .ApplicationSamples = g_KGProfApplicationSamples,
-        .UnmappedSamples = g_KGProfUnmappedSamples,
-        .SaturatedSamples = g_KGProfSaturatedSamples,
-        .CounterBytes = g_KGProfCounterBytes
+        .TotalSamples = profilerData.TotalSamples,
+        .KernelSamples = profilerData.KernelSamples,
+        .ApplicationSamples = profilerData.ApplicationSamples,
+        .UnmappedSamples = profilerData.UnmappedSamples,
+        .SaturatedSamples = profilerData.SaturatedSamples,
+        .CounterBytes = profilerData.CounterBytes
     };
 }
 
@@ -392,81 +360,38 @@ PErrorCode kgprof_write_gmon(KGProfWriteCallback callback, void* context) noexce
         return PErrorCode::INVAL;
     }
 
+    KGProfData& profilerData = g_KGProfData;
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
-        if (g_KGProfState == KGProfState::Preparing || g_KGProfState == KGProfState::Writing) {
+        if (profilerData.State == KGProfState::Preparing || profilerData.State == KGProfState::Writing) {
             return PErrorCode::BUSY;
         }
-        if (!g_KGProfHasCapture) {
+        if (!profilerData.HasCapture) {
             return PErrorCode::NOENT;
         }
-        g_KGProfState = KGProfState::Writing;
+        profilerData.State = KGProfState::Writing;
     }
 
     PErrorCode result = KGProfWriteImage(
         callback,
         context,
         KGProfImage::Kernel,
-        g_KGProfImages[std::to_underlying(KGProfImage::Kernel)]);
-    
+        profilerData.Images[std::to_underlying(KGProfImage::Kernel)]);
+
     if (result == PErrorCode::Success)
     {
         result = KGProfWriteImage(
             callback,
             context,
             KGProfImage::Application,
-            g_KGProfImages[std::to_underlying(KGProfImage::Application)]);
+            profilerData.Images[std::to_underlying(KGProfImage::Application)]);
     }
 
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
-        g_KGProfState = KGProfState::Stopped;
+        profilerData.State = KGProfState::Stopped;
     }
     return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void __attribute__((no_instrument_function)) kgprof_record_sample(const KExceptionStackFrame* exceptionFrame) noexcept
-{
-    if (g_KGProfState != KGProfState::Running || exceptionFrame == nullptr) {
-        return;
-    }
-
-    g_KGProfSamplePhase += KGPROF_SAMPLE_RATE_HZ;
-    if (g_KGProfSamplePhase < SYS_TICKS_PER_SEC) {
-        return;
-    }
-    g_KGProfSamplePhase -= SYS_TICKS_PER_SEC;
-    ++g_KGProfTotalSamples;
-
-    const uint32_t programCounter = exceptionFrame->PC;
-    for (size_t imageIndex = 0; imageIndex < g_KGProfImages.size(); ++imageIndex)
-    {
-        KGProfImageData& image = g_KGProfImages[imageIndex];
-        for (KGProfRegionData& region : image.Regions)
-        {
-            if (programCounter >= region.ActualLowPC && programCounter < region.ActualHighPC)
-            {
-                const size_t binIndex = size_t(programCounter - region.HistogramLowPC) / KGPROF_BIN_SIZE_BYTES;
-                uint32_t& counter = region.Counters[binIndex];
-                if (counter != std::numeric_limits<uint32_t>::max()) {
-                    ++counter;
-                } else {
-                    ++g_KGProfSaturatedSamples;
-                }
-                if (imageIndex == std::to_underlying(KGProfImage::Kernel)) {
-                    ++g_KGProfKernelSamples;
-                } else {
-                    ++g_KGProfApplicationSamples;
-                }
-                return;
-            }
-        }
-    }
-    ++g_KGProfUnmappedSamples;
 }
 
 } // namespace kernel

@@ -24,7 +24,7 @@
 #include <Kernel/KTime.h>
 
 #ifdef PADOS_MODULE_GPROF_SAMPLING
-#include <Kernel/KGProfSampler.h>
+#include <Kernel/Profiler/KGProf.h>
 #include <System/ErrorCodes.h>
 #endif // PADOS_MODULE_GPROF_SAMPLING
 

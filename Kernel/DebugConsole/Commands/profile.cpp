@@ -25,8 +25,8 @@
 #include <unistd.h>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
-#include <Kernel/KGProfSampler.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/Profiler/KGProf.h>
 #include <Kernel/KTime.h>
 #include <System/ErrorCodes.h>
 

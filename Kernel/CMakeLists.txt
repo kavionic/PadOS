@@ -6,6 +6,7 @@ add_subdirectory(FSDrivers)
 add_subdirectory(HAL)
 add_subdirectory(Interrupts)
 add_subdirectory(Logging)
+add_subdirectory(Profiler)
 add_subdirectory(Startup)
 add_subdirectory(Syscalls)
 if(PADOS_MODULE_UNITTESTS)
@@ -42,12 +43,6 @@ target_sources(PadOS_Kernel PRIVATE
 	Syscalls.cpp
 	ThreadSyncDebugTracker.cpp
 )
-
-if(PADOS_MODULE_GPROF_SAMPLING)
-	target_sources(PadOS_Kernel PRIVATE
-		KGProfSampler.cpp
-	)
-endif()
 
 target_sources(PadOS_KernelExt PRIVATE
 	KThreadExitTrampoline.cpp

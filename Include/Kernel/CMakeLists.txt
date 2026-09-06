@@ -3,7 +3,6 @@ target_sources(PadOS_Kernel PRIVATE
 	KAddressValidation.h
 	KCapabilities.h
 	KConditionVariable.h
-	KGProfSampler.h
 	Kernel.h
 	KHandleArray.h
 	KInterrupts.h
@@ -40,6 +39,7 @@ add_subdirectory(Drivers)
 add_subdirectory(FSDrivers)
 add_subdirectory(HAL)
 add_subdirectory(Logging)
+add_subdirectory(Profiler)
 add_subdirectory(Startup)
 add_subdirectory(USB)
 add_subdirectory(UserInput)

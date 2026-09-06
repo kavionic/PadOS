@@ -24,16 +24,10 @@
 
 #include <System/ErrorCodes.h>
 
-struct KExceptionStackFrame;
-
 namespace kernel
 {
 
 #ifdef PADOS_MODULE_GPROF_SAMPLING
-// Samples thread-mode execution from the lowest-priority SysTick interrupt.
-inline constexpr uint32_t KGPROF_SAMPLE_RATE_HZ = 100;
-inline constexpr uint32_t KGPROF_BIN_SIZE_BYTES = 32;
-
 enum class KGProfImage : uint8_t
 {
     Kernel,
@@ -61,9 +55,6 @@ PErrorCode kgprof_start();
 PErrorCode kgprof_stop() noexcept;
 KGProfStatus kgprof_get_status() noexcept;
 PErrorCode kgprof_write_gmon(KGProfWriteCallback callback, void* context) noexcept;
-
-// Called by SysTick while normal-latency interrupts are disabled.
-void kgprof_record_sample(const KExceptionStackFrame* exceptionFrame) noexcept __attribute__((no_instrument_function));
 #endif // PADOS_MODULE_GPROF_SAMPLING
 
 } // namespace kernel

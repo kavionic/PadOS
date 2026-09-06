@@ -27,6 +27,7 @@
 #include <Kernel/KLogging.h>
 #include <Kernel/FSDrivers/FAT/FATFilesystem.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KVFSManager.h>
 #include <System/ExceptionHandling.h>
 
 #include "FATVolume.h"
@@ -81,7 +82,7 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
 
 FATVolume::~FATVolume()
 {
-    kassert(m_DirtyInodes.IsEmpty());
+    kassert(GetDirtyInodeCount() == 0);
     kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
     kassert(m_ActiveModificationCount == 0);
     kassert(m_DeferredDeletionCount == 0);
@@ -381,13 +382,15 @@ void FATVolume::FlushAndMarkClean()
 {
     kassert(m_Mutex.IsLocked());
 
+    FlushDirtyInodes();
+
     const bool shouldMarkClean =
         m_CanMarkCleanFlag &&
         !m_IsVolumeMarkedClean &&
         m_ActiveModificationCount == 0 &&
-        m_DeferredDeletionCount == 0;
+        m_DeferredDeletionCount == 0 &&
+        GetDirtyInodeCount() == 0;
 
-    FlushDirtyInodes();
     UpdateFSInfo();
     SyncCache();
 
@@ -460,7 +463,7 @@ void FATVolume::CompleteDeferredDeletion(bool cleanupSucceeded) noexcept
 void FATVolume::Shutdown()
 {
     kassert(m_CleanFlagUpdaterThread == INVALID_HANDLE);
-    kassert(m_DirtyInodes.IsEmpty());
+    kassert(GetDirtyInodeCount() == 0);
     m_DirectoryCache.SetVolume(-1);
     m_FATTable = nullptr;
     m_BCache.SetDevice(-1, 0, 0);
@@ -486,44 +489,9 @@ void FATVolume::FlushDirtyInodes()
 {
     kassert(m_Mutex.IsLocked());
 
-    const size_t dirtyInodeCount = m_DirtyInodes.GetCount();
-    PErrorCode firstError = PErrorCode::Success;
-
-    for (size_t dirtyInodeIndex = 0; dirtyInodeIndex < dirtyInodeCount; ++dirtyInodeIndex)
-    {
-        FATInode* dirtyInode = m_DirtyInodes.GetFirst();
-        kassert(dirtyInode != nullptr);
-
-        try
-        {
-            dirtyInode->Write();
-            if (dirtyInode->IsMetadataDirty())
-            {
-                kernel_log<PLogSeverity::CRITICAL>(
-                    LogCat_FATFS,
-                    "FATVolume::FlushDirtyInodes(): inode {:x} remained dirty after a successful write.",
-                    dirtyInode->m_InodeID);
-                PERROR_THROW_CODE(PErrorCode::IO);
-            }
-        }
-        PERROR_CATCH([&firstError](PErrorCode error)
-        {
-            if (firstError == PErrorCode::Success) {
-                firstError = error;
-            }
-        });
-
-        if (dirtyInode->IsMetadataDirty())
-        {
-            kassert(dirtyInode->m_DirtyListNode.IsListMember(&m_DirtyInodes));
-            m_DirtyInodes.Remove(dirtyInode);
-            m_DirtyInodes.Append(dirtyInode);
-        }
-    }
-
-    if (firstError != PErrorCode::Success) {
-        PERROR_THROW_CODE(firstError);
-    }
+    m_Mutex.Unlock();
+    PScopeExit relockVolume([this]() { m_Mutex.Lock(); });
+    KVFSManager::FlushInodes(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -830,37 +798,6 @@ bool FATVolume::CheckMagic(const char* functionName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATVolume::AddDirtyInode(FATInode* inode) noexcept
-{
-    kassert(m_Mutex.IsLocked());
-    kassert(inode != nullptr);
-    kassert(inode->m_Volume == this);
-    kassert(!inode->m_DirtyListNode.IsListMember());
-
-    m_DirtyInodes.Append(inode);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FATVolume::RemoveDirtyInode(FATInode* inode) noexcept
-{
-    kassert(m_Mutex.IsLocked());
-    kassert(inode != nullptr);
-    kassert(inode->m_Volume == this);
-
-    if (inode->m_DirtyListNode.IsListMember())
-    {
-        kassert(inode->m_DirtyListNode.IsListMember(&m_DirtyInodes));
-        m_DirtyInodes.Remove(inode);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 bool FATVolume::BeginModification()
 {
     kassert(m_Mutex.IsLocked());
@@ -930,9 +867,7 @@ void FATVolume::SlotBlockCacheReadOnly(PErrorCode error)
     m_IsVolumeMarkedClean = false;
     m_CleanCheckpointDeadline = TimeValNanos::infinit;
 
-    while (m_DirtyInodes.GetFirst() != nullptr) {
-        m_DirtyInodes.GetFirst()->DiscardPendingMetadata();
-    }
+    KVFSManager::DiscardDirtyInodes(this);
     m_CleanFlagCondition.WakeupAll();
 }
 

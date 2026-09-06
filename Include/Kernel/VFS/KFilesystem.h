@@ -121,6 +121,7 @@ public:
     virtual void            CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, const char* targetPath);
 
     virtual Ptr<KInode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
+    virtual void            WriteInode(KInode* inode);
 
     virtual void            CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission);
 

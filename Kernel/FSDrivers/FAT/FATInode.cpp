@@ -176,8 +176,7 @@ FATInode::FATInode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t 
 
 FATInode::~FATInode()
 {
-    kassert(!m_MetadataDirty);
-    kassert(!m_DirtyListNode.IsListMember());
+    kassert(!IsDirty());
     m_Magic = ~MAGIC;
 }
 
@@ -199,36 +198,6 @@ bool FATInode::CheckMagic(const char* functionName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATInode::MarkMetadataDirty() noexcept
-{
-    if (!m_MetadataDirty)
-    {
-        FATVolume* volume = static_cast<FATVolume*>(ptr_raw_pointer_cast(m_Volume));
-        kassert(volume != nullptr);
-        volume->AddDirtyInode(this);
-        m_MetadataDirty = true;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FATInode::DiscardPendingMetadata() noexcept
-{
-    if (m_MetadataDirty)
-    {
-        FATVolume* volume = static_cast<FATVolume*>(ptr_raw_pointer_cast(m_Volume));
-        kassert(volume != nullptr);
-        volume->RemoveDirtyInode(this);
-        m_MetadataDirty = false;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void FATInode::MarkContentsModified(bool updateModificationTime, bool updateAccessTime) noexcept
 {
     if (updateModificationTime || updateAccessTime)
@@ -244,7 +213,7 @@ void FATInode::MarkContentsModified(bool updateModificationTime, bool updateAcce
     m_DOSAttribs |= FAT_ARCHIVE;
 
     if (!IsDeleted()) {
-        MarkMetadataDirty();
+        MarkDirty();
     }
 }
 
@@ -255,9 +224,7 @@ void FATInode::MarkContentsModified(bool updateModificationTime, bool updateAcce
 void FATInode::Write()
 {
     // don't update entries of deleted files
-    if (IsDeleted())
-    {
-        DiscardPendingMetadata();
+    if (IsDeleted()) {
         return;
     }
 
@@ -266,9 +233,7 @@ void FATInode::Write()
     // The root inode has no containing directory entry in which to persist
     // metadata. Keep explicit metadata changes in memory, consistent with
     // directory-content timestamp updates.
-    if (m_InodeID == volume->m_RootInode->m_InodeID)
-    {
-        DiscardPendingMetadata();
+    if (m_InodeID == volume->m_RootInode->m_InodeID) {
         return;
     }
 
@@ -317,7 +282,6 @@ void FATInode::Write()
         directoryIterator.MarkDirty();
     }
 
-    DiscardPendingMetadata();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

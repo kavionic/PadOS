@@ -62,7 +62,6 @@ bool KInode::LastReferenceGone()
         return true;
     }
 
-    m_LastUseTime = kget_monotonic_time();
     return KVFSManager::InodeReleased(this);
 }
 
@@ -75,6 +74,81 @@ void KInode::Detach() noexcept
     m_FileOps = nullptr;
     m_Filesystem = nullptr;
     m_Volume = nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInode::MarkDirty() noexcept
+{
+    KVFSManager::MarkInodeDirty(this);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInode::DiscardDirty() noexcept
+{
+    KVFSManager::DiscardInodeDirtyState(this);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KInode::SetDirtyFlag() noexcept
+{
+    if (IsDirty())
+    {
+        m_IsDirtyPending.store(true, std::memory_order_relaxed);
+        return false;
+    }
+
+    m_IsDirty.store(true, std::memory_order_relaxed);
+    m_IsDirtyPending.store(m_IsWritebackInProgress, std::memory_order_relaxed);
+    m_Volume->InodeBecameDirty();
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KInode::ClearDirtyFlag() noexcept
+{
+    if (!IsDirty()) {
+        return false;
+    }
+
+    m_IsDirty.store(false, std::memory_order_relaxed);
+    m_IsDirtyPending.store(false, std::memory_order_relaxed);
+    m_Volume->InodeBecameClean();
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInode::BeginWriteback() noexcept
+{
+    kassert(IsDirty());
+    kassert(!m_IsWritebackInProgress);
+
+    m_IsWritebackInProgress = true;
+    m_IsDirtyPending.store(false, std::memory_order_relaxed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInode::FinishWriteback() noexcept
+{
+    kassert(m_IsWritebackInProgress);
+    m_IsWritebackInProgress = false;
 }
 
 } // namespace kernel

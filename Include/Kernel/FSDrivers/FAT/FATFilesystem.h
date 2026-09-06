@@ -64,6 +64,7 @@ public:
     virtual void                CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
     virtual Ptr<KInode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
+    virtual void                WriteInode(KInode* inode) override;
 
     virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags) override;
     virtual void                CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission) override;

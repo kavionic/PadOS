@@ -164,9 +164,6 @@ public:
     ino_t GetDirectoryMapping(uint32_t startCluster) const;
     void  DumpDirectoryMap();
 
-    void AddDirtyInode(FATInode* inode) noexcept;
-    void RemoveDirtyInode(FATInode* inode) noexcept;
-    
     uint32_t	   m_Magic;
     mutable KMutex m_Mutex;
     mutable KMutex m_InodeIDMapMutex;
@@ -225,7 +222,6 @@ public:
 private:
     friend class FATDirectoryIterator;
 
-    using DirtyInodeList = PIntrusiveList<FATInode, &FATInode::m_DirtyListNode>;
     using LFNDecodeBuffer = std::array<
         wchar16_t,
         FAT_LONG_NAME_MAX_ENTRY_COUNT * FAT_LONG_NAME_CHARACTERS_PER_LFN_ENTRY>;
@@ -247,7 +243,6 @@ private:
     bool            m_IsLFNDecodeBufferInUse = false;
 
     KConditionVariable m_CleanFlagCondition;
-    DirtyInodeList m_DirtyInodes;
     thread_id       m_CleanFlagUpdaterThread = INVALID_HANDLE;
     TimeValNanos    m_CleanCheckpointDeadline = TimeValNanos::infinit;
     size_t          m_ActiveModificationCount = 0;

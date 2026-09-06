@@ -68,21 +68,28 @@ public:
     static Ptr<KInode>    GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
     static bool           InodeReleased(KInode* inode);
     static void           FlushInodes();
+    static void           FlushInodes(KFSVolume* volume);
+    static void           DiscardDirtyInodes(KFSVolume* volume) noexcept;
+    static void           MarkInodeDirty(KInode* inode) noexcept;
+    static void           DiscardInodeDirtyState(KInode* inode) noexcept;
+
 private:
     static Ptr<KInode> TryAcquireInodeReference(KInode* inode);
+    static PErrorCode FlushInodesInternal(KFSVolume* volume);
+    static PErrorCode FlushInodes_pl(KFSVolume* volume);
+    static void DeleteReleasedInodes(KFSVolume* volume);
+    static PErrorCode WriteDirtyInodes(KFSVolume* volume);
     static KInode* FindFirstUnusedInode();
-    static KInode* FindFirstExpiredUnusedInode(TimeValNanos currentTime);
     static void DiscardInode(KInode* inode);
     static void DeleteInode(KInode* inode);
     
     static constexpr size_t         MAX_INODE_CACHE_COUNT = 256;
-    static constexpr TimeValNanos   INODE_CACHE_EXPIRATION_TIME = TimeValNanos::FromSeconds(60.0);
 
     static inline KInode* const PENDING_INODE = reinterpret_cast<KInode*>(intptr_t(1));
     
     static KMutex                                     s_InodeMapMutex;
     static std::map<std::pair<fs_id, ino_t>, KInode*> s_InodeMap;
-    static PIntrusiveList<KInode>                     s_InodeMRUList;
+    static PIntrusiveList<KInode>                     s_InodeLRUList;
     static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
     static KConditionVariable                         s_InodeMapConditionVar;
 

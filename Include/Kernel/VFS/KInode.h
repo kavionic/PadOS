@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -47,6 +48,17 @@ public:
 
     bool IsActive() const noexcept { return m_Filesystem != nullptr && m_Volume != nullptr && m_FileOps != nullptr; }
     void Detach() noexcept;
+
+    void MarkDirty() noexcept;
+    void DiscardDirty() noexcept;
+    bool IsDirty() const noexcept { return m_IsDirty.load(std::memory_order_relaxed); }
+    bool IsDirtyPending() const noexcept { return m_IsDirtyPending.load(std::memory_order_relaxed); }
+    bool IsWritebackInProgress() const noexcept { return m_IsWritebackInProgress; }
+
+    bool SetDirtyFlag() noexcept;
+    bool ClearDirtyFlag() noexcept;
+    void BeginWriteback() noexcept;
+    void FinishWriteback() noexcept;
     
     inline void SetDeletedFlag(bool isDeleted)  noexcept { m_IsDeleted = isDeleted; }
     inline bool IsDeleted() const  noexcept { return m_IsDeleted; }
@@ -59,7 +71,6 @@ public:
     KFilesystemFileOps* m_FileOps;
     Ptr<KInode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
     ino_t               m_InodeID = 0;
-    TimeValNanos        m_LastUseTime; // If the reference count is 0, this record the time when it reached 0.
     mode_t              m_FileMode = 0;
     
     TimeValNanos        m_CTime;
@@ -70,6 +81,11 @@ public:
 
     bool m_DontCache = false;
     bool m_IsDeleted = false;
+
+private:
+    std::atomic_bool m_IsDirty = false;
+    std::atomic_bool m_IsDirtyPending = false;
+    bool             m_IsWritebackInProgress = false;
 };
 
 } // namespace

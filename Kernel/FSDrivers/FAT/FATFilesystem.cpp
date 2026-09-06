@@ -838,18 +838,14 @@ void FATFilesystem::ReleaseInode(KInode* inode)
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    if (node->IsDeleted() || node->IsMetadataDirty())
+    kassert(!node->IsDirty());
+
+    if (node->IsDeleted())
     {
         KScopedLock volumeLock(vol->m_Mutex);
 
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::ReleaseInode({:x})", node->m_InodeID);
 
-        PScopeExit discardPendingMetadata([node]()
-        {
-            node->DiscardPendingMetadata();
-        });
-
-        if (node->IsDeleted())
         {
             PScopeExit removeMappings([&vol, node]()
             {
@@ -898,10 +894,6 @@ void FATFilesystem::ReleaseInode(KInode* inode)
                 }
                 deletionCompleted = true;
             }
-        }
-        else if (!vol->m_BCache.IsReadOnly())
-        {
-            node->Write();
         }
     }
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "FATFilesystem::ReleaseInode() (inode ID {:x}).", node->m_InodeID);
@@ -1200,6 +1192,27 @@ Ptr<KInode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
     entry->m_ATime = FATTimeToTimeValOrFallback(info.m_FATAccessTime, 0, modificationTime);
     entry->m_MTime = modificationTime;
     return entry;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATFilesystem::WriteInode(KInode* inode)
+{
+    Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(inode->m_Volume);
+    FATInode* node = static_cast<FATInode*>(inode);
+
+    CRITICAL_SCOPE(volume->m_Mutex);
+
+    if (!volume->CheckMagic(__func__) || !node->CheckMagic(__func__)) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+    if (volume->m_BCache.IsReadOnly()) {
+        PERROR_THROW_CODE(PErrorCode::ROFS);
+    }
+
+    node->Write();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1661,13 +1674,13 @@ void FATFilesystem::Rename(Ptr<KFSVolume> inputVolume, Ptr<KInode> inputOldDirec
     sourceNode->m_ParentInodeID = newDirectory->m_InodeID;
     sourceNode->m_DirStartIndex = newStartIndex;
     sourceNode->m_DirEndIndex = newEndIndex;
-    sourceNode->DiscardPendingMetadata();
+    sourceNode->DiscardDirty();
 
     if (destinationNode != nullptr)
     {
         // ReleaseInode() clears the replaced node's chain after its final
         // reference is released.
-        destinationNode->DiscardPendingMetadata();
+        destinationNode->DiscardDirty();
         destinationNode->SetDeletedFlag(true);
         volume->RegisterDeferredDeletion();
     }
@@ -2993,7 +3006,7 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, uint32
     const TimeValNanos oldAccessTime = node->m_ATime;
     const TimeValNanos oldModificationTime = node->m_MTime;
     const uint8_t oldDOSAttribs = node->m_DOSAttribs;
-    const bool metadataWasDirty = node->IsMetadataDirty();
+    const bool metadataWasDirty = node->IsDirty();
 
     auto restoreContentMetadata = [&]()
     {
@@ -3001,7 +3014,7 @@ void FATFilesystem::ResizeFile(Ptr<FATVolume> volume, Ptr<FATInode> node, uint32
         node->m_MTime = oldModificationTime;
         node->m_DOSAttribs = oldDOSAttribs;
         if (!metadataWasDirty) {
-            node->DiscardPendingMetadata();
+            node->DiscardDirty();
         }
     };
 
@@ -3091,7 +3104,7 @@ void FATFilesystem::MarkDirectoryContentsModified(FATVolume& volume, FATInode& d
     // timestamp. Keep its in-memory stat data current without queuing an inode
     // write that cannot succeed.
     if (directory.m_InodeID != volume.m_RootInode->m_InodeID) {
-        directory.MarkMetadataDirty();
+        directory.MarkDirty();
     }
 }
 
@@ -3575,7 +3588,7 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
     if (!removeFile) {
         KDirectoryCache::RemoveDirectory(vol->m_VolumeID, file->m_InodeID);
     }
-    file->DiscardPendingMetadata();
+    file->DiscardDirty();
     file->SetDeletedFlag(true);
     vol->RegisterDeferredDeletion();
 

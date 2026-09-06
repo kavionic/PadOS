@@ -62,9 +62,6 @@ public:
     
     bool CheckMagic(const char* functionName);
 
-    void MarkMetadataDirty() noexcept;
-    void DiscardPendingMetadata() noexcept;
-    bool IsMetadataDirty() const noexcept { return m_MetadataDirty; }
     void MarkContentsModified(bool updateModificationTime = true, bool updateAccessTime = true) noexcept;
     void Write();
 
@@ -93,10 +90,6 @@ public:
     uint32_t m_AllocatedClusterCount = 0; // Zero if there is no chain or its metadata has not been loaded yet.
     uint32_t m_Size;             // Size in bytes.
     uint8_t  m_DOSAttribs;       // DOS-style attributes.
-    PIntrusiveListNode<FATInode> m_DirtyListNode;
-
-private:
-    bool m_MetadataDirty = false;
 
     FATInode(const FATInode&) = delete;
     FATInode& operator=(const FATInode&) = delete;

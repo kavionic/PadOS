@@ -19,8 +19,11 @@
 
  #include "System/Platform.h"
 
+#include <algorithm>
+#include <array>
 #include <string.h>
 #include <assert.h>
+#include <utility>
 #include <vector>
 
 #include <PadOS/DeviceControl.h>
@@ -38,7 +41,7 @@ namespace kernel
 
 KMutex                                     KVFSManager::s_InodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
 std::map<std::pair<fs_id, ino_t>, KInode*> KVFSManager::s_InodeMap;
-PIntrusiveList<KInode>                      KVFSManager::s_InodeMRUList;
+PIntrusiveList<KInode>                      KVFSManager::s_InodeLRUList;
 KConditionVariable                         KVFSManager::s_InodeMapConditionVar("inode_map_condition");
 
 std::map<fs_id, Ptr<KFSVolume>> KVFSManager::s_VolumeMap;
@@ -273,6 +276,15 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
+    KUniqueLock inodeFlushLock = volume->LockInodeFlush();
+    const PErrorCode flushError = FlushInodes_pl(ptr_raw_pointer_cast(volume));
+    if (flushError != PErrorCode::Success) {
+        PERROR_THROW_CODE(flushError);
+    }
+    if (volume->GetDirtyInodeCount() != 0) {
+        PERROR_THROW_CODE(PErrorCode::BUSY);
+    }
+
     std::vector<Ptr<KInode>> volumeInodes;
     const Ptr<KInode> rootNode = volume->m_RootNode;
     {
@@ -315,7 +327,15 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
                     continue;
                 }
 
-                Ptr<KInode> inodeReference = TryAcquireInodeReference(inode);
+                Ptr<KInode> inodeReference;
+                if (volume->RemoveDeletedInodeIfQueued(inode))
+                {
+                    inodeReference = (inode->GetPtrCount() == 0) ? ptr_tmp_cast(inode) : ptr_lock_cast(inode);
+                }
+                else
+                {
+                    inodeReference = TryAcquireInodeReference(inode);
+                }
                 if (inodeReference == nullptr)
                 {
                     shouldWaitForInode = true;
@@ -350,8 +370,15 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
                 continue;
             }
 
+            volume->DiscardInodeDirtyState(inode);
+            if (inode->IsListMember(&s_InodeLRUList)) {
+                s_InodeLRUList.Remove(inode);
+            }
+            volume->RemoveDeletedInodeIfQueued(inode);
             inodeIterator = s_InodeMap.erase(inodeIterator);
         }
+
+        kassert(volume->GetDirtyInodeCount() == 0);
 
         if (rootNode != nullptr)
         {
@@ -501,6 +528,31 @@ bool KVFSManager::InodeReleased(KInode* inode)
         return false;
     }
 
+    if (inode->IsDeleted())
+    {
+        inode->m_Volume->DiscardInodeDirtyState(inode);
+        if (inode->IsListMember(&s_InodeLRUList)) {
+            s_InodeLRUList.Remove(inode);
+        }
+        if (!inode->m_Volume->IsDeletedInodeQueued(inode))
+        {
+            kassert(!inode->IsListMember());
+            inode->m_Volume->QueueDeletedInode(inode);
+        }
+        s_InodeMapConditionVar.WakeupAll();
+        return false;
+    }
+
+    if (inode->IsDirty())
+    {
+        if (!inode->IsWritebackInProgress() && !inode->IsListMember())
+        {
+            inode->m_Volume->QueueDirtyInode(inode);
+        }
+        s_InodeMapConditionVar.WakeupAll();
+        return false;
+    }
+
     const auto key = std::make_pair(inode->m_Volume->m_VolumeID, inode->m_InodeID);
     auto inodeIterator = s_InodeMap.find(key);
     if (inodeIterator == s_InodeMap.end())
@@ -512,23 +564,24 @@ bool KVFSManager::InodeReleased(KInode* inode)
 
     if (inode->GetDontCache())
     {
-        if (inode->IsListMember(&s_InodeMRUList)) {
-            s_InodeMRUList.Remove(inode);
+        if (inode->IsListMember(&s_InodeLRUList)) {
+            s_InodeLRUList.Remove(inode);
         }
         DeleteInode(inode);
         return true;
     }
 
-    if (inode->IsListMember(&s_InodeMRUList)) {
-        s_InodeMRUList.Remove(inode);
+    if (inode->IsListMember(&s_InodeLRUList)) {
+        s_InodeLRUList.Remove(inode);
     }
-    s_InodeMRUList.Append(inode);
-    if (s_InodeMRUList.GetCount() > MAX_INODE_CACHE_COUNT)
+    s_InodeLRUList.Append(inode);
+    while (s_InodeLRUList.GetCount() > MAX_INODE_CACHE_COUNT)
     {
         KInode* unusedInode = FindFirstUnusedInode();
-        if (unusedInode != nullptr) {
-            DiscardInode(unusedInode);
+        if (unusedInode == nullptr) {
+            break;
         }
+        DiscardInode(unusedInode);
     }
 
     s_InodeMapConditionVar.WakeupAll();
@@ -541,23 +594,101 @@ bool KVFSManager::InodeReleased(KInode* inode)
 
 void KVFSManager::FlushInodes()
 {
-    KScopedLock inodeMapLock(s_InodeMapMutex);
-    const TimeValNanos currentTime = kget_monotonic_time();
-
-    for (;;)
+    std::vector<Ptr<KFSVolume>> volumes;
     {
-        KInode* inode = nullptr;
-        if (s_InodeMRUList.GetCount() > MAX_INODE_CACHE_COUNT) {
-            inode = FindFirstUnusedInode();
+        KScopedLock inodeMapLock(s_InodeMapMutex);
+        volumes.reserve(s_VolumeMap.size());
+        for (const auto& volumeEntry : s_VolumeMap) {
+            volumes.push_back(volumeEntry.second);
         }
-        if (inode == nullptr) {
-            inode = FindFirstExpiredUnusedInode(currentTime);
-        }
-        if (inode == nullptr) {
-            break;
-        }
-        DiscardInode(inode);
     }
+
+    for (const Ptr<KFSVolume>& volume : volumes)
+    {
+        const PErrorCode flushError = FlushInodesInternal(ptr_raw_pointer_cast(volume));
+        if (flushError != PErrorCode::Success)
+        {
+            kernel_log<PLogSeverity::ERROR>(
+                LogCatKernel_VFS,
+                "KVFSManager::FlushInodes(): failed to write inodes for volume {} ({}): {}.",
+                volume->m_VolumeID,
+                volume->m_DevicePath.c_str(),
+                p_strerror(flushError));
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVFSManager::FlushInodes(KFSVolume* volume)
+{
+    if (volume == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    const PErrorCode flushError = FlushInodesInternal(volume);
+    if (flushError != PErrorCode::Success) {
+        PERROR_THROW_CODE(flushError);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVFSManager::DiscardDirtyInodes(KFSVolume* volume) noexcept
+{
+    if (volume == nullptr) {
+        return;
+    }
+
+    std::vector<Ptr<KInode>> inodeReferences;
+    {
+        KScopedLock inodeMapLock(s_InodeMapMutex);
+        volume->DiscardDirtyInodes(inodeReferences);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVFSManager::MarkInodeDirty(KInode* inode) noexcept
+{
+    kassert(inode != nullptr);
+    kassert(inode->IsActive());
+
+    KScopedLock inodeMapLock(s_InodeMapMutex);
+
+    if (inode->IsDeleted()) {
+        return;
+    }
+
+    if (inode->SetDirtyFlag())
+    {
+        if (!inode->IsWritebackInProgress())
+        {
+            if (inode->IsListMember(&s_InodeLRUList)) {
+                s_InodeLRUList.Remove(inode);
+            }
+            kassert(!inode->IsListMember());
+            inode->m_Volume->QueueDirtyInode(inode);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVFSManager::DiscardInodeDirtyState(KInode* inode) noexcept
+{
+    kassert(inode != nullptr);
+
+    KScopedLock inodeMapLock(s_InodeMapMutex);
+    inode->m_Volume->DiscardInodeDirtyState(inode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -568,13 +699,126 @@ Ptr<KInode> KVFSManager::TryAcquireInodeReference(KInode* inode)
 {
     kassert(s_InodeMapMutex.IsLocked());
 
-    if (inode->IsListMember(&s_InodeMRUList))
-    {
-        s_InodeMRUList.Remove(inode);
+    if (inode->m_Volume->IsDeletedInodeQueued(inode)) {
+        return nullptr;
+    }
+    if (inode->IsListMember(&s_InodeLRUList)) {
+        s_InodeLRUList.Remove(inode);
+    }
+    if (inode->GetPtrCount() == 0) {
         return ptr_tmp_cast(inode);
     }
-
     return ptr_lock_cast(inode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KVFSManager::FlushInodesInternal(KFSVolume* volume)
+{
+    kassert(volume != nullptr);
+
+    KUniqueLock inodeFlushLock = volume->LockInodeFlush();
+    if (volume->m_Filesystem == nullptr) {
+        return PErrorCode::Success;
+    }
+    return FlushInodes_pl(volume);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KVFSManager::FlushInodes_pl(KFSVolume* volume)
+{
+    DeleteReleasedInodes(volume);
+    return WriteDirtyInodes(volume);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVFSManager::DeleteReleasedInodes(KFSVolume* volume)
+{
+    KScopedLock inodeMapLock(s_InodeMapMutex);
+
+    const size_t releasedInodeCount = volume->GetDeletedInodeCount();
+    for (size_t inodeIndex = 0; inodeIndex < releasedInodeCount; ++inodeIndex)
+    {
+        KInode* inode = volume->TakeFirstDeletedInode();
+        kassert(inode != nullptr);
+
+        if (inode->GetPtrCount() != 0)
+        {
+            volume->QueueDeletedInode(inode);
+            continue;
+        }
+        DeleteInode(inode);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KVFSManager::WriteDirtyInodes(KFSVolume* volume)
+{
+    const size_t dirtyInodeCount = volume->GetDirtyInodeCount();
+    const size_t batchCount =
+        (dirtyInodeCount + KFSVolume::MAX_FLUSH_INODE_COUNT - 1) / KFSVolume::MAX_FLUSH_INODE_COUNT;
+
+    PErrorCode firstError = PErrorCode::Success;
+    for (size_t batchIndex = 0; batchIndex < batchCount; ++batchIndex)
+    {
+        std::vector<Ptr<KInode>> inodeBatch;
+        {
+            KScopedLock inodeMapLock(s_InodeMapMutex);
+            inodeBatch = volume->PrepareInodeWritebackBatch();
+        }
+        if (inodeBatch.empty()) {
+            break;
+        }
+
+        std::array<bool, KFSVolume::MAX_FLUSH_INODE_COUNT> inodeWritesFailed;
+        std::fill_n(inodeWritesFailed.begin(), inodeBatch.size(), false);
+        bool writebackReadOnly = false;
+        for (size_t inodeIndex = 0; inodeIndex < inodeBatch.size(); ++inodeIndex)
+        {
+            try
+            {
+                inodeBatch[inodeIndex]->m_Filesystem->WriteInode(ptr_raw_pointer_cast(inodeBatch[inodeIndex]));
+            }
+            PERROR_CATCH(([&firstError, &inodeWritesFailed, &writebackReadOnly, inodeIndex](PErrorCode error)
+            {
+                inodeWritesFailed[inodeIndex] = true;
+                if (firstError == PErrorCode::Success) {
+                    firstError = error;
+                }
+                if (error == PErrorCode::ROFS) {
+                    writebackReadOnly = true;
+                }
+            }));
+
+            if (writebackReadOnly) {
+                break;
+            }
+        }
+
+        {
+            KScopedLock inodeMapLock(s_InodeMapMutex);
+            volume->FinishInodeWritebackBatch(inodeBatch, inodeWritesFailed, writebackReadOnly);
+        }
+
+        inodeBatch.clear();
+        if (writebackReadOnly)
+        {
+            DiscardDirtyInodes(volume);
+            break;
+        }
+    }
+    return firstError;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -585,26 +829,9 @@ KInode* KVFSManager::FindFirstUnusedInode()
 {
     kassert(s_InodeMapMutex.IsLocked());
 
-    for (KInode* inode : s_InodeMRUList)
+    for (KInode* inode : s_InodeLRUList)
     {
         if (inode->GetPtrCount() == 0) {
-            return inode;
-        }
-    }
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-KInode* KVFSManager::FindFirstExpiredUnusedInode(TimeValNanos currentTime)
-{
-    kassert(s_InodeMapMutex.IsLocked());
-
-    for (KInode* inode : s_InodeMRUList)
-    {
-        if (inode->GetPtrCount() == 0 && currentTime > inode->m_LastUseTime + INODE_CACHE_EXPIRATION_TIME) {
             return inode;
         }
     }
@@ -619,7 +846,7 @@ void KVFSManager::DiscardInode(KInode* inode)
 {
     kassert(s_InodeMapMutex.IsLocked());
     kassert(inode->GetPtrCount() == 0);
-    s_InodeMRUList.Remove(inode);
+    s_InodeLRUList.Remove(inode);
     DeleteInode(inode);
 }
 
@@ -630,7 +857,9 @@ void KVFSManager::DiscardInode(KInode* inode)
 void KVFSManager::DeleteInode(KInode* inode)
 {
     kassert(s_InodeMapMutex.IsLocked());
-    kassert(!inode->IsListMember(&s_InodeMRUList));
+    kassert(!inode->IsListMember());
+    kassert(!inode->IsDirty());
+    kassert(!inode->IsWritebackInProgress());
     
     auto key = std::make_pair(inode->m_Volume->m_VolumeID, inode->m_InodeID);
     auto i = s_InodeMap.find(key);

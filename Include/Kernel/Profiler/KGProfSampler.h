@@ -28,8 +28,8 @@ namespace kernel
 
 #ifdef PADOS_MODULE_GPROF_SAMPLING
 // Samples thread-mode execution from the lowest-priority SysTick interrupt.
-inline constexpr uint32_t KGPROF_SAMPLE_RATE_HZ = 100;
-inline constexpr uint32_t KGPROF_BIN_SIZE_BYTES = 32;
+inline constexpr uint32_t KGPROF_SAMPLE_RATE_HZ = 500;
+inline constexpr uint32_t KGPROF_BIN_SIZE_BYTES = 8;
 
 // Called by SysTick while normal-latency interrupts are disabled.
 void kgprof_record_sample(const KExceptionStackFrame* exceptionFrame) noexcept __attribute__((no_instrument_function));

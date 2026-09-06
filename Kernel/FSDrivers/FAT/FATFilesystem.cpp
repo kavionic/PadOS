@@ -1065,7 +1065,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
             dir->m_InodeID,
             name,
             inodeID);
-        file = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, inodeID, false));
+        file = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(*vol, inodeID, false));
     }
 
     const Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>(openFlags);
@@ -2793,7 +2793,7 @@ Ptr<FATInode> FATFilesystem::DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir
                 {
                     vol->m_DirectoryCache.RemoveEntry(dir->m_InodeID, fileName);
                 });
-            return ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, cachedInodeID, false));
+            return ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(*vol, cachedInodeID, false));
         }
     }
 
@@ -2830,7 +2830,7 @@ Ptr<FATInode> FATFilesystem::DoLocateInode(Ptr<FATVolume> vol, Ptr<FATInode> dir
         }
     }
 
-    Ptr<FATInode> inode = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(vol->m_VolumeID, inodeID, false));
+    Ptr<FATInode> inode = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(*vol, inodeID, false));
     if (isCacheableName) {
         vol->m_DirectoryCache.InsertPositive(
             dir->m_InodeID,
@@ -2894,7 +2894,7 @@ bool FATFilesystem::IsDirectoryAncestor(Ptr<FATVolume> volume, Ptr<FATInode> anc
             return false;
         }
 
-        currentDirectory = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(volume->m_VolumeID, currentDirectory->m_ParentInodeID, false));
+        currentDirectory = ptr_static_cast<FATInode>(KVFSManager::GetInode_trw(*volume, currentDirectory->m_ParentInodeID, false));
         if (currentDirectory == nullptr || !currentDirectory->IsDirectory()) {
             PERROR_THROW_CODE(PErrorCode::IO);
         }

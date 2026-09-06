@@ -33,6 +33,7 @@
 #include <Storage/DirectoryEntry.h>
 #include <Utils/HashCalculator.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <Kernel/VFS/KINode.h>
 #include <SerialConsole/SerialCommandHandler.h>
@@ -86,24 +87,6 @@ SerialProtocol::FilesystemError FilesystemErrorFromErrno(int error)
 SerialProtocol::FilesystemError FilesystemErrorFromPErrorCode(PErrorCode error)
 {
     return FilesystemErrorFromErrno(std::to_underlying(error));
-}
-
-bool TryReadStatFromDirectoryEntry(const dirent_t& entry, struct stat* statResult)
-{
-    bool result = false;
-    try
-    {
-        Ptr<KInode> inode = KVFSManager::GetInode_trw(entry.d_volumeid, entry.d_ino, false);
-        if (inode != nullptr)
-        {
-            kread_stat_trw(inode, statResult);
-            result = true;
-        }
-    }
-    catch (const std::exception&)
-    {
-    }
-    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -322,14 +305,11 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
                 }
 
                 struct stat statResult;
-                if (!TryReadStatFromDirectoryEntry(dirEntry, &statResult))
-                {
-                    PString path = packet.m_Path;
-                    path += "/";
-                    path += dirEntry.d_name;
-                    if (stat(path.c_str(), &statResult) < 0) {
-                        continue;
-                    }
+                PString path = packet.m_Path;
+                path += "/";
+                path += dirEntry.d_name;
+                if (stat(path.c_str(), &statResult) < 0) {
+                    continue;
                 }
 
                 SerialProtocol::GetDirectoryReplyDirEnt& replyEntry = entryList.emplace_back();

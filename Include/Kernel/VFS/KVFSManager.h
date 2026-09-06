@@ -65,7 +65,7 @@ public:
     static void           RegisterVolume_trw(Ptr<KFSVolume> volume);
     static void           DetachVolume_trw(Ptr<KFSVolume> volume);
     static Ptr<KFSVolume> GetVolume(fs_id volumeID);
-    static Ptr<KInode>    GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
+    static Ptr<KInode>    GetInode_trw(KFSVolume& volume, ino_t inodeID, bool crossMount);
     static bool           InodeReleased(KInode* inode);
     static void           FlushInodes();
     static void           FlushInodes(KFSVolume* volume);
@@ -87,11 +87,10 @@ private:
 
     static inline KInode* const PENDING_INODE = reinterpret_cast<KInode*>(intptr_t(1));
     
-    static KMutex                                     s_InodeMapMutex;
-    static std::map<std::pair<fs_id, ino_t>, KInode*> s_InodeMap;
-    static PIntrusiveList<KInode>                     s_InodeLRUList;
-    static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
-    static KConditionVariable                         s_InodeMapConditionVar;
+    static KMutex                          s_InodeMapMutex;
+    static PIntrusiveList<KInode>          s_InodeLRUList;
+    static std::map<fs_id, Ptr<KFSVolume>> s_VolumeMap;
+    static KConditionVariable              s_InodeMapConditionVar;
 
     KVFSManager( const KVFSManager &c ) = delete;
     KVFSManager& operator=( const KVFSManager &c ) = delete;

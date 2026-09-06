@@ -39,10 +39,9 @@
 namespace kernel
 {
 
-KMutex                                     KVFSManager::s_InodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
-std::map<std::pair<fs_id, ino_t>, KInode*> KVFSManager::s_InodeMap;
-PIntrusiveList<KInode>                      KVFSManager::s_InodeLRUList;
-KConditionVariable                         KVFSManager::s_InodeMapConditionVar("inode_map_condition");
+KMutex                 KVFSManager::s_InodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
+PIntrusiveList<KInode> KVFSManager::s_InodeLRUList;
+KConditionVariable     KVFSManager::s_InodeMapConditionVar("inode_map_condition");
 
 std::map<fs_id, Ptr<KFSVolume>> KVFSManager::s_VolumeMap;
 
@@ -289,17 +288,14 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
     const Ptr<KInode> rootNode = volume->m_RootNode;
     {
         KScopedLock inodeMapLock(s_InodeMapMutex);
-        volumeInodes.reserve(s_InodeMap.size() + 1);
+        volumeInodes.reserve(volume->m_InodeMap.size() + 1);
 
         for (;;)
         {
             bool shouldWaitForInode = false;
 
-            for (const auto& inodeEntry : s_InodeMap)
+            for (const auto& inodeEntry : volume->m_InodeMap)
             {
-                if (inodeEntry.first.first != volume->m_VolumeID) {
-                    continue;
-                }
                 if (inodeEntry.second == PENDING_INODE)
                 {
                     shouldWaitForInode = true;
@@ -307,9 +303,7 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
                 }
 
                 KInode* inode = inodeEntry.second;
-                if (inode->m_Volume != volume) {
-                    continue;
-                }
+                kassert(inode->m_Volume == volume);
                 if (inode->m_MountRoot != nullptr) {
                     PERROR_THROW_CODE(PErrorCode::BUSY);
                 }
@@ -361,21 +355,22 @@ void KVFSManager::DetachVolume_trw(Ptr<KFSVolume> volume)
             s_VolumeMap.erase(registeredVolume);
         }
 
-        for (auto inodeIterator = s_InodeMap.begin(); inodeIterator != s_InodeMap.end();)
+        for (auto inodeIterator = volume->m_InodeMap.begin(); inodeIterator != volume->m_InodeMap.end();)
         {
             KInode* inode = inodeIterator->second;
-            if (inodeIterator->first.first != volume->m_VolumeID || inode == PENDING_INODE || inode->m_Volume != volume)
+            if (inode == PENDING_INODE)
             {
                 ++inodeIterator;
                 continue;
             }
 
+            kassert(inode->m_Volume == volume);
             volume->DiscardInodeDirtyState(inode);
             if (inode->IsListMember(&s_InodeLRUList)) {
                 s_InodeLRUList.Remove(inode);
             }
             volume->RemoveDeletedInodeIfQueued(inode);
-            inodeIterator = s_InodeMap.erase(inodeIterator);
+            inodeIterator = volume->m_InodeMap.erase(inodeIterator);
         }
 
         kassert(volume->GetDirtyInodeCount() == 0);
@@ -443,25 +438,23 @@ Ptr<KFSVolume> KVFSManager::GetVolume(fs_id volumeID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount)
+Ptr<KInode> KVFSManager::GetInode_trw(KFSVolume& volume, ino_t inodeID, bool crossMount)
 {
-    const auto key = std::make_pair(volumeID, inodeID);
-
     for (;;)
     {
-        Ptr<KFSVolume> volume;
+        Ptr<KFSVolume> volumeReference;
         {
             KScopedLock inodeMapLock(s_InodeMapMutex);
 
-            auto i = s_InodeMap.find(key);
-            if (i != s_InodeMap.end())
+            auto inodeIterator = volume.m_InodeMap.find(inodeID);
+            if (inodeIterator != volume.m_InodeMap.end())
             {
-                if (i->second == PENDING_INODE)
+                if (inodeIterator->second == PENDING_INODE)
                 {
                     s_InodeMapConditionVar.Wait(s_InodeMapMutex);
                     continue;
                 }
-                Ptr<KInode> inode = TryAcquireInodeReference(i->second);
+                Ptr<KInode> inode = TryAcquireInodeReference(inodeIterator->second);
                 if (inode == nullptr)
                 {
                     s_InodeMapConditionVar.Wait(s_InodeMapMutex);
@@ -474,38 +467,42 @@ Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossM
                 return inode;
             }
 
-            auto volumeIterator = s_VolumeMap.find(volumeID);
-            if (volumeIterator == s_VolumeMap.end() || volumeIterator->second->m_Filesystem == nullptr) {
+            // Verify that the volume is still mounted after waiting for s_InodeMapConditionVar.
+            auto volumeIterator = s_VolumeMap.find(volume.m_VolumeID);
+            if (volumeIterator == s_VolumeMap.end() ||
+                volumeIterator->second != &volume ||
+                volume.m_Filesystem == nullptr)
+            {
                 PERROR_THROW_CODE(PErrorCode(ENODEV));
             }
-            volume = volumeIterator->second;
+            volumeReference = volumeIterator->second;
 
-            s_InodeMap[key] = PENDING_INODE;
+            volume.m_InodeMap[inodeID] = PENDING_INODE;
         }
 
         Ptr<KInode> inode;
         {
             PScopeExit completeInodeLoad(
-                [&key, &inode]()
+                [&volume, inodeID, &inode]()
                 {
                     KScopedLock inodeMapLock(s_InodeMapMutex);
 
-                    auto pendingInode = s_InodeMap.find(key);
-                    kassert(pendingInode != s_InodeMap.end());
+                    auto pendingInode = volume.m_InodeMap.find(inodeID);
+                    kassert(pendingInode != volume.m_InodeMap.end());
                     kassert(pendingInode->second == PENDING_INODE);
 
-                    if (pendingInode != s_InodeMap.end() && pendingInode->second == PENDING_INODE)
+                    if (pendingInode != volume.m_InodeMap.end() && pendingInode->second == PENDING_INODE)
                     {
                         if (inode != nullptr) {
                             pendingInode->second = ptr_raw_pointer_cast(inode);
                         } else {
-                            s_InodeMap.erase(pendingInode);
+                            volume.m_InodeMap.erase(pendingInode);
                         }
                     }
                     s_InodeMapConditionVar.WakeupAll();
                 });
 
-            inode = volume->m_Filesystem->LoadInode(volume, inodeID);
+            inode = volume.m_Filesystem->LoadInode(std::move(volumeReference), inodeID);
         }
 
         if (crossMount && inode != nullptr && inode->m_MountRoot != nullptr) {
@@ -553,9 +550,8 @@ bool KVFSManager::InodeReleased(KInode* inode)
         return false;
     }
 
-    const auto key = std::make_pair(inode->m_Volume->m_VolumeID, inode->m_InodeID);
-    auto inodeIterator = s_InodeMap.find(key);
-    if (inodeIterator == s_InodeMap.end())
+    auto inodeIterator = inode->m_Volume->m_InodeMap.find(inode->m_InodeID);
+    if (inodeIterator == inode->m_Volume->m_InodeMap.end())
     {
         DeleteInode(inode);
         return true;
@@ -861,18 +857,19 @@ void KVFSManager::DeleteInode(KInode* inode)
     kassert(!inode->IsDirty());
     kassert(!inode->IsWritebackInProgress());
     
-    auto key = std::make_pair(inode->m_Volume->m_VolumeID, inode->m_InodeID);
-    auto i = s_InodeMap.find(key);
-    const bool inodeIsRegistered = i != s_InodeMap.end();
+    Ptr<KFSVolume> volume = inode->m_Volume;
+    const ino_t inodeID = inode->m_InodeID;
+    auto inodeIterator = volume->m_InodeMap.find(inodeID);
+    const bool inodeIsRegistered = inodeIterator != volume->m_InodeMap.end();
     if (inodeIsRegistered)
     {
-        kassert(i->second == inode);
-        i->second = PENDING_INODE;
+        kassert(inodeIterator->second == inode);
+        inodeIterator->second = PENDING_INODE;
     }
 
     s_InodeMapMutex.Unlock();
     if (inode->IsDeleted() && inode->IsDirectory()) {
-        KDirectoryCache::RemoveDirectory(key.first, key.second);
+        KDirectoryCache::RemoveDirectory(volume->m_VolumeID, inodeID);
     }
     try
     {
@@ -885,10 +882,10 @@ void KVFSManager::DeleteInode(KInode* inode)
     
     if (inodeIsRegistered)
     {
-        i = s_InodeMap.find(key);
-        kassert(i != s_InodeMap.end());
-        kassert(i->second == PENDING_INODE);
-        s_InodeMap.erase(i);
+        inodeIterator = volume->m_InodeMap.find(inodeID);
+        kassert(inodeIterator != volume->m_InodeMap.end());
+        kassert(inodeIterator->second == PENDING_INODE);
+        volume->m_InodeMap.erase(inodeIterator);
         s_InodeMapConditionVar.Wakeup(0);
     }
 }

@@ -21,6 +21,7 @@
 
 #include <array>
 #include <atomic>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -80,12 +81,13 @@ public:
     Ptr<KFilesystem> m_Filesystem;
     Ptr<KInode>      m_MountPoint;
     PString          m_DevicePath;
-
     Ptr<KInode>      m_RootNode;
 
+    std::map<ino_t, KInode*>    m_InodeMap;
+
 private:
-    KMutex             m_InodeFlushMutex;
-    std::atomic_size_t m_DirtyInodeCount = 0;
+    KMutex                 m_InodeFlushMutex;
+    std::atomic_size_t     m_DirtyInodeCount = 0;
     PIntrusiveList<KInode> m_DirtyInodes;
     PIntrusiveList<KInode> m_DeletedInodes;
 };

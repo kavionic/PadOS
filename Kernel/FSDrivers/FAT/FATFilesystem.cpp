@@ -2643,42 +2643,6 @@ uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* rawVol
     return index;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FATVolume::UpdateFSInfo()
-{
-    if (m_FSInfoSector != 0xffff && !IsReadOnly())
-    {
-        KCacheBlockDesc bufferDesc = m_BCache.GetBlock_trw(m_FSInfoSector);
-        FATFSInfo* buffer = static_cast<FATFSInfo*>(bufferDesc.m_Buffer);
-        if (buffer != nullptr)
-        {
-            if (buffer->m_Signature1 == 0x41615252 && buffer->m_Signature2 == 0x61417272 && buffer->m_Signature3 == 0xaa550000)
-            {
-                if (buffer->m_FreeClusters != m_FreeClusters || buffer->m_LastAllocatedCluster != m_LastAllocatedCluster)
-                {
-                    buffer->m_FreeClusters = m_FreeClusters;
-                    buffer->m_LastAllocatedCluster = m_LastAllocatedCluster;
-                    bufferDesc.MarkDirty();
-                }
-            }
-            else
-            {
-                const uint32_t signature1 = buffer->m_Signature1;
-                const uint32_t signature2 = buffer->m_Signature2;
-                const uint32_t signature3 = buffer->m_Signature3;
-                kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::UpdateFSInfo(): fsinfo block has invalid magic number {:08x}, {:08x}, {:08x}", signature1, signature2, signature3);
-            }
-        }
-        else
-        {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::UpdateFSInfo(): error getting fsinfo sector {}.", m_FSInfoSector);
-        }
-    }
-}
-
 void FATFilesystem::ValidateNameAndSelectShortName(
     Ptr<FATVolume> volume,
     Ptr<FATInode> parent,

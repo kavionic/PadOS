@@ -21,6 +21,7 @@
 
 
 #include <Utils/Logging.h>
+#include <Kernel/Logging/LogManager.h>
 
 namespace kernel
 {
@@ -52,8 +53,11 @@ void kernel_log(uint32_t category, PFormatString<ARGS...>&& fmt, ARGS&&... args)
 {
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
-        const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
-        ksystem_log_add_message(category, TSeverity, text);
+        if (KLogManager::Get().IsCategoryActive(category, TSeverity))
+        {
+            const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
+            ksystem_log_add_message(category, TSeverity, text);
+        }
     }
 }
 

@@ -66,11 +66,13 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
     : KFSVolume(volumeID, devicePath)
     , m_Mutex("fatfs_vol_mutex", PEMutexRecursionMode_RaiseError)
     , m_InodeIDMapMutex("fatfs_inodemap_mutex", PEMutexRecursionMode_RaiseError)
-    , m_CleanFlagCondition("fat_clean_flag")
+    , m_CleanFlagEvent("fat_clean_flag", CLOCK_MONOTONIC, 0)
 {
     m_Magic = MAGIC;
 
+    SignalDirtyInodeStateChanged.Connect(this, &FATVolume::SlotDirtyStateChanged);
     m_BCache.SignalBecameReadOnly.Connect(this, &FATVolume::SlotBlockCacheReadOnly);
+    m_BCache.SignalDirtyBlockStateChanged.Connect(this, &FATVolume::SlotDirtyStateChanged);
         
     m_RootInode = ptr_new<FATInode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
     m_RootNode = m_RootInode;
@@ -400,7 +402,7 @@ void FATVolume::StopCleanFlagUpdater()
             return;
         }
         m_StopCleanFlagUpdater = true;
-        m_CleanFlagCondition.WakeupAll();
+        NotifyCleanFlagUpdater();
     }
 
     kthread_join_trw(updaterThread);
@@ -419,23 +421,8 @@ void FATVolume::FlushAndMarkClean()
     kassert(m_Mutex.IsLocked());
 
     FlushDirtyInodes();
-
-    const bool shouldMarkClean =
-        m_CanMarkCleanFlag &&
-        !m_IsVolumeMarkedClean &&
-        m_ActiveModificationCount == 0 &&
-        m_DeferredDeletionCount == 0 &&
-        GetDirtyInodeCount() == 0;
-
     SyncCache();
-
-    if (shouldMarkClean)
-    {
-        m_FATTable->SetVolumeClean(true);
-        SyncCache();
-        m_IsVolumeMarkedClean = true;
-        m_CleanCheckpointDeadline = TimeValNanos::infinit;
-    }
+    TryMarkClean_pl(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -448,7 +435,7 @@ void FATVolume::MarkMetadataInconsistent() noexcept
 
     m_CanMarkCleanFlag = false;
     m_CleanCheckpointDeadline = TimeValNanos::infinit;
-    m_CleanFlagCondition.WakeupAll();
+    NotifyCleanFlagUpdater();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -459,7 +446,7 @@ void FATVolume::RegisterDeferredDeletion() noexcept
 {
     kassert(m_Mutex.IsLocked());
     ++m_DeferredDeletionCount;
-    m_CleanFlagCondition.WakeupAll();
+    NotifyCleanFlagUpdater();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -488,7 +475,7 @@ void FATVolume::CompleteDeferredDeletion(bool cleanupSucceeded) noexcept
     {
         m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
     }
-    m_CleanFlagCondition.WakeupAll();
+    NotifyCleanFlagUpdater();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -845,7 +832,7 @@ bool FATVolume::BeginModification()
     {
         StartCleanFlagUpdater();
         m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
-        m_CleanFlagCondition.WakeupAll();
+        NotifyCleanFlagUpdater();
     }
 
     if (m_IsVolumeMarkedClean)
@@ -879,8 +866,30 @@ void FATVolume::FinishModification() noexcept
     if (m_ActiveModificationCount == 0)
     {
         m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
-        m_CleanFlagCondition.WakeupAll();
+        NotifyCleanFlagUpdater();
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::NotifyCleanFlagUpdater() noexcept
+{
+    if (!m_CleanFlagEventPending.exchange(true, std::memory_order_acq_rel))
+    {
+        const PErrorCode result = m_CleanFlagEvent.Release();
+        kassert(result == PErrorCode::Success);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FATVolume::SlotDirtyStateChanged()
+{
+    NotifyCleanFlagUpdater();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -903,7 +912,48 @@ void FATVolume::SlotBlockCacheReadOnly(PErrorCode error)
     m_CleanCheckpointDeadline = TimeValNanos::infinit;
 
     KVFSManager::DiscardDirtyInodes(this);
-    m_CleanFlagCondition.WakeupAll();
+    NotifyCleanFlagUpdater();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FATVolume::CanMarkClean_pl() const noexcept
+{
+    kassert(m_Mutex.IsLocked());
+
+    return m_CanMarkCleanFlag &&
+        !m_IsVolumeMarkedClean &&
+        !IsReadOnly() &&
+        m_ActiveModificationCount == 0 &&
+        m_DeferredDeletionCount == 0 &&
+        GetDirtyInodeCount() == 0 &&
+        m_BCache.GetDeviceDirtyBlockCount() == 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FATVolume::TryMarkClean_pl(bool synchronizeCache)
+{
+    kassert(m_Mutex.IsLocked());
+
+    if (CanMarkClean_pl())
+    {
+        m_FATTable->SetVolumeClean(true);
+        if (synchronizeCache) {
+            SyncCache();
+        }
+
+        // In the asynchronous path this state is set before block writeback. The
+        // clean-flag update's own dirty-state transitions must not start another update.
+        m_IsVolumeMarkedClean = true;
+        m_CleanCheckpointDeadline = TimeValNanos::infinit;
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -945,39 +995,45 @@ void* FATVolume::CleanFlagUpdaterEntry(void* argument)
 
 void* FATVolume::RunCleanFlagUpdater()
 {
-    KScopedLock volumeLock(m_Mutex);
-
     for (;;)
     {
-        if (m_StopCleanFlagUpdater) {
-            break;
+        m_CleanFlagEventPending.exchange(false, std::memory_order_acq_rel);
+        TimeValNanos waitDeadline = TimeValNanos::infinit;
+
+        {
+            KScopedLock volumeLock(m_Mutex);
+
+            if (m_StopCleanFlagUpdater) {
+                break;
+            }
+
+            if (CanMarkClean_pl())
+            {
+                const TimeValNanos currentTime = kget_monotonic_time();
+                if (currentTime < m_CleanCheckpointDeadline)
+                {
+                    waitDeadline = m_CleanCheckpointDeadline;
+                }
+                else
+                {
+                    try {
+                        TryMarkClean_pl(false);
+                    }
+                    PERROR_CATCH(([this](PErrorCode error)
+                    {
+                        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FAT clean-flag update failed with error {}. Retrying after the idle delay.", p_strerror(error));
+                        m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
+                    }));
+                    continue;
+                }
+            }
         }
 
-        if (
-            !m_CanMarkCleanFlag ||
-            m_IsVolumeMarkedClean ||
-            m_ActiveModificationCount != 0 ||
-            m_DeferredDeletionCount != 0)
-        {
-            m_CleanFlagCondition.Wait(m_Mutex);
-            continue;
+        if (waitDeadline.IsInfinit()) {
+            m_CleanFlagEvent.Acquire();
+        } else {
+            m_CleanFlagEvent.AcquireDeadline(waitDeadline);
         }
-
-        const TimeValNanos currentTime = kget_monotonic_time();
-        if (currentTime < m_CleanCheckpointDeadline)
-        {
-            m_CleanFlagCondition.WaitDeadline(m_Mutex, m_CleanCheckpointDeadline);
-            continue;
-        }
-
-        try {
-            FlushAndMarkClean();
-        }
-        PERROR_CATCH(([this](PErrorCode error)
-        {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FAT clean-flag update failed with error {}. Retrying after the idle delay.", p_strerror(error));
-            m_CleanCheckpointDeadline = kget_monotonic_time() + CLEAN_FLAG_UPDATE_DELAY;
-        }));
     }
     return nullptr;
 }

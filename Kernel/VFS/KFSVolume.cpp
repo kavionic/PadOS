@@ -236,7 +236,10 @@ void KFSVolume::FinishInodeWritebackBatch(
 
 void KFSVolume::InodeBecameDirty() noexcept
 {
-    m_DirtyInodeCount.fetch_add(1, std::memory_order_relaxed);
+    const size_t previousCount = m_DirtyInodeCount.fetch_add(1, std::memory_order_relaxed);
+    if (previousCount == 0) {
+        SignalDirtyInodeStateChanged(true);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -247,6 +250,9 @@ void KFSVolume::InodeBecameClean() noexcept
 {
     const size_t previousCount = m_DirtyInodeCount.fetch_sub(1, std::memory_order_relaxed);
     kassert(previousCount != 0);
+    if (previousCount == 1) {
+        SignalDirtyInodeStateChanged(false);
+    }
 }
 
 } // namespace kernel

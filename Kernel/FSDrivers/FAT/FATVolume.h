@@ -20,7 +20,9 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 
+#include "Kernel/KSemaphore.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KBlockCache.h"
 #include "Kernel/VFS/KDirectoryCache.h"
@@ -230,8 +232,12 @@ private:
 
     bool BeginModification();
     void FinishModification() noexcept;
+    void NotifyCleanFlagUpdater() noexcept;
+    void SlotDirtyStateChanged();
     void SlotBlockCacheReadOnly(PErrorCode error);
 
+    bool CanMarkClean_pl() const noexcept;
+    bool TryMarkClean_pl(bool synchronizeCache);
     void StartCleanFlagUpdater();
     static void* CleanFlagUpdaterEntry(void* argument);
     void* RunCleanFlagUpdater();
@@ -242,15 +248,16 @@ private:
     LFNDecodeBuffer m_LFNDecodeBuffer = {};
     bool            m_IsLFNDecodeBufferInUse = false;
 
-    KConditionVariable m_CleanFlagCondition;
-    thread_id       m_CleanFlagUpdaterThread = INVALID_HANDLE;
-    TimeValNanos    m_CleanCheckpointDeadline = TimeValNanos::infinit;
-    size_t          m_ActiveModificationCount = 0;
-    size_t          m_DeferredDeletionCount = 0;
-    bool            m_CanClearCleanFlag = false;
-    bool            m_CanMarkCleanFlag = false;
-    bool            m_IsVolumeMarkedClean = false;
-    bool            m_StopCleanFlagUpdater = false;
+    KSemaphore       m_CleanFlagEvent;
+    std::atomic_bool m_CleanFlagEventPending = false;
+    thread_id        m_CleanFlagUpdaterThread = INVALID_HANDLE;
+    TimeValNanos     m_CleanCheckpointDeadline = TimeValNanos::infinit;
+    size_t           m_ActiveModificationCount = 0;
+    size_t           m_DeferredDeletionCount = 0;
+    bool             m_CanClearCleanFlag = false;
+    bool             m_CanMarkCleanFlag = false;
+    bool             m_IsVolumeMarkedClean = false;
+    bool             m_StopCleanFlagUpdater = false;
 };
 
 

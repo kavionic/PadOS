@@ -1075,11 +1075,14 @@ bool KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags |= BCF_DIRTY;
             ++KBlockCache::s_DirtyBlockCount;
             KBlockCache::s_DirtyByteCount.fetch_add(m_BlockCache->m_BlockSize, std::memory_order_relaxed);
-            m_BlockCache->m_DirtyBlockCount.fetch_add(1, std::memory_order_relaxed);
+            const size_t previousDirtyBlockCount = m_BlockCache->m_DirtyBlockCount.fetch_add(1, std::memory_order_relaxed);
 
             m_DirtyTime = kget_monotonic_time();
             if (KBlockCache::s_DirtyBlockCount == 1) {
                 kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Cache dirty.");
+            }
+            if (previousDirtyBlockCount == 0) {
+                m_BlockCache->SignalDirtyBlockStateChanged(true);
             }
         }
         else
@@ -1096,13 +1099,16 @@ bool KCacheBlockHeader::SetDirty(bool isDirty)
         if (m_Flags & BCF_DIRTY)
         {
             m_Flags &= ~BCF_DIRTY;
-            kassert(m_BlockCache->m_DirtyBlockCount.load(std::memory_order_relaxed) != 0);
             kassert(KBlockCache::s_DirtyByteCount.load(std::memory_order_relaxed) >= m_BlockCache->m_BlockSize);
             --KBlockCache::s_DirtyBlockCount;
             KBlockCache::s_DirtyByteCount.fetch_sub(m_BlockCache->m_BlockSize, std::memory_order_relaxed);
-            m_BlockCache->m_DirtyBlockCount.fetch_sub(1, std::memory_order_relaxed);
+            const size_t previousDirtyBlockCount = m_BlockCache->m_DirtyBlockCount.fetch_sub(1, std::memory_order_relaxed);
+            kassert(previousDirtyBlockCount != 0);
             if (KBlockCache::s_DirtyBlockCount == 0) {
                 kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Cache clean.");
+            }
+            if (previousDirtyBlockCount == 1) {
+                m_BlockCache->SignalDirtyBlockStateChanged(false);
             }
         }
     }

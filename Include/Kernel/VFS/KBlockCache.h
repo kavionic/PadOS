@@ -151,6 +151,8 @@ public:
     inline bool Shutdown(bool flush) { if (flush) return Sync(); return true; }
 
     Signal<void, PErrorCode> SignalBecameReadOnly;
+    // Emitted while the cache lock is held. Slots must not call back into the cache.
+    Signal<void(bool isDirty)> SignalDirtyBlockStateChanged; // true for 0 -> 1, false for 1 -> 0.
         
 private:
     static constexpr size_t BLOCK_SIZE_ORDER_COUNT = 4;

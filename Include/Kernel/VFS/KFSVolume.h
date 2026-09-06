@@ -27,6 +27,7 @@
 
 #include "Ptr/PtrTarget.h"
 #include "Ptr/Ptr.h"
+#include "Signals/Signal.h"
 #include "Utils/IntrusiveList.h"
 #include "Utils/String.h"
 #include "Kernel/KMutex.h"
@@ -75,6 +76,9 @@ public:
 
     void InodeBecameDirty() noexcept;
     void InodeBecameClean() noexcept;
+
+    // Emitted while the VFS inode-map lock is held. Slots must not re-enter the VFS.
+    Signal<void(bool isDirty)> SignalDirtyInodeStateChanged; // true for 0 -> 1, false for 1 -> 0.
     
     fs_id            m_VolumeID;
     uint32_t         m_Flags;

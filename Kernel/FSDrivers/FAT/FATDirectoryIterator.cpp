@@ -242,7 +242,8 @@ static PString FATRawShortNameToUTF8(const char shortName[11], uint8_t shortName
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATRawShortNameToUTF8().");
 
-    PString destination;
+    char utf8Buffer[sizeof(FATDirectoryEntry::m_Filename) * UTF8_MAX_CHARACTER_LENGTH + 1];
+    size_t utf8Length = 0;
     const bool lowercaseBase = (shortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_BASE) != 0;
     const bool lowercaseExtension = (shortNameCaseFlags & FAT_SHORT_NAME_LOWERCASE_EXTENSION) != 0;
 
@@ -257,7 +258,7 @@ static PString FATRawShortNameToUTF8(const char shortName[11], uint8_t shortName
         if (lowercaseBase) {
             character = CP437CharacterToLower(character);
         }
-        destination.append_utf32_char(CP437ToUnicode(character));
+        utf8Length += unicode_to_utf8(utf8Buffer + utf8Length, CP437ToUnicode(character));
     }
 
     size_t extensionLength = 3;
@@ -267,17 +268,17 @@ static PString FATRawShortNameToUTF8(const char shortName[11], uint8_t shortName
 
     if (extensionLength != 0)
     {
-        destination += ".";
+        utf8Buffer[utf8Length++] = '.';
         for (size_t characterIndex = 8; characterIndex < 8 + extensionLength; ++characterIndex)
         {
             uint8_t character = uint8_t(shortName[characterIndex]);
             if (lowercaseExtension) {
                 character = CP437CharacterToLower(character);
             }
-            destination.append_utf32_char(CP437ToUnicode(character));
+            utf8Length += unicode_to_utf8(utf8Buffer + utf8Length, CP437ToUnicode(character));
         }
     }
-    return destination;
+    return PString(utf8Buffer, utf8Length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -101,6 +101,27 @@ TEST(PStringUnicode, UTF16ConversionHandlesSurrogatePairs)
     EXPECT_EQ(std::vector<wchar16_t>(destination, destination + std::size(destination)), std::vector<wchar16_t>(std::begin(expectedUTF16), std::end(expectedUTF16)));
 }
 
+TEST(PStringUnicode, UTF16ConversionReplacesUnpairedSurrogates)
+{
+    constexpr wchar16_t source[] = {0xd83d, 'A', 0xde00};
+    PString text;
+
+    text.assign_utf16(source, std::size(source));
+
+    EXPECT_EQ(text, "\xef\xbf\xbd" "A\xef\xbf\xbd");
+}
+
+TEST(PStringUnicode, UTF16ConversionPreservesEmbeddedNulls)
+{
+    constexpr wchar16_t source[] = {'A', 0, 'B'};
+    const std::string expected("A\0B", 3);
+    PString text;
+
+    text.assign_utf16(source, std::size(source));
+
+    EXPECT_EQ(text, expected);
+}
+
 TEST(PStringUnicode, UTF16OutputDoesNotWriteHalfASurrogatePair)
 {
     const PString text("\xf0\x9f\x98\x80");

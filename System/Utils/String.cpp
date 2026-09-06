@@ -32,6 +32,7 @@ PString PString::zero;
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <cmath>
 
 
@@ -42,6 +43,49 @@ PString PString::zero;
 PString::PString(const wchar16_t* utf16, size_t length)
 {
     assign_utf16(utf16, length);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static uint32_t DecodeUTF16Character(const wchar16_t* source, size_t length, size_t& sourceIndex) noexcept
+{
+    uint32_t character = uint32_t(source[sourceIndex++]);
+    if (is_utf16_high_surrogate(character))
+    {
+        if (sourceIndex < length && is_utf16_low_surrogate(source[sourceIndex]))
+        {
+            const uint32_t lowSurrogate = uint32_t(source[sourceIndex++]);
+            character = 0x10000 + ((character - 0xd800) << 10) + (lowSurrogate - 0xdc00);
+        }
+        else
+        {
+            character = UNICODE_REPLACEMENT_CHARACTER;
+        }
+    }
+    else if (is_utf16_low_surrogate(character))
+    {
+        character = UNICODE_REPLACEMENT_CHARACTER;
+    }
+    return character;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static size_t GetUTF8EncodedLength(uint32_t character) noexcept
+{
+    if (character < 0x80) {
+        return 1;
+    } else if (character < 0x800) {
+        return 2;
+    } else if (character < 0x10000) {
+        return 3;
+    } else {
+        return 4;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -64,28 +108,49 @@ PString& PString::assign_utf16(const wchar16_t* source, size_t length)
         }
     }
 
-    reserve(length);
-    for (size_t characterIndex = 0; characterIndex < length; ++characterIndex)
+    bool isASCII = true;
+    for (size_t sourceIndex = 0; sourceIndex < length; ++sourceIndex)
     {
-        uint32_t character = uint32_t(source[characterIndex]);
-        if (is_utf16_high_surrogate(character))
+        if (source[sourceIndex] >= 0x80)
         {
-            if (characterIndex + 1 < length && is_utf16_low_surrogate(source[characterIndex + 1]))
-            {
-                const uint32_t lowSurrogate = uint32_t(source[++characterIndex]);
-                character = 0x10000 + ((character - 0xd800) << 10) + (lowSurrogate - 0xdc00);
-            }
-            else
-            {
-                character = UNICODE_REPLACEMENT_CHARACTER;
-            }
+            isASCII = false;
+            break;
         }
-        else if (is_utf16_low_surrogate(character))
-        {
-            character = UNICODE_REPLACEMENT_CHARACTER;
-        }
-        append_utf32_char(character);
     }
+
+    if (isASCII)
+    {
+        resize_and_overwrite(length, [source, length](char* destination, size_t)
+        {
+            for (size_t sourceIndex = 0; sourceIndex < length; ++sourceIndex) {
+                destination[sourceIndex] = char(source[sourceIndex]);
+            }
+            return length;
+        });
+        return *this;
+    }
+
+    size_t utf8Length = 0;
+    for (size_t sourceIndex = 0; sourceIndex < length;)
+    {
+        const uint32_t character = DecodeUTF16Character(source, length, sourceIndex);
+        const size_t characterLength = GetUTF8EncodedLength(character);
+        if (characterLength > max_size() - utf8Length) {
+            throw std::length_error("UTF-16 string is too long");
+        }
+        utf8Length += characterLength;
+    }
+
+    resize_and_overwrite(utf8Length, [source, length](char* destination, size_t)
+    {
+        size_t destinationIndex = 0;
+        for (size_t sourceIndex = 0; sourceIndex < length;)
+        {
+            const uint32_t character = DecodeUTF16Character(source, length, sourceIndex);
+            destinationIndex += unicode_to_utf8(destination + destinationIndex, character);
+        }
+        return destinationIndex;
+    });
     return *this;
 }
 

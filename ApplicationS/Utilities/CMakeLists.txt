@@ -19,6 +19,7 @@ target_sources(PadOS_WindowManager PRIVATE
 	ls_usb.h
 	mkdir.cpp
 	mkdir.h
+	mount.cpp
 	mv.cpp
 	mv.h
 	rm.cpp
@@ -27,4 +28,5 @@ target_sources(PadOS_WindowManager PRIVATE
 	rmdir.h
 	top.cpp
 	top.h
+	umount.cpp
 )

@@ -548,6 +548,21 @@ PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const ch
     PERROR_CATCH_RET_CODE;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_unmount(const char* directoryPath)
+{
+    try
+    {
+        validate_user_read_string_trw(directoryPath, PATH_MAX);
+        kunmount_trw(directoryPath);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
 PErrorCode sys_pipe(int* pipefd)
 {
     try

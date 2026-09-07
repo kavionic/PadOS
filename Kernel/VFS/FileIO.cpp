@@ -176,6 +176,30 @@ void kmount_trw(const char* devicePath, const char* directoryPath, const char* f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void kunmount_trw(const char* directoryPath)
+{
+    Ptr<KInode> rootNode = klocate_inode_by_path_trw(
+        KLocateFlag::FollowSymlinks,
+        nullptr,
+        directoryPath,
+        strlen(directoryPath));
+    Ptr<KFSVolume> volume = rootNode->m_Volume;
+
+    if (rootNode != volume->m_RootNode || volume->m_MountPoint == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    Ptr<KFilesystem> filesystem = volume->m_Filesystem;
+    if (filesystem == nullptr) {
+        PERROR_THROW_CODE(PErrorCode(ENODEV));
+    }
+    filesystem->Unmount(volume);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle)
 {
     const KIOContext& ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);

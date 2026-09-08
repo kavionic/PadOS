@@ -51,11 +51,13 @@ public:
     bool SendControlRequest(uint8_t deviceAddr, const USB_ControlRequest& request, void* buff, USBHostControlRequestCallback&& callback);
     TimeValNanos GetRequestDeadline() const { return m_RequestDeadline; }
     bool HandleRequestTimeout(TimeValNanos currentTime);
+    void CancelDeviceRequests(uint8_t deviceAddress);
 
     bool ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
     bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, PString& outString, USBHostControlRequestCallback&& callback);
     bool ReqSetAddress(uint8_t deviceAddr, USBHostControlRequestCallback&& callback);
     bool ReqSetConfiguration(uint8_t deviceAddr, uint16_t configIndex, USBHostControlRequestCallback&& callback);
+    bool ReqClearEndpointHalt(uint8_t deviceAddress, uint8_t endpointAddress, USBHostControlRequestCallback&& callback);
     bool ReqGetHubDescriptor(uint8_t deviceAddr, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
     bool ReqGetHubPortStatus(uint8_t deviceAddr, uint8_t portIndex, USB_HubPortStatus* status, USBHostControlRequestCallback&& callback);
     bool ReqSetHubPortFeature(uint8_t deviceAddr, uint8_t portIndex, USB_HubFeatureSelector feature, USBHostControlRequestCallback&& callback);
@@ -78,7 +80,8 @@ private:
     bool QueueControlRequest(uint8_t deviceAddr, uint8_t callbackDeviceAddr, const USB_ControlRequest& request, void* buffer, USBHostControlRequestCallback&& callback);
     bool StartControlRequest(ControlRequest&& request);
     void StartNextQueuedRequest();
-    void CancelCurrentTransfer();
+    bool CancelCurrentTransfer();
+    void HandleCancellationFailure();
     void LogRequestError(const char* stage);
     void HandleRequestError();
     void HandleRequestCompletion(bool status);
@@ -97,6 +100,7 @@ private:
     USB_PipeIndex       m_PipeOut               = USB_INVALID_PIPE;
     size_t              m_PipeSize              = 0;
     uint8_t             m_ErrorCount            = 0;
+    uint8_t             m_RequestDeviceAddress  = 0;
     uint8_t             m_CurrentDeviceAddress  = 0;
     size_t              m_Length                = 0;
     uint8_t*            m_Buffer                = nullptr;

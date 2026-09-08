@@ -13,5 +13,6 @@ if(PADOS_MODULE_USB_HOST)
 	USBHostClassCDC.cpp
 	USBHostHIDInterface.cpp
 	USBHostClassHID.cpp
+	USBHostClassMSC.cpp
 	)
 endif()

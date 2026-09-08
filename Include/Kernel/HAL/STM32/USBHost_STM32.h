@@ -23,6 +23,7 @@
 #include <strings.h>
 #include <System/Platform.h>
 #include <System/Sections.h>
+#include <Kernel/KConditionVariable.h>
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/USB/USBCommon.h>
 
@@ -93,8 +94,11 @@ struct USBHostChannelData
     size_t                  XferSize;                   // Current OTG Channel transfer size.
     size_t                  RequestedTransferLength;    // Transfer length as requested by user.
     size_t                  BytesTransferred;           // Bytes transferred so far during the transaction.
+    USB_URBState            PendingHaltURBState = USB_URBState::Idle; // Terminal state reported after the channel halt completes.
+    bool                    TransferActive = false;     // True while the current transfer may be continued internally.
+    bool                    CancelHaltPending = false;  // True while a synchronous cancellation waits for channel halt.
     bool                    StartOnNextSOF;             // Deferred start for frame-sensitive transfers.
-    bool                    RetryOnNextSOF;             // Deferred retry requested from channel halt handling.
+    bool                    RetryOnNextSOF = false;      // Deferred retry requested from channel halt handling.
     bool                    ActivateOnNextSOF;          // Deferred continuation for frame-sensitive IN transfers.
     bool                    ToggleIn;                   // IN transfer current toggle flag.
     bool                    ToggleOut;                  // OUT transfer current toggle flag.
@@ -110,6 +114,8 @@ class USBHost_STM32
 {
 public:
     static constexpr uint32_t CHANNEL_COUNT = 16;
+
+    USBHost_STM32();
 
     bool Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusSense);
     void Shutdown();
@@ -143,6 +149,7 @@ private:
     void ActivateChannel(USB_PipeIndex pipeIndex);
   
     bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
+    bool HaltChannelInternal(USB_PipeIndex pipeIndex);
     bool DoPing(USB_PipeIndex pipeIndex);
 
 
@@ -151,6 +158,7 @@ private:
     IRQResult HandleIRQ();
     void HandleChannelInIRQ(USB_PipeIndex pipeIndex);
     void HandleChannelOutIRQ(USB_PipeIndex pipeIndex);
+    void DiscardFromFIFO(size_t length);
     void HandleRxFIFONotEmptyIRQ();
     void HandlePortIRQ();
 
@@ -164,6 +172,7 @@ private:
     volatile uint32_t*          m_PCGCCTL = nullptr;
 
     USBHostChannelData          m_ChannelStates[CHANNEL_COUNT];
+    KConditionVariable          m_ChannelHaltCondition;
 };
 
 

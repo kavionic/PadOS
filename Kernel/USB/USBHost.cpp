@@ -312,11 +312,9 @@ void* USBHost::Run()
             switch (event.EventID)
             {
                 case USBHostEventID::ReEnumerate:
-                    if (IsPortEnabled()) {
-                        Stop();
-                    }
-                    RestartDeviceInitialization();
-                    break;
+                    m_PortEnabled = false;
+                    m_DeviceAttachDeadline = TimeValNanos::infinit;
+                    [[fallthrough]];
                 case USBHostEventID::DeviceConnected:
                     if (!m_DeviceAttachDeadline.IsInfinit() && !m_PortEnabled) {
                         break;
@@ -359,26 +357,24 @@ void* USBHost::Run()
                     HandleDeviceDisconnected();
                     break;
                 case USBHostEventID::URBStateChanged:
-                    HandleURBStateChanged(event.URBStateChanged.PipeIndex, event.URBStateChanged.URBState, event.URBStateChanged.TransferLength);
+                    HandleURBStateChanged(event.PipeIndex, event.URBState, event.TransferLength, event.SubmissionGeneration);
                     break;
                 case USBHostEventID::None:
                     break;
             }
         }
-        else
+
+        const TimeValNanos currentTime = kget_monotonic_time();
+        if (m_ControlHandler.HandleRequestTimeout(currentTime)) {
+            continue;
+        }
+        if (!m_DeviceAttachDeadline.IsInfinit() && currentTime > m_DeviceAttachDeadline)
         {
-            const TimeValNanos currentTime = kget_monotonic_time();
-            if (m_ControlHandler.HandleRequestTimeout(currentTime)) {
-                continue;
-            }
-            if (!m_DeviceAttachDeadline.IsInfinit() && currentTime > m_DeviceAttachDeadline)
-            {
-                m_DeviceAttachDeadline = TimeValNanos::infinit;
-                if (++m_ResetErrorCount > 3) {
-                    kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
-                } else {
-                    RestartDeviceInitialization();
-                }
+            m_DeviceAttachDeadline = TimeValNanos::infinit;
+            if (++m_ResetErrorCount > 3) {
+                kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
+            } else {
+                RestartDeviceInitialization();
             }
         }
     }
@@ -390,7 +386,7 @@ void* USBHost::Run()
 
 void USBHost::RestartDeviceInitialization()
 {
-    PushEvent(USBHostEventID::DeviceConnected, true);
+    PushEvent(USBHostEventID::ReEnumerate, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -505,12 +501,14 @@ bool USBHost::CancelPipe(USB_PipeIndex pipeIndex)
     }
 
     pipe->TransactionCallback = nullptr;
-    pipe->PendingIRQTransferLength = 0;
-    pipe->PendingIRQURBState = USB_URBState::Idle;
-    pipe->HasPendingIRQURBState = false;
     const bool result = m_Driver->HaltChannel(pipeIndex);
 
-    pipe->URBState = USB_URBState::Idle;
+    ++pipe->SubmissionGeneration;
+    pipe->PendingIRQTransferLength = 0;
+    pipe->PendingIRQSubmissionGeneration = 0;
+    pipe->PendingIRQURBState = USB_URBState::Idle;
+    pipe->HasPendingIRQURBState = false;
+    pipe->URBState = (result) ? USB_URBState::Idle : USB_URBState::Error;
     return result;
 }
 
@@ -632,7 +630,9 @@ bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
     if (pipe != nullptr)
     {
+        ++pipe->SubmissionGeneration;
         pipe->PendingIRQTransferLength = 0;
+        pipe->PendingIRQSubmissionGeneration = 0;
         pipe->PendingIRQURBState = USB_URBState::Idle;
         pipe->HasPendingIRQURBState = false;
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
@@ -647,6 +647,11 @@ bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
             ++pipe->Diagnostics.SubmitFailureCount;
         }
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        if (!result)
+        {
+            pipe->TransactionCallback = nullptr;
+            pipe->URBState = USB_URBState::Idle;
+        }
         return result;
     }
     return false;
@@ -750,6 +755,7 @@ USB_PipeIndex USBHost::AllocPipe(uint8_t endpointAddr)
             m_Pipes[i].EndpointType = USB_TransferType::CONTROL;
             m_Pipes[i].MaxPacketSize = 0;
             m_Pipes[i].PendingIRQTransferLength = 0;
+            m_Pipes[i].PendingIRQSubmissionGeneration = 0;
             m_Pipes[i].PendingIRQURBState = USB_URBState::Idle;
             m_Pipes[i].URBState = USB_URBState::Idle;
             m_Pipes[i].HasPendingIRQURBState = false;
@@ -782,7 +788,9 @@ void USBHost::FreePipe(USB_PipeIndex pipeIndex)
         m_Pipes[pipeIndex].Speed = USB_Speed::FULL;
         m_Pipes[pipeIndex].EndpointType = USB_TransferType::CONTROL;
         m_Pipes[pipeIndex].MaxPacketSize = 0;
+        ++m_Pipes[pipeIndex].SubmissionGeneration;
         m_Pipes[pipeIndex].PendingIRQTransferLength = 0;
+        m_Pipes[pipeIndex].PendingIRQSubmissionGeneration = 0;
         m_Pipes[pipeIndex].PendingIRQURBState = USB_URBState::Idle;
         m_Pipes[pipeIndex].URBState = USB_URBState::Idle;
         m_Pipes[pipeIndex].HasPendingIRQURBState = false;
@@ -929,6 +937,7 @@ void USBHost::CloseDevice(uint8_t deviceAddr)
     if (device->m_IsHub) {
         m_HubHandler.StopInterruptReceive(*device);
     }
+    m_ControlHandler.CancelDeviceRequests(deviceAddr);
     CloseDeviceClassDrivers(deviceAddr);
     m_DeviceRegistry.RemoveDevice(deviceAddr);
     *device = USBDeviceNode();
@@ -974,7 +983,7 @@ bool USBHost::PushEvent(const USBHostEvent& event, bool clearQueue)
 
     if (event.EventID == USBHostEventID::URBStateChanged)
     {
-        USBHostPipeData* pipe = GetPipeData(event.URBStateChanged.PipeIndex);
+        USBHostPipeData* pipe = GetPipeData(event.PipeIndex);
         if (pipe != nullptr)
         {
             ++pipe->Diagnostics.EventQueuedCount;
@@ -1006,6 +1015,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
     m_Mutex.Unlock();
 
     bool result;
+    bool readQueuedEvent = false;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         while (m_EventQueue.GetLength() == 0 && !HasPendingURBStateChanged())
@@ -1020,15 +1030,16 @@ bool USBHost::PopEvent(USBHostEvent& event)
                 }
             }
         }
-        const bool readQueuedEvent = m_EventQueue.Read(&event, 1) == 1;
-        result = readQueuedEvent;
-        if (!result) {
-            result = PopPendingURBStateChanged(event);
+        result = PopPendingURBStateChanged(event);
+        if (!result)
+        {
+            readQueuedEvent = m_EventQueue.Read(&event, 1) == 1;
+            result = readQueuedEvent;
         }
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (readQueuedEvent && event.EventID == USBHostEventID::URBStateChanged)
         {
-            USBHostPipeData* pipe = GetPipeData(event.URBStateChanged.PipeIndex);
+            USBHostPipeData* pipe = GetPipeData(event.PipeIndex);
             if (pipe != nullptr) {
                 ++pipe->Diagnostics.EventDequeuedCount;
             }
@@ -1066,14 +1077,16 @@ bool USBHost::PopPendingURBStateChanged(USBHostEvent& event)
         if (pipe.Claimed && pipe.HasPendingIRQURBState)
         {
             event = USBHostEvent(USBHostEventID::URBStateChanged);
-            event.URBStateChanged.PipeIndex = pipeIndex;
-            event.URBStateChanged.TransferLength = pipe.PendingIRQTransferLength;
-            event.URBStateChanged.URBState = pipe.PendingIRQURBState;
+            event.PipeIndex = static_cast<uint16_t>(pipeIndex);
+            event.TransferLength = pipe.PendingIRQTransferLength;
+            event.SubmissionGeneration = pipe.PendingIRQSubmissionGeneration;
+            event.URBState = pipe.PendingIRQURBState;
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
             ++pipe.Diagnostics.PendingIRQDequeuedCount;
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
             pipe.PendingIRQTransferLength = 0;
+            pipe.PendingIRQSubmissionGeneration = 0;
             pipe.PendingIRQURBState = USB_URBState::Idle;
             pipe.HasPendingIRQURBState = false;
             return true;
@@ -1435,17 +1448,18 @@ void USBHost::HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength)
+void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength, uint32_t submissionGeneration)
 {
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
+    if (pipe == nullptr || pipe->SubmissionGeneration != submissionGeneration) {
+        return;
+    }
 
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-    if (pipe != nullptr) {
-        IncrementUSBHostPipeHandledCounter(pipe->Diagnostics, urbState);
-    }
+    IncrementUSBHostPipeHandledCounter(pipe->Diagnostics, urbState);
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
-    if (pipe != nullptr && pipe->TransactionCallback)
+    if (pipe->TransactionCallback)
     {
         if (urbState == USB_URBState::Done || urbState == USB_URBState::Error || urbState == USB_URBState::Stall)
         {
@@ -1461,7 +1475,7 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
             callback(pipeIndex, urbState, transferLength);
         }
     }
-    else if (pipe != nullptr)
+    else
     {
         pipe->URBState = USB_URBState::Idle;
     }
@@ -1516,33 +1530,38 @@ void USBHost::IRQStartOfFrame()
 
 void USBHost::IRQPipeURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length)
 {
+    uint32_t submissionGeneration = 0;
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
         USBHostPipeData* pipe = GetPipeData(pipeIndex);
-        if (pipe != nullptr)
+        if (pipe == nullptr) {
+            return;
+        }
+
+        submissionGeneration = pipe->SubmissionGeneration;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        IncrementUSBHostPipeIRQCounter(pipe->Diagnostics, urbState);
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        if (IsTerminalURBState(urbState))
         {
+            pipe->PendingIRQTransferLength = length;
+            pipe->PendingIRQSubmissionGeneration = submissionGeneration;
+            pipe->PendingIRQURBState = urbState;
+            pipe->HasPendingIRQURBState = true;
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            IncrementUSBHostPipeIRQCounter(pipe->Diagnostics, urbState);
+            ++pipe->Diagnostics.PendingIRQStoredCount;
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            if (IsTerminalURBState(urbState))
-            {
-                pipe->PendingIRQTransferLength = length;
-                pipe->PendingIRQURBState = urbState;
-                pipe->HasPendingIRQURBState = true;
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-                ++pipe->Diagnostics.PendingIRQStoredCount;
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-                m_EventQueueCondition.WakeupAll();
-                return;
-            }
+            m_EventQueueCondition.WakeupAll();
+            return;
         }
     }
 
     USBHostEvent event(USBHostEventID::URBStateChanged);
 
-    event.URBStateChanged.PipeIndex         = pipeIndex;
-    event.URBStateChanged.TransferLength    = length;
-    event.URBStateChanged.URBState          = urbState;
+    event.PipeIndex            = static_cast<uint16_t>(pipeIndex);
+    event.TransferLength       = length;
+    event.SubmissionGeneration = submissionGeneration;
+    event.URBState             = urbState;
 
     PushEvent(event);
 }

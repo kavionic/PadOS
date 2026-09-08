@@ -96,6 +96,8 @@ struct USBHostPipeData
     USB_TransferType        EndpointType = USB_TransferType::CONTROL;
     size_t                  MaxPacketSize = 0;
     size_t                  PendingIRQTransferLength = 0;
+    uint32_t                PendingIRQSubmissionGeneration = 0;
+    uint32_t                SubmissionGeneration = 0;
     USB_URBState            PendingIRQURBState = USB_URBState::Idle;
     USB_URBState            URBState = USB_URBState::Idle;
     bool                    HasPendingIRQURBState = false;
@@ -137,18 +139,14 @@ struct USBHostEvent
 {
     USBHostEvent(USBHostEventID eventID = USBHostEventID::None) : EventID(eventID) {}
 
-    USBHostEventID EventID;
-
-    union
-    {
-        struct
-        {
-            USB_PipeIndex   PipeIndex;
-            USB_URBState    URBState;
-            size_t          TransferLength;
-        } URBStateChanged;
-    };
+    size_t          TransferLength = 0;
+    uint32_t        SubmissionGeneration = 0;
+    USBHostEventID  EventID;
+    USB_URBState    URBState = USB_URBState::Idle;
+    uint16_t        PipeIndex = 0;
 };
+
+static_assert(sizeof(USBHostEvent) == 12);
 
 
 class USBHost : public KThread, public SignalTarget
@@ -243,7 +241,7 @@ private:
     void HandleEnumerationDone(bool result, uint8_t deviceAddr);
     void HandleSetConfigurationResult(bool result, uint8_t deviceAddr);
     void HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr);
-    void HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength);
+    void HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength, uint32_t submissionGeneration);
 
     bool IRQDeviceConnected();
     void IRQDeviceDisconnected();

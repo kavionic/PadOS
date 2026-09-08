@@ -49,6 +49,7 @@ void USBHostControl::Reset()
 
     m_PipeSize             = 64;
     m_ErrorCount           = 0;
+    m_RequestDeviceAddress = 0;
     m_CurrentDeviceAddress = 0;
     m_Length               = 0;
     m_Buffer               = nullptr;
@@ -135,9 +136,55 @@ bool USBHostControl::HandleRequestTimeout(TimeValNanos currentTime)
         length
     );
 
-    CancelCurrentTransfer();
-    HandleRequestCompletion(false);
+    if (CancelCurrentTransfer()) {
+        HandleRequestCompletion(false);
+    } else {
+        HandleCancellationFailure();
+    }
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostControl::CancelDeviceRequests(uint8_t deviceAddress)
+{
+    std::erase_if(
+        m_RequestQueue,
+        [deviceAddress](const ControlRequest& request) noexcept
+        {
+            return request.DeviceAddress == deviceAddress || request.CallbackDeviceAddress == deviceAddress;
+        }
+    );
+
+    if (!m_RequestActive ||
+        (m_RequestDeviceAddress != deviceAddress && m_CurrentDeviceAddress != deviceAddress)) {
+        return;
+    }
+
+    const bool cancellationResult = CancelCurrentTransfer();
+
+    m_ErrorCount = 0;
+    m_RequestDeviceAddress = 0;
+    m_CurrentDeviceAddress = 0;
+    m_Length = 0;
+    m_Buffer = nullptr;
+    m_RequestCallback = nullptr;
+    m_RequestActive = false;
+    m_RequestDeadline = TimeValNanos::infinit;
+
+    if (cancellationResult)
+    {
+        StartNextQueuedRequest();
+    }
+    else
+    {
+        m_RequestQueue.clear();
+        if (m_HostHandler != nullptr) {
+            m_HostHandler->ReEnumerate();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -213,6 +260,24 @@ bool USBHostControl::ReqSetConfiguration(uint8_t deviceAddr, uint16_t configInde
         0
     );
     return SendControlRequest(deviceAddr, request, nullptr, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::ReqClearEndpointHalt(uint8_t deviceAddress, uint8_t endpointAddress, USBHostControlRequestCallback&& callback)
+{
+    USB_ControlRequest request(
+        USB_RequestRecipient::ENDPOINT,
+        USB_RequestType::STANDARD,
+        USB_RequestDirection::HOST_TO_DEVICE,
+        std::to_underlying(USB_RequestCode::CLEAR_FEATURE),
+        std::to_underlying(USB_RequestFeatureSelector::ENDPOINT_HALT),
+        endpointAddress,
+        0
+    );
+    return SendControlRequest(deviceAddress, request, nullptr, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -308,6 +373,7 @@ bool USBHostControl::StartControlRequest(ControlRequest&& request)
     m_Setup                 = request.Request;
     m_Buffer                = static_cast<uint8_t*>(request.Buffer);
     m_Length                = PLittleEndianToHost(request.Request.wLength);
+    m_RequestDeviceAddress  = request.DeviceAddress;
     m_CurrentDeviceAddress  = request.CallbackDeviceAddress;
     m_ErrorCount            = 0;
     m_RequestCallback       = std::move(request.Callback);
@@ -329,8 +395,11 @@ bool USBHostControl::StartControlRequest(ControlRequest&& request)
     {
         m_ErrorCount = 0;
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Pipe not idle.");
-        CancelCurrentTransfer();
-        HandleRequestCompletion(false);
+        if (CancelCurrentTransfer()) {
+            HandleRequestCompletion(false);
+        } else {
+            HandleCancellationFailure();
+        }
         return false;
     }
     if (!m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, p_bind_method(this, &USBHostControl::ControlSentCallback)))
@@ -359,13 +428,40 @@ void USBHostControl::StartNextQueuedRequest()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHostControl::CancelCurrentTransfer()
+bool USBHostControl::CancelCurrentTransfer()
 {
-    if (m_HostHandler != nullptr)
-    {
-        m_HostHandler->CancelPipe(m_PipeIn);
-        m_HostHandler->CancelPipe(m_PipeOut);
+    if (m_HostHandler == nullptr) {
+        return false;
     }
+
+    const bool inputCanceled = m_HostHandler->CancelPipe(m_PipeIn);
+    const bool outputCanceled = m_HostHandler->CancelPipe(m_PipeOut);
+    return inputCanceled && outputCanceled;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostControl::HandleCancellationFailure()
+{
+    m_ErrorCount = 0;
+    m_RequestDeadline = TimeValNanos::infinit;
+    m_RequestQueue.clear();
+
+    USBHostControlRequestCallback callback = std::move(m_RequestCallback);
+    m_RequestCallback = nullptr;
+
+    // Keep requests queued while the failure callback runs, then discard them in favor of controller recovery.
+    m_RequestActive = true;
+    if (m_HostHandler != nullptr) {
+        m_HostHandler->ReEnumerate();
+    }
+    if (callback) {
+        callback(false, m_CurrentDeviceAddress);
+    }
+    m_RequestActive = false;
+    m_RequestQueue.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -411,8 +507,11 @@ void USBHostControl::HandleRequestError()
     {
         m_ErrorCount = 0;
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Device not responding.");
-        CancelCurrentTransfer();
-        HandleRequestCompletion(false);
+        if (CancelCurrentTransfer()) {
+            HandleRequestCompletion(false);
+        } else {
+            HandleCancellationFailure();
+        }
     }
 }
 

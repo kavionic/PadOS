@@ -8,5 +8,6 @@ target_sources(PadOS_Kernel PRIVATE
 	USBHostCDCChannel.h
 	USBHostClassCDC.h
 	USBHostClassHID.h
+	USBHostClassMSC.h
 	USBHostHIDInterface.h
 )

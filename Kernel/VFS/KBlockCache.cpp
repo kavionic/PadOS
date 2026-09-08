@@ -62,6 +62,7 @@ PIntrusiveList<KCacheBlockHeader>   KBlockCache::s_BlockLRULists[KBlockCache::BL
 KMutex                              KBlockCache::s_Mutex("bcache_mutex", PEMutexRecursionMode_RaiseError);
 KConditionVariable                  KBlockCache::s_FlushingRequestConditionVar("bcache_flush_req");
 KConditionVariable                  KBlockCache::s_FlushingDoneConditionVar("bcache_flush_done");
+bool                                KBlockCache::s_BlockWritebackInProgress;
 std::atomic_int                     KBlockCache::s_DirtyBlockCount;
 std::atomic_size_t                  KBlockCache::s_DirtyByteCount;
 size_t                              KBlockCache::s_PendingReadOnlySignalCount;
@@ -733,6 +734,68 @@ size_t KBlockCache::TryAllocateReadAheadBlocks(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t KBlockCache::PrepareWritebackBatch(
+    KCacheBlockHeader* requiredBlock, KCacheBlockHeader** blockList)
+{
+    kassert(s_Mutex.IsLocked());
+    kassert(requiredBlock != nullptr);
+    kassert(blockList != nullptr);
+    kassert(requiredBlock->m_BlockCache != nullptr);
+    kassert(requiredBlock->IsDirty());
+    kassert(!requiredBlock->IsFlushing());
+
+    KBlockCache* targetCache = requiredBlock->m_BlockCache;
+    PIntrusiveList<KCacheBlockHeader>& blockLRUList = s_BlockLRULists[targetCache->m_BlockSizeOrder];
+    size_t blockCount = 0;
+
+    requiredBlock->SetFlushRequested(true);
+    blockList[blockCount++] = requiredBlock;
+
+    for (KCacheBlockHeader* block : blockLRUList)
+    {
+        if (blockCount == MAX_FLUSH_BLOCK_COUNT) {
+            break;
+        }
+        if (block != requiredBlock &&
+            block->m_BlockCache == targetCache &&
+            block->IsDirty() &&
+            !block->IsFlushing())
+        {
+            block->SetFlushRequested(true);
+            blockList[blockCount++] = block;
+        }
+    }
+    return blockCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KBlockCache::FlushRequiredBlock(KCacheBlockHeader* requiredBlock)
+{
+    kassert(s_Mutex.IsLocked());
+    kassert(requiredBlock != nullptr);
+    kassert(requiredBlock->IsDirty());
+
+    requiredBlock->SetFlushRequested(true);
+    if (s_BlockWritebackInProgress)
+    {
+        s_FlushingRequestConditionVar.WakeupAll();
+        s_FlushingDoneConditionVar.Wait(s_Mutex);
+    }
+    else
+    {
+        KCacheBlockHeader* blockList[MAX_FLUSH_BLOCK_COUNT];
+        const size_t blockCount = PrepareWritebackBatch(requiredBlock, blockList);
+        FlushBlockListSerialized(blockList, blockCount);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 KCacheBlockHeader* KBlockCache::AllocateBlock(size_t blockSize, size_t blockSizeOrder)
 {
     kassert(s_Mutex.IsLocked());
@@ -771,20 +834,18 @@ KCacheBlockHeader* KBlockCache::AllocateBlock(size_t blockSize, size_t blockSize
         }
         if (reclaimableBuffer != nullptr)
         {
-            bool needsWriteback = false;
+            KCacheBlockHeader* writebackCandidate = nullptr;
             for (size_t blockIndex = 0; blockIndex < reclaimableBuffer->m_BlockCount; ++blockIndex)
             {
                 KCacheBlockHeader* candidate = &reclaimableBuffer->m_Blocks[blockIndex];
-                if (candidate->m_BlockCache != nullptr && candidate->IsDirty())
-                {
-                    candidate->SetFlushRequested(true);
-                    needsWriteback = true;
+                if (candidate->m_BlockCache != nullptr && candidate->IsDirty()) {
+                    writebackCandidate = candidate;
+                    break;
                 }
             }
-            if (needsWriteback)
+            if (writebackCandidate != nullptr)
             {
-                s_FlushingRequestConditionVar.WakeupAll();
-                s_FlushingDoneConditionVar.Wait(s_Mutex);
+                FlushRequiredBlock(writebackCandidate);
                 continue;
             }
 
@@ -803,9 +864,7 @@ KCacheBlockHeader* KBlockCache::AllocateBlock(size_t blockSize, size_t blockSize
         {
             if (sameSizeCandidate->IsDirty())
             {
-                sameSizeCandidate->SetFlushRequested(true);
-                s_FlushingRequestConditionVar.WakeupAll();
-                s_FlushingDoneConditionVar.Wait(s_Mutex);
+                FlushRequiredBlock(sameSizeCandidate);
                 continue;
             }
             ReuseBlock(sameSizeCandidate);
@@ -1020,8 +1079,19 @@ bool KBlockCache::Sync()
 
     FlushInternal();
 
-    while (m_DirtyBlockCount.load(std::memory_order_relaxed) != 0) {
-        s_FlushingDoneConditionVar.Wait(s_Mutex);
+    while (m_DirtyBlockCount.load(std::memory_order_relaxed) != 0)
+    {
+        KCacheBlockHeader* dirtyBlock = nullptr;
+        for (const auto& blockEntry : m_BlockMap)
+        {
+            if (blockEntry.second->IsDirty())
+            {
+                dirtyBlock = blockEntry.second;
+                break;
+            }
+        }
+        kassert(dirtyBlock != nullptr);
+        FlushRequiredBlock(dirtyBlock);
     }
     return m_WriteError == PErrorCode::Success;
 }
@@ -1271,6 +1341,43 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
     }
     return anythingProcessed;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KBlockCache::FlushBlockListSerialized(KCacheBlockHeader** blockList, size_t blockCount)
+{
+    kassert(s_Mutex.IsLocked());
+    kassert(!s_BlockWritebackInProgress);
+    kassert(blockList != nullptr);
+    kassert(blockCount != 0);
+    kassert(blockCount <= MAX_FLUSH_BLOCK_COUNT);
+
+    s_BlockWritebackInProgress = true;
+    for (size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+    {
+        kassert(blockList[blockIndex] != nullptr);
+        kassert(!blockList[blockIndex]->IsFlushing());
+        blockList[blockIndex]->SetIsFlushing(true);
+    }
+
+    PScopeExit finishFlushing([blockList, blockCount]()
+    {
+        for (size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+        {
+            KCacheBlockHeader* block = blockList[blockIndex];
+            block->SetIsFlushing(false);
+            if (block->IsDiscardRequested() && block->m_UseCount == 0) {
+                block->m_BlockCache->ReleaseBlock(block);
+            }
+        }
+        s_BlockWritebackInProgress = false;
+        s_FlushingDoneConditionVar.WakeupAll();
+    });
+    return FlushBlockList(blockList, blockCount);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -1288,7 +1395,7 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
         {
             try
             {
-                if (s_DirtyBlockCount > 0)
+                if (s_DirtyBlockCount > 0 && !s_BlockWritebackInProgress)
                 {
                     static KCacheBlockHeader* blockList[MAX_FLUSH_BLOCK_COUNT];
                     size_t blocksFlushed = 0;
@@ -1314,9 +1421,7 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                                     targetCache = block->m_BlockCache;
                                     selectedBlockSizeOrder = blockSizeOrder;
                                 }
-                                if (block->m_BlockCache == targetCache)
-                                {
-                                    block->SetIsFlushing(true);
+                                if (block->m_BlockCache == targetCache) {
                                     blockList[blocksFlushed++] = *block;
                                 }
                             }
@@ -1325,22 +1430,7 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                     if (selectedBlockSizeOrder != BLOCK_SIZE_ORDER_COUNT) {
                         s_NextFlushBlockSizeOrder = (selectedBlockSizeOrder + 1) % BLOCK_SIZE_ORDER_COUNT;
                     }
-                    {
-                        PScopeExit finishFlushing([&blocksFlushed]()
-                        {
-                            for (size_t blockIndex = 0; blockIndex < blocksFlushed; ++blockIndex)
-                            {
-                                KCacheBlockHeader* block = blockList[blockIndex];
-                                block->SetIsFlushing(false);
-                                if (block->IsDiscardRequested() && block->m_UseCount == 0) {
-                                    block->m_BlockCache->ReleaseBlock(block);
-                                }
-                            }
-                            s_FlushingDoneConditionVar.WakeupAll();
-                        });
-
-                        anythingProcessed = FlushBlockList(blockList, blocksFlushed);
-                    }
+                    anythingProcessed = FlushBlockListSerialized(blockList, blocksFlushed);
                 }
 
                 if (s_PendingReadOnlySignalCount != 0)

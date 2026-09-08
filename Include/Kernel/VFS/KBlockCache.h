@@ -187,6 +187,8 @@ private:
     static void ReclaimBuffer(KCacheBuffer* buffer);
     static size_t TryAllocateReadAheadBlocks(
         size_t blockSize, size_t blockSizeOrder, KCacheBlockHeader** blocks, size_t blockCount);
+    static size_t PrepareWritebackBatch(KCacheBlockHeader* requiredBlock, KCacheBlockHeader** blockList);
+    static void FlushRequiredBlock(KCacheBlockHeader* requiredBlock);
     static KCacheBlockHeader* AllocateBlock(size_t blockSize, size_t blockSizeOrder);
     bool DetachBlocks(bool waitForBusyBlocks, bool discardDirtyBlocks);
     void AbandonBlockWriteback(KCacheBlockHeader* block);
@@ -197,6 +199,7 @@ private:
 
     static bool  CompareCacheBlockOrder(const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs);
     static bool  FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
+    static bool  FlushBlockListSerialized(KCacheBlockHeader** blockList, size_t blockCount);
     static void* DiskCacheFlusher(void* arg);
 
 #ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
@@ -214,6 +217,7 @@ private:
     static KMutex                           s_Mutex;
     static KConditionVariable               s_FlushingRequestConditionVar;
     static KConditionVariable               s_FlushingDoneConditionVar;
+    static bool                             s_BlockWritebackInProgress;
     static std::atomic_int                  s_DirtyBlockCount;
     static std::atomic_size_t               s_DirtyByteCount;
     static size_t                           s_PendingReadOnlySignalCount;

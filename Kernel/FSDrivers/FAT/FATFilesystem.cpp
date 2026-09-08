@@ -346,7 +346,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 
     // open read-only for now
 
-    int deviceFile = kopen_trw(devicePath, O_RDONLY);
+    int deviceFile = kopen_trw(devicePath, O_KERNEL | O_RDONLY);
 
     PScopeFail deviceFileGuard([&deviceFile]()
     {
@@ -398,7 +398,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         // reopen it with read/write permissions
         kclose(deviceFile);
         deviceFile = -1;
-        deviceFile = kopen_trw(devicePath, O_RDWR);
+        deviceFile = kopen_trw(devicePath, O_KERNEL | O_RDWR);
     }
 
 

@@ -966,7 +966,7 @@ void FATVolume::StartCleanFlagUpdater()
 
     if (m_CleanFlagUpdaterThread == INVALID_HANDLE)
     {
-        PThreadAttribs threadAttributes("fat_clean_flag", 0, PThreadDetachState_Joinable, 4096);
+        PThreadAttribs threadAttributes("fat_clean_flag", 0, PThreadDetachState_Joinable);
         m_CleanFlagUpdaterThread = kthread_spawn_trw(
             &threadAttributes,
             nullptr,

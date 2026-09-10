@@ -190,6 +190,8 @@ thread_id kthread_spawn_trw(
     Ptr<KProcess> process;
     if (flags.Has(KSpawnThreadFlag::SpawnProcess)) {
         process = ptr_new<KProcess>(*pidNode, ptr_tmp_cast(&kget_current_process()), spawnAttr, (threadAttr != nullptr && threadAttr->Name != nullptr) ? threadAttr->Name : "");
+    } else if (flags.Has(KSpawnThreadFlag::Privileged)) {
+        process = ptr_tmp_cast(gk_KernelProcess);
     } else {
         process = ptr_tmp_cast(&kget_current_process());
     }

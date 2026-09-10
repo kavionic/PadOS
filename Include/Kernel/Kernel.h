@@ -121,9 +121,10 @@ inline void kassert_function(const char* file, int line, const char* func, const
 {
     PString message;
     message.format("KASSERT {} / {}:{}: {}", func, file, line, expression);
-    kernel::kprintf("%s\n", message.c_str());
     if (doPanic) {
         kernel::panic(message.c_str());
+    } else {
+        kernel::kprintf("%s\n", message.c_str());
     }
 }
 
@@ -133,9 +134,10 @@ void kassert_function(const char* file, int line, const char* func, const char* 
     PString message;
     message.format("KASSERT {} / {}:{}: {} -> ", func, file, line, expression);
     message += PString::format_string(fmt, std::forward<ARGS>(args)...);
-    kernel::kprintf("%s\n", message.c_str());
     if (doPanic) {
         kernel::panic(message.c_str());
+    } else {
+        kernel::kprintf("%s\n", message.c_str());
     }
 }
 

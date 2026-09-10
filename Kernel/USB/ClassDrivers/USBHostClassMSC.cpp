@@ -66,6 +66,37 @@ enum class USBMSCTransactionStage
     ResetClearOut
 };
 
+const char* USBMSCGetTransactionStageName(USBMSCTransactionStage stage)
+{
+    switch (stage)
+    {
+        case USBMSCTransactionStage::Idle:           return "idle";
+        case USBMSCTransactionStage::CommandBlock:   return "command-block";
+        case USBMSCTransactionStage::DataIn:         return "data-in";
+        case USBMSCTransactionStage::DataOut:        return "data-out";
+        case USBMSCTransactionStage::DataHaltClear:  return "data-halt-clear";
+        case USBMSCTransactionStage::Status:         return "status";
+        case USBMSCTransactionStage::StatusHaltClear: return "status-halt-clear";
+        case USBMSCTransactionStage::Reset:          return "reset";
+        case USBMSCTransactionStage::ResetClearIn:   return "reset-clear-in";
+        case USBMSCTransactionStage::ResetClearOut:  return "reset-clear-out";
+    }
+    return "unknown";
+}
+
+const char* USBMSCGetURBStateName(USB_URBState state)
+{
+    switch (state)
+    {
+        case USB_URBState::Idle:     return "idle";
+        case USB_URBState::Done:     return "done";
+        case USB_URBState::NotReady: return "not-ready";
+        case USB_URBState::Stall:    return "stall";
+        case USB_URBState::Error:    return "error";
+    }
+    return "unknown";
+}
+
 struct USBMSCSenseResult
 {
     USB_MSC_SCSI_SenseKey SenseKey = USB_MSC_SCSI_SenseKey::NO_SENSE;
@@ -256,11 +287,15 @@ private:
     USBMSCTransactionStage       m_TransactionStage = USBMSCTransactionStage::Idle;
     PErrorCode                   m_TransactionResult = PErrorCode::Success;
     PErrorCode                   m_RecoveryResult = PErrorCode::IO;
+    bool                         m_TransportRecoveryCompleted = false;
     USB_MSC_CommandStatus        m_TransactionCommandStatus = USB_MSC_CommandStatus::COMMAND_PASSED;
     uint8_t*                     m_TransactionData = nullptr;
     size_t                       m_TransactionDataLength = 0;
     size_t                       m_TransactionTransferredLength = 0;
     USB_PipeIndex                m_StalledDataPipe = USB_INVALID_PIPE;
+    USB_PipeIndex                m_LastTransportPipe = USB_INVALID_PIPE;
+    USB_URBState                 m_LastTransportURBState = USB_URBState::Idle;
+    size_t                       m_LastTransportLength = 0;
     uint32_t                     m_NextTag = 1;
     bool                         m_TransactionActive = false;
     bool                         m_StatusRetryUsed = false;
@@ -636,7 +671,18 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
             &senseResult
         );
         PERROR_ERRORCODE_THROW_ON_FAIL(result);
-        if (transferredLength != transferLength) {
+        if (transferredLength != transferLength)
+        {
+            kernel_log<PLogSeverity::ERROR>(
+                LogCategoryUSBHost,
+                "MSC {} command completed with a short transfer: device={}, LUN={}, block={}, transferred={}/{}.",
+                write ? "write" : "read",
+                m_DeviceAddress,
+                logicalUnitNumber,
+                currentBlock,
+                transferredLength,
+                transferLength
+            );
             PERROR_THROW_CODE(PErrorCode::IO);
         }
 
@@ -880,7 +926,9 @@ PErrorCode USBHostMSCInterface::ExecuteCommand_pl(uint8_t logicalUnitNumber, con
     kassert(m_CommandMutex.IsLocked());
     *senseResult = USBMSCSenseResult();
 
-    for (size_t attempt = 0; attempt < 2; ++attempt)
+    size_t transportRetryCount = 0;
+    size_t unitAttentionRetryCount = 0;
+    for (;;)
     {
         USB_MSC_CommandStatus commandStatus = USB_MSC_CommandStatus::COMMAND_PASSED;
         const PErrorCode result = RunTransaction_pl(
@@ -893,7 +941,20 @@ PErrorCode USBHostMSCInterface::ExecuteCommand_pl(uint8_t logicalUnitNumber, con
             transferredLength,
             &commandStatus
         );
-        if (result != PErrorCode::Success) {
+        if (result != PErrorCode::Success)
+        {
+            if (m_TransportRecoveryCompleted && transportRetryCount == 0)
+            {
+                ++transportRetryCount;
+                kernel_log<PLogSeverity::WARNING>(
+                    LogCategoryUSBHost,
+                    "MSC transport reset completed; retrying device={} LUN={} opcode=0x{:02x} once.",
+                    m_DeviceAddress,
+                    logicalUnitNumber,
+                    commandBlock[0]
+                );
+                continue;
+            }
             return result;
         }
         if (commandStatus == USB_MSC_CommandStatus::COMMAND_PASSED) {
@@ -901,12 +962,34 @@ PErrorCode USBHostMSCInterface::ExecuteCommand_pl(uint8_t logicalUnitNumber, con
         }
 
         const PErrorCode senseRequestResult = RequestSense_pl(logicalUnitNumber, senseResult);
-        if (senseRequestResult != PErrorCode::Success) {
+        if (senseRequestResult != PErrorCode::Success)
+        {
+            kernel_log<PLogSeverity::ERROR>(
+                LogCategoryUSBHost,
+                "MSC REQUEST SENSE failed after command: device={}, LUN={}, opcode=0x{:02x}, result={}.",
+                m_DeviceAddress,
+                logicalUnitNumber,
+                commandBlock[0],
+                p_strerror(senseRequestResult)
+            );
             return senseRequestResult;
         }
-        if (senseResult->SenseKey == USB_MSC_SCSI_SenseKey::UNIT_ATTENTION && attempt == 0) {
+        if (senseResult->SenseKey == USB_MSC_SCSI_SenseKey::UNIT_ATTENTION && unitAttentionRetryCount == 0)
+        {
+            ++unitAttentionRetryCount;
             continue;
         }
+        kernel_log<PLogSeverity::ERROR>(
+            LogCategoryUSBHost,
+            "MSC command failed: device={}, LUN={}, opcode=0x{:02x}, status={}, sense=0x{:02x}/0x{:02x}/0x{:02x}.",
+            m_DeviceAddress,
+            logicalUnitNumber,
+            commandBlock[0],
+            std::to_underlying(commandStatus),
+            std::to_underlying(senseResult->SenseKey),
+            senseResult->AdditionalSenseCode,
+            senseResult->AdditionalSenseQualifier
+        );
         if (senseResult->SenseKey == USB_MSC_SCSI_SenseKey::NOT_READY) {
             return PErrorCode::AGAIN;
         }
@@ -915,7 +998,6 @@ PErrorCode USBHostMSCInterface::ExecuteCommand_pl(uint8_t logicalUnitNumber, con
         }
         return PErrorCode::IO;
     }
-    return PErrorCode::IO;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1000,9 +1082,13 @@ PErrorCode USBHostMSCInterface::RunTransaction_pl(uint8_t logicalUnitNumber, con
     m_TransactionDataLength = dataLength;
     m_TransactionTransferredLength = 0;
     m_TransactionResult = PErrorCode::IO;
+    m_TransportRecoveryCompleted = false;
     m_TransactionCommandStatus = USB_MSC_CommandStatus::COMMAND_PASSED;
     m_TransactionStage = USBMSCTransactionStage::CommandBlock;
     m_StalledDataPipe = USB_INVALID_PIPE;
+    m_LastTransportPipe = USB_INVALID_PIPE;
+    m_LastTransportURBState = USB_URBState::Idle;
+    m_LastTransportLength = 0;
     m_TransactionActive = true;
     m_StatusRetryUsed = false;
 
@@ -1188,6 +1274,21 @@ void USBHostMSCInterface::StartResetRecovery_pl(PErrorCode result)
         return;
     }
 
+    kernel_log<PLogSeverity::ERROR>(
+        LogCategoryUSBHost,
+        "MSC transport error: device={}, LUN={}, opcode=0x{:02x}, stage={}, result={}, transferred={}/{}, last-urb={} pipe={} bytes={}; starting reset recovery.",
+        m_DeviceAddress,
+        m_CommandBlockWrapper.LogicalUnitNumber,
+        m_CommandBlockWrapper.CommandBlock[0],
+        USBMSCGetTransactionStageName(m_TransactionStage),
+        p_strerror(result),
+        m_TransactionTransferredLength,
+        m_TransactionDataLength,
+        USBMSCGetURBStateName(m_LastTransportURBState),
+        m_LastTransportPipe,
+        m_LastTransportLength
+    );
+
     m_RecoveryResult = result;
     const bool inputCanceled = m_Host->CancelPipe(m_BulkPipeIn);
     const bool outputCanceled = m_Host->CancelPipe(m_BulkPipeOut);
@@ -1261,6 +1362,10 @@ void USBHostMSCInterface::HandleBulkTransfer_pl(USB_PipeIndex pipeIndex, USB_URB
     if (!m_TransactionActive || !m_IsConnected) {
         return;
     }
+
+    m_LastTransportPipe = pipeIndex;
+    m_LastTransportURBState = state;
+    m_LastTransportLength = transactionLength;
 
     if (state == USB_URBState::NotReady)
     {
@@ -1379,6 +1484,17 @@ void USBHostMSCInterface::HandleBulkTransfer_pl(USB_PipeIndex pipeIndex, USB_URB
                     || residue > m_TransactionDataLength
                     || m_CommandStatusWrapper.Status > USB_MSC_CommandStatus::PHASE_ERROR)
                 {
+                    kernel_log<PLogSeverity::ERROR>(
+                        LogCategoryUSBHost,
+                        "MSC invalid CSW: device={}, signature=0x{:08x}, tag=0x{:08x}/0x{:08x}, residue={}/{}, status={}.",
+                        m_DeviceAddress,
+                        signature,
+                        tag,
+                        expectedTag,
+                        residue,
+                        m_TransactionDataLength,
+                        std::to_underlying(m_CommandStatusWrapper.Status)
+                    );
                     StartResetRecovery_pl(PErrorCode::IO);
                 }
                 else if (m_CommandStatusWrapper.Status == USB_MSC_CommandStatus::PHASE_ERROR)
@@ -1529,6 +1645,7 @@ void USBHostMSCInterface::HandleResetClearOut_pl(bool result, uint8_t deviceAddr
     }
 
     m_Host->SetDataToggle(m_BulkPipeOut, false);
+    m_TransportRecoveryCompleted = true;
     CompleteTransaction_pl(m_RecoveryResult, USB_MSC_CommandStatus::PHASE_ERROR);
 }
 

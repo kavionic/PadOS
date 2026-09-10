@@ -91,15 +91,21 @@ struct USBHostChannelData
     size_t                  MaxPacketSize;              // Endpoint Max packet size.
     uint32_t                InitialDataPID;             // Initial data PID.
     uint8_t*                TransferBuffer;             // Pointer to transfer buffer.
+    uint8_t*                DMABounceBuffer = nullptr;  // Cache-line-aligned staging buffer used by the host DMA.
     size_t                  XferSize;                   // Current OTG Channel transfer size.
+    size_t                  TransferDataLength = 0;     // Caller-visible bytes represented by the current DMA transfer.
     size_t                  RequestedTransferLength;    // Transfer length as requested by user.
     size_t                  BytesTransferred;           // Bytes transferred so far during the transaction.
+    uint32_t                TransferPacketCount = 0;    // Packets programmed for the current DMA transfer.
+    uint32_t                LastInterrupts = 0;          // Interrupt snapshot for the current channel event.
     USB_URBState            PendingHaltURBState = USB_URBState::Idle; // Terminal state reported after the channel halt completes.
     bool                    TransferActive = false;     // True while the current transfer may be continued internally.
+    bool                    DMATransferActive = false;  // True while HCDMA owns the bounce buffer.
+    bool                    ShortPacketReceived = false; // True after a DMA IN transfer terminates with a short packet.
     bool                    CancelHaltPending = false;  // True while a synchronous cancellation waits for channel halt.
-    bool                    StartOnNextSOF;             // Deferred start for frame-sensitive transfers.
+    bool                    StartOnNextSOF = false;     // Deferred start for frame-sensitive transfers.
     bool                    RetryOnNextSOF = false;      // Deferred retry requested from channel halt handling.
-    bool                    ActivateOnNextSOF;          // Deferred continuation for frame-sensitive IN transfers.
+    bool                    ActivateOnNextSOF = false;  // Deferred continuation for frame-sensitive IN transfers.
     bool                    ToggleIn;                   // IN transfer current toggle flag.
     bool                    ToggleOut;                  // OUT transfer current toggle flag.
     uint32_t                ErrorCount;                 // Host channel error count.
@@ -110,10 +116,29 @@ struct USBHostChannelData
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 };
 
+struct USBHostChannelErrorSnapshot
+{
+    USB_PipeIndex        PipeIndex = USB_INVALID_PIPE;
+    uint32_t             Interrupts = 0;
+    uint32_t             HCCHAR = 0;
+    uint32_t             HCINT = 0;
+    uint32_t             HCTSIZ = 0;
+    uint32_t             HCDMA = 0;
+    size_t               BytesTransferred = 0;
+    size_t               RequestedTransferLength = 0;
+    size_t               TransferDataLength = 0;
+    size_t               XferSize = 0;
+    USB_HostChannelState ChannelState = USB_HostChannelState::IDLE;
+    bool                 CancelHaltPending = false;
+    bool                 DMATransferActive = false;
+    bool                 Pending = false;
+};
+
 class USBHost_STM32
 {
 public:
     static constexpr uint32_t CHANNEL_COUNT = 16;
+    static constexpr size_t DMA_BOUNCE_BUFFER_SIZE = 1024;
 
     USBHost_STM32();
 
@@ -148,7 +173,10 @@ private:
     bool SelectPhyClock(uint32_t clock);
     void ActivateChannel(USB_PipeIndex pipeIndex);
   
+    bool PrepareDMATransfer(USB_PipeIndex pipeIndex, uint32_t* packetCount);
     bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
+    bool FinishDMATransfer(USB_PipeIndex pipeIndex, bool commitTransfer, bool transferComplete, bool* madeProgress);
+    void UpdateDataToggle(USBHostChannelData& channel, uint32_t packetCount);
     bool HaltChannelInternal(USB_PipeIndex pipeIndex);
     bool DoPing(USB_PipeIndex pipeIndex);
 
@@ -172,6 +200,7 @@ private:
     volatile uint32_t*          m_PCGCCTL = nullptr;
 
     USBHostChannelData          m_ChannelStates[CHANNEL_COUNT];
+    USBHostChannelErrorSnapshot m_ChannelErrorSnapshot;
     KConditionVariable          m_ChannelHaltCondition;
 };
 

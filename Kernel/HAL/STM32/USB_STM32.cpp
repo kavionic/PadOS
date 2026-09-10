@@ -168,8 +168,9 @@ bool USB_STM32::SetupCore(bool useExternalVBus, bool batteryChargingEnabled)
     if (m_UseDMA)
     {
         // Reserve 18 FIFO locations for DMA buffers.
-        set_bit_group(m_Port->GDFIFOCFG, 0xffff << 16, 0x03ee << 16);
+        set_bit_group(m_Port->GDFIFOCFG, 0xffffu << 16, 0x03eeu << 16);
 
+        m_Port->GAHBCFG &= ~USB_OTG_GAHBCFG_HBSTLEN_Msk;
         m_Port->GAHBCFG |= USB_OTG_GAHBCFG_HBSTLEN_2;
         m_Port->GAHBCFG |= USB_OTG_GAHBCFG_DMAEN;
     }

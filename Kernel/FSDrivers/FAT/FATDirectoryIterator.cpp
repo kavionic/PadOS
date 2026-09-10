@@ -613,9 +613,10 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     }
     m_StartingCluster = cluster;
     m_CurrentIndex    = index;
-    if (index >= m_EntriesPerSector)
-    {
-        m_SectorIterator.Increment(m_CurrentIndex >> m_EntriesPerSectorShift);
+    if (index >= m_EntriesPerSector) {
+        if (!m_SectorIterator.Increment(m_CurrentIndex >> m_EntriesPerSectorShift)) {
+            return;
+        }
     }
     m_CurrentBlock = m_SectorIterator.GetBlock_(
         true,

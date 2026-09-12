@@ -112,6 +112,10 @@ KVFSManager::~KVFSManager()
 
 std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, disk_read_op* readCallback, void* userData)
 {
+    if (bufferSize < DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
     uint8_t* buffer = reinterpret_cast<uint8_t*>(blockBuffer);
     PartitionRecord* recordTable = reinterpret_cast<PartitionRecord*>(&buffer[0x1be]);
     off64_t diskSize = diskGeom.sector_count * diskGeom.bytes_per_sector;

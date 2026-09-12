@@ -44,9 +44,8 @@ namespace kernel
 {
 
 static constexpr size_t USB_MSC_MAX_TRANSFER_SIZE = 32 * 1024;
+static constexpr size_t USB_MSC_INITIAL_TRANSFER_SEGMENT_CAPACITY = 64;
 static constexpr TimeValNanos USB_MSC_COMMAND_TIMEOUT = TimeValNanos::FromSeconds(30.0);
-static constexpr size_t USB_MSC_MAX_TRANSFER_PACKETS = 1023;
-static constexpr uint32_t USB_MSC_SUPPORTED_BLOCK_SIZE = 512;
 static constexpr size_t USB_MSC_INQUIRY_RESPONSE_SIZE = 36;
 static constexpr size_t USB_MSC_REQUEST_SENSE_RESPONSE_SIZE = 18;
 static constexpr size_t USB_MSC_READ_CAPACITY_10_RESPONSE_SIZE = 8;
@@ -273,7 +272,7 @@ USBHostMSCInterface::USBHostMSCInterface(USBHost* host, USBHostClassMSC* classDr
     , m_TransactionCondition("usbh_msc_transaction")
     , m_TransferBuffer(USB_MSC_MAX_TRANSFER_SIZE)
 {
-    m_VectorTransferSegments.reserve(USB_MSC_MAX_TRANSFER_SIZE / USB_MSC_SUPPORTED_BLOCK_SIZE);
+    m_VectorTransferSegments.reserve(USB_MSC_INITIAL_TRANSFER_SEGMENT_CAPACITY);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -560,11 +559,8 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
     uint64_t currentBlock = startBlock;
 
     const size_t endpointPacketSize = write ? m_BulkEndpointOutSize : m_BulkEndpointInSize;
-    size_t maximumTransferLength = std::min(USB_MSC_MAX_TRANSFER_SIZE, endpointPacketSize * USB_MSC_MAX_TRANSFER_PACKETS);
+    size_t maximumTransferLength = std::max<size_t>(USB_MSC_MAX_TRANSFER_SIZE, blockSize);
     maximumTransferLength -= maximumTransferLength % blockSize;
-    if (maximumTransferLength == 0) {
-        PERROR_THROW_CODE(PErrorCode::IO);
-    }
 
     while (remainingLength != 0)
     {
@@ -590,6 +586,9 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
             transferLength,
             endpointPacketSize
         );
+        if (!useVectorTransfer && m_TransferBuffer.size() < transferLength) {
+            m_TransferBuffer.resize(transferLength);
+        }
         if (!useVectorTransfer && write)
         {
             size_t transferOffset = 0;
@@ -911,13 +910,8 @@ bool USBHostMSCInterface::ProbeLogicalUnit_pl(uint8_t logicalUnitNumber, USBMSCL
         blockSize = USBMSCLoadBigEndian32(capacity16Response.data() + 8);
     }
 
-    const size_t maximumEndpointTransfer = std::min(
-        USB_MSC_MAX_TRANSFER_SIZE,
-        std::min(m_BulkEndpointInSize, m_BulkEndpointOutSize) * USB_MSC_MAX_TRANSFER_PACKETS
-    );
     if (lastLogicalBlockAddress > std::numeric_limits<uint32_t>::max()
-        || blockSize != USB_MSC_SUPPORTED_BLOCK_SIZE
-        || blockSize > maximumEndpointTransfer)
+        || blockSize == 0)
     {
         return false;
     }
@@ -1774,6 +1768,13 @@ std::vector<Ptr<USBHostMSCBlockDevice>> USBHostMSCInterface::CreateDeviceNodes(c
             }
 
             const off64_t diskSize = off64_t(capacity.SectorCount * capacity.BlockSize);
+            const PString pathBase = PString::format_string(
+                "usb/bus0/dev{}/msc{}/lun{}/",
+                int(m_DeviceAddress),
+                int(m_InterfaceNumber),
+                logicalUnitIndex
+            );
+
             Ptr<USBHostMSCBlockDevice> rawDevice = ptr_new<USBHostMSCBlockDevice>(
                 ptr_tmp_cast(this),
                 uint8_t(logicalUnitIndex),
@@ -1782,17 +1783,32 @@ std::vector<Ptr<USBHostMSCBlockDevice>> USBHostMSCInterface::CreateDeviceNodes(c
                 diskSize,
                 0
             );
+            devices.push_back(rawDevice);
+            rawDevice->SetNodeHandle(kregister_device_root_trw((pathBase + "raw").c_str(), rawDevice));
 
-            std::vector<uint8_t> partitionBuffer(capacity.BlockSize);
-            device_geometry geometry = {};
-            geometry.sector_count = capacity.SectorCount;
-            geometry.bytes_per_sector = capacity.BlockSize;
-            geometry.read_only = false;
-            geometry.removable = true;
+            if (!IsConnected()) {
+                return devices;
+            }
 
             std::vector<disk_partition_desc> partitions;
             try
             {
+                size_t partitionBufferSize = capacity.BlockSize;
+                if (partitionBufferSize < KVFSManager::DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE)
+                {
+                    partitionBufferSize =
+                        ((KVFSManager::DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE + partitionBufferSize - 1)
+                            / partitionBufferSize)
+                        * partitionBufferSize;
+                }
+
+                std::vector<uint8_t> partitionBuffer(partitionBufferSize);
+                device_geometry geometry = {};
+                geometry.sector_count = capacity.SectorCount;
+                geometry.bytes_per_sector = capacity.BlockSize;
+                geometry.read_only = false;
+                geometry.removable = true;
+
                 partitions = KVFSManager::DecodeDiskPartitions_trw(
                     partitionBuffer.data(),
                     partitionBuffer.size(),
@@ -1814,16 +1830,6 @@ std::vector<Ptr<USBHostMSCBlockDevice>> USBHostMSCInterface::CreateDeviceNodes(c
                 partitions.end(),
                 [](const disk_partition_desc& lhs, const disk_partition_desc& rhs) { return lhs.p_start < rhs.p_start; }
             );
-
-            const PString pathBase = PString::format_string(
-                "usb/bus0/dev{}/msc{}/lun{}/",
-                int(m_DeviceAddress),
-                int(m_InterfaceNumber),
-                logicalUnitIndex
-            );
-
-            devices.push_back(rawDevice);
-            rawDevice->SetNodeHandle(kregister_device_root_trw((pathBase + "raw").c_str(), rawDevice));
 
             size_t partitionIndex = 0;
             for (const disk_partition_desc& partition : partitions)

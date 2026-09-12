@@ -55,6 +55,8 @@ struct disk_partition_desc
 class KVFSManager
 {
 public:
+    static constexpr size_t DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE = 512;
+
     KVFSManager();
     ~KVFSManager();
 

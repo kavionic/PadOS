@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <utility>
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #include <iterator>
@@ -34,7 +35,6 @@
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/IRQDispatcher.h>
 
-
 namespace kernel
 {
 
@@ -42,6 +42,36 @@ alignas(__SCB_DCACHE_LINE_SIZE)
 uint8_t g_USBHostSTM32DMABounceBuffers[2][USBHost_STM32::CHANNEL_COUNT][USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE]
     __attribute__((section(".sram.data")));
 static_assert((USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE % __SCB_DCACHE_LINE_SIZE) == 0);
+
+#if defined(STM32H7)
+static constexpr uintptr_t USB_HOST_STM32_ITCM_INACCESSIBLE_END = D1_ITCMICP_BASE + 128 * 1024;
+static constexpr uintptr_t USB_HOST_STM32_DTCM_END = D1_DTCMRAM_BASE + 128 * 1024;
+#else
+#error USB host DMA memory accessibility must be defined for this STM32 platform.
+#endif
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool IsUSBHostSTM32DirectDMABuffer(const void* buffer, size_t length)
+{
+    if (buffer == nullptr || length == 0) {
+        return false;
+    }
+
+    const uintptr_t bufferAddress = reinterpret_cast<uintptr_t>(buffer);
+    if ((bufferAddress % __SCB_DCACHE_LINE_SIZE) != 0 || (length % __SCB_DCACHE_LINE_SIZE) != 0) {
+        return false;
+    }
+    if (length > std::numeric_limits<uintptr_t>::max() - bufferAddress) {
+        return false;
+    }
+
+    const uintptr_t bufferEndAddress = bufferAddress + length;
+    return !(bufferAddress < USB_HOST_STM32_ITCM_INACCESSIBLE_END
+        || (bufferAddress < USB_HOST_STM32_DTCM_END && bufferEndAddress > D1_DTCMRAM_BASE));
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -604,6 +634,8 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
     channel.ErrorCount              = 0;
     channel.TransferActive          = true;
     channel.DMATransferActive       = false;
+    channel.DMATransferBuffer       = nullptr;
+    channel.DMAUsesBounceBuffer     = false;
     channel.ShortPacketReceived     = false;
     channel.StartOnNextSOF          = false;
     channel.RetryOnNextSOF          = false;
@@ -1035,8 +1067,8 @@ bool USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex, uint32_t* packet
     constexpr uint32_t hardwareMaxPacketCount = USB_OTG_HCTSIZ_PKTCNT_Msk >> USB_OTG_HCTSIZ_PKTCNT_Pos;
     constexpr size_t hardwareMaxTransferSize = USB_OTG_HCTSIZ_XFRSIZ_Msk >> USB_OTG_HCTSIZ_XFRSIZ_Pos;
 
-    if (packetCount == nullptr || channel.DMABounceBuffer == nullptr || channel.DMATransferActive || channel.MaxPacketSize == 0 ||
-        channel.BytesTransferred > channel.RequestedTransferLength)
+    if (packetCount == nullptr || channel.DMABounceBuffer == nullptr || channel.DMATransferActive ||
+        channel.MaxPacketSize == 0 || channel.BytesTransferred > channel.RequestedTransferLength)
     {
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         ++channel.Diagnostics.StartTransferFailureCount;
@@ -1045,9 +1077,37 @@ bool USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex, uint32_t* packet
     }
 
     const size_t remainingLength = channel.RequestedTransferLength - channel.BytesTransferred;
-    const size_t bouncePacketCapacity = DMA_BOUNCE_BUFFER_SIZE / channel.MaxPacketSize;
     const size_t transferSizePacketCapacity = hardwareMaxTransferSize / channel.MaxPacketSize;
-    const size_t packetCapacity = std::min<size_t>(hardwareMaxPacketCount, std::min(bouncePacketCapacity, transferSizePacketCapacity));
+    const size_t hardwarePacketCapacity = std::min<size_t>(hardwareMaxPacketCount, transferSizePacketCapacity);
+    if (hardwarePacketCapacity == 0)
+    {
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        ++channel.Diagnostics.StartTransferFailureCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        return false;
+    }
+
+    uint32_t directPacketCount = 1;
+    if (remainingLength > 0) {
+        directPacketCount = static_cast<uint32_t>(std::min(1 + (remainingLength - 1) / channel.MaxPacketSize, hardwarePacketCapacity));
+    }
+    const size_t directDataLength = std::min(remainingLength, static_cast<size_t>(directPacketCount) * channel.MaxPacketSize);
+    const size_t directTransferSize = (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST)
+        ? static_cast<size_t>(directPacketCount) * channel.MaxPacketSize
+        : directDataLength;
+    uint8_t* directTransferBuffer = channel.TransferBuffer;
+    if (directTransferBuffer != nullptr) {
+        directTransferBuffer += channel.BytesTransferred;
+    }
+    // A direct IN buffer must cover the packet-rounded HCTSIZ value so the
+    // controller can never DMA past the caller's allocation.
+    const bool useDirectDMA
+        = directDataLength > 0
+        && (channel.Direction != USB_RequestDirection::DEVICE_TO_HOST || directDataLength == directTransferSize)
+        && IsUSBHostSTM32DirectDMABuffer(directTransferBuffer, directTransferSize);
+
+    const size_t bouncePacketCapacity = DMA_BOUNCE_BUFFER_SIZE / channel.MaxPacketSize;
+    const size_t packetCapacity = useDirectDMA ? hardwarePacketCapacity : std::min(hardwarePacketCapacity, bouncePacketCapacity);
     if (packetCapacity == 0)
     {
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
@@ -1070,7 +1130,10 @@ bool USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex, uint32_t* packet
         channel.XferSize = channel.TransferDataLength;
     }
 
-    if (channel.Direction == USB_RequestDirection::HOST_TO_DEVICE && channel.TransferDataLength > 0) {
+    channel.DMAUsesBounceBuffer = !useDirectDMA;
+    channel.DMATransferBuffer = useDirectDMA ? directTransferBuffer : channel.DMABounceBuffer;
+
+    if (channel.DMAUsesBounceBuffer && channel.Direction == USB_RequestDirection::HOST_TO_DEVICE && channel.TransferDataLength > 0) {
         std::memcpy(channel.DMABounceBuffer, channel.TransferBuffer + channel.BytesTransferred, channel.TransferDataLength);
     }
 
@@ -1078,9 +1141,9 @@ bool USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex, uint32_t* packet
     if (cacheLength > 0)
     {
         if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) {
-            SCB_CleanInvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMABounceBuffer), static_cast<int32_t>(cacheLength));
+            SCB_CleanInvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMATransferBuffer), static_cast<int32_t>(cacheLength));
         } else {
-            SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMABounceBuffer), static_cast<int32_t>(cacheLength));
+            SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMATransferBuffer), static_cast<int32_t>(cacheLength));
         }
     }
     return true;
@@ -1206,7 +1269,7 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
 
     if (dma)
     {
-        channelRegs.HCDMA = reinterpret_cast<uint32_t>(channel.DMABounceBuffer);
+        channelRegs.HCDMA = reinterpret_cast<uint32_t>(channel.DMATransferBuffer);
         channel.DMATransferActive = true;
     }
 
@@ -1236,13 +1299,23 @@ bool USBHost_STM32::FinishDMATransfer(USB_PipeIndex pipeIndex, bool commitTransf
     if (!channel.DMATransferActive) {
         return true;
     }
+    if (channel.DMATransferBuffer == nullptr) {
+        channel.DMATransferActive = false;
+        channel.DMAUsesBounceBuffer = false;
+        return false;
+    }
+
+    uint8_t* dmaTransferBuffer = channel.DMATransferBuffer;
+    const bool dmaUsesBounceBuffer = channel.DMAUsesBounceBuffer;
 
     if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST && channel.XferSize > 0)
     {
         const size_t cacheLength = align_up(channel.XferSize, __SCB_DCACHE_LINE_SIZE);
-        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMABounceBuffer), static_cast<int32_t>(cacheLength));
+        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTransferBuffer), static_cast<int32_t>(cacheLength));
     }
     channel.DMATransferActive = false;
+    channel.DMATransferBuffer = nullptr;
+    channel.DMAUsesBounceBuffer = false;
 
     size_t transferredLength;
     uint32_t transferredPacketCount;
@@ -1277,8 +1350,8 @@ bool USBHost_STM32::FinishDMATransfer(USB_PipeIndex pipeIndex, bool commitTransf
         return true;
     }
 
-    if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST && transferredLength > 0) {
-        std::memcpy(channel.TransferBuffer + channel.BytesTransferred, channel.DMABounceBuffer, transferredLength);
+    if (dmaUsesBounceBuffer && channel.Direction == USB_RequestDirection::DEVICE_TO_HOST && transferredLength > 0) {
+        std::memcpy(channel.TransferBuffer + channel.BytesTransferred, dmaTransferBuffer, transferredLength);
     }
     channel.BytesTransferred += transferredLength;
     channel.ShortPacketReceived

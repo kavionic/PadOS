@@ -92,6 +92,7 @@ struct USBHostChannelData
     uint32_t                InitialDataPID;             // Initial data PID.
     uint8_t*                TransferBuffer;             // Pointer to transfer buffer.
     uint8_t*                DMABounceBuffer = nullptr;  // Cache-line-aligned staging buffer used by the host DMA.
+    uint8_t*                DMATransferBuffer = nullptr; // Buffer currently owned by HCDMA.
     size_t                  XferSize;                   // Current OTG Channel transfer size.
     size_t                  TransferDataLength = 0;     // Caller-visible bytes represented by the current DMA transfer.
     size_t                  RequestedTransferLength;    // Transfer length as requested by user.
@@ -100,7 +101,8 @@ struct USBHostChannelData
     uint32_t                LastInterrupts = 0;          // Interrupt snapshot for the current channel event.
     USB_URBState            PendingHaltURBState = USB_URBState::Idle; // Terminal state reported after the channel halt completes.
     bool                    TransferActive = false;     // True while the current transfer may be continued internally.
-    bool                    DMATransferActive = false;  // True while HCDMA owns the bounce buffer.
+    bool                    DMATransferActive = false;  // True while HCDMA owns the current DMA buffer.
+    bool                    DMAUsesBounceBuffer = false; // True when the current DMA transfer uses the staging buffer.
     bool                    ShortPacketReceived = false; // True after a DMA IN transfer terminates with a short packet.
     bool                    CancelHaltPending = false;  // True while a synchronous cancellation waits for channel halt.
     bool                    StartOnNextSOF = false;     // Deferred start for frame-sensitive transfers.

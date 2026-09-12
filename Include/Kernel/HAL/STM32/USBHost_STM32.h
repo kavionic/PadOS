@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -84,40 +84,43 @@ struct USBHostChannelDiagnostics
 
 struct USBHostChannelData
 {
-    USB_RequestDirection    Direction;                  // Endpoint direction.
-    USB_Speed               Speed;                      // USB Host Channel speed.
-    USB_TransferType        EndpointType;               // Endpoint Type.
-    uint8_t                 DoPing;                     // Enable or disable the use of the PING protocol for HS mode.
-    size_t                  MaxPacketSize;              // Endpoint Max packet size.
-    uint32_t                InitialDataPID;             // Initial data PID.
-    uint8_t*                TransferBuffer;             // Pointer to transfer buffer.
-    uint8_t*                DMABounceBuffer = nullptr;  // Cache-line-aligned staging buffer used by the host DMA.
-    uint8_t*                DMATransferBuffer = nullptr; // Buffer currently owned by HCDMA.
-    size_t                  XferSize;                   // Current OTG Channel transfer size.
-    size_t                  TransferDataLength = 0;     // Caller-visible bytes represented by the current DMA transfer.
-    size_t                  RequestedTransferLength;    // Transfer length as requested by user.
-    size_t                  BytesTransferred;           // Bytes transferred so far during the transaction.
-    uint32_t                TransferPacketCount = 0;    // Packets programmed for the current DMA transfer.
-    uint32_t                LastInterrupts = 0;          // Interrupt snapshot for the current channel event.
-    USB_URBState            PendingHaltURBState = USB_URBState::Idle; // Terminal state reported after the channel halt completes.
-    bool                    TransferActive = false;     // True while the current transfer may be continued internally.
-    bool                    DMATransferActive = false;  // True while HCDMA owns the current DMA buffer.
-    bool                    DMAUsesBounceBuffer = false; // True when the current DMA transfer uses the staging buffer.
-    bool                    ShortPacketReceived = false; // True after a DMA IN transfer terminates with a short packet.
-    bool                    CancelHaltPending = false;  // True while a synchronous cancellation waits for channel halt.
-    bool                    StartOnNextSOF = false;     // Deferred start for frame-sensitive transfers.
-    bool                    RetryOnNextSOF = false;      // Deferred retry requested from channel halt handling.
-    bool                    ActivateOnNextSOF = false;  // Deferred continuation for frame-sensitive IN transfers.
-    bool                    ToggleIn;                   // IN transfer current toggle flag.
-    bool                    ToggleOut;                  // OUT transfer current toggle flag.
-    uint32_t                ErrorCount;                 // Host channel error count.
-    USB_URBState            URBState;                   // URB state.
-    USB_HostChannelState    ChannelState;               // Host Channel state.
+    USB_RequestDirection        Direction;                      // Endpoint direction.
+    USB_Speed                   Speed;                          // USB Host Channel speed.
+    USB_TransferType            EndpointType;                   // Endpoint Type.
+    uint8_t                     DoPing;                         // Enable or disable the use of the PING protocol for HS mode.
+    uint16_t                    MaxPacketSize;                  // Endpoint Max packet size.
+    uint16_t                    MaxDMAPacketCount;              // Maximum packets in one direct DMA submission.
+    uint16_t                    BounceDMAPacketCount;           // Maximum packets in one bounce-buffer DMA submission.
+    uint16_t                    InitialDataPID;                 // Initial data PID.
+    uint8_t*                    TransferBuffer;                 // Single buffer base or current vector buffer position.
+    const USB_TransferSegment*  TransferSegments = nullptr;     // DMA buffers forming one continuous USB data phase.
+    uint8_t*                    DMATransferBuffer = nullptr;    // Buffer currently owned by HCDMA.
+    size_t                      XferSize;                       // Current OTG Channel transfer size.
+    size_t                      TransferDataLength = 0;         // Caller-visible bytes represented by the current DMA transfer.
+    size_t                      RequestedTransferLength;        // Transfer length as requested by user.
+    size_t                      BytesTransferred;               // Bytes transferred so far during the transaction.
+    uint32_t                    TransferPacketCount = 0;        // Packets programmed for the current DMA transfer.
+    USB_URBState                PendingHaltURBState = USB_URBState::Idle; // Terminal state reported after the channel halt completes.
+    bool                        TransferActive = false;         // True while the current transfer may be continued internally.
+    bool                        DMATransferActive = false;      // True while HCDMA owns the current DMA buffer.
+    bool                        DMAUsesBounceBuffer = false;    // True when the current DMA transfer uses the staging buffer.
+    bool                        ShortPacketReceived = false;    // True after a DMA IN transfer terminates with a short packet.
+    bool                        CancelHaltPending = false;      // True while a synchronous cancellation waits for channel halt.
+    bool                        StartOnNextSOF = false;         // Deferred start for frame-sensitive transfers.
+    bool                        RetryOnNextSOF = false;         // Deferred retry requested from channel halt handling.
+    bool                        ToggleIn;                       // IN transfer current toggle flag.
+    bool                        ToggleOut;                      // OUT transfer current toggle flag.
+    uint16_t                    TransferSegmentIndex = 0;       // Current segment in a DMA vector request.
+    uint32_t                    ErrorCount;                     // Host channel error count.
+    USB_URBState                URBState;                       // URB state.
+    USB_HostChannelState        ChannelState;                   // Host Channel state.
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-    USBHostChannelDiagnostics Diagnostics;
+    USBHostChannelDiagnostics   Diagnostics;
+    uint32_t                    LastInterrupts = 0;             // Interrupt snapshot for the current channel event.
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 };
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 struct USBHostChannelErrorSnapshot
 {
     USB_PipeIndex        PipeIndex = USB_INVALID_PIPE;
@@ -135,6 +138,7 @@ struct USBHostChannelErrorSnapshot
     bool                 DMATransferActive = false;
     bool                 Pending = false;
 };
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 class USBHost_STM32
 {
@@ -145,6 +149,7 @@ public:
     USBHost_STM32();
 
     bool Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusSense);
+    bool InitializeController();
     void Shutdown();
 
     USB_Speed   HostGetSpeed() const;
@@ -156,7 +161,7 @@ public:
     uint32_t    GetCurrentFrame();
     bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
     bool        HaltChannel(USB_PipeIndex pipeIndex);
-    bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing);
+    bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing);
 
 
     bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
@@ -175,9 +180,11 @@ private:
     bool SelectPhyClock(uint32_t clock);
     void ActivateChannel(USB_PipeIndex pipeIndex);
   
-    bool PrepareDMATransfer(USB_PipeIndex pipeIndex, uint32_t* packetCount);
+    uint32_t PrepareDMATransfer(USB_PipeIndex pipeIndex);
     bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
     bool FinishDMATransfer(USB_PipeIndex pipeIndex, bool commitTransfer, bool transferComplete, bool* madeProgress);
+    void CompleteChannelCancellation(USB_PipeIndex pipeIndex);
+    void RecoverDMATransferError(USB_PipeIndex pipeIndex);
     void UpdateDataToggle(USBHostChannelData& channel, uint32_t packetCount);
     bool HaltChannelInternal(USB_PipeIndex pipeIndex);
     bool DoPing(USB_PipeIndex pipeIndex);
@@ -194,6 +201,7 @@ private:
 
 
     USB_STM32*                  m_Driver = nullptr;
+    uint8_t                     (*m_DMABounceBuffers)[DMA_BOUNCE_BUFFER_SIZE] = nullptr;
 
     USB_OTG_GlobalTypeDef*      m_Port = nullptr;
     USB_OTG_HostTypeDef*        m_Host = nullptr;
@@ -202,7 +210,9 @@ private:
     volatile uint32_t*          m_PCGCCTL = nullptr;
 
     USBHostChannelData          m_ChannelStates[CHANNEL_COUNT];
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     USBHostChannelErrorSnapshot m_ChannelErrorSnapshot;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     KConditionVariable          m_ChannelHaltCondition;
 };
 

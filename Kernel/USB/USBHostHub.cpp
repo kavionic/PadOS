@@ -29,6 +29,8 @@ namespace kernel
 {
 
 static constexpr uint32_t HUB_PORT_RESET_RECOVERY_DELAY_MS = 50;
+static constexpr uint32_t HUB_PORT_ENUMERATION_EXTRA_RECOVERY_DELAY_MS = 250;
+static constexpr uint8_t HUB_PORT_RESET_RETRY_COUNT = 3;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -46,6 +48,7 @@ void USBHostHub::Setup(USBHost* host)
 void USBHostHub::Reset()
 {
     m_PortChangeActive = false;
+    m_PortEnumerationErrorCount = 0;
     m_PendingPortChanges.clear();
     m_PollRestartList.clear();
 }
@@ -216,7 +219,46 @@ void USBHostHub::CompletePortChange(uint8_t hubAddress)
 
 void USBHostHub::HandlePortEnumerationFailed(uint8_t hubAddress, uint8_t portIndex)
 {
-    CompletePortChange(hubAddress);
+    const uint8_t enumerationFailureCount = ++m_PortEnumerationErrorCount;
+    if (enumerationFailureCount == 1)
+    {
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(
+            LogCategoryUSBHost,
+            "Retrying device enumeration on hub {} port {} without another reset after {} ms.",
+            hubAddress,
+            portIndex,
+            HUB_PORT_ENUMERATION_EXTRA_RECOVERY_DELAY_MS
+        );
+
+        snooze_ms(HUB_PORT_ENUMERATION_EXTRA_RECOVERY_DELAY_MS);
+
+        const USBDeviceNode* device = m_Host->GetDevice(0);
+        const bool retryStarted
+            = device != nullptr
+            && device->m_ParentHubAddress == hubAddress
+            && device->m_ParentHubPort == portIndex
+            && m_Host->EnumeratePortDevice(hubAddress, portIndex, device->m_Speed);
+        if (!retryStarted) {
+            CompletePortChange(hubAddress);
+        }
+    }
+    else if (enumerationFailureCount <= HUB_PORT_RESET_RETRY_COUNT + 1)
+    {
+        const uint8_t resetRetry = enumerationFailureCount - 1;
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(
+            LogCategoryUSBHost,
+            "Retrying device enumeration on hub {} port {} after another port reset ({}/{}).",
+            hubAddress,
+            portIndex,
+            resetRetry,
+            HUB_PORT_RESET_RETRY_COUNT
+        );
+        ResetPort(hubAddress, portIndex);
+    }
+    else
+    {
+        CompletePortChange(hubAddress);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -360,6 +402,7 @@ void USBHostHub::ProcessNextPortChange()
             continue;
         }
 
+        m_PortEnumerationErrorCount = 0;
         m_PortChangeActive = true;
         USB_HubPortStatus* status = reinterpret_cast<USB_HubPortStatus*>(m_Host->GetControlHandler().GetCtrlDataBuffer());
         if (m_Host->GetControlHandler().ReqGetHubPortStatus(event.HubAddress, event.PortIndex, status,
@@ -421,6 +464,22 @@ void USBHostHub::HandlePortStatusResult(bool result, uint8_t hubAddress, uint8_t
     const USB_HubPortStatus* status = reinterpret_cast<const USB_HubPortStatus*>(m_Host->GetControlHandler().GetCtrlDataBuffer());
     const uint16_t portStatus = PLittleEndianToHost(status->wPortStatus);
     const uint16_t portChange = PLittleEndianToHost(status->wPortChange);
+    USBDeviceNode* device = m_Host->GetDeviceOnHubPort(hubAddress, portIndex);
+
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+    if (device != nullptr)
+    {
+        kernel_log<PLogSeverity::WARNING>(
+            LogCategoryUSBHost,
+            "Hub {} port {} status event for device {}: status=0x{:04x}, change=0x{:04x}.",
+            hubAddress,
+            portIndex,
+            device->m_Address,
+            portStatus,
+            portChange
+        );
+    }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if ((portChange & USB_HubPortStatus::PORT_CHANGE_CONNECTION) != 0)
     {
@@ -430,7 +489,6 @@ void USBHostHub::HandlePortStatusResult(bool result, uint8_t hubAddress, uint8_t
 
     if ((portStatus & USB_HubPortStatus::PORT_STATUS_CONNECTION) == 0)
     {
-        USBDeviceNode* device = m_Host->GetDeviceOnHubPort(hubAddress, portIndex);
         if (device != nullptr) {
             m_Host->CloseDevice(device->m_Address);
         }
@@ -438,7 +496,7 @@ void USBHostHub::HandlePortStatusResult(bool result, uint8_t hubAddress, uint8_t
         return;
     }
 
-    if ((portStatus & USB_HubPortStatus::PORT_STATUS_ENABLE) == 0 || m_Host->GetDeviceOnHubPort(hubAddress, portIndex) == nullptr)
+    if ((portStatus & USB_HubPortStatus::PORT_STATUS_ENABLE) == 0 || device == nullptr)
     {
         ResetPort(hubAddress, portIndex);
         return;
@@ -524,6 +582,18 @@ void USBHostHub::HandlePortResetStatusResult(bool result, uint8_t hubAddress, ui
     const USB_HubPortStatus* status = reinterpret_cast<const USB_HubPortStatus*>(m_Host->GetControlHandler().GetCtrlDataBuffer());
     const uint16_t portStatus = PLittleEndianToHost(status->wPortStatus);
     const uint16_t portChange = PLittleEndianToHost(status->wPortChange);
+
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(
+        LogCategoryUSBHost,
+        "Hub {} port {} reset result: status=0x{:04x}, change=0x{:04x}, enumeration-retry={}.",
+        hubAddress,
+        portIndex,
+        portStatus,
+        portChange,
+        m_PortEnumerationErrorCount
+    );
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if ((portChange & USB_HubPortStatus::PORT_CHANGE_RESET) != 0)
     {

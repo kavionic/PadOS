@@ -316,6 +316,7 @@ void* USBHost::Run()
                     m_DeviceAttachDeadline = TimeValNanos::infinit;
                     [[fallthrough]];
                 case USBHostEventID::DeviceConnected:
+                {
                     if (!m_DeviceAttachDeadline.IsInfinit() && !m_PortEnabled) {
                         break;
                     }
@@ -324,19 +325,24 @@ void* USBHost::Run()
                         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Ignoring duplicate root-port connect while port is still enabled.");
                         break;
                     }
-                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
-
-                    Stop();
+                    const bool hostStopped = Stop();
                     CloseActiveClassDrivers();
                     Reset();
-                    m_Driver->StartHost();
+                    if (!hostStopped || !m_Driver->StartHost()) {
+                        break;
+                    }
 
                     snooze_ms(200);
-                    m_Driver->ResetPort();
+                    if (!m_Driver->ResetPort()) {
+                        break;
+                    }
+
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
 
                     m_Device0.m_Address = 0;
                     m_DeviceAttachDeadline = kget_monotonic_time() + TimeValNanos::FromSeconds(DEVICE_RESET_TIMEOUT);
                     break;
+                }
                 case USBHostEventID::DeviceAttached:
                     m_DeviceAttachDeadline = TimeValNanos::infinit;
                     m_PortEnabled = true;
@@ -641,7 +647,44 @@ bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
         pipe->TransactionCallback = std::move(callback);
         pipe->URBState = USB_URBState::NotReady;
 
-        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, buffer, length, doPing);
+        const USB_TransferSegment segment = {buffer, length};
+        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, &segment, 1, length, doPing);
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        if (!result) {
+            ++pipe->Diagnostics.SubmitFailureCount;
+        }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        if (!result)
+        {
+            pipe->TransactionCallback = nullptr;
+            pipe->URBState = USB_URBState::Idle;
+        }
+        return result;
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::SubmitVectorURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing, USB_TransactionCallback&& callback)
+{
+    USBHostPipeData* pipe = GetPipeData(pipeIndex);
+    if (pipe != nullptr)
+    {
+        ++pipe->SubmissionGeneration;
+        pipe->PendingIRQTransferLength = 0;
+        pipe->PendingIRQSubmissionGeneration = 0;
+        pipe->PendingIRQURBState = USB_URBState::Idle;
+        pipe->HasPendingIRQURBState = false;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        ++pipe->Diagnostics.SubmitCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+        pipe->TransactionCallback = std::move(callback);
+        pipe->URBState = USB_URBState::NotReady;
+
+        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, endpointType, initialPID, segments, segmentCount, length, doPing);
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (!result) {
             ++pipe->Diagnostics.SubmitFailureCount;
@@ -700,6 +743,24 @@ bool USBHost::BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length,
 bool USBHost::BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
     return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::BulkSendVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing, USB_TransactionCallback&& callback)
+{
+    return SubmitVectorURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, segments, segmentCount, length, doPing, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::BulkReceiveVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, USB_TransactionCallback&& callback)
+{
+    return SubmitVectorURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, segments, segmentCount, length, false, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1141,9 +1202,9 @@ void USBHost::Reset()
 
 bool USBHost::Stop()
 {
-    m_Driver->StopHost();
+    const bool result = m_Driver->StopHost();
     m_ControlHandler.FreePipes();
-    return true;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

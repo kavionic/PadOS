@@ -74,6 +74,7 @@ private:
     USBHost*                m_Host = nullptr;
     std::deque<HubPortEvent> m_PendingPortChanges;
     std::vector<uint8_t>    m_PollRestartList;
+    uint8_t                 m_PortEnumerationErrorCount = 0;
     bool                    m_PortChangeActive = false;
 };
 

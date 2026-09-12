@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -61,9 +61,11 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
     }
     m_FIFOBase      = reinterpret_cast<volatile uint32_t*>(reinterpret_cast<volatile uint8_t*>(m_Port) + USB_OTG_FIFO_BASE);
 
-    m_ConfigSpeed   = speed;
-    m_PhyInterface  = phyInterface;
-    m_UseDMA        = enableDMA;
+    m_ConfigSpeed               = speed;
+    m_PhyInterface              = phyInterface;
+    m_UseDMA                    = enableDMA;
+    m_UseExternalVBus           = useExternalVBus;
+    m_BatteryChargingEnabled    = batteryChargingEnabled;
 
     DigitalPin::ActivatePeripheralMux(pinDM);
     DigitalPin::ActivatePeripheralMux(pinDP);
@@ -120,6 +122,18 @@ void USB_STM32::Shutdown()
         m_HostDriver.Shutdown();
     }
 #endif
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USB_STM32::ResetHostCore()
+{
+    if (!SetupCore(m_UseExternalVBus, m_BatteryChargingEnabled)) {
+        return false;
+    }
+    return SetUSBMode(USB_Mode::Host);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

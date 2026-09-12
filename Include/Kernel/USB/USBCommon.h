@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 #include <Utils/Logging.h>
 #include <Kernel/Kernel.h>
@@ -43,6 +44,18 @@ enum class USB_ControlStage : int
 using USB_PipeIndex = int32_t;
 static constexpr USB_PipeIndex USB_INVALID_PIPE = -1;
 static constexpr uint8_t USB_INVALID_ENDPOINT = 0xff;
+
+// A segment array describes one continuous USB data phase. At least one segment
+// must be supplied. For nonzero transfers, consumed segments must be nonempty
+// and together describe at least length bytes. The described buffers and arrays
+// containing more than one segment must remain stable until the request
+// completes. Intermediate boundaries within the transfer must align to the
+// endpoint packet size.
+struct USB_TransferSegment
+{
+    void*  Buffer = nullptr;
+    size_t Length = 0;
+};
 
 const char* USB_GetSpeedName(USB_Speed speed);
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ public:
 
     bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool enableDMA, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
     void Shutdown();
+    bool ResetHostCore();
 
     USB_OTG_Phy         GetPhyInterface() const { return m_PhyInterface; }
     bool                UseDMA() const { return m_UseDMA; }
@@ -97,7 +98,7 @@ public:
 
     virtual bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize) override { return m_HostDriver.SetupPipe(pipeIndex, endpointAddr, deviceAddr, speed, endpointType, maxPacketSize); }
     virtual bool        HaltChannel(USB_PipeIndex pipeIndex) override { return m_HostDriver.HaltChannel(pipeIndex); }
-    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, buffer, length, doPing); }
+    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, segments, segmentCount, length, doPing); }
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) override { return m_HostDriver.SetDataToggle(pipeIndex, toggle); }
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetDataToggle(pipeIndex); }
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
@@ -131,8 +132,10 @@ private:
 #endif
 
     USB_OTG_Phy             m_PhyInterface = USB_OTG_Phy::Embedded;
-    bool                    m_UseDMA = false;
     USB_Speed               m_ConfigSpeed = USB_Speed::FULL;
+    bool                    m_UseDMA = false;
+    bool                    m_UseExternalVBus = false;
+    bool                    m_BatteryChargingEnabled = false;
 };
 
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@ public:
     virtual uint32_t    GetCurrentHostFrame() = 0;
     virtual bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize) = 0;
     virtual bool        HaltChannel(USB_PipeIndex pipeIndex) = 0;
-    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) = 0;
+    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing) = 0;
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) = 0;
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const = 0;
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS

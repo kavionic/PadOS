@@ -188,11 +188,14 @@ public:
     bool            GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outValue) const;
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     bool            SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
+    bool            SubmitVectorURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing, USB_TransactionCallback&& callback);
     bool            ControlSendSetup(USB_PipeIndex pipeIndex, USB_ControlRequest* request, USB_TransactionCallback&& callback);
     bool            ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
     bool            ControlReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
     bool            BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
     bool            BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    bool            BulkSendVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing, USB_TransactionCallback&& callback);
+    bool            BulkReceiveVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, USB_TransactionCallback&& callback);
     bool            InterruptReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
     bool            InterruptSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
     bool            IsochronousReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);

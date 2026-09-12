@@ -110,190 +110,6 @@ struct USBMSCLogicalUnitCapacity
     uint64_t SectorCount = 0;
 };
 
-class USBMSCIOVectorCursor
-{
-public:
-    USBMSCIOVectorCursor() = default;
-
-    USBMSCIOVectorCursor(const iovec_t* segments, size_t segmentCount, size_t totalLength)
-        : m_Segments(segments)
-        , m_SegmentCount(segmentCount)
-        , m_RemainingLength(totalLength)
-    {
-    }
-
-    USBMSCIOVectorCursor(const USBMSCIOVectorCursor& source, size_t totalLength)
-        : m_Segments(source.m_Segments)
-        , m_SegmentCount(source.m_SegmentCount)
-        , m_SegmentIndex(source.m_SegmentIndex)
-        , m_SegmentOffset(source.m_SegmentOffset)
-        , m_RemainingLength(totalLength)
-    {
-    }
-
-    size_t GetRemainingLength() const
-    {
-        return m_RemainingLength;
-    }
-
-    bool IsValid() const
-    {
-        USBMSCIOVectorCursor cursor = *this;
-        while (cursor.m_RemainingLength != 0)
-        {
-            if (cursor.m_Segments == nullptr) {
-                return false;
-            }
-            cursor.SkipEmptySegments();
-            if (cursor.m_SegmentIndex >= cursor.m_SegmentCount || cursor.m_Segments[cursor.m_SegmentIndex].iov_base == nullptr)
-            {
-                return false;
-            }
-            const size_t segmentRemaining = cursor.m_Segments[cursor.m_SegmentIndex].iov_len - cursor.m_SegmentOffset;
-            cursor.Advance(std::min(segmentRemaining, cursor.m_RemainingLength));
-        }
-        return true;
-    }
-
-    bool GetCurrentSpan(void** buffer, size_t* length)
-    {
-        if (buffer == nullptr || length == nullptr) {
-            return false;
-        }
-        if (m_Segments == nullptr) {
-            return false;
-        }
-
-        SkipEmptySegments();
-        if (m_RemainingLength == 0 || m_SegmentIndex >= m_SegmentCount || m_Segments[m_SegmentIndex].iov_base == nullptr)
-        {
-            return false;
-        }
-
-        uint8_t* spanStart = static_cast<uint8_t*>(m_Segments[m_SegmentIndex].iov_base) + m_SegmentOffset;
-        size_t spanLength = std::min(m_Segments[m_SegmentIndex].iov_len - m_SegmentOffset, m_RemainingLength);
-        size_t segmentIndex = m_SegmentIndex + 1;
-        while (spanLength < m_RemainingLength && segmentIndex < m_SegmentCount)
-        {
-            if (m_Segments[segmentIndex].iov_len == 0)
-            {
-                ++segmentIndex;
-                continue;
-            }
-            if (m_Segments[segmentIndex].iov_base == nullptr ||
-                reinterpret_cast<uintptr_t>(m_Segments[segmentIndex].iov_base) != reinterpret_cast<uintptr_t>(spanStart) + spanLength)
-            {
-                break;
-            }
-            spanLength += std::min(m_Segments[segmentIndex].iov_len, m_RemainingLength - spanLength);
-            ++segmentIndex;
-        }
-
-        *buffer = spanStart;
-        *length = spanLength;
-        return true;
-    }
-
-    bool HasPacketAlignedSpans(size_t packetSize) const
-    {
-        if (packetSize == 0) {
-            return false;
-        }
-
-        // BOT has one continuous bulk data phase. Every separately submitted
-        // span must therefore end on a packet boundary rather than generating
-        // an intermediate short packet.
-        USBMSCIOVectorCursor cursor = *this;
-        while (cursor.GetRemainingLength() != 0)
-        {
-            void* buffer = nullptr;
-            size_t length = 0;
-            if (!cursor.GetCurrentSpan(&buffer, &length) || length == 0 || (length % packetSize) != 0) {
-                return false;
-            }
-            cursor.Advance(length);
-        }
-        return true;
-    }
-
-    void CopyFrom(const void* source, size_t length)
-    {
-        const uint8_t* sourceBytes = static_cast<const uint8_t*>(source);
-        size_t remainingCopyLength = length;
-
-        while (remainingCopyLength != 0)
-        {
-            SkipEmptySegments();
-            kassert(m_SegmentIndex < m_SegmentCount);
-
-            const size_t segmentRemaining = m_Segments[m_SegmentIndex].iov_len - m_SegmentOffset;
-            const size_t copyLength = std::min(segmentRemaining, remainingCopyLength);
-            uint8_t* destination = static_cast<uint8_t*>(m_Segments[m_SegmentIndex].iov_base) + m_SegmentOffset;
-
-            memcpy(destination, sourceBytes, copyLength);
-            sourceBytes += copyLength;
-            Advance(copyLength);
-            remainingCopyLength -= copyLength;
-        }
-    }
-
-    void CopyTo(void* destination, size_t length)
-    {
-        uint8_t* destinationBytes = static_cast<uint8_t*>(destination);
-        size_t remainingCopyLength = length;
-
-        while (remainingCopyLength != 0)
-        {
-            SkipEmptySegments();
-            kassert(m_SegmentIndex < m_SegmentCount);
-
-            const size_t segmentRemaining = m_Segments[m_SegmentIndex].iov_len - m_SegmentOffset;
-            const size_t copyLength = std::min(segmentRemaining, remainingCopyLength);
-            const uint8_t* source = static_cast<const uint8_t*>(m_Segments[m_SegmentIndex].iov_base) + m_SegmentOffset;
-
-            memcpy(destinationBytes, source, copyLength);
-            destinationBytes += copyLength;
-            Advance(copyLength);
-            remainingCopyLength -= copyLength;
-        }
-    }
-
-    void Advance(size_t length)
-    {
-        kassert(length <= m_RemainingLength);
-        while (length != 0)
-        {
-            kassert(m_Segments != nullptr);
-            SkipEmptySegments();
-            kassert(m_SegmentIndex < m_SegmentCount);
-
-            const size_t segmentRemaining = m_Segments[m_SegmentIndex].iov_len - m_SegmentOffset;
-            const size_t advanceLength = std::min(segmentRemaining, length);
-            m_SegmentOffset += advanceLength;
-            m_RemainingLength -= advanceLength;
-            length -= advanceLength;
-        }
-        SkipEmptySegments();
-    }
-
-private:
-    void SkipEmptySegments()
-    {
-        while (m_Segments != nullptr && m_SegmentIndex < m_SegmentCount &&
-            m_SegmentOffset == m_Segments[m_SegmentIndex].iov_len)
-        {
-            ++m_SegmentIndex;
-            m_SegmentOffset = 0;
-        }
-    }
-
-    const iovec_t* m_Segments = nullptr;
-    size_t         m_SegmentCount = 0;
-    size_t         m_SegmentIndex = 0;
-    size_t         m_SegmentOffset = 0;
-    size_t         m_RemainingLength = 0;
-};
-
 uint32_t USBMSCLoadBigEndian32(const uint8_t* data)
 {
     return (uint32_t(data[0]) << 24) | (uint32_t(data[1]) << 16) | (uint32_t(data[2]) << 8) | data[3];
@@ -335,22 +151,25 @@ public:
     bool IsConnected();
 
     void Initialize();
-    size_t Transfer(bool write, uint8_t logicalUnitNumber, uint32_t blockSize, uint64_t startBlock, const iovec_t* segments, size_t segmentCount, size_t length);
+    size_t Transfer(bool write, uint8_t logicalUnitNumber, uint32_t blockSize, uint64_t startBlock, const iovec_t* segments, size_t length);
     void SynchronizeCache(uint8_t logicalUnitNumber);
 
 private:
+    bool PrepareTransferSegments_pl(const iovec_t* segments, size_t& segmentIndex, size_t& segmentOffset, size_t length, size_t packetSize);
     bool GetMaximumLogicalUnitNumber_pl(uint8_t* maximumLogicalUnitNumber);
     bool ProbeLogicalUnit_pl(uint8_t logicalUnitNumber, USBMSCLogicalUnitCapacity* capacity);
     PErrorCode ExecuteCommand_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, void* data, size_t dataLength, size_t* transferredLength, USBMSCSenseResult* senseResult);
-    PErrorCode ExecuteVectorCommand_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USBMSCIOVectorCursor& dataCursor, size_t dataLength, size_t* transferredLength, USBMSCSenseResult* senseResult);
+    PErrorCode ExecuteVectorCommand_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USB_TransferSegment* dataSegments, size_t dataSegmentCount, size_t dataLength, size_t* transferredLength, USBMSCSenseResult* senseResult);
     PErrorCode RequestSense_pl(uint8_t logicalUnitNumber, USBMSCSenseResult* senseResult);
-    PErrorCode RunTransaction_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USBMSCIOVectorCursor& dataCursor, size_t dataLength, size_t* transferredLength, USB_MSC_CommandStatus* commandStatus);
+    PErrorCode RunTransaction_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USB_TransferSegment* dataSegments, size_t dataSegmentCount, size_t dataLength, size_t* transferredLength, USB_MSC_CommandStatus* commandStatus);
 
     bool StartCommandBlock_pl();
     bool StartDataTransfer_pl();
     bool StartStatusTransfer_pl();
     bool SubmitBulkOut_pl(void* buffer, size_t length);
+    bool SubmitBulkOut_pl(const USB_TransferSegment* segments, size_t segmentCount, size_t length);
     bool SubmitBulkIn_pl(void* buffer, size_t length);
+    bool SubmitBulkIn_pl(const USB_TransferSegment* segments, size_t segmentCount, size_t length);
     void StartDataHaltClear_pl();
     void StartStatusHaltClear_pl();
     void StartResetRecovery_pl(PErrorCode result);
@@ -393,7 +212,8 @@ private:
     PErrorCode                   m_RecoveryResult = PErrorCode::IO;
     bool                         m_TransportRecoveryCompleted = false;
     USB_MSC_CommandStatus        m_TransactionCommandStatus = USB_MSC_CommandStatus::COMMAND_PASSED;
-    USBMSCIOVectorCursor         m_TransactionDataCursor;
+    const USB_TransferSegment*   m_TransactionDataSegments = nullptr;
+    size_t                       m_TransactionDataSegmentCount = 0;
     size_t                       m_TransactionDataLength = 0;
     size_t                       m_TransactionTransferredLength = 0;
     size_t                       m_TransactionRequestLength = 0;
@@ -410,6 +230,7 @@ private:
     bool                        m_ControlRequestResult = false;
 
     std::vector<uint8_t>                    m_TransferBuffer;
+    std::vector<USB_TransferSegment>        m_VectorTransferSegments;
     std::vector<Ptr<USBHostMSCBlockDevice>> m_BlockDevices;
 };
 
@@ -452,6 +273,7 @@ USBHostMSCInterface::USBHostMSCInterface(USBHost* host, USBHostClassMSC* classDr
     , m_TransactionCondition("usbh_msc_transaction")
     , m_TransferBuffer(USB_MSC_MAX_TRANSFER_SIZE)
 {
+    m_VectorTransferSegments.reserve(USB_MSC_MAX_TRANSFER_SIZE / USB_MSC_SUPPORTED_BLOCK_SIZE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -729,10 +551,12 @@ void USBHostMSCInterface::Initialize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint32_t blockSize, uint64_t startBlock, const iovec_t* segments, size_t segmentCount, size_t length)
+size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint32_t blockSize, uint64_t startBlock, const iovec_t* segments, size_t length)
 {
     KScopedLock commandLock(m_CommandMutex);
-    USBMSCIOVectorCursor cursor(segments, segmentCount, length);
+    size_t segmentIndex = 0;
+    size_t segmentOffset = 0;
+    size_t remainingLength = length;
     uint64_t currentBlock = startBlock;
 
     const size_t endpointPacketSize = write ? m_BulkEndpointOutSize : m_BulkEndpointInSize;
@@ -742,9 +566,9 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    while (cursor.GetRemainingLength() != 0)
+    while (remainingLength != 0)
     {
-        size_t transferLength = std::min(cursor.GetRemainingLength(), maximumTransferLength);
+        size_t transferLength = std::min(remainingLength, maximumTransferLength);
         transferLength -= transferLength % blockSize;
         const size_t transferBlockCount = transferLength / blockSize;
         if (transferBlockCount == 0 || transferBlockCount > std::numeric_limits<uint16_t>::max()) {
@@ -759,12 +583,22 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
         USBMSCStoreBigEndian32(commandBlock.data() + 2, uint32_t(currentBlock));
         USBMSCStoreBigEndian16(commandBlock.data() + 7, uint16_t(transferBlockCount));
 
-        USBMSCIOVectorCursor transferCursor(cursor, transferLength);
-        const bool useVectorTransfer = transferCursor.IsValid() && transferCursor.HasPacketAlignedSpans(endpointPacketSize);
+        const bool useVectorTransfer = PrepareTransferSegments_pl(
+            segments,
+            segmentIndex,
+            segmentOffset,
+            transferLength,
+            endpointPacketSize
+        );
         if (!useVectorTransfer && write)
         {
-            USBMSCIOVectorCursor copyCursor = transferCursor;
-            copyCursor.CopyTo(m_TransferBuffer.data(), transferLength);
+            size_t transferOffset = 0;
+            for (size_t i = 0; i < m_VectorTransferSegments.size(); ++i)
+            {
+                const USB_TransferSegment& segment = m_VectorTransferSegments[i];
+                memcpy(m_TransferBuffer.data() + transferOffset, segment.Buffer, segment.Length);
+                transferOffset += segment.Length;
+            }
         }
 
         size_t transferredLength = 0;
@@ -777,7 +611,8 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
                 commandBlock.data(),
                 commandBlock.size(),
                 write ? USB_MSC_DataDirection::DATA_OUT : USB_MSC_DataDirection::DATA_IN,
-                transferCursor,
+                m_VectorTransferSegments.data(),
+                m_VectorTransferSegments.size(),
                 transferLength,
                 &transferredLength,
                 &senseResult
@@ -814,10 +649,15 @@ size_t USBHostMSCInterface::Transfer(bool write, uint8_t logicalUnitNumber, uint
 
         if (!useVectorTransfer && !write)
         {
-            USBMSCIOVectorCursor copyCursor = transferCursor;
-            copyCursor.CopyFrom(m_TransferBuffer.data(), transferLength);
+            size_t transferOffset = 0;
+            for (size_t i = 0; i < m_VectorTransferSegments.size(); ++i)
+            {
+                const USB_TransferSegment& segment = m_VectorTransferSegments[i];
+                memcpy(segment.Buffer, m_TransferBuffer.data() + transferOffset, segment.Length);
+                transferOffset += segment.Length;
+            }
         }
-        cursor.Advance(transferLength);
+        remainingLength -= transferLength;
         currentBlock += transferBlockCount;
     }
     return length;
@@ -850,6 +690,52 @@ void USBHostMSCInterface::SynchronizeCache(uint8_t logicalUnitNumber)
         return;
     }
     PERROR_ERRORCODE_THROW_ON_FAIL(result);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostMSCInterface::PrepareTransferSegments_pl(const iovec_t* segments, size_t& segmentIndex, size_t& segmentOffset, size_t length, size_t packetSize)
+{
+    kassert(m_CommandMutex.IsLocked());
+    m_VectorTransferSegments.clear();
+
+    bool packetAligned = true;
+    size_t remainingLength = length;
+    while (remainingLength != 0)
+    {
+        while (segmentOffset == segments[segmentIndex].iov_len)
+        {
+            ++segmentIndex;
+            segmentOffset = 0;
+        }
+
+        uint8_t* buffer = static_cast<uint8_t*>(segments[segmentIndex].iov_base) + segmentOffset;
+        const size_t segmentLength = std::min(segments[segmentIndex].iov_len - segmentOffset, remainingLength);
+        if (m_VectorTransferSegments.empty())
+        {
+            m_VectorTransferSegments.push_back({buffer, segmentLength});
+        }
+        else
+        {
+            USB_TransferSegment& previousSegment = m_VectorTransferSegments.back();
+            const uintptr_t previousSegmentEnd = reinterpret_cast<uintptr_t>(previousSegment.Buffer) + previousSegment.Length;
+            if (previousSegmentEnd == reinterpret_cast<uintptr_t>(buffer))
+            {
+                previousSegment.Length += segmentLength;
+            }
+            else
+            {
+                packetAligned = packetAligned && (previousSegment.Length % packetSize) == 0;
+                m_VectorTransferSegments.push_back({buffer, segmentLength});
+            }
+        }
+
+        segmentOffset += segmentLength;
+        remainingLength -= segmentLength;
+    }
+    return packetAligned && (m_VectorTransferSegments.back().Length % packetSize) == 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1052,14 +938,14 @@ bool USBHostMSCInterface::ProbeLogicalUnit_pl(uint8_t logicalUnitNumber, USBMSCL
 
 PErrorCode USBHostMSCInterface::ExecuteCommand_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, void* data, size_t dataLength, size_t* transferredLength, USBMSCSenseResult* senseResult)
 {
-    iovec_t dataSegment = {data, dataLength};
-    const USBMSCIOVectorCursor dataCursor(&dataSegment, 1, dataLength);
+    const USB_TransferSegment dataSegment = {data, dataLength};
     return ExecuteVectorCommand_pl(
         logicalUnitNumber,
         commandBlock,
         commandBlockLength,
         direction,
-        dataCursor,
+        &dataSegment,
+        1,
         dataLength,
         transferredLength,
         senseResult
@@ -1070,7 +956,7 @@ PErrorCode USBHostMSCInterface::ExecuteCommand_pl(uint8_t logicalUnitNumber, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USBHostMSCInterface::ExecuteVectorCommand_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USBMSCIOVectorCursor& dataCursor, size_t dataLength, size_t* transferredLength, USBMSCSenseResult* senseResult)
+PErrorCode USBHostMSCInterface::ExecuteVectorCommand_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USB_TransferSegment* dataSegments, size_t dataSegmentCount, size_t dataLength, size_t* transferredLength, USBMSCSenseResult* senseResult)
 {
     kassert(m_CommandMutex.IsLocked());
     *senseResult = USBMSCSenseResult();
@@ -1085,7 +971,8 @@ PErrorCode USBHostMSCInterface::ExecuteVectorCommand_pl(uint8_t logicalUnitNumbe
             commandBlock,
             commandBlockLength,
             direction,
-            dataCursor,
+            dataSegments,
+            dataSegmentCount,
             dataLength,
             transferredLength,
             &commandStatus
@@ -1164,14 +1051,14 @@ PErrorCode USBHostMSCInterface::RequestSense_pl(uint8_t logicalUnitNumber, USBMS
 
     size_t transferredLength = 0;
     USB_MSC_CommandStatus commandStatus = USB_MSC_CommandStatus::COMMAND_PASSED;
-    iovec_t dataSegment = {response.data(), response.size()};
-    const USBMSCIOVectorCursor dataCursor(&dataSegment, 1, response.size());
+    const USB_TransferSegment dataSegment = {response.data(), response.size()};
     const PErrorCode result = RunTransaction_pl(
         logicalUnitNumber,
         commandBlock.data(),
         commandBlock.size(),
         USB_MSC_DataDirection::DATA_IN,
-        dataCursor,
+        &dataSegment,
+        1,
         response.size(),
         &transferredLength,
         &commandStatus
@@ -1201,17 +1088,15 @@ PErrorCode USBHostMSCInterface::RequestSense_pl(uint8_t logicalUnitNumber, USBMS
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USBHostMSCInterface::RunTransaction_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USBMSCIOVectorCursor& dataCursor, size_t dataLength, size_t* transferredLength, USB_MSC_CommandStatus* commandStatus)
+PErrorCode USBHostMSCInterface::RunTransaction_pl(uint8_t logicalUnitNumber, const uint8_t* commandBlock, size_t commandBlockLength, USB_MSC_DataDirection direction, const USB_TransferSegment* dataSegments, size_t dataSegmentCount, size_t dataLength, size_t* transferredLength, USB_MSC_CommandStatus* commandStatus)
 {
     kassert(m_CommandMutex.IsLocked());
 
-    const USBMSCIOVectorCursor transactionDataCursor(dataCursor, dataLength);
     if (logicalUnitNumber > USB_MSC_CommandBlockWrapper::LOGICAL_UNIT_NUMBER_MASK
         || commandBlock == nullptr
         || commandBlockLength == 0
         || commandBlockLength > USB_MSC_CommandBlockWrapper::MAX_COMMAND_BLOCK_LENGTH
-        || dataLength > std::numeric_limits<uint32_t>::max()
-        || !transactionDataCursor.IsValid())
+        || dataLength > std::numeric_limits<uint32_t>::max())
     {
         return PErrorCode::INVAL;
     }
@@ -1230,7 +1115,8 @@ PErrorCode USBHostMSCInterface::RunTransaction_pl(uint8_t logicalUnitNumber, con
     m_CommandBlockWrapper.CommandBlockLength = uint8_t(commandBlockLength);
     memcpy(m_CommandBlockWrapper.CommandBlock, commandBlock, commandBlockLength);
 
-    m_TransactionDataCursor = transactionDataCursor;
+    m_TransactionDataSegments = dataSegments;
+    m_TransactionDataSegmentCount = dataSegmentCount;
     m_TransactionDataLength = dataLength;
     m_TransactionTransferredLength = 0;
     m_TransactionRequestLength = 0;
@@ -1299,24 +1185,19 @@ bool USBHostMSCInterface::StartCommandBlock_pl()
 bool USBHostMSCInterface::StartDataTransfer_pl()
 {
     kassert(m_Host->GetMutex().IsLocked());
-    if (m_TransactionDataCursor.GetRemainingLength() == 0) {
+    if (m_TransactionDataLength == 0) {
         return StartStatusTransfer_pl();
     }
 
-    void* transferBuffer = nullptr;
-    size_t transferLength = 0;
-    if (!m_TransactionDataCursor.GetCurrentSpan(&transferBuffer, &transferLength) || transferLength == 0) {
-        return false;
-    }
-    m_TransactionRequestLength = transferLength;
+    m_TransactionRequestLength = m_TransactionDataLength;
 
     if (m_CommandBlockWrapper.Flags == USB_MSC_DataDirection::DATA_IN)
     {
         m_TransactionStage = USBMSCTransactionStage::DataIn;
-        return SubmitBulkIn_pl(transferBuffer, transferLength);
+        return SubmitBulkIn_pl(m_TransactionDataSegments, m_TransactionDataSegmentCount, m_TransactionDataLength);
     }
     m_TransactionStage = USBMSCTransactionStage::DataOut;
-    return SubmitBulkOut_pl(transferBuffer, transferLength);
+    return SubmitBulkOut_pl(m_TransactionDataSegments, m_TransactionDataSegmentCount, m_TransactionDataLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1359,6 +1240,31 @@ bool USBHostMSCInterface::SubmitBulkOut_pl(void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USBHostMSCInterface::SubmitBulkOut_pl(const USB_TransferSegment* segments, size_t segmentCount, size_t length)
+{
+    kassert(m_Host->GetMutex().IsLocked());
+    Ptr<USBHostMSCInterface> self = ptr_tmp_cast(this);
+    const bool result = m_Host->BulkSendVectorData(
+        m_BulkPipeOut,
+        segments,
+        segmentCount,
+        length,
+        true,
+        [self](USB_PipeIndex pipeIndex, USB_URBState state, size_t transactionLength)
+        {
+            self->HandleBulkTransfer_pl(pipeIndex, state, transactionLength);
+        }
+    );
+    if (!result) {
+        m_Host->CancelPipe(m_BulkPipeOut);
+    }
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USBHostMSCInterface::SubmitBulkIn_pl(void* buffer, size_t length)
 {
     kassert(m_Host->GetMutex().IsLocked());
@@ -1366,6 +1272,30 @@ bool USBHostMSCInterface::SubmitBulkIn_pl(void* buffer, size_t length)
     const bool result = m_Host->BulkReceiveData(
         m_BulkPipeIn,
         buffer,
+        length,
+        [self](USB_PipeIndex pipeIndex, USB_URBState state, size_t transactionLength)
+        {
+            self->HandleBulkTransfer_pl(pipeIndex, state, transactionLength);
+        }
+    );
+    if (!result) {
+        m_Host->CancelPipe(m_BulkPipeIn);
+    }
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostMSCInterface::SubmitBulkIn_pl(const USB_TransferSegment* segments, size_t segmentCount, size_t length)
+{
+    kassert(m_Host->GetMutex().IsLocked());
+    Ptr<USBHostMSCInterface> self = ptr_tmp_cast(this);
+    const bool result = m_Host->BulkReceiveVectorData(
+        m_BulkPipeIn,
+        segments,
+        segmentCount,
         length,
         [self](USB_PipeIndex pipeIndex, USB_URBState state, size_t transactionLength)
         {
@@ -1558,36 +1488,25 @@ void USBHostMSCInterface::HandleBulkTransfer_pl(USB_PipeIndex pipeIndex, USB_URB
             }
             else if (state == USB_URBState::Stall)
             {
-                if (transactionLength > m_TransactionRequestLength
-                    || transactionLength > m_TransactionDataCursor.GetRemainingLength())
+                if (transactionLength > m_TransactionRequestLength)
                 {
                     StartResetRecovery_pl(PErrorCode::IO);
                 }
                 else
                 {
                     m_TransactionTransferredLength += transactionLength;
-                    m_TransactionDataCursor.Advance(transactionLength);
                     StartDataHaltClear_pl();
                 }
             }
             else if (state != USB_URBState::Done
-                || transactionLength > m_TransactionRequestLength
-                || transactionLength > m_TransactionDataCursor.GetRemainingLength())
+                || transactionLength > m_TransactionRequestLength)
             {
                 StartResetRecovery_pl(PErrorCode::IO);
             }
             else
             {
                 m_TransactionTransferredLength += transactionLength;
-                m_TransactionDataCursor.Advance(transactionLength);
-                if (transactionLength < m_TransactionRequestLength)
-                {
-                    if (!StartStatusTransfer_pl()) {
-                        StartResetRecovery_pl(PErrorCode::IO);
-                    }
-                }
-                else if (!StartDataTransfer_pl())
-                {
+                if (!StartStatusTransfer_pl()) {
                     StartResetRecovery_pl(PErrorCode::IO);
                 }
             }
@@ -1600,29 +1519,25 @@ void USBHostMSCInterface::HandleBulkTransfer_pl(USB_PipeIndex pipeIndex, USB_URB
             }
             else if (state == USB_URBState::Stall)
             {
-                if (transactionLength > m_TransactionRequestLength
-                    || transactionLength > m_TransactionDataCursor.GetRemainingLength())
+                if (transactionLength > m_TransactionRequestLength)
                 {
                     StartResetRecovery_pl(PErrorCode::IO);
                 }
                 else
                 {
                     m_TransactionTransferredLength += transactionLength;
-                    m_TransactionDataCursor.Advance(transactionLength);
                     StartDataHaltClear_pl();
                 }
             }
             else if (state != USB_URBState::Done
-                || transactionLength != m_TransactionRequestLength
-                || transactionLength > m_TransactionDataCursor.GetRemainingLength())
+                || transactionLength != m_TransactionRequestLength)
             {
                 StartResetRecovery_pl(PErrorCode::IO);
             }
             else
             {
                 m_TransactionTransferredLength += transactionLength;
-                m_TransactionDataCursor.Advance(transactionLength);
-                if (!StartDataTransfer_pl()) {
+                if (!StartStatusTransfer_pl()) {
                     StartResetRecovery_pl(PErrorCode::IO);
                 }
             }
@@ -2024,7 +1939,7 @@ size_t USBHostMSCBlockDevice::Read(Ptr<KFileNode> file, const iovec_t* segments,
     if (length == 0) {
         return 0;
     }
-    return m_Interface->Transfer(false, m_LogicalUnitNumber, m_BlockSize, startBlock, segments, segmentCount, length);
+    return m_Interface->Transfer(false, m_LogicalUnitNumber, m_BlockSize, startBlock, segments, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2038,7 +1953,7 @@ size_t USBHostMSCBlockDevice::Write(Ptr<KFileNode> file, const iovec_t* segments
     if (length == 0) {
         return 0;
     }
-    return m_Interface->Transfer(true, m_LogicalUnitNumber, m_BlockSize, startBlock, segments, segmentCount, length);
+    return m_Interface->Transfer(true, m_LogicalUnitNumber, m_BlockSize, startBlock, segments, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

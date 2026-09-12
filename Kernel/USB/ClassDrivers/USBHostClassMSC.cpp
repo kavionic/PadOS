@@ -704,6 +704,8 @@ bool USBHostMSCInterface::PrepareTransferSegments_pl(const iovec_t* segments, si
     size_t remainingLength = length;
     while (remainingLength != 0)
     {
+        // PrepareTransfer() guarantees segmentOffset <= iov_len and enough vector data remains.
+        // Skip segments exhausted by an earlier chunk, including consecutive empty segments.
         while (segmentOffset == segments[segmentIndex].iov_len)
         {
             ++segmentIndex;
@@ -1757,118 +1759,113 @@ void USBHostMSCInterface::HandleGetMaximumLogicalUnitNumber_pl(bool result, uint
 std::vector<Ptr<USBHostMSCBlockDevice>> USBHostMSCInterface::CreateDeviceNodes(const std::vector<USBMSCLogicalUnitCapacity>& capacities)
 {
     std::vector<Ptr<USBHostMSCBlockDevice>> devices;
-
-    try
+    PScopeFail removeDeviceNodesOnFailure([&devices]() noexcept
     {
-        for (size_t logicalUnitIndex = 0; logicalUnitIndex < capacities.size(); ++logicalUnitIndex)
+        for (const Ptr<USBHostMSCBlockDevice>& device : devices) {
+            const int nodeHandle = device->GetNodeHandle();
+            if (nodeHandle != -1) {
+                kremove_device_root(nodeHandle);
+            }
+        }
+    });
+
+    for (size_t logicalUnitIndex = 0; logicalUnitIndex < capacities.size(); ++logicalUnitIndex)
+    {
+        const USBMSCLogicalUnitCapacity& capacity = capacities[logicalUnitIndex];
+        if (capacity.BlockSize == 0 || capacity.SectorCount == 0) {
+            continue;
+        }
+
+        const off64_t diskSize = off64_t(capacity.SectorCount * capacity.BlockSize);
+        const PString pathBase = PString::format_string(
+            "usb/bus0/dev{}/msc{}/lun{}/",
+            int(m_DeviceAddress),
+            int(m_InterfaceNumber),
+            logicalUnitIndex
+        );
+
+        Ptr<USBHostMSCBlockDevice> rawDevice = ptr_new<USBHostMSCBlockDevice>(
+            ptr_tmp_cast(this),
+            uint8_t(logicalUnitIndex),
+            capacity.BlockSize,
+            0,
+            diskSize,
+            0
+        );
+        devices.push_back(rawDevice);
+        rawDevice->SetNodeHandle(kregister_device_root_trw((pathBase + "raw").c_str(), rawDevice));
+
+        if (!IsConnected()) {
+            return devices;
+        }
+
+        std::vector<disk_partition_desc> partitions;
+        try
         {
-            const USBMSCLogicalUnitCapacity& capacity = capacities[logicalUnitIndex];
-            if (capacity.BlockSize == 0 || capacity.SectorCount == 0) {
+            size_t partitionBufferSize = capacity.BlockSize;
+            if (partitionBufferSize < KVFSManager::DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE)
+            {
+                partitionBufferSize =
+                    ((KVFSManager::DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE + partitionBufferSize - 1)
+                        / partitionBufferSize)
+                    * partitionBufferSize;
+            }
+
+            std::vector<uint8_t> partitionBuffer(partitionBufferSize);
+            device_geometry geometry = {};
+            geometry.sector_count = capacity.SectorCount;
+            geometry.bytes_per_sector = capacity.BlockSize;
+            geometry.read_only = false;
+            geometry.removable = true;
+
+            partitions = KVFSManager::DecodeDiskPartitions_trw(
+                partitionBuffer.data(),
+                partitionBuffer.size(),
+                geometry,
+                &USBHostMSCInterface::ReadPartitionData,
+                ptr_raw_pointer_cast(rawDevice)
+            );
+        }
+        catch (...)
+        {
+            partitions.clear();
+        }
+        if (!IsConnected()) {
+            return devices;
+        }
+
+        std::sort(
+            partitions.begin(),
+            partitions.end(),
+            [](const disk_partition_desc& lhs, const disk_partition_desc& rhs) { return lhs.p_start < rhs.p_start; }
+        );
+
+        size_t partitionIndex = 0;
+        for (const disk_partition_desc& partition : partitions)
+        {
+            if (partition.p_type == 0
+                || partition.p_start < 0
+                || partition.p_size <= 0
+                || (partition.p_start % capacity.BlockSize) != 0
+                || (partition.p_size % capacity.BlockSize) != 0
+                || partition.p_start > diskSize
+                || partition.p_size > diskSize - partition.p_start)
+            {
                 continue;
             }
 
-            const off64_t diskSize = off64_t(capacity.SectorCount * capacity.BlockSize);
-            const PString pathBase = PString::format_string(
-                "usb/bus0/dev{}/msc{}/lun{}/",
-                int(m_DeviceAddress),
-                int(m_InterfaceNumber),
-                logicalUnitIndex
-            );
-
-            Ptr<USBHostMSCBlockDevice> rawDevice = ptr_new<USBHostMSCBlockDevice>(
+            Ptr<USBHostMSCBlockDevice> partitionDevice = ptr_new<USBHostMSCBlockDevice>(
                 ptr_tmp_cast(this),
                 uint8_t(logicalUnitIndex),
                 capacity.BlockSize,
-                0,
-                diskSize,
-                0
+                partition.p_start,
+                partition.p_size,
+                partition.p_type
             );
-            devices.push_back(rawDevice);
-            rawDevice->SetNodeHandle(kregister_device_root_trw((pathBase + "raw").c_str(), rawDevice));
-
-            if (!IsConnected()) {
-                return devices;
-            }
-
-            std::vector<disk_partition_desc> partitions;
-            try
-            {
-                size_t partitionBufferSize = capacity.BlockSize;
-                if (partitionBufferSize < KVFSManager::DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE)
-                {
-                    partitionBufferSize =
-                        ((KVFSManager::DISK_PARTITION_TABLE_MINIMUM_BUFFER_SIZE + partitionBufferSize - 1)
-                            / partitionBufferSize)
-                        * partitionBufferSize;
-                }
-
-                std::vector<uint8_t> partitionBuffer(partitionBufferSize);
-                device_geometry geometry = {};
-                geometry.sector_count = capacity.SectorCount;
-                geometry.bytes_per_sector = capacity.BlockSize;
-                geometry.read_only = false;
-                geometry.removable = true;
-
-                partitions = KVFSManager::DecodeDiskPartitions_trw(
-                    partitionBuffer.data(),
-                    partitionBuffer.size(),
-                    geometry,
-                    &USBHostMSCInterface::ReadPartitionData,
-                    ptr_raw_pointer_cast(rawDevice)
-                );
-            }
-            catch (...)
-            {
-                partitions.clear();
-            }
-            if (!IsConnected()) {
-                return devices;
-            }
-
-            std::sort(
-                partitions.begin(),
-                partitions.end(),
-                [](const disk_partition_desc& lhs, const disk_partition_desc& rhs) { return lhs.p_start < rhs.p_start; }
-            );
-
-            size_t partitionIndex = 0;
-            for (const disk_partition_desc& partition : partitions)
-            {
-                if (partition.p_type == 0
-                    || partition.p_start < 0
-                    || partition.p_size <= 0
-                    || (partition.p_start % capacity.BlockSize) != 0
-                    || (partition.p_size % capacity.BlockSize) != 0
-                    || partition.p_start > diskSize
-                    || partition.p_size > diskSize - partition.p_start)
-                {
-                    continue;
-                }
-
-                Ptr<USBHostMSCBlockDevice> partitionDevice = ptr_new<USBHostMSCBlockDevice>(
-                    ptr_tmp_cast(this),
-                    uint8_t(logicalUnitIndex),
-                    capacity.BlockSize,
-                    partition.p_start,
-                    partition.p_size,
-                    partition.p_type
-                );
-                const PString partitionPath = pathBase + PString::format_string("{}", partitionIndex++);
-                devices.push_back(partitionDevice);
-                partitionDevice->SetNodeHandle(kregister_device_root_trw(partitionPath.c_str(), partitionDevice));
-            }
+            const PString partitionPath = pathBase + PString::format_string("{}", partitionIndex++);
+            devices.push_back(partitionDevice);
+            partitionDevice->SetNodeHandle(kregister_device_root_trw(partitionPath.c_str(), partitionDevice));
         }
-    }
-    catch (...)
-    {
-        std::vector<int> nodeHandles;
-        for (const Ptr<USBHostMSCBlockDevice>& device : devices) {
-            if (device->GetNodeHandle() != -1) {
-                nodeHandles.push_back(device->GetNodeHandle());
-            }
-        }
-        m_ClassDriver->QueueNodeRemovals(std::move(nodeHandles));
-        throw;
     }
     return devices;
 }
@@ -2307,9 +2304,7 @@ void* USBHostClassMSC::Run()
         }
 
         for (int nodeHandle : nodeRemovalQueue) {
-            try {
-                kremove_device_root_trw(nodeHandle);
-            } catch (...) {}
+            kremove_device_root(nodeHandle);
         }
 
         if (stopRequested) {

@@ -59,6 +59,7 @@ void ksetup_device_driver_trw(TArgumentTypes&& ...parameters)
 int     kregister_device_root_trw(const char* devicePath, Ptr<KInode> rootInode);
 void    krename_device_root_trw(int handle, const char* newPath);
 void    kremove_device_root_trw(int handle);
+PErrorCode kremove_device_root(int handle) noexcept;
 
 
 template<class T> concept kregister_device_driver_has_register_device = requires(T t) { { t->RegisterDevice() } -> std::convertible_to<int>; };

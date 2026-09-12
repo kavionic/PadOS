@@ -95,4 +95,18 @@ void kremove_device_root_trw(int handle)
     kget_rootfs_trw()->RemoveDevice(handle);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kremove_device_root(int handle) noexcept
+{
+    try
+    {
+        kremove_device_root_trw(handle);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
 } // namespace kernel

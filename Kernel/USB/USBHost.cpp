@@ -313,49 +313,13 @@ void* USBHost::Run()
             {
                 case USBHostEventID::ReEnumerate:
                     m_PortEnabled = false;
-                    m_DeviceAttachDeadline = TimeValNanos::infinit;
+                    CancelRootPortInitialization();
                     [[fallthrough]];
                 case USBHostEventID::DeviceConnected:
-                {
-                    if (!m_DeviceAttachDeadline.IsInfinit() && !m_PortEnabled) {
-                        break;
-                    }
-                    if (m_PortEnabled)
-                    {
-                        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Ignoring duplicate root-port connect while port is still enabled.");
-                        break;
-                    }
-                    const bool hostStopped = Stop();
-                    CloseActiveClassDrivers();
-                    Reset();
-                    if (!hostStopped || !m_Driver->StartHost()) {
-                        break;
-                    }
-
-                    snooze_ms(200);
-                    if (!m_Driver->ResetPort()) {
-                        break;
-                    }
-
-                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
-
-                    m_Device0.m_Address = 0;
-                    m_DeviceAttachDeadline = kget_monotonic_time() + TimeValNanos::FromSeconds(DEVICE_RESET_TIMEOUT);
+                    HandleRootPortConnected();
                     break;
-                }
                 case USBHostEventID::DeviceAttached:
-                    m_DeviceAttachDeadline = TimeValNanos::infinit;
-                    m_PortEnabled = true;
-                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device reset Completed.");
-                    m_ResetErrorCount = 0;
-
-                    SignalConnectionChanged(true);
-
-                    snooze_ms(100);
-
-                    PrepareDevice0(m_Driver->HostGetSpeed(), 0, 0);
-                    m_ControlHandler.AllocPipes(0, m_Device0.m_Speed, (m_Device0.m_Speed == USB_Speed::LOW) ? 8 : 64);
-                    Enumerate();
+                    HandleRootPortAttached();
                     break;
                 case USBHostEventID::DeviceDetached:
                     [[fallthrough]];
@@ -374,15 +338,7 @@ void* USBHost::Run()
         if (m_ControlHandler.HandleRequestTimeout(currentTime)) {
             continue;
         }
-        if (!m_DeviceAttachDeadline.IsInfinit() && currentTime > m_DeviceAttachDeadline)
-        {
-            m_DeviceAttachDeadline = TimeValNanos::infinit;
-            if (++m_ResetErrorCount > 3) {
-                kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
-            } else {
-                RestartDeviceInitialization();
-            }
-        }
+        HandleRootPortInitializationDeadline(currentTime);
     }
 }
 
@@ -1163,10 +1119,123 @@ bool USBHost::PopPendingURBStateChanged(USBHostEvent& event)
 TimeValNanos USBHost::GetNextEventDeadline() const
 {
     const TimeValNanos controlDeadline = m_ControlHandler.GetRequestDeadline();
-    if (m_DeviceAttachDeadline.IsInfinit() || controlDeadline < m_DeviceAttachDeadline) {
+    if (m_RootPortInitializationDeadline.IsInfinit() || controlDeadline < m_RootPortInitializationDeadline) {
         return controlDeadline;
     }
-    return m_DeviceAttachDeadline;
+    return m_RootPortInitializationDeadline;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::SetRootPortInitializationDeadline(RootPortInitializationState state, TimeValNanos delay)
+{
+    m_RootPortInitializationState = state;
+    m_RootPortInitializationDeadline = kget_monotonic_time() + delay;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::CancelRootPortInitialization()
+{
+    if (m_RootPortInitializationState == RootPortInitializationState::ResettingPort) {
+        m_Driver->SetPortReset(false);
+    }
+    m_RootPortInitializationState = RootPortInitializationState::Idle;
+    m_RootPortInitializationDeadline = TimeValNanos::infinit;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleRootPortConnected()
+{
+    if (m_RootPortInitializationState != RootPortInitializationState::Idle && !m_PortEnabled) {
+        return;
+    }
+    if (m_PortEnabled)
+    {
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Ignoring duplicate root-port connect while port is still enabled.");
+        return;
+    }
+
+    const bool hostStopped = Stop();
+    CloseActiveClassDrivers();
+    Reset();
+    if (hostStopped && m_Driver->StartHost()) {
+        SetRootPortInitializationDeadline(RootPortInitializationState::WaitingForPortReset, HOST_START_DELAY);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleRootPortAttached()
+{
+    if (m_RootPortInitializationState == RootPortInitializationState::WaitingForDeviceAttach)
+    {
+        SetRootPortInitializationDeadline(RootPortInitializationState::WaitingForEnumeration, ENUMERATION_START_DELAY);
+        m_PortEnabled = true;
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device reset Completed.");
+        m_ResetErrorCount = 0;
+        SignalConnectionChanged(true);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleRootPortInitializationDeadline(TimeValNanos currentTime)
+{
+    if (m_RootPortInitializationDeadline.IsInfinit() || currentTime <= m_RootPortInitializationDeadline) {
+        return;
+    }
+
+    switch (m_RootPortInitializationState)
+    {
+        case RootPortInitializationState::WaitingForPortReset:
+            if (m_Driver->SetPortReset(true)) {
+                SetRootPortInitializationDeadline(RootPortInitializationState::ResettingPort, PORT_RESET_DURATION);
+            } else {
+                CancelRootPortInitialization();
+            }
+            break;
+        case RootPortInitializationState::ResettingPort:
+            if (m_Driver->SetPortReset(false))
+            {
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
+                m_Device0.m_Address = 0;
+                SetRootPortInitializationDeadline(RootPortInitializationState::WaitingForDeviceAttach, DEVICE_ATTACH_TIMEOUT);
+            }
+            else
+            {
+                CancelRootPortInitialization();
+            }
+            break;
+        case RootPortInitializationState::WaitingForDeviceAttach:
+            CancelRootPortInitialization();
+            if (++m_ResetErrorCount > 3) {
+                kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
+            } else {
+                RestartDeviceInitialization();
+            }
+            break;
+        case RootPortInitializationState::WaitingForEnumeration:
+            CancelRootPortInitialization();
+            PrepareDevice0(m_Driver->HostGetSpeed(), 0, 0);
+            m_ControlHandler.AllocPipes(0, m_Device0.m_Speed, (m_Device0.m_Speed == USB_Speed::LOW) ? 8 : 64);
+            Enumerate();
+            break;
+        case RootPortInitializationState::Idle:
+            CancelRootPortInitialization();
+            break;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1175,6 +1244,7 @@ TimeValNanos USBHost::GetNextEventDeadline() const
 
 void USBHost::Reset()
 {
+    CancelRootPortInitialization();
     m_DeviceRegistry.Clear();
 
     m_PortEnabled     = false;
@@ -1183,8 +1253,6 @@ void USBHost::Reset()
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     m_EventQueueOverflowCount = 0;
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-    m_DeviceAttachDeadline = TimeValNanos::infinit;
-
     m_Device0 = USBDeviceNode();
     m_Device0.m_Address = 0;
     m_Device0.m_Speed   = USB_Speed::FULL;
@@ -1244,7 +1312,7 @@ bool USBHost::CloseActiveClassDrivers()
 void USBHost::HandleDeviceDisconnected()
 {
     const bool wasConnected = m_PortEnabled;
-    const bool wasConnecting = !m_DeviceAttachDeadline.IsInfinit();
+    const bool wasConnecting = m_RootPortInitializationState != RootPortInitializationState::Idle;
 
     Stop();
     const bool closedClassDrivers = CloseActiveClassDrivers();

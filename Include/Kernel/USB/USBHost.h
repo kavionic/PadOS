@@ -215,7 +215,20 @@ public:
     VFConnector<uint8_t, USBHost*>  VFSelectConfiguration;
 
 private:
-    static constexpr float DEVICE_RESET_TIMEOUT = 1.0f;
+    enum class RootPortInitializationState : uint8_t
+    {
+        Idle,
+        WaitingForPortReset,
+        ResettingPort,
+        WaitingForDeviceAttach,
+        WaitingForEnumeration
+    };
+
+    static constexpr TimeValNanos HOST_START_DELAY        = TimeValNanos::FromMilliseconds(200);
+    // Hold reset for 100ms to accommodate devices that need more than the 10ms USB minimum.
+    static constexpr TimeValNanos PORT_RESET_DURATION     = TimeValNanos::FromMilliseconds(100);
+    static constexpr TimeValNanos DEVICE_ATTACH_TIMEOUT   = TimeValNanos::FromSeconds(1.0);
+    static constexpr TimeValNanos ENUMERATION_START_DELAY = TimeValNanos::FromMilliseconds(100);
 
     static bool         IsTerminalURBState(USB_URBState urbState);
     bool                PushEvent(USBHostEventID eventID, bool clearQueue = false);
@@ -224,6 +237,12 @@ private:
     bool                HasPendingURBStateChanged() const;
     bool                PopPendingURBStateChanged(USBHostEvent& event);
     TimeValNanos        GetNextEventDeadline() const;
+
+    void                SetRootPortInitializationDeadline(RootPortInitializationState state, TimeValNanos delay);
+    void                CancelRootPortInitialization();
+    void                HandleRootPortConnected();
+    void                HandleRootPortAttached();
+    void                HandleRootPortInitializationDeadline(TimeValNanos currentTime);
 
     void                Reset();
     bool                Stop();
@@ -270,10 +289,11 @@ private:
 
     std::vector<Ptr<USBClassDriverHost>>    m_ClassDrivers;
     std::vector<USBHostPipeData>            m_Pipes;
-    TimeValNanos                            m_DeviceAttachDeadline  = TimeValNanos::infinit;
-    uint8_t                                 m_ResetErrorCount       = 0;
-    uint8_t                                 m_EnumErrorCount        = 0;
-    bool                                    m_PortEnabled           = false;
+    TimeValNanos                            m_RootPortInitializationDeadline = TimeValNanos::infinit;
+    RootPortInitializationState             m_RootPortInitializationState    = RootPortInitializationState::Idle;
+    uint8_t                                 m_ResetErrorCount                = 0;
+    uint8_t                                 m_EnumErrorCount                 = 0;
+    bool                                    m_PortEnabled                    = false;
 };
 
 

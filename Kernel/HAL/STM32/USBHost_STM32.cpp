@@ -561,21 +561,22 @@ bool USBHost_STM32::StopHost()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost_STM32::ResetPort()
+bool USBHost_STM32::SetPortReset(bool resetActive)
 {
     uint32_t hprt0 = m_HPRT[0];
 
-    if ((hprt0 & USB_OTG_HPRT_PCSTS) == 0) {
+    if (resetActive && (hprt0 & USB_OTG_HPRT_PCSTS) == 0) {
         return false;
     }
 
     hprt0 &= ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
 
-    m_HPRT[0] = USB_OTG_HPRT_PRST | hprt0;
-    snooze_ms(100); // Must wait at least 10mS (waiting 100mS for safety).
-    m_HPRT[0] = ~USB_OTG_HPRT_PRST & hprt0;
-    snooze_ms(10);
-    return (m_HPRT[0] & USB_OTG_HPRT_PCSTS) != 0;
+    if (resetActive) {
+        m_HPRT[0] = USB_OTG_HPRT_PRST | hprt0;
+    } else {
+        m_HPRT[0] = ~USB_OTG_HPRT_PRST & hprt0;
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -93,7 +93,7 @@ public:
     virtual uint32_t    GetMaxPipeCount() const override { return m_HostDriver.GetMaxPipeCount(); }
     virtual bool        StartHost() override { return m_HostDriver.StartHost(); }
     virtual bool        StopHost() override { return m_HostDriver.StopHost(); }
-    virtual bool        ResetPort() override { return m_HostDriver.ResetPort(); }
+    virtual bool        SetPortReset(bool resetActive) override { return m_HostDriver.SetPortReset(resetActive); }
     virtual uint32_t    GetCurrentHostFrame() override { return m_HostDriver.GetCurrentFrame(); }
 
     virtual bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize) override { return m_HostDriver.SetupPipe(pipeIndex, endpointAddr, deviceAddr, speed, endpointType, maxPacketSize); }

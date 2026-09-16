@@ -1272,7 +1272,6 @@ bool USBDevice::PopEvent(USBDeviceEvent& event)
 void USBDevice::PushEvent(const USBDeviceEvent& event, bool clearQueue)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
-    static volatile uint32_t maxEvents = 0;
 
     if (clearQueue)
     {
@@ -1286,9 +1285,6 @@ void USBDevice::PushEvent(const USBDeviceEvent& event, bool clearQueue)
     }
 
     m_EventQueue.Write(&event, 1);
-    if (m_EventQueue.GetLength() > maxEvents) {
-        maxEvents = m_EventQueue.GetLength();
-    }
     m_EventQueueCondition.WakeupAll();
 }
 

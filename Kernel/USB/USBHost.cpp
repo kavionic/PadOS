@@ -589,35 +589,8 @@ bool USBHost::GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr
 
 bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    USBHostPipeData* pipe = GetPipeData(pipeIndex);
-    if (pipe != nullptr)
-    {
-        ++pipe->SubmissionGeneration;
-        pipe->PendingIRQTransferLength = 0;
-        pipe->PendingIRQSubmissionGeneration = 0;
-        pipe->PendingIRQURBState = USB_URBState::Idle;
-        pipe->HasPendingIRQURBState = false;
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-        ++pipe->Diagnostics.SubmitCount;
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-        pipe->TransactionCallback = std::move(callback);
-        pipe->URBState = USB_URBState::NotReady;
-
-        const USB_TransferSegment segment = {buffer, length};
-        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, &segment, 1, length);
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-        if (!result) {
-            ++pipe->Diagnostics.SubmitFailureCount;
-        }
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-        if (!result)
-        {
-            pipe->TransactionCallback = nullptr;
-            pipe->URBState = USB_URBState::Idle;
-        }
-        return result;
-    }
-    return false;
+    const USB_TransferSegment segment = {buffer, length};
+    return SubmitVectorURB(pipeIndex, direction, enpointType, initialPID, &segment, 1, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

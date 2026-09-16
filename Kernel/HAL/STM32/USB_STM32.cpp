@@ -18,6 +18,7 @@
 // Created: 22.05.2022 17:00
 
 #include <string.h>
+#include <utility>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/HAL/PeripheralMapping.h>
@@ -32,6 +33,13 @@
 
 namespace kernel
 {
+
+#if defined(STM32H7)
+static constexpr uintptr_t USB_STM32_ITCM_INACCESSIBLE_END = D1_ITCMICP_BASE + 128 * 1024;
+static constexpr uintptr_t USB_STM32_DTCM_END = D1_DTCMRAM_BASE + 128 * 1024;
+#else
+#error USB DMA memory accessibility must be defined for this STM32 platform.
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -53,6 +61,20 @@ USB_STM32::~USB_STM32()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USB_STM32::IsDirectDMABuffer(const void* buffer, size_t length)
+{
+    const uintptr_t bufferAddress = reinterpret_cast<uintptr_t>(buffer);
+    if ((bufferAddress % __SCB_DCACHE_LINE_SIZE) != 0 || (length % __SCB_DCACHE_LINE_SIZE) != 0) {
+        return false;
+    }
+    return bufferAddress >= USB_STM32_ITCM_INACCESSIBLE_END
+        && (bufferAddress >= USB_STM32_DTCM_END || bufferAddress + length <= D1_DTCMRAM_BASE);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool enableDMA, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF)
 {
     m_Port = get_usb_from_id(portID);
@@ -60,6 +82,7 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
         return false;
     }
     m_FIFOBase      = reinterpret_cast<volatile uint32_t*>(reinterpret_cast<volatile uint8_t*>(m_Port) + USB_OTG_FIFO_BASE);
+    m_IRQ = get_usb_irq(portID);
 
     m_ConfigSpeed               = speed;
     m_PhyInterface              = phyInterface;
@@ -104,8 +127,10 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
     }
     else
     {
-        if (!m_DeviceDriver.Setup(this, portID, enableVBusSense, useSOF)) {
+        if (!m_DeviceDriver.Setup(this, portID, enableVBusSense, useSOF))
+        {
             kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "Failed to setup device mode.");
+            return false;
         }
     }
     return true;
@@ -134,6 +159,37 @@ bool USB_STM32::ResetHostCore()
         return false;
     }
     return SetUSBMode(USB_Mode::Host);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USB_STM32::DisableIRQDelivery()
+{
+    const uint32_t currentExceptionNumber = __get_IPSR();
+    const uint32_t irqExceptionNumber = static_cast<uint32_t>(std::to_underlying(m_IRQ)) + 16u;
+
+    if (currentExceptionNumber == irqExceptionNumber) {
+        return false;
+    }
+
+    const bool wasEnabled = NVIC_GetEnableIRQ(m_IRQ) != 0;
+    if (wasEnabled) {
+        NVIC_DisableIRQ(m_IRQ);
+    }
+    return wasEnabled;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USB_STM32::RestoreIRQDelivery(bool wasEnabled)
+{
+    if (wasEnabled) {
+        NVIC_EnableIRQ(m_IRQ);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -182,7 +238,7 @@ bool USB_STM32::SetupCore(bool useExternalVBus, bool batteryChargingEnabled)
     if (m_UseDMA)
     {
         // Reserve 18 FIFO locations for DMA buffers.
-        set_bit_group(m_Port->GDFIFOCFG, 0xffffu << 16, 0x03eeu << 16);
+        set_bit_group(m_Port->GDFIFOCFG, 0xffffu << 16, DMA_FIFO_USABLE_WORD_COUNT << 16);
 
         m_Port->GAHBCFG &= ~USB_OTG_GAHBCFG_HBSTLEN_Msk;
         m_Port->GAHBCFG |= USB_OTG_GAHBCFG_HBSTLEN_2;

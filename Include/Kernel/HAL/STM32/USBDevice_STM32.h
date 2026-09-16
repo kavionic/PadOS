@@ -42,6 +42,8 @@ static constexpr uint32_t USB_OTG_ENUMERATED_SPEED_FULL                 = 3; // 
 class USBDevice_STM32
 {
 public:
+    ~USBDevice_STM32();
+
     bool Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusSense, bool useSOF);
 
     USB_Speed   DeviceGetSpeed() const;
@@ -56,6 +58,9 @@ public:
 
 private:
     static constexpr uint32_t ENDPOINT_COUNT = 9;
+    static constexpr size_t DMA_BOUNCE_BUFFER_SIZE = 1024;
+    static constexpr size_t DMA_BUFFER_COUNT = ENDPOINT_COUNT * 2;
+    static_assert((DMA_BOUNCE_BUFFER_SIZE % __SCB_DCACHE_LINE_SIZE) == 0);
 
     void        SetSpeed(USB_Speed speed);
     void        DeviceConnect();
@@ -63,25 +68,29 @@ private:
 
     uint32_t    CalculateRXFIFOSize(uint32_t maxEndpointSize) const;
     void        ResetReceived();
-    void        UpdateGRXFSIZ();
+    bool        DisableInEndpointsFromIRQ();
     void        SetTurnaround(USB_Speed speed);
 
     void        EndpointDisable(uint8_t endpointAddr, bool stall);
+    bool        StartDMATransfer(uint8_t endpointAddr, uint32_t transferGeneration);
+    bool        FinishDMATransfer(uint8_t endpointAddr, bool commitTransfer, bool* shortPacketReceived);
+    void        CancelEndpointTransfer(uint8_t endpointAddr);
+    void        CancelAllEndpointTransfers();
+    void        PrepareSetupPackets();
     void        EndpointSchedulePackets(uint8_t endpointAddr, uint32_t packetCount, uint32_t totalLength);
-    void        DiscardFromFIFO(size_t length);
     bool        FlushTxFifoFromIRQ(uint32_t fifoIndex);
     bool        FlushRxFifoFromIRQ();
 
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
     IRQResult HandleIRQ();
 
-    void HandleRxFIFONotEmptyIRQ();
     void HandleOutEndpointIRQ();
     void HandleInEndpointIRQ();
 
 
-    USB_STM32* m_Driver;
+    USB_STM32* m_Driver = nullptr;
 
+    uint8_t*                    m_DMABounceBuffers = nullptr;
     USB_OTG_GlobalTypeDef*      m_Port = nullptr;
     USB_OTG_DeviceTypeDef*      m_Device = nullptr;
     USB_OTG_OUTEndpointTypeDef* m_OutEndpoints = nullptr;
@@ -90,48 +99,66 @@ private:
 
     struct EndpointTransferState
     {
-        void Reset()
+        void ResetTransfer()
         {
+            ++Generation;
             Buffer = nullptr;
             BufferSize = 0;
-            TotalLength = 0;
             BytesTransferred = 0;
+            DMATransferBuffer = nullptr;
+            DMATransferSize = 0;
+            DMATransferDataLength = 0;
+            TransferActive = false;
+            DMATransferActive = false;
+            DMAUsesBounceBuffer = false;
+        }
+
+        void Reset()
+        {
+            ResetTransfer();
             EndpointMaxSize = 0;
             Interval = 0;
         }
 
-        uint8_t*    Buffer;
-        uint32_t    BufferSize;
-        uint32_t    TotalLength;
-        uint32_t    BytesTransferred;
-        uint32_t    EndpointMaxSize;
-        uint8_t     Interval;
+        uint8_t*    Buffer = nullptr;
+        size_t      BufferSize = 0;
+        size_t      BytesTransferred = 0;
+        uint8_t*    DMATransferBuffer = nullptr;
+        size_t      DMATransferSize = 0;
+        size_t      DMATransferDataLength = 0;
+        uint32_t    EndpointMaxSize = 0;
+        uint32_t    Generation = 0;
+        uint8_t     Interval = 0;
+        bool        TransferActive = false;
+        bool        DMATransferActive = false;
+        bool        DMAUsesBounceBuffer = false;
     };
 
     EndpointTransferState* GetEndpointTranferState(uint8_t endpointAddr)
     {
-        const uint8_t epnum = USB_ADDRESS_EPNUM(endpointAddr);
+        const uint8_t endpointNumber = USB_ADDRESS_EPNUM(endpointAddr);
 
-        if (epnum < ENDPOINT_COUNT) {
-            return (endpointAddr & USB_ADDRESS_DIR_IN) ? &m_TransferStatusIn[epnum] : &m_TransferStatusOut[epnum];
+        if (endpointNumber < ENDPOINT_COUNT) {
+            return (endpointAddr & USB_ADDRESS_DIR_IN) ? &m_TransferStatusIn[endpointNumber] : &m_TransferStatusOut[endpointNumber];
         }
         return nullptr;
+    }
+
+    uint8_t* GetDMABounceBuffer(uint8_t endpointAddr)
+    {
+        const size_t directionOffset = (endpointAddr & USB_ADDRESS_DIR_IN) ? ENDPOINT_COUNT : 0;
+        return m_DMABounceBuffers + (directionOffset + USB_ADDRESS_EPNUM(endpointAddr)) * DMA_BOUNCE_BUFFER_SIZE;
     }
 
     EndpointTransferState  m_TransferStatusIn[ENDPOINT_COUNT];
     EndpointTransferState  m_TransferStatusOut[ENDPOINT_COUNT];
 
-    uint32_t    m_Enpoint0InPending = 0;
-    uint32_t    m_Enpoint0OutPending = 0;
-
     uint32_t    m_AllocatedTXFIFOWords = 0; // TX FIFO size in words (IN endpoints).
-    bool        m_UpdateRXFIFOSize = false; // Flag set if RX FIFO size needs an update.
-    bool        m_Endpoint0InTransferActive = false;
-    bool        m_Endpoint0OutTransferActive = false;
-    bool        m_HasPendingSetupRequest = false;
 
     bool        m_SupportHighSpeed = false;
-    USB_ControlRequest  m_ControlRequestPackage;
+    bool        m_ResetComplete = false; // Protected by the USB IRQ guard; false until hardware reset succeeds.
+    USB_ControlRequest  m_ControlRequestPackage = {};
+
 };
 
 

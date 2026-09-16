@@ -984,7 +984,7 @@ bool USBHost::PushEvent(USBHostEventID eventID, bool clearQueue)
 
 bool USBHost::PushEvent(const USBHostEvent& event, bool clearQueue)
 {
-    CRITICAL_SCOPE(CRITICAL_IRQ);
+    USBIRQDisabler irqDisabler(*m_Driver);
 
     if (clearQueue)
     {
@@ -1033,6 +1033,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
 
     bool result;
     bool readQueuedEvent = false;
+    // IRQWaitDeadline() requires kernel-wide IRQ exclusion while the waiter is linked to the scheduler.
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         while (m_EventQueue.GetLength() == 0 && !HasPendingURBStateChanged())
@@ -1661,7 +1662,7 @@ void USBHost::IRQPipeURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSt
 {
     uint32_t submissionGeneration = 0;
     {
-        CRITICAL_SCOPE(CRITICAL_IRQ);
+        USBIRQDisabler irqDisabler(*m_Driver);
         USBHostPipeData* pipe = GetPipeData(pipeIndex);
         if (pipe == nullptr) {
             return;

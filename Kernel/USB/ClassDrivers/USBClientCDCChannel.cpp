@@ -24,6 +24,7 @@
 #include <Kernel/KTime.h>
 #include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBCommon.h>
+#include <Kernel/USB/USBDriver.h>
 #include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/VFS/KFSVolume.h>
@@ -133,6 +134,21 @@ ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
     }
     set_last_error(EPIPE);
     return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileNode> USBClientCDCChannel::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int openFlags)
+{
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+
+    if (!m_IsActive) {
+        PERROR_THROW_CODE(PErrorCode::NODEV);
+    }
+    return KFilesystemFileOps::OpenFile(volume, inode, openFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -419,6 +435,10 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
 bool USBClientCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
+
+    if (result != USB_TransferResult::Success) {
+        return false;
+    }
 
     if (endpointAddr == m_EndpointOut)
     {

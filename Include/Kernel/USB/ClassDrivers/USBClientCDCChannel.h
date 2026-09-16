@@ -45,6 +45,7 @@ public:
     int Close();
 
     ssize_t  GetReadBytesAvailable() const;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int openFlags) override;
     virtual void    CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
@@ -78,7 +79,7 @@ private:
     uint8_t             m_EndpointOut = 0;
     uint8_t             m_EndpointIn  = 0;
 
-    volatile bool       m_IsActive = true;
+    bool                m_IsActive = true;
     bool                m_DTR = false;
     bool                m_RTS = false;
 

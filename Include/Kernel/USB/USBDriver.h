@@ -39,6 +39,8 @@ namespace kernel
 {
 enum class USBH_InitialTransactionPID : uint8_t;
 
+class USBIRQDisabler;
+
 enum class USB_TransferResult : uint8_t
 {
     Invalid,
@@ -101,7 +103,26 @@ public:
     SignalUnguarded<void (bool isEnabled)>                                                  IRQPortEnableChange;
     SignalUnguarded<void (USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length)>   IRQPipeURBStateChanged;
 #endif
+
+private:
+    friend class USBIRQDisabler;
+
+    virtual bool DisableIRQDelivery() = 0;
+    virtual void RestoreIRQDelivery(bool wasEnabled) = 0;
 };
 
+class USBIRQDisabler
+{
+public:
+    explicit USBIRQDisabler(USBDriver& driver) : m_Driver(driver), m_WasEnabled(driver.DisableIRQDelivery()) {}
+    ~USBIRQDisabler() { m_Driver.RestoreIRQDelivery(m_WasEnabled); }
+
+    USBIRQDisabler(const USBIRQDisabler&) = delete;
+    USBIRQDisabler& operator=(const USBIRQDisabler&) = delete;
+
+private:
+    USBDriver& m_Driver;
+    bool       m_WasEnabled;
+};
 
 } // namespace kernel

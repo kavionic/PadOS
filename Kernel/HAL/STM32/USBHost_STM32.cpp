@@ -42,31 +42,6 @@ uint8_t g_USBHostSTM32DMABounceBuffers[2][USBHost_STM32::CHANNEL_COUNT][USBHost_
     __attribute__((section(".sram.data")));
 static_assert((USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE % __SCB_DCACHE_LINE_SIZE) == 0);
 
-#if defined(STM32H7)
-static constexpr uintptr_t USB_HOST_STM32_ITCM_INACCESSIBLE_END = D1_ITCMICP_BASE + 128 * 1024;
-static constexpr uintptr_t USB_HOST_STM32_DTCM_END = D1_DTCMRAM_BASE + 128 * 1024;
-#else
-#error USB host DMA memory accessibility must be defined for this STM32 platform.
-#endif
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static bool IsUSBHostSTM32DirectDMABuffer(const void* buffer, size_t length)
-{
-    const uintptr_t bufferAddress = reinterpret_cast<uintptr_t>(buffer);
-    if ((bufferAddress % __SCB_DCACHE_LINE_SIZE) != 0 || (length % __SCB_DCACHE_LINE_SIZE) != 0) {
-        return false;
-    }
-    return bufferAddress >= USB_HOST_STM32_ITCM_INACCESSIBLE_END
-        && (bufferAddress >= USB_HOST_STM32_DTCM_END || bufferAddress + length <= D1_DTCMRAM_BASE);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 static bool IsUSBHostSTM32NonSplitPeriodicDMAChannel(
     const USB_OTG_HostChannelTypeDef& channelRegs,
     bool dmaEnabled)
@@ -591,7 +566,7 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     USBHostChannelErrorSnapshot errorSnapshot;
     {
-        CRITICAL_SCOPE(CRITICAL_IRQ);
+        USBIRQDisabler irqDisabler(*m_Driver);
         if (m_ChannelErrorSnapshot.Pending)
         {
             errorSnapshot = m_ChannelErrorSnapshot;
@@ -1174,7 +1149,7 @@ uint32_t USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex)
     const bool useDirectDMA
         = directDataLength > 0
         && (channel.Direction != USB_RequestDirection::DEVICE_TO_HOST || directDataLength == directTransferSize)
-        && IsUSBHostSTM32DirectDMABuffer(transferBuffer, directTransferSize);
+        && USB_STM32::IsDirectDMABuffer(transferBuffer, directTransferSize);
 
     const size_t packetCapacity = useDirectDMA ? channel.MaxDMAPacketCount : channel.BounceDMAPacketCount;
 
@@ -1284,7 +1259,7 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
         }
     }
 
-    CRITICAL_SCOPE(CRITICAL_IRQ);
+    USBIRQDisabler irqDisabler(*m_Driver);
 
     if (!dma && channel.Direction == USB_RequestDirection::HOST_TO_DEVICE && channel.XferSize > 0)
     {
@@ -1584,6 +1559,7 @@ bool USBHost_STM32::HaltChannel(USB_PipeIndex pipeIndex)
     const TimeValNanos haltDeadline = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100);
     bool result = true;
 
+    // IRQWaitDeadline() requires kernel-wide IRQ exclusion while the waiter is linked to the scheduler.
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         const bool hardwareHaltPending

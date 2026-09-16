@@ -18,6 +18,7 @@
 // Created: 27.05.2022 18:00
 
 #include <string.h>
+#include <utility>
 #include <System/ExceptionHandling.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/USB/USBCommon.h>
@@ -110,6 +111,16 @@ void* USBDevice::Run()
                 const uint8_t endpointAddr = event.TransferComplete.EndpointAddr;
 
                 kernel_log<PLogSeverity::INFO_FLOODING>(LogCategoryUSBDevice, "TransferComplete on endpoint {:02x} with {} bytes.", endpointAddr, event.TransferComplete.Length);
+
+                if (event.TransferComplete.Result != USB_TransferResult::Success) {
+                    kernel_log<PLogSeverity::ERROR>(
+                        LogCategoryUSBDevice,
+                        "Transfer failed on endpoint {:02x} with result {} after {} bytes.",
+                        endpointAddr,
+                        std::to_underlying(event.TransferComplete.Result),
+                        event.TransferComplete.Length
+                    );
+                }
 
                 USBEndpointState& endpoint = GetEndpoint(endpointAddr);
                 endpoint.Busy    = false;
@@ -678,6 +689,7 @@ void USBDevice::BusReset()
     kassert(m_Mutex.IsLocked());
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset cleanup started.");
+
     UnsetConfiguration();
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset configuration cleared.");
     m_SelectedSpeed = USB_Speed::LOW;
@@ -1238,6 +1250,7 @@ bool USBDevice::PopEvent(USBDeviceEvent& event)
     m_Mutex.Unlock();
 
     bool result;
+    // IRQWait() requires kernel-wide IRQ exclusion while the waiter is linked to the scheduler.
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         while (m_EventQueue.GetLength() == 0)
@@ -1258,7 +1271,7 @@ bool USBDevice::PopEvent(USBDeviceEvent& event)
 
 void USBDevice::PushEvent(const USBDeviceEvent& event, bool clearQueue)
 {
-    CRITICAL_SCOPE(CRITICAL_IRQ);
+    USBIRQDisabler irqDisabler(*m_Driver);
     static volatile uint32_t maxEvents = 0;
 
     if (clearQueue)

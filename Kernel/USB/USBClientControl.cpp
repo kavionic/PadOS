@@ -93,6 +93,12 @@ void USBClientControl::SetControlTransferHandler(ControlTransferHandler handlerT
 
 bool USBClientControl::ControlTransferComplete(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
 {
+    if (result != USB_TransferResult::Success)
+    {
+        Reset();
+        return false;
+    }
+
     // If request and endpoint direction is opposite this Status stage is complete.
     const bool requestDirIn = (m_Request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) != 0;
     const bool endpointDirIn = (endpointAddr & USB_ControlRequest::REQUESTTYPE_DIR_IN) != 0;

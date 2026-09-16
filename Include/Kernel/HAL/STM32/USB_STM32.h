@@ -65,6 +65,11 @@ public:
     USB_STM32();
     ~USB_STM32();
 
+    // Internal DMA uses the final 18 FIFO words for endpoint information.
+    static constexpr uint32_t DMA_FIFO_USABLE_WORD_COUNT = USB_OTG_FIFO_SIZE / sizeof(uint32_t) - 18;
+
+    static bool IsDirectDMABuffer(const void* buffer, size_t length);
+
     bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool enableDMA, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
     void Shutdown();
     bool ResetHostCore();
@@ -115,7 +120,11 @@ public:
     bool        FlushRxFifo();
 
     virtual void EnableIRQ(bool enable) override;
+
 private:
+    virtual bool DisableIRQDelivery() override;
+    virtual void RestoreIRQDelivery(bool wasEnabled) override;
+
     bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
     bool                CoreReset();
     bool                WaitForAHBIdle();
@@ -132,6 +141,7 @@ private:
 #endif
 
     USB_OTG_Phy             m_PhyInterface = USB_OTG_Phy::Embedded;
+    IRQn_Type               m_IRQ{};
     USB_Speed               m_ConfigSpeed = USB_Speed::FULL;
     bool                    m_UseDMA = false;
     bool                    m_UseExternalVBus = false;

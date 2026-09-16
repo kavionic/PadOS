@@ -72,8 +72,8 @@ static uint8_t gk_InitThreadStack[32768] __attribute__((aligned(8)));
 //static KDebugConsole gk_DebugConsole1(STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 //static KDebugConsole gk_DebugConsole2("/dev/com/udp0");
 #ifdef PADOS_MODULE_DEBUG_CONSOLE
-static KSerialPseudoTerminal g_SerialTerminal1(STDIN_FILENO, STDIN_FILENO, true);  // Physical UART — direct
-static KSerialMux g_SerialMux2("/dev/com/udp0");                                   // USB shell port — mux
+static KSerialPseudoTerminal* g_SerialTerminal1 = nullptr; // Physical UART — direct
+static KSerialMux*            g_SerialMux2 = nullptr;      // USB shell port — mux
 #endif // PADOS_MODULE_DEBUG_CONSOLE
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -251,11 +251,11 @@ static void* init_thread_entry(void* arguments)
 #endif // PADOS_FSDRIVER_PIPE
 
 #ifdef PADOS_MODULE_DEBUG_CONSOLE
-    g_SerialTerminal1.SetDeleteOnExit(false);
-    g_SerialMux2.SetDeleteOnExit(false);
+    g_SerialTerminal1 = new KSerialPseudoTerminal(STDIN_FILENO, STDIN_FILENO, true);
+    g_SerialMux2 = new KSerialMux("/dev/com/udp0");
 
-    g_SerialTerminal1.Setup();
-    g_SerialMux2.Setup();
+    g_SerialTerminal1->Setup();
+    g_SerialMux2->Setup();
 #endif // PADOS_MODULE_DEBUG_CONSOLE
 
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);

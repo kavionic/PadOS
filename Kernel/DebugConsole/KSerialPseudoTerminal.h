@@ -37,6 +37,7 @@ public:
     KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool uartMode = false);
 
     void Setup();
+    void Terminate();
 
     virtual void* Run() override;
 
@@ -63,6 +64,7 @@ private:
     bool m_UARTMode = false;
 
     KSemaphore m_TerminalSizeNotifier;
+    KSemaphore m_TerminateSemaphore;
 
     int m_MasterPTY = -1;
 

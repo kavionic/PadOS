@@ -55,6 +55,7 @@ private:
     };
 
     void RunMux();
+    void CloseSerialPort();
     void ProcessIncomingByte(uint8_t byte);
     void DispatchFrame(uint16_t channelID, const uint8_t* data, size_t length);
     void HandleControlFrame(const ShellMuxControlPayload& payload);

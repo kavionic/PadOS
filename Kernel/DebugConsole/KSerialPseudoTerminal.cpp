@@ -43,6 +43,7 @@ KSerialPseudoTerminal::KSerialPseudoTerminal(int serialReadFD, int serialWriteFD
     , m_SerialWriteFD(serialWriteFD)
     , m_UARTMode(uartMode)
     , m_TerminalSizeNotifier("ptysznfy", CLOCK_MONOTONIC, 0)
+    , m_TerminateSemaphore("serialpty_terminate", CLOCK_MONOTONIC, 0)
 {
 }
 
@@ -56,6 +57,15 @@ void KSerialPseudoTerminal::Setup()
     while (!m_PTYReady.load()) {
         snooze_ms(1);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KSerialPseudoTerminal::Terminate()
+{
+    m_TerminateSemaphore.Release();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,6 +143,7 @@ void* KSerialPseudoTerminal::Run()
     waitGroup.AddFile_trw(m_SerialReadFD);
     waitGroup.AddFile_trw(m_MasterPTY);
     waitGroup.AddObject_trw(&m_TerminalSizeNotifier);
+    waitGroup.AddObject_trw(&m_TerminateSemaphore);
 
     TimeValNanos nextQueryTime;
 
@@ -152,6 +163,14 @@ void* KSerialPseudoTerminal::Run()
         {
             waitGroup.Wait();
         }
+
+        if (m_TerminateSemaphore.TryAcquire() == PErrorCode::Success)
+        {
+            debugConsole.Terminate(0);
+            debugConsole.Join_trw();
+            return nullptr;
+        }
+
         while (m_TerminalSizeNotifier.TryAcquire() == PErrorCode::Success) {}
         if (m_PendingTerminalSizeChange.load())
         {

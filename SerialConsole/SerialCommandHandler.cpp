@@ -96,8 +96,11 @@ void* SerialCommandHandler::HandleIO()
 {
     for (;;)
     {
-        if (m_ComFailure) {
+        if (m_ComFailure)
+        {
             CloseSerialPort();
+            snooze_ms(100);
+            continue;
         }
         if (m_SerialPortIn == -1)
         {
@@ -107,19 +110,17 @@ void* SerialCommandHandler::HandleIO()
                 continue;
             }
         }
-        m_WaitGroup.Wait_trw();
-
         try
         {
+            m_WaitGroup.Wait_trw();
             if (!ReadPacket()) {
                 continue;
             }
         }
         PERROR_CATCH([this](PErrorCode error)
             {
-                m_InMessageBuffer.clear();
-                m_PackageBytesRead = 0;
                 CloseSerialPort();
+                snooze_ms(100);
             }
         );
         if (m_PackageBytesRead == 0) {
@@ -163,6 +164,8 @@ bool SerialCommandHandler::OpenSerialPort()
 {
     try
     {
+        CRITICAL_SCOPE(m_TransmitMutex);
+
         if (m_SerialPortIn == -1)
         {
             m_SerialPortIn = kopen_trw(m_SerialPortPath.c_str(), O_KERNEL | O_RDONLY | O_NONBLOCK);
@@ -179,7 +182,7 @@ bool SerialCommandHandler::OpenSerialPort()
         }
         return true;
     }
-    PERROR_CATCH_RET([](const std::exception& exc, PErrorCode error) { return false; });
+    PERROR_CATCH_RET([this](const std::exception&, PErrorCode) { CloseSerialPort(); return false; });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -188,7 +191,12 @@ bool SerialCommandHandler::OpenSerialPort()
 
 void SerialCommandHandler::CloseSerialPort()
 {
+    m_InMessageBuffer.clear();
+    m_PackageBytesRead = 0;
+
+    CRITICAL_SCOPE(m_TransmitMutex);
     m_ComFailure = false;
+
     if (m_SerialPortIn != -1)
     {
         try {
@@ -197,11 +205,12 @@ void SerialCommandHandler::CloseSerialPort()
         catch (const std::exception&) {}
 
         kclose(m_SerialPortIn);
-        kclose(m_SerialPortOut);
         m_SerialPortIn = -1;
+    }
+    if (m_SerialPortOut != -1)
+    {
+        kclose(m_SerialPortOut);
         m_SerialPortOut = -1;
-
-        snooze_ms(100);
     }
 }
 
@@ -518,8 +527,7 @@ bool SerialCommandHandler::ShouldMarkAsReplyMessage() const
 
 bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
-    if (GetThreadID() == -1 || !IsSerialPortActive())
-    {
+    if (GetThreadID() == -1) {
         return false;
     }
     if (ShouldMarkAsReplyMessage() && header->Command != SerialProtocol::Commands::MessageReply)
@@ -537,6 +545,10 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
 
     kassert(!m_TransmitMutex.IsLocked());
     CRITICAL_SCOPE(m_TransmitMutex);
+
+    if (!IsSerialPortActive_pl()) {
+        return false;
+    }
 
     for (int i = 0; i < 3; ++i)
     {

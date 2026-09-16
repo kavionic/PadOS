@@ -20,6 +20,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <functional>
 #include <queue>
 #include <map>
@@ -146,7 +147,11 @@ private:
 
     bool OpenSerialPort();
     void CloseSerialPort();
-    bool IsSerialPortActive() const { return !m_ComFailure && m_SerialPortIn != -1; }
+    bool IsSerialPortActive_pl() const
+    {
+        kassert(m_TransmitMutex.IsLocked());
+        return !m_ComFailure && m_SerialPortIn != -1 && m_SerialPortOut != -1;
+    }
     SerialProtocol::ProbeDeviceType GetAdvertisedDeviceType() const;
     void AcknowledgeReceivedMessage();
     void BeginReplyMessageTracking(bool isReplyRequired);
@@ -179,7 +184,7 @@ private:
     int                 m_Baudrate = 0;
     int                 m_SerialPortIn = -1;
     int                 m_SerialPortOut = -1;
-    bool                m_ComFailure = false;
+    std::atomic_bool    m_ComFailure = false;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 

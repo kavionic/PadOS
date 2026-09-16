@@ -97,6 +97,7 @@ void KSerialMux::RunMux()
                 }
                 catch (std::exception& exc)
                 {
+                    CloseSerialPort();
                     snooze_ms(100);
                     continue;
                 }
@@ -116,12 +117,7 @@ void KSerialMux::RunMux()
                 catch (std::exception& exc)
                 {
                     kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_PTY, "Caught exception while reading serial port: {}.", exc.what());
-                    if (!m_PortPath.empty())
-                    {
-                        m_WaitGroup.RemoveFile_trw(m_SerialFD);
-                        kclose(m_SerialFD);
-                        m_SerialFD = -1;
-                    }
+                    CloseSerialPort();
                     ClearChannels();
                     m_ParseState = ParseState::SyncByte0;
                     continue;
@@ -160,6 +156,24 @@ void KSerialMux::RunMux()
         {
             snooze_ms(100);
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KSerialMux::CloseSerialPort()
+{
+    if (m_SerialFD != -1)
+    {
+        try {
+            m_WaitGroup.RemoveFile_trw(m_SerialFD);
+        }
+        catch (const std::exception&) {}
+
+        kclose(m_SerialFD);
+        m_SerialFD = -1;
     }
 }
 
@@ -365,6 +379,7 @@ void KSerialMux::DestroyChannel(uint16_t channelID)
     if (iter != m_Channels.end())
     {
         m_WaitGroup.RemoveFile_trw(iter->second.OutputPipeReadFD);
+        iter->second.Terminal.Terminate();
         kclose(iter->second.InputPipeWriteFD);
         kclose(iter->second.OutputPipeReadFD);
         iter->second.Terminal.Join_trw();
@@ -378,13 +393,9 @@ void KSerialMux::DestroyChannel(uint16_t channelID)
 
 void KSerialMux::ClearChannels()
 {
-    for (auto& [channelID, channel] : m_Channels)
-    {
-        m_WaitGroup.RemoveFile_trw(channel.OutputPipeReadFD);
-        kclose(channel.InputPipeWriteFD);
-        kclose(channel.OutputPipeReadFD);
+    while (!m_Channels.empty()) {
+        DestroyChannel(m_Channels.begin()->first);
     }
-    m_Channels.clear();
 }
 
 

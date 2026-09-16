@@ -22,7 +22,6 @@
 #include <stdint.h>
 #include <strings.h>
 #include <System/Platform.h>
-#include <System/Sections.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/USB/USBCommon.h>
@@ -194,7 +193,9 @@ private:
 
 
     USB_STM32*                  m_Driver = nullptr;
+    // Non-owning view of the physical controller's kernel-lifetime allocation.
     uint8_t                     (*m_DMABounceBuffers)[DMA_BOUNCE_BUFFER_SIZE] = nullptr;
+    int                         m_IRQHandle = -1;
 
     USB_OTG_GlobalTypeDef*      m_Port = nullptr;
     USB_OTG_HostTypeDef*        m_Host = nullptr;

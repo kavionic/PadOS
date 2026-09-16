@@ -114,8 +114,10 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
     if (mode == USB_Mode::Host)
     {
 #ifdef PADOS_MODULE_USB_HOST
-        if (!m_HostDriver.Setup(this, portID, enableVBusSense)) {
+        if (!m_HostDriver.Setup(this, portID, enableVBusSense))
+        {
             kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "Failed to setup host mode.");
+            return false;
         }
 #else
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "USB host mode is disabled.");

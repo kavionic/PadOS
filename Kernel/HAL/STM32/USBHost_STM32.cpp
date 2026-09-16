@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <malloc.h>
 #include <utility>
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #include <iterator>
@@ -37,9 +38,9 @@
 namespace kernel
 {
 
-alignas(__SCB_DCACHE_LINE_SIZE)
-uint8_t g_USBHostSTM32DMABounceBuffers[2][USBHost_STM32::CHANNEL_COUNT][USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE]
-    __attribute__((section(".sram.data")));
+// Each physical controller owns one lazily allocated buffer set for the kernel lifetime.
+// Shutdown does not quiesce DMA or unregister IRQ callbacks, so published sets are never freed.
+static uint8_t (*g_USBHostSTM32DMABounceBufferSets[2])[USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE] = {};
 static_assert((USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE % __SCB_DCACHE_LINE_SIZE) == 0);
 
 static bool IsUSBHostSTM32NonSplitPeriodicDMAChannel(const USB_OTG_HostChannelTypeDef& channelRegs)
@@ -298,7 +299,9 @@ static void IncrementUSBHostSTM32NotifyCounter(USBHostChannelDiagnostics& diagno
 
 bool USBHost_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusSense)
 {
-    m_Driver = driver;
+    if (driver == nullptr) {
+        return false;
+    }
 
     size_t dmaBufferSet;
     switch (portID)
@@ -312,20 +315,51 @@ bool USBHost_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusS
         default:
             return false;
     }
-    m_DMABounceBuffers = g_USBHostSTM32DMABounceBuffers[dmaBufferSet];
+    if (m_Driver != nullptr && (m_Driver != driver || m_Port != get_usb_from_id(portID))) {
+        return false;
+    }
 
+    m_Driver = driver;
     m_Port          = get_usb_from_id(portID);
     m_Host          = reinterpret_cast<USB_OTG_HostTypeDef*>(reinterpret_cast<uint8_t*>(m_Port) + USB_OTG_HOST_BASE);
     m_HPRT          = reinterpret_cast<volatile uint32_t*>(reinterpret_cast<volatile uint8_t*>(m_Port) + USB_OTG_HOST_PORT_BASE);
     m_HostChannels  = reinterpret_cast<USB_OTG_HostChannelTypeDef*>(reinterpret_cast<uint8_t*>(m_Port) + USB_OTG_HOST_CHANNEL_BASE);
     m_PCGCCTL       = reinterpret_cast<volatile uint32_t*>(reinterpret_cast<volatile uint8_t*>(m_Port) + USB_OTG_PCGCCTL_BASE);
 
-    const bool result = InitializeController();
+    if (!InitializeController()) {
+        return false;
+    }
 
-    IRQn_Type irq = get_usb_irq(portID);
-    register_irq_handler(irq, &USBHost_STM32::IRQCallback, this);
+    auto& dmaBuffers = g_USBHostSTM32DMABounceBufferSets[dmaBufferSet];
+    if (dmaBuffers == nullptr)
+    {
+        const size_t allocationSize = CHANNEL_COUNT * DMA_BOUNCE_BUFFER_SIZE;
+        auto* allocation = static_cast<uint8_t (*)[DMA_BOUNCE_BUFFER_SIZE]>(memalign(__SCB_DCACHE_LINE_SIZE, allocationSize));
+        if (allocation == nullptr)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to allocate USB host DMA bounce buffers.");
+            return false;
+        }
+        if (!USB_STM32::IsDirectDMABuffer(allocation, allocationSize))
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "USB host DMA bounce buffers are not DMA accessible.");
+            free(allocation);
+            return false;
+        }
+        dmaBuffers = allocation;
+    }
+    m_DMABounceBuffers = dmaBuffers;
 
-    return result;
+    if (m_IRQHandle < 0)
+    {
+        m_IRQHandle = register_irq_handler(get_usb_irq(portID), &USBHost_STM32::IRQCallback, this);
+        if (m_IRQHandle < 0)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to register the USB host interrupt handler.");
+            return false;
+        }
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -42,11 +42,9 @@ uint8_t g_USBHostSTM32DMABounceBuffers[2][USBHost_STM32::CHANNEL_COUNT][USBHost_
     __attribute__((section(".sram.data")));
 static_assert((USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE % __SCB_DCACHE_LINE_SIZE) == 0);
 
-static bool IsUSBHostSTM32NonSplitPeriodicDMAChannel(
-    const USB_OTG_HostChannelTypeDef& channelRegs,
-    bool dmaEnabled)
+static bool IsUSBHostSTM32NonSplitPeriodicDMAChannel(const USB_OTG_HostChannelTypeDef& channelRegs)
 {
-    if (!dmaEnabled || (channelRegs.HCSPLT & USB_OTG_HCSPLT_SPLITEN) != 0) {
+    if ((channelRegs.HCSPLT & USB_OTG_HCSPLT_SPLITEN) != 0) {
         return false;
     }
 
@@ -78,7 +76,6 @@ enum class USBHostSTM32DebugEntry : size_t
     RequestedTransferLength,
     BytesTransferred,
     ErrorCount,
-    DoPing,
     ToggleIn,
     ToggleOut,
     HCCHAR,
@@ -88,9 +85,7 @@ enum class USBHostSTM32DebugEntry : size_t
     HCTSIZ,
     HCDMA,
     SubmitRequestCount,
-    SubmitRequestFailureCount,
     StartTransferCount,
-    StartTransferFailureCount,
     TransferCompleteIRQCount,
     NakNyetIRQCount,
     ChannelHaltIRQCount,
@@ -117,7 +112,6 @@ static constexpr const char* USBHOST_STM32_DEBUG_LABELS[] =
     "stm32.requestedTransferLength",
     "stm32.bytesTransferred",
     "stm32.errorCount",
-    "stm32.doPing",
     "stm32.toggleIn",
     "stm32.toggleOut",
     "stm32.HCCHAR",
@@ -127,9 +121,7 @@ static constexpr const char* USBHOST_STM32_DEBUG_LABELS[] =
     "stm32.HCTSIZ",
     "stm32.HCDMA",
     "stm32.submitRequestCount",
-    "stm32.submitRequestFailureCount",
     "stm32.startTransferCount",
-    "stm32.startTransferFailureCount",
     "stm32.transferCompleteIRQCount",
     "stm32.nakNyetIRQCount",
     "stm32.channelHaltIRQCount",
@@ -237,7 +229,6 @@ static const char* GetUSBHostSTM32ChannelStateName(USB_HostChannelState state)
         case USB_HostChannelState::IDLE:       return "idle";
         case USB_HostChannelState::XFRC:       return "transfer-complete";
         case USB_HostChannelState::NAK:        return "nak";
-        case USB_HostChannelState::NYET:       return "nyet";
         case USB_HostChannelState::STALL:      return "stall";
         case USB_HostChannelState::XACTERR:    return "transaction-error";
         case USB_HostChannelState::BBLERR:     return "babble-error";
@@ -393,10 +384,6 @@ bool USBHost_STM32::InitializeController()
         = ((3072 / 4) << USB_OTG_HPTXFSIZ_PTXSA_Pos)
         | ((896 / 4) << USB_OTG_HPTXFSIZ_PTXFD_Pos);
 
-    // Enable the common interrupts.
-    if (!m_Driver->UseDMA()) {
-        m_Port->GINTMSK |= USB_OTG_GINTMSK_RXFLVLM;
-    }
     // Enable host mode only interrupts.
     m_Port->GINTMSK |= USB_OTG_GINTMSK_PRTIM | USB_OTG_GINTMSK_HCIM | USB_OTG_GINTMSK_SOFM | USB_OTG_GINTSTS_DISCINT | USB_OTG_GINTMSK_PXFRM_IISOOXFRM | USB_OTG_GINTMSK_WUIM;
 
@@ -448,7 +435,6 @@ bool USBHost_STM32::StopHost()
 {
     bool result = true;
     bool controllerResetRequired = false;
-    const bool dmaEnabled = m_Driver->UseDMA();
 
     m_Driver->EnableIRQ(false);
     m_Port->GINTMSK &= ~USB_OTG_GINTMSK_HCIM;
@@ -467,7 +453,7 @@ bool USBHost_STM32::StopHost()
     for (size_t i = 0; i < CHANNEL_COUNT; ++i)
     {
         USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[i];
-        if (!IsUSBHostSTM32NonSplitPeriodicDMAChannel(channelRegs, dmaEnabled)) {
+        if (!IsUSBHostSTM32NonSplitPeriodicDMAChannel(channelRegs)) {
             set_bit_group(
                 channelRegs.HCCHAR,
                 USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS | USB_OTG_HCCHAR_EPDIR,
@@ -480,7 +466,7 @@ bool USBHost_STM32::StopHost()
     for (size_t i = 0; i < CHANNEL_COUNT; ++i)
     {
         USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[i];
-        if (!IsUSBHostSTM32NonSplitPeriodicDMAChannel(channelRegs, dmaEnabled))
+        if (!IsUSBHostSTM32NonSplitPeriodicDMAChannel(channelRegs))
         {
             set_bit_group(
                 channelRegs.HCCHAR,
@@ -558,7 +544,7 @@ bool USBHost_STM32::SetPortReset(bool resetActive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing)
+bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length)
 {
     if (pipeIndex < 0 || pipeIndex >= CHANNEL_COUNT) {
         return false;
@@ -602,8 +588,7 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
-    const bool dmaEnabled = m_Driver->UseDMA();
-    if (channel.CancelHaltPending || channel.DMATransferActive || (!dmaEnabled && segmentCount != 1)) {
+    if (channel.CancelHaltPending || channel.DMATransferActive) {
         return false;
     }
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
@@ -612,12 +597,6 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
 
     channel.Direction    = direction;
     channel.EndpointType = endpointType;
-    channel.DoPing
-        = !dmaEnabled
-        && direction == USB_RequestDirection::HOST_TO_DEVICE
-        && channel.Speed == USB_Speed::HIGH
-        && (endpointType == USB_TransferType::CONTROL || endpointType == USB_TransferType::BULK)
-        && doPing;
 
     if (initialPID == USBH_InitialTransactionPID::Setup)
     {
@@ -682,16 +661,8 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
     channel.RetryOnNextSOF          = false;
     channel.ChannelState            = USB_HostChannelState::IDLE;
 
-    const bool result = StartTransfer(pipeIndex, dmaEnabled);
-    if (!result) {
-        channel.TransferActive = false;
-    }
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-    if (!result) {
-        ++channel.Diagnostics.SubmitRequestFailureCount;
-    }
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-    return result;
+    StartTransfer(pipeIndex);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -807,9 +778,6 @@ bool USBHost_STM32::GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entry
         case USBHostSTM32DebugEntry::ErrorCount:
             *outValue = PString::format_string("{}", channel.ErrorCount);
             break;
-        case USBHostSTM32DebugEntry::DoPing:
-            *outValue = GetUSBHostSTM32BoolName(channel.DoPing != 0);
-            break;
         case USBHostSTM32DebugEntry::ToggleIn:
             *outValue = GetUSBHostSTM32BoolName(channel.ToggleIn);
             break;
@@ -837,14 +805,8 @@ bool USBHost_STM32::GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entry
         case USBHostSTM32DebugEntry::SubmitRequestCount:
             *outValue = PString::format_string("{}", channel.Diagnostics.SubmitRequestCount);
             break;
-        case USBHostSTM32DebugEntry::SubmitRequestFailureCount:
-            *outValue = PString::format_string("{}", channel.Diagnostics.SubmitRequestFailureCount);
-            break;
         case USBHostSTM32DebugEntry::StartTransferCount:
             *outValue = PString::format_string("{}", channel.Diagnostics.StartTransferCount);
-            break;
-        case USBHostSTM32DebugEntry::StartTransferFailureCount:
-            *outValue = PString::format_string("{}", channel.Diagnostics.StartTransferFailureCount);
             break;
         case USBHostSTM32DebugEntry::TransferCompleteIRQCount:
             *outValue = PString::format_string("{}", channel.Diagnostics.TransferCompleteIRQCount);
@@ -1009,7 +971,6 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     channel.Diagnostics = USBHostChannelDiagnostics();
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-    channel.DoPing               = false;
     channel.MaxPacketSize        = static_cast<uint16_t>(maxPacketSize);
     channel.MaxDMAPacketCount    = static_cast<uint16_t>(
         std::min(hardwareMaxPacketCount, hardwareMaxTransferSize / maxPacketSize));
@@ -1027,18 +988,16 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
     {
         case USB_TransferType::CONTROL:
         case USB_TransferType::BULK:
+            // Internal DMA handles NAK/NYET/ACK for these channels at every bus speed.
             channelRegs.HCINTMSK
                 = USB_OTG_HCINTMSK_XFRCM
                 | USB_OTG_HCINTMSK_STALLM
                 | USB_OTG_HCINTMSK_TXERRM
                 | USB_OTG_HCINTMSK_DTERRM
-                | USB_OTG_HCINTMSK_AHBERR
-                | USB_OTG_HCINTMSK_NAKM;
+                | USB_OTG_HCINTMSK_AHBERR;
 
             if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) {
                 channelRegs.HCINTMSK |= USB_OTG_HCINTMSK_BBERRM;
-            } else {
-                channelRegs.HCINTMSK |= USB_OTG_HCINTMSK_NYET | USB_OTG_HCINTMSK_ACKM;
             }
             break;
 
@@ -1186,7 +1145,7 @@ uint32_t USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
+void USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex)
 {
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
@@ -1194,103 +1153,9 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
-
-    // In DMA mode the host core handles NAK/NYET/ACK for control and bulk
-    // channels at every bus speed.
-    if (dma && (channel.EndpointType == USB_TransferType::CONTROL || channel.EndpointType == USB_TransferType::BULK)) {
-        channelRegs.HCINTMSK &= ~(USB_OTG_HCINTMSK_NYET | USB_OTG_HCINTMSK_ACKM | USB_OTG_HCINTMSK_NAKM);
-    }
-
-    if (channel.Speed == USB_Speed::HIGH && !dma && channel.DoPing)
-    {
-        if (!DoPing(pipeIndex))
-        {
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            ++channel.Diagnostics.StartTransferFailureCount;
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            return false;
-        }
-        return true;
-    }
-
-    uint32_t packetCount;
-    if (dma)
-    {
-        packetCount = PrepareDMATransfer(pipeIndex);
-    }
-    else if (!dma && channel.Direction == USB_RequestDirection::HOST_TO_DEVICE)
-    {
-        if (channel.BytesTransferred > channel.RequestedTransferLength ||
-            (channel.MaxPacketSize == 0 && channel.BytesTransferred < channel.RequestedTransferLength))
-        {
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            ++channel.Diagnostics.StartTransferFailureCount;
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            return false;
-        }
-
-        const size_t remainingLength = channel.RequestedTransferLength - channel.BytesTransferred;
-        channel.XferSize = (remainingLength > channel.MaxPacketSize) ? channel.MaxPacketSize : remainingLength;
-        packetCount = 1;
-    }
-    else
-    {
-        if (channel.RequestedTransferLength > 0)
-        {
-            constexpr uint32_t maxPacketCount = USB_OTG_HCTSIZ_PKTCNT_Msk >> USB_OTG_HCTSIZ_PKTCNT_Pos;
-            packetCount = (channel.RequestedTransferLength + channel.MaxPacketSize - 1) / channel.MaxPacketSize;
-
-            if (packetCount > maxPacketCount)
-            {
-                packetCount = maxPacketCount;
-                channel.RequestedTransferLength = packetCount * channel.MaxPacketSize;
-            }
-        }
-        else
-        {
-            packetCount = 1;
-        }
-
-        // For IN channel HCTSIZ.XferSize should be an integer multiple of max packet size.
-        if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) {
-            channel.XferSize = packetCount * channel.MaxPacketSize;
-        } else {
-            channel.XferSize = channel.RequestedTransferLength;
-        }
-    }
+    const uint32_t packetCount = PrepareDMATransfer(pipeIndex);
 
     USBIRQDisabler irqDisabler(*m_Driver);
-
-    if (!dma && channel.Direction == USB_RequestDirection::HOST_TO_DEVICE && channel.XferSize > 0)
-    {
-        const size_t lengthWords = (channel.XferSize + 3) / 4;
-        size_t fifoDepth;
-        size_t fifoSpace;
-
-        if (channel.EndpointType == USB_TransferType::CONTROL || channel.EndpointType == USB_TransferType::BULK)
-        {
-            fifoDepth = (m_Port->DIEPTXF0_HNPTXFSIZ & USB_OTG_NPTXFD_Msk) >> USB_OTG_NPTXFD_Pos;
-            fifoSpace = (m_Port->HNPTXSTS & USB_OTG_GNPTXSTS_NPTXFSAV_Msk) >> USB_OTG_GNPTXSTS_NPTXFSAV_Pos;
-        }
-        else
-        {
-            fifoDepth = (m_Port->HPTXFSIZ & USB_OTG_HPTXFSIZ_PTXFD_Msk) >> USB_OTG_HPTXFSIZ_PTXFD_Pos;
-            fifoSpace = (m_Host->HPTXSTS & USB_OTG_HPTXSTS_PTXFSAVL_Msk) >> USB_OTG_HPTXSTS_PTXFSAVL_Pos;
-        }
-
-        if (lengthWords > fifoDepth)
-        {
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            ++channel.Diagnostics.StartTransferFailureCount;
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
-            return false;
-        }
-        if (lengthWords > fifoSpace)
-        {
-            channel.RetryOnNextSOF = true;
-            return true;
-        }
-    }
 
     channel.RetryOnNextSOF = false;
     channelRegs.HCTSIZ
@@ -1298,23 +1163,10 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
         | ((packetCount << USB_OTG_HCTSIZ_PKTCNT_Pos) & USB_OTG_HCTSIZ_PKTCNT_Msk)
         | ((channel.InitialDataPID << USB_OTG_HCTSIZ_DPID_Pos) & USB_OTG_HCTSIZ_DPID);
 
-    if (dma)
-    {
-        channelRegs.HCDMA = reinterpret_cast<uint32_t>(channel.DMATransferBuffer);
-        channel.DMATransferActive = true;
-    }
+    channelRegs.HCDMA = reinterpret_cast<uint32_t>(channel.DMATransferBuffer);
+    channel.DMATransferActive = true;
 
     ActivateChannel(pipeIndex);
-
-    if (dma) {
-        return true;
-    }
-
-    if (channel.Direction == USB_RequestDirection::HOST_TO_DEVICE && channel.XferSize > 0) {
-        m_Driver->WriteToFIFO(pipeIndex, channel.TransferBuffer + channel.BytesTransferred, channel.XferSize);
-    }
-
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1580,9 +1432,9 @@ bool USBHost_STM32::HaltChannel(USB_PipeIndex pipeIndex)
             else
             {
                 channel.CancelHaltPending = true;
-                result = HaltChannelInternal(pipeIndex);
+                HaltChannelInternal(pipeIndex);
 
-                if (result && (channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA) == 0) {
+                if ((channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA) == 0) {
                     CompleteChannelCancellation(pipeIndex);
                 }
 
@@ -1622,63 +1474,21 @@ bool USBHost_STM32::HaltChannel(USB_PipeIndex pipeIndex)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost_STM32::HaltChannelInternal(USB_PipeIndex pipeIndex)
-{
-    USB_OTG_HostChannelTypeDef& channelRegs     = m_HostChannels[pipeIndex];
-    USB_TransferType            endpointType    = USB_TransferType((channelRegs.HCCHAR & USB_OTG_HCCHAR_EPTYP) >> USB_OTG_HCCHAR_EPTYP_Pos);
-    const bool                  channelEnabled  = (channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA) != 0;
-    const bool                  dmaEnabled      = (m_Port->GAHBCFG & USB_OTG_GAHBCFG_DMAEN) != 0;
-    const bool                  splitEnabled    = (channelRegs.HCSPLT & USB_OTG_HCSPLT_SPLITEN) != 0;
-    const bool                  periodicChannel = endpointType == USB_TransferType::INTERRUPT || endpointType == USB_TransferType::ISOCHRONOUS;
-
-    if (dmaEnabled && !splitEnabled && (!channelEnabled || periodicChannel))
-    {
-        // Buffer-DMA periodic channels halt automatically at the frame boundary.
-        // Programming CHDIS for them can leave the channel in an undefined state.
-        return true;
-    }
-    channelRegs.HCCHAR |= USB_OTG_HCCHAR_CHDIS;
-
-    if (!dmaEnabled)
-    {
-        const bool hasQueueSpace = (endpointType == USB_TransferType::CONTROL || endpointType == USB_TransferType::BULK)
-            ? ((m_Port->HNPTXSTS & USB_OTG_GNPTXSTS_NPTQXSAV_Msk) != 0)
-            : ((m_Host->HPTXSTS & USB_OTG_HPTXSTS_PTXQSAV_Msk) != 0);
-    
-        if (!hasQueueSpace)
-        {
-            // Flush queue to make space for the disable request.
-            channelRegs.HCCHAR &= ~USB_OTG_HCCHAR_CHENA;
-            channelRegs.HCCHAR |= USB_OTG_HCCHAR_CHENA;
-            for (int i = 0; i < 1000 && (channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA); ++i) {}
-        }
-        else
-        {
-            channelRegs.HCCHAR |= USB_OTG_HCCHAR_CHENA;
-        }
-    }
-    else
-    {
-        channelRegs.HCCHAR |= USB_OTG_HCCHAR_CHENA;
-    }
-    // Enable channel halt interrupt.
-    channelRegs.HCINTMSK |= USB_OTG_HCINTMSK_CHHM;
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool USBHost_STM32::DoPing(USB_PipeIndex pipeIndex)
+void USBHost_STM32::HaltChannelInternal(USB_PipeIndex pipeIndex)
 {
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
-    const uint32_t packetCount = 1;
+    const bool channelEnabled = (channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA) != 0;
+    const bool splitEnabled = (channelRegs.HCSPLT & USB_OTG_HCSPLT_SPLITEN) != 0;
 
-    channelRegs.HCTSIZ = (packetCount << USB_OTG_HCTSIZ_PKTCNT_Pos) | USB_OTG_HCTSIZ_DOPING;
-    // Enable channel.
-    set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
-    return true;
+    // Buffer-DMA periodic channels halt automatically at the frame boundary.
+    // Programming CHDIS for them can leave the channel in an undefined state.
+    if (splitEnabled || (channelEnabled && !IsUSBHostSTM32NonSplitPeriodicDMAChannel(channelRegs)))
+    {
+        channelRegs.HCCHAR |= USB_OTG_HCCHAR_CHDIS;
+        channelRegs.HCCHAR |= USB_OTG_HCCHAR_CHENA;
+        // Enable channel halt interrupt.
+        channelRegs.HCINTMSK |= USB_OTG_HCINTMSK_CHHM;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1709,12 +1519,6 @@ IRQResult USBHost_STM32::HandleIRQ()
         if (interrupts & USB_OTG_GINTSTS_IISOIXFR) {
             m_Port->GINTSTS = USB_OTG_GINTSTS_IISOIXFR;
         }
-        if (interrupts & USB_OTG_GINTSTS_NPTXFE) {
-            m_Port->GINTMSK &= ~USB_OTG_GINTMSK_NPTXFEM;
-        }
-        if (interrupts & USB_OTG_GINTSTS_PTXFE) {
-            m_Port->GINTMSK &= ~USB_OTG_GINTMSK_PTXFEM;
-        }
         if (interrupts & USB_OTG_GINTSTS_MMIS) {
             m_Port->GINTSTS = USB_OTG_GINTSTS_MMIS;
         }
@@ -1741,11 +1545,6 @@ IRQResult USBHost_STM32::HandleIRQ()
         {
             for (uint32_t i = 0; i < CHANNEL_COUNT; ++i)
             {
-                // Workaround the interrupts flood issue: re-enable NAK interrupt
-                if (!m_Driver->UseDMA()) {
-                    m_HostChannels[i].HCINTMSK |= USB_OTG_HCINT_NAK;
-                }
-
                 USBHostChannelData& channel = m_ChannelStates[i];
                 const USB_PipeIndex pipeIndex = static_cast<USB_PipeIndex>(i);
                 if (channel.CancelHaltPending && (m_HostChannels[i].HCCHAR & USB_OTG_HCCHAR_CHENA) == 0) {
@@ -1755,30 +1554,13 @@ IRQResult USBHost_STM32::HandleIRQ()
                 if (channel.RetryOnNextSOF)
                 {
                     channel.RetryOnNextSOF = false;
-                    if (channel.TransferActive)
-                    {
-                        if (!StartTransfer(pipeIndex, m_Driver->UseDMA()))
-                        {
-                            channel.TransferActive = false;
-                            SetChannelURBState(pipeIndex, USB_URBState::Error);
-                        }
+                    if (channel.TransferActive) {
+                        StartTransfer(pipeIndex);
                     }
                 }
             }
             m_Driver->IRQStartOfFrame();
             m_Port->GINTSTS = USB_OTG_GINTSTS_SOF;
-        }
-
-        // Handle RX FIFO level interrupt.
-        if (interrupts & USB_OTG_GINTSTS_RXFLVL)
-        {
-            m_Port->GINTMSK &= ~USB_OTG_GINTSTS_RXFLVL;
-            HandleRxFIFONotEmptyIRQ();
-            const bool receiveFIFOStillNotEmpty = (m_Port->GINTSTS & USB_OTG_GINTSTS_RXFLVL) != 0;
-            m_Port->GINTMSK |= USB_OTG_GINTSTS_RXFLVL;
-            if (receiveFIFOStillNotEmpty) {
-                return IRQResult::HANDLED;
-            }
         }
 
         // Handle channel interrupts.
@@ -1901,8 +1683,7 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
     }
     else if (interrupts & USB_OTG_HCINT_XFRC)
     {
-        const bool dmaEnabled = m_Driver->UseDMA();
-        if (dmaEnabled && !FinishDMATransfer(pipeIndex, true, true, nullptr))
+        if (!FinishDMATransfer(pipeIndex, true, true, nullptr))
         {
             channelRegs.HCINT = USB_OTG_HCINT_XFRC;
             channel.PendingHaltURBState = USB_URBState::Error;
@@ -1922,7 +1703,7 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
         else if (channel.EndpointType == USB_TransferType::INTERRUPT || channel.EndpointType == USB_TransferType::ISOCHRONOUS)
         {
             channelRegs.HCCHAR |= USB_OTG_HCCHAR_ODDFRM;
-            if (dmaEnabled && channel.BytesTransferred < channel.RequestedTransferLength && !channel.ShortPacketReceived)
+            if (channel.BytesTransferred < channel.RequestedTransferLength && !channel.ShortPacketReceived)
             {
                 channel.StartOnNextSOF = true;
                 HaltChannelInternal(pipeIndex);
@@ -1934,28 +1715,12 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
                 SetChannelURBState(pipeIndex, USB_URBState::Done);
             }
         }
-
-        if (!dmaEnabled) {
-            channel.ToggleIn ^= 1;
-        }
     }
     else if (interrupts & USB_OTG_HCINT_NAK)
     {
         if (channel.EndpointType == USB_TransferType::INTERRUPT)
         {
             channel.ErrorCount = 0;
-            channel.ChannelState = USB_HostChannelState::NAK;
-            HaltChannelInternal(pipeIndex);
-        }
-        else if (channel.EndpointType == USB_TransferType::CONTROL || channel.EndpointType == USB_TransferType::BULK)
-        {
-            channel.ErrorCount = 0;
-
-            if (!m_Driver->UseDMA())
-            {
-                // Workaround NAK interrupt flood issue.
-                channelRegs.HCINTMSK &= ~USB_OTG_HCINT_NAK;
-            }
             channel.ChannelState = USB_HostChannelState::NAK;
             HaltChannelInternal(pipeIndex);
         }
@@ -1972,20 +1737,15 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
 
         if (channel.ChannelState == USB_HostChannelState::XFRC)
         {
-            if (m_Driver->UseDMA() && channel.StartOnNextSOF)
+            if (channel.StartOnNextSOF)
             {
                 channel.StartOnNextSOF = false;
                 channel.RetryOnNextSOF = true;
                 return;
             }
-            if (m_Driver->UseDMA() && channel.BytesTransferred < channel.RequestedTransferLength && !channel.ShortPacketReceived)
+            if (channel.BytesTransferred < channel.RequestedTransferLength && !channel.ShortPacketReceived)
             {
-                if (!StartTransfer(pipeIndex, true))
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Error);
-                }
+                StartTransfer(pipeIndex);
                 return;
             }
             channel.TransferActive = false;
@@ -2009,25 +1769,12 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
                 channel.RetryOnNextSOF = false;
                 SetChannelURBState(pipeIndex, USB_URBState::Error);
             }
-            else if (m_Driver->UseDMA())
+            else
             {
                 RecoverDMATransferError(pipeIndex);
             }
-            else if (++channel.ErrorCount > 2)
-            {
-                FinishDMATransfer(pipeIndex, true, false, nullptr);
-                channel.ErrorCount = 0;
-                channel.TransferActive = false;
-                channel.RetryOnNextSOF = false;
-                SetChannelURBState(pipeIndex, USB_URBState::Error);
-            }
-            else
-            {
-                ActivateChannel(pipeIndex);
-            }
         }
         else if (channel.ChannelState == USB_HostChannelState::IDLE
-            && m_Driver->UseDMA()
             && (channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA) == 0)
         {
             // A channel can report a delayed halt after a new DMA request has
@@ -2036,63 +1783,35 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
         }
         else if (channel.ChannelState == USB_HostChannelState::NAK)
         {
-            const bool dmaEnabled = m_Driver->UseDMA();
-            if (dmaEnabled)
+            bool madeProgress = false;
+            const bool transferValid = FinishDMATransfer(pipeIndex, true, false, &madeProgress);
+            if (!transferValid)
             {
-                bool madeProgress = false;
-                const bool transferValid = FinishDMATransfer(pipeIndex, true, false, &madeProgress);
-                if (!transferValid)
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Error);
-                }
-                else if (madeProgress && channel.BytesTransferred >= channel.RequestedTransferLength)
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Done);
-                }
-                else if (madeProgress || channel.EndpointType == USB_TransferType::INTERRUPT)
-                {
-                    if (!StartTransfer(pipeIndex, true))
-                    {
-                        channel.TransferActive = false;
-                        channel.RetryOnNextSOF = false;
-                        SetChannelURBState(pipeIndex, USB_URBState::Error);
-                    }
-                }
-                else if (channel.BytesTransferred != 0)
-                {
-                    // A segmented request is one URB. Keep a NAK on a later
-                    // segment inside the HCD instead of reporting a partial URB.
-                    channel.RetryOnNextSOF = true;
-                }
-                else
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::NotReady);
-                }
-                return;
+                channel.TransferActive = false;
+                channel.RetryOnNextSOF = false;
+                SetChannelURBState(pipeIndex, USB_URBState::Error);
             }
-
-            if (channel.EndpointType != USB_TransferType::INTERRUPT)
+            else if (madeProgress && channel.BytesTransferred >= channel.RequestedTransferLength)
             {
-                SetChannelURBState(pipeIndex, USB_URBState::NotReady);
-
-                // Re-activate the channel.
-                ActivateChannel(pipeIndex);
+                channel.TransferActive = false;
+                channel.RetryOnNextSOF = false;
+                SetChannelURBState(pipeIndex, USB_URBState::Done);
+            }
+            else if (madeProgress || channel.EndpointType == USB_TransferType::INTERRUPT)
+            {
+                StartTransfer(pipeIndex);
+            }
+            else if (channel.BytesTransferred != 0)
+            {
+                // A segmented request is one URB. Keep a NAK on a later
+                // segment inside the HCD instead of reporting a partial URB.
+                channel.RetryOnNextSOF = true;
             }
             else
             {
-                if (!StartTransfer(pipeIndex, false))
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Error);
-                }
-                return;
+                channel.TransferActive = false;
+                channel.RetryOnNextSOF = false;
+                SetChannelURBState(pipeIndex, USB_URBState::NotReady);
             }
         }
         else if (channel.ChannelState == USB_HostChannelState::BBLERR)
@@ -2159,13 +1878,6 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
     else if (interrupts & USB_OTG_HCINT_ACK)
     {
         channelRegs.HCINT = USB_OTG_HCINT_ACK;
-
-        if (channel.DoPing)
-        {
-            channel.DoPing = false;
-            channel.ChannelState = USB_HostChannelState::NYET;
-            HaltChannelInternal(pipeIndex);
-        }
     }
     else if (interrupts & USB_OTG_HCINT_FRMOR)
     {
@@ -2184,7 +1896,7 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
     }
     else if (interrupts & USB_OTG_HCINT_XFRC)
     {
-        if (m_Driver->UseDMA() && !FinishDMATransfer(pipeIndex, true, true, nullptr))
+        if (!FinishDMATransfer(pipeIndex, true, true, nullptr))
         {
             channelRegs.HCINT = USB_OTG_HCINT_XFRC;
             channel.PendingHaltURBState = USB_URBState::Error;
@@ -2193,28 +1905,13 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
         }
         channel.ErrorCount = 0;
 
-        // Transaction completed with NYET state, update do ping state.
-        if (interrupts & USB_OTG_HCINT_NYET)
-        {
-            channel.DoPing = true;
-            channelRegs.HCINT = USB_OTG_HCINT_NYET;
-        }
         channelRegs.HCINT = USB_OTG_HCINT_XFRC;
         channel.ChannelState = USB_HostChannelState::XFRC;
-        if (m_Driver->UseDMA() &&
-            (channel.EndpointType == USB_TransferType::INTERRUPT || channel.EndpointType == USB_TransferType::ISOCHRONOUS) &&
+        if ((channel.EndpointType == USB_TransferType::INTERRUPT || channel.EndpointType == USB_TransferType::ISOCHRONOUS) &&
             channel.BytesTransferred < channel.RequestedTransferLength) {
             channel.StartOnNextSOF = true;
         }
         HaltChannelInternal(pipeIndex);
-    }
-    else if (interrupts & USB_OTG_HCINT_NYET)
-    {
-        channel.ChannelState = USB_HostChannelState::NYET;
-        channel.DoPing = true;
-        channel.ErrorCount = 0;
-        HaltChannelInternal(pipeIndex);
-        channelRegs.HCINT = USB_OTG_HCINT_NYET;
     }
     else if (interrupts & USB_OTG_HCINT_STALL)
     {
@@ -2226,11 +1923,6 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
     {
         channel.ErrorCount = 0;
         channel.ChannelState = USB_HostChannelState::NAK;
-
-        if (!channel.DoPing && channel.Speed == USB_Speed::HIGH &&
-            (channel.EndpointType == USB_TransferType::CONTROL || channel.EndpointType == USB_TransferType::BULK)) {
-            channel.DoPing = true;
-        }
 
         HaltChannelInternal(pipeIndex);
         channelRegs.HCINT = USB_OTG_HCINT_NAK;
@@ -2251,40 +1943,9 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
     {
         // Clear this halt before any restart can generate the next one.
         channelRegs.HCINT = USB_OTG_HCINT_CHH;
-        const bool dmaEnabled = m_Driver->UseDMA();
         if (channel.ChannelState == USB_HostChannelState::XFRC)
         {
-            if (!dmaEnabled)
-            {
-                channel.BytesTransferred += channel.XferSize;
-
-                const bool updateDataToggle
-                    = (channel.EndpointType == USB_TransferType::CONTROL && channel.InitialDataPID != USB_OTG_DATA_PID_SETUP)
-                    || channel.EndpointType == USB_TransferType::BULK
-                    || channel.EndpointType == USB_TransferType::INTERRUPT;
-                if (updateDataToggle)
-                {
-                    channel.ToggleOut ^= 1;
-                    channel.InitialDataPID = (channel.ToggleOut) ? USB_OTG_DATA_PID_DATA1 : USB_OTG_DATA_PID_DATA0;
-                }
-
-                if (channel.BytesTransferred < channel.RequestedTransferLength)
-                {
-                    channelRegs.HCINT = USB_OTG_HCINT_CHH;
-                    if (channel.DoPing)
-                    {
-                        channel.RetryOnNextSOF = true;
-                    }
-                    else if (!StartTransfer(pipeIndex, false))
-                    {
-                        channel.TransferActive = false;
-                        channel.RetryOnNextSOF = false;
-                        SetChannelURBState(pipeIndex, USB_URBState::Error);
-                    }
-                    return;
-                }
-            }
-            else if (channel.StartOnNextSOF)
+            if (channel.StartOnNextSOF)
             {
                 channel.StartOnNextSOF = false;
                 channel.RetryOnNextSOF = true;
@@ -2292,12 +1953,7 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
             }
             else if (channel.BytesTransferred < channel.RequestedTransferLength)
             {
-                if (!StartTransfer(pipeIndex, true))
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Error);
-                }
+                StartTransfer(pipeIndex);
                 return;
             }
 
@@ -2305,49 +1961,37 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
             channel.RetryOnNextSOF = false;
             SetChannelURBState(pipeIndex, USB_URBState::Done);
         }
-        else if (channel.ChannelState == USB_HostChannelState::NAK || channel.ChannelState == USB_HostChannelState::NYET)
+        else if (channel.ChannelState == USB_HostChannelState::NAK)
         {
-            if (!dmaEnabled)
+            bool madeProgress = false;
+            const bool transferValid = FinishDMATransfer(pipeIndex, true, false, &madeProgress);
+            if (!transferValid)
             {
+                channel.TransferActive = false;
+                channel.RetryOnNextSOF = false;
+                SetChannelURBState(pipeIndex, USB_URBState::Error);
+            }
+            else if (madeProgress && channel.BytesTransferred < channel.RequestedTransferLength)
+            {
+                StartTransfer(pipeIndex);
+                return;
+            }
+            else if (madeProgress)
+            {
+                channel.TransferActive = false;
+                channel.RetryOnNextSOF = false;
+                SetChannelURBState(pipeIndex, USB_URBState::Done);
+            }
+            else if (channel.BytesTransferred != 0)
+            {
+                // A segmented request is one URB. Keep a NAK on a later
+                // segment inside the HCD instead of reporting a partial URB.
                 channel.RetryOnNextSOF = true;
             }
             else
             {
-                bool madeProgress = false;
-                const bool transferValid = FinishDMATransfer(pipeIndex, true, false, &madeProgress);
-                if (!transferValid)
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Error);
-                }
-                else if (madeProgress && channel.BytesTransferred < channel.RequestedTransferLength)
-                {
-                    if (!StartTransfer(pipeIndex, true))
-                    {
-                        channel.TransferActive = false;
-                        channel.RetryOnNextSOF = false;
-                        SetChannelURBState(pipeIndex, USB_URBState::Error);
-                    }
-                    return;
-                }
-                else if (madeProgress)
-                {
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Done);
-                }
-                else if (channel.BytesTransferred != 0)
-                {
-                    // A segmented request is one URB. Keep a NAK/NYET on a later
-                    // segment inside the HCD instead of reporting a partial URB.
-                    channel.RetryOnNextSOF = true;
-                }
-                else
-                {
-                    channel.TransferActive = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::NotReady);
-                }
+                channel.TransferActive = false;
+                SetChannelURBState(pipeIndex, USB_URBState::NotReady);
             }
         }
         else if (channel.ChannelState == USB_HostChannelState::STALL)
@@ -2359,113 +2003,14 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
         }
         else if (channel.ChannelState == USB_HostChannelState::XACTERR || channel.ChannelState == USB_HostChannelState::DATATGLERR)
         {
-            if (dmaEnabled)
-            {
-                RecoverDMATransferError(pipeIndex);
-            }
-            else
-            {
-                if (++channel.ErrorCount > 2)
-                {
-                    channel.ErrorCount = 0;
-                    channel.TransferActive = false;
-                    channel.RetryOnNextSOF = false;
-                    SetChannelURBState(pipeIndex, USB_URBState::Error);
-                }
-                else
-                {
-                    ActivateChannel(pipeIndex);
-                }
-            }
+            RecoverDMATransferError(pipeIndex);
         }
         else if (channel.ChannelState == USB_HostChannelState::IDLE
-            && dmaEnabled
             && (channelRegs.HCCHAR & USB_OTG_HCCHAR_CHENA) == 0)
         {
             // A channel can report a delayed halt after a new DMA request has
             // been installed. Retry rather than leaving the request orphaned.
             RecoverDMATransferError(pipeIndex);
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USBHost_STM32::DiscardFromFIFO(size_t length)
-{
-    uint32_t discardBuffer;
-
-    while (length != 0)
-    {
-        const size_t chunkLength = std::min(length, sizeof(discardBuffer));
-        m_Driver->ReadFromFIFO(&discardBuffer, chunkLength);
-        length -= chunkLength;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USBHost_STM32::HandleRxFIFONotEmptyIRQ()
-{
-    const uint32_t GRXSTSP = m_Port->GRXSTSP;
-    const uint32_t packetStatus = (GRXSTSP & USB_OTG_GRXSTSP_PKTSTS_Msk) >> USB_OTG_GRXSTSP_PKTSTS_Pos;
-
-    if (packetStatus == USB_PKTSTS_HOST_IN_DATA_RCV)
-    {
-        const USB_PipeIndex pipeIndex     = (GRXSTSP & USB_OTG_GRXSTSP_EPNUM_Msk) >> USB_OTG_GRXSTSP_EPNUM_Pos;
-        const uint32_t      bytesReceived = (GRXSTSP & USB_OTG_GRXSTSP_BCNT_Msk)  >> USB_OTG_GRXSTSP_BCNT_Pos;
-
-        if (pipeIndex < 0 || pipeIndex >= CHANNEL_COUNT)
-        {
-            DiscardFromFIFO(bytesReceived);
-            return;
-        }
-
-        USBHostChannelData&         channel = m_ChannelStates[pipeIndex];
-        USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
-
-        if (channel.CancelHaltPending || channel.PendingHaltURBState != USB_URBState::Idle)
-        {
-            DiscardFromFIFO(bytesReceived);
-            return;
-        }
-
-        if (bytesReceived > 0)
-        {
-            const bool transferFits
-                = channel.BytesTransferred <= channel.RequestedTransferLength
-                && bytesReceived <= channel.RequestedTransferLength - channel.BytesTransferred;
-
-            if (channel.TransferActive && channel.TransferBuffer != nullptr && transferFits)
-            {
-                m_Driver->ReadFromFIFO(channel.TransferBuffer, bytesReceived);
-
-                channel.TransferBuffer += bytesReceived;
-                channel.BytesTransferred += bytesReceived;
-
-                const uint32_t transferPacketCount = (channelRegs.HCTSIZ & USB_OTG_HCTSIZ_PKTCNT) >> USB_OTG_HCTSIZ_PKTCNT_Pos;
-
-                if (channel.MaxPacketSize == bytesReceived && transferPacketCount > 0)
-                {
-                    // Re-activate the channel when more packets are expected.
-                    ActivateChannel(pipeIndex);
-                    channel.ToggleIn ^= 1;
-                }
-            }
-            else
-            {
-                DiscardFromFIFO(bytesReceived);
-                if (channel.TransferActive)
-                {
-                    channel.RetryOnNextSOF = false;
-                    channel.PendingHaltURBState = USB_URBState::Error;
-                    HaltChannelInternal(pipeIndex);
-                }
-            }
         }
     }
 }

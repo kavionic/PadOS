@@ -490,7 +490,7 @@ void USBHostCDCChannel::FlushInternal()
                 m_TransmitCondition.WakeupAll();
                 m_CurrentTxTransactionLength = length;
 
-                m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
+                m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
             }
         }
     }
@@ -552,7 +552,7 @@ void USBHostCDCChannel::SendTransactionCallback(USB_PipeIndex pipeIndex, USB_URB
     }
     else if (urbState == USB_URBState::NotReady)
     {
-        m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
+        m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
     }
 }
 

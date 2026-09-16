@@ -118,9 +118,9 @@ bool USBDevice_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBu
     m_Driver = driver;
     m_Port = get_usb_from_id(portID);
 
-    if (m_Driver == nullptr || !m_Driver->UseDMA())
+    if (m_Driver == nullptr)
     {
-        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USB device mode requires DMA.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USB device mode requires a controller driver.");
         return false;
     }
 

@@ -17,7 +17,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 22.05.2022 17:00
 
-#include <string.h>
 #include <utility>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
@@ -75,18 +74,16 @@ bool USB_STM32::IsDirectDMABuffer(const void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool enableDMA, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF)
+bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF)
 {
     m_Port = get_usb_from_id(portID);
     if (m_Port == nullptr || pinDM.PINID == DigitalPinID::None || pinDP.PINID == DigitalPinID::None) {
         return false;
     }
-    m_FIFOBase      = reinterpret_cast<volatile uint32_t*>(reinterpret_cast<volatile uint8_t*>(m_Port) + USB_OTG_FIFO_BASE);
     m_IRQ = get_usb_irq(portID);
 
     m_ConfigSpeed               = speed;
     m_PhyInterface              = phyInterface;
-    m_UseDMA                    = enableDMA;
     m_UseExternalVBus           = useExternalVBus;
     m_BatteryChargingEnabled    = batteryChargingEnabled;
 
@@ -235,15 +232,12 @@ bool USB_STM32::SetupCore(bool useExternalVBus, bool batteryChargingEnabled)
             m_Port->GCCFG &= ~(USB_OTG_GCCFG_PWRDWN); // Deactivate the USB transceiver.
         }
     }
-    if (m_UseDMA)
-    {
-        // Reserve 18 FIFO locations for DMA buffers.
-        set_bit_group(m_Port->GDFIFOCFG, 0xffffu << 16, DMA_FIFO_USABLE_WORD_COUNT << 16);
+    // Reserve its 18 FIFO locations.
+    set_bit_group(m_Port->GDFIFOCFG, 0xffffu << 16, DMA_FIFO_USABLE_WORD_COUNT << 16);
 
-        m_Port->GAHBCFG &= ~USB_OTG_GAHBCFG_HBSTLEN_Msk;
-        m_Port->GAHBCFG |= USB_OTG_GAHBCFG_HBSTLEN_2;
-        m_Port->GAHBCFG |= USB_OTG_GAHBCFG_DMAEN;
-    }
+    m_Port->GAHBCFG &= ~USB_OTG_GAHBCFG_HBSTLEN_Msk;
+    m_Port->GAHBCFG |= USB_OTG_GAHBCFG_HBSTLEN_2;
+    m_Port->GAHBCFG |= USB_OTG_GAHBCFG_DMAEN;
 
     return true;
 }
@@ -258,15 +252,6 @@ bool USB_STM32::WaitForAHBIdle()
         if (kget_monotonic_time() > endTime) return false;
     }
     return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-volatile uint32_t* USB_STM32::GetFIFOBase(uint32_t endpoint)
-{
-    return m_FIFOBase + endpoint * USB_OTG_FIFO_SIZE / 4;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -362,66 +347,6 @@ bool USB_STM32::SetUSBMode(USB_Mode mode)
 USB_Mode USB_STM32::GetUSBMode() const
 {
     return (m_Port->GINTSTS & USB_OTG_GINTSTS_CMOD) ? USB_Mode::Host : USB_Mode::Device;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USB_STM32::ReadFromFIFO(void* buffer, size_t length)
-{
-    volatile const uint32_t* fifoRegister = GetFIFOBase(0);
-
-    // Read all full 32-bit words.
-    const uint32_t fullWords = length  / 4;
-    uint32_t* dst32 = reinterpret_cast<uint32_t*>(buffer);
-    if (reinterpret_cast<intptr_t>(dst32) & 0x03) {
-        for (uint32_t i = 0; i < fullWords; i++) unaligned_write(dst32++, *fifoRegister++);
-    } else {
-        for (uint32_t i = 0; i < fullWords; i++) *dst32++ = *fifoRegister++;
-    }
-    // Read the remaining bytes, if any.
-    length &= 0x03;
-    if (length != 0)
-    {
-        uint8_t* dst8 = reinterpret_cast<uint8_t*>(dst32);
-        uint32_t data = *fifoRegister;
-        while (length--)
-        {
-            *dst8++ = uint8_t(data & 0xff);
-            data >>= 8;
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USB_STM32::WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length)
-{
-    volatile uint32_t* fifoRegister = GetFIFOBase(fifoIndex);
-
-    // Write all full 32-bit words.
-    const uint32_t fullWords = length / 4;
-    const uint32_t* src32 = reinterpret_cast<const uint32_t*>(buffer);
-    if (reinterpret_cast<intptr_t>(src32) & 0x03) {
-        for (uint32_t i = 0; i < fullWords; i++) *fifoRegister++ = unaligned_read<uint32_t>(src32++);
-    } else {
-        for (uint32_t i = 0; i < fullWords; i++) *fifoRegister++ = *src32++;
-    }
-    // Write the remaining bytes, if any.
-    length &= 0x03;
-    if (length != 0)
-    {
-        uint32_t data = 0;
-        const uint8_t* src8 = reinterpret_cast<const uint8_t*>(src32);
-        for (uint32_t i = 0; i < length; ++i)
-        {
-            data |= uint32_t(*src8++) << (i * 8);
-        }
-        *fifoRegister = data;
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

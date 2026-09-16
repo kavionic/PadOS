@@ -54,7 +54,6 @@ enum class USB_HostChannelState : uint8_t
     IDLE = 0,
     XFRC,
     NAK,
-    NYET,
     STALL,
     XACTERR,
     BBLERR,
@@ -65,9 +64,7 @@ enum class USB_HostChannelState : uint8_t
 struct USBHostChannelDiagnostics
 {
     uint32_t SubmitRequestCount = 0;
-    uint32_t SubmitRequestFailureCount = 0;
     uint32_t StartTransferCount = 0;
-    uint32_t StartTransferFailureCount = 0;
     uint32_t TransferCompleteIRQCount = 0;
     uint32_t NakNyetIRQCount = 0;
     uint32_t ChannelHaltIRQCount = 0;
@@ -87,7 +84,6 @@ struct USBHostChannelData
     USB_RequestDirection        Direction;                      // Endpoint direction.
     USB_Speed                   Speed;                          // USB Host Channel speed.
     USB_TransferType            EndpointType;                   // Endpoint Type.
-    uint8_t                     DoPing;                         // Enable or disable the use of the PING protocol for HS mode.
     uint16_t                    MaxPacketSize;                  // Endpoint Max packet size.
     uint16_t                    MaxDMAPacketCount;              // Maximum packets in one direct DMA submission.
     uint16_t                    BounceDMAPacketCount;           // Maximum packets in one bounce-buffer DMA submission.
@@ -161,7 +157,7 @@ public:
     uint32_t    GetCurrentFrame();
     bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
     bool        HaltChannel(USB_PipeIndex pipeIndex);
-    bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing);
+    bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length);
 
 
     bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
@@ -181,13 +177,12 @@ private:
     void ActivateChannel(USB_PipeIndex pipeIndex);
   
     uint32_t PrepareDMATransfer(USB_PipeIndex pipeIndex);
-    bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
+    void StartTransfer(USB_PipeIndex pipeIndex);
     bool FinishDMATransfer(USB_PipeIndex pipeIndex, bool commitTransfer, bool transferComplete, bool* madeProgress);
     void CompleteChannelCancellation(USB_PipeIndex pipeIndex);
     void RecoverDMATransferError(USB_PipeIndex pipeIndex);
     void UpdateDataToggle(USBHostChannelData& channel, uint32_t packetCount);
-    bool HaltChannelInternal(USB_PipeIndex pipeIndex);
-    bool DoPing(USB_PipeIndex pipeIndex);
+    void HaltChannelInternal(USB_PipeIndex pipeIndex);
 
 
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
@@ -195,8 +190,6 @@ private:
     IRQResult HandleIRQ();
     void HandleChannelInIRQ(USB_PipeIndex pipeIndex);
     void HandleChannelOutIRQ(USB_PipeIndex pipeIndex);
-    void DiscardFromFIFO(size_t length);
-    void HandleRxFIFONotEmptyIRQ();
     void HandlePortIRQ();
 
 

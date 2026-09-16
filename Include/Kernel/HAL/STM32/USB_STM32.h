@@ -48,17 +48,6 @@ enum class USB_OTG_Phy : uint8_t
 namespace kernel
 {
 
-static constexpr uint32_t USB_PKTSTS_NAK            = 1; // Global OUT NAK (triggers an interrupt).
-static constexpr uint32_t USB_PKTSTS_OUT_DATA_RCV   = 2; // OUT data packet received.
-static constexpr uint32_t USB_PKTSTS_OUT_XFR_DONE   = 3; // OUT transfer completed (triggers an interrupt).
-static constexpr uint32_t USB_PKTSTS_SETUP_XFR_DONE = 4; // SETUP transaction completed (triggers an interrupt).
-static constexpr uint32_t USB_PKTSTS_SETUP_DATA_RCV = 6; // SETUP data packet received.
-
-static constexpr uint32_t USB_PKTSTS_HOST_IN_DATA_RCV       = 2; // IN data packet received
-static constexpr uint32_t USB_PKTSTS_HOST_IN_XFR_DONE       = 3; // IN transfer completed(triggers an interrupt)
-static constexpr uint32_t USB_PKTSTS_HOST_DATA_TOGGLE_ERR   = 5; // Data toggle error(triggers an interrupt)
-static constexpr uint32_t USB_PKTSTS_HOST_CHANNEL_HALTED    = 7; // Channel halted(triggers an interrupt)
-
 class USB_STM32 : public USBDriver
 {
 public:
@@ -70,12 +59,11 @@ public:
 
     static bool IsDirectDMABuffer(const void* buffer, size_t length);
 
-    bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool enableDMA, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
+    bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
     void Shutdown();
     bool ResetHostCore();
 
     USB_OTG_Phy         GetPhyInterface() const { return m_PhyInterface; }
-    bool                UseDMA() const { return m_UseDMA; }
     USB_Speed           GetConfigSpeed() const { return m_ConfigSpeed; }
 
     bool        SetUSBMode(USB_Mode mode);
@@ -103,7 +91,7 @@ public:
 
     virtual bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize) override { return m_HostDriver.SetupPipe(pipeIndex, endpointAddr, deviceAddr, speed, endpointType, maxPacketSize); }
     virtual bool        HaltChannel(USB_PipeIndex pipeIndex) override { return m_HostDriver.HaltChannel(pipeIndex); }
-    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, segments, segmentCount, length, doPing); }
+    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, segments, segmentCount, length); }
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) override { return m_HostDriver.SetDataToggle(pipeIndex, toggle); }
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetDataToggle(pipeIndex); }
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
@@ -112,9 +100,6 @@ public:
     virtual bool        GetHostPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outValue) const override { return m_HostDriver.GetPipeDebugEntryValue(pipeIndex, entryIndex, outValue); }
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #endif
-
-    void        ReadFromFIFO(void* buffer, size_t length);
-    void        WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length);
 
     bool        FlushTxFifo(uint32_t count);
     bool        FlushRxFifo();
@@ -128,12 +113,9 @@ private:
     bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
     bool                CoreReset();
     bool                WaitForAHBIdle();
-    volatile uint32_t*  GetFIFOBase(uint32_t endpoint);
 
 
     USB_OTG_GlobalTypeDef*  m_Port = nullptr;
-
-    volatile uint32_t*      m_FIFOBase = nullptr;
 
     USBDevice_STM32         m_DeviceDriver;
 #ifdef PADOS_MODULE_USB_HOST
@@ -143,7 +125,6 @@ private:
     USB_OTG_Phy             m_PhyInterface = USB_OTG_Phy::Embedded;
     IRQn_Type               m_IRQ{};
     USB_Speed               m_ConfigSpeed = USB_Speed::FULL;
-    bool                    m_UseDMA = false;
     bool                    m_UseExternalVBus = false;
     bool                    m_BatteryChargingEnabled = false;
 };

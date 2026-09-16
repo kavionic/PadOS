@@ -1220,7 +1220,6 @@ bool USBHostMSCInterface::SubmitBulkOut_pl(void* buffer, size_t length)
         m_BulkPipeOut,
         buffer,
         length,
-        true,
         [self](USB_PipeIndex pipeIndex, USB_URBState state, size_t transactionLength)
         {
             self->HandleBulkTransfer_pl(pipeIndex, state, transactionLength);
@@ -1245,7 +1244,6 @@ bool USBHostMSCInterface::SubmitBulkOut_pl(const USB_TransferSegment* segments, 
         segments,
         segmentCount,
         length,
-        true,
         [self](USB_PipeIndex pipeIndex, USB_URBState state, size_t transactionLength)
         {
             self->HandleBulkTransfer_pl(pipeIndex, state, transactionLength);

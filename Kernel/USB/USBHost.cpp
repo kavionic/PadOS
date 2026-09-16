@@ -587,7 +587,7 @@ bool USBHost::GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback)
+bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
     if (pipe != nullptr)
@@ -604,7 +604,7 @@ bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
         pipe->URBState = USB_URBState::NotReady;
 
         const USB_TransferSegment segment = {buffer, length};
-        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, &segment, 1, length, doPing);
+        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, &segment, 1, length);
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (!result) {
             ++pipe->Diagnostics.SubmitFailureCount;
@@ -624,7 +624,7 @@ bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::SubmitVectorURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing, USB_TransactionCallback&& callback)
+bool USBHost::SubmitVectorURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, const USB_TransferSegment* segments, size_t segmentCount, size_t length, USB_TransactionCallback&& callback)
 {
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
     if (pipe != nullptr)
@@ -640,7 +640,7 @@ bool USBHost::SubmitVectorURB(USB_PipeIndex pipeIndex, USB_RequestDirection dire
         pipe->TransactionCallback = std::move(callback);
         pipe->URBState = USB_URBState::NotReady;
 
-        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, endpointType, initialPID, segments, segmentCount, length, doPing);
+        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, endpointType, initialPID, segments, segmentCount, length);
 #if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (!result) {
             ++pipe->Diagnostics.SubmitFailureCount;
@@ -662,16 +662,16 @@ bool USBHost::SubmitVectorURB(USB_PipeIndex pipeIndex, USB_RequestDirection dire
 
 bool USBHost::ControlSendSetup(USB_PipeIndex pipeIndex, USB_ControlRequest* request, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::CONTROL, USBH_InitialTransactionPID::Setup, request, sizeof(USB_ControlRequest), false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::CONTROL, USBH_InitialTransactionPID::Setup, request, sizeof(USB_ControlRequest), std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback)
+bool USBHost::ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::CONTROL, USBH_InitialTransactionPID::Data, buffer, length, doPing, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::CONTROL, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -680,16 +680,16 @@ bool USBHost::ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t leng
 
 bool USBHost::ControlReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::CONTROL, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::CONTROL, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback)
+bool USBHost::BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, buffer, length, doPing, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -698,16 +698,16 @@ bool USBHost::BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length,
 
 bool USBHost::BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::BulkSendVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, bool doPing, USB_TransactionCallback&& callback)
+bool USBHost::BulkSendVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitVectorURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, segments, segmentCount, length, doPing, std::move(callback));
+    return SubmitVectorURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, segments, segmentCount, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -716,7 +716,7 @@ bool USBHost::BulkSendVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegm
 
 bool USBHost::BulkReceiveVectorData(USB_PipeIndex pipeIndex, const USB_TransferSegment* segments, size_t segmentCount, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitVectorURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, segments, segmentCount, length, false, std::move(callback));
+    return SubmitVectorURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, segments, segmentCount, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -725,7 +725,7 @@ bool USBHost::BulkReceiveVectorData(USB_PipeIndex pipeIndex, const USB_TransferS
 
 bool USBHost::InterruptReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::INTERRUPT, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::INTERRUPT, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -734,7 +734,7 @@ bool USBHost::InterruptReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t
 
 bool USBHost::InterruptSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::INTERRUPT, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::INTERRUPT, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -743,7 +743,7 @@ bool USBHost::InterruptSendData(USB_PipeIndex pipeIndex, void* buffer, size_t le
 
 bool USBHost::IsochronousReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::ISOCHRONOUS, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::ISOCHRONOUS, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -752,7 +752,7 @@ bool USBHost::IsochronousReceiveData(USB_PipeIndex pipeIndex, void* buffer, size
 
 bool USBHost::IsochronousSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::ISOCHRONOUS, USBH_InitialTransactionPID::Data, buffer, length, false, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::HOST_TO_DEVICE, USB_TransferType::ISOCHRONOUS, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -57,7 +57,17 @@ public:
     // Internal DMA uses the final 18 FIFO words for endpoint information.
     static constexpr uint32_t DMA_FIFO_USABLE_WORD_COUNT = USB_OTG_FIFO_SIZE / sizeof(uint32_t) - 18;
 
-    static bool IsDirectDMABuffer(const void* buffer, size_t length);
+    // Checks USB DMA memory accessibility.
+    static bool IsDMABufferAccessible(const void* buffer, size_t length);
+
+    // Transmit (host OUT/device IN) reads memory; receive (host IN/device OUT) writes memory.
+    // Transmit payload bytes must remain stable until DMA completes; neighboring bytes may be accessed by the CPU.
+    static bool IsDirectDMATransmitBuffer(const void* buffer, size_t length);
+    // Receive buffers and bounce allocations must own complete cache lines.
+    static bool IsDirectDMAReceiveBuffer(const void* buffer, size_t length);
+    // length is bounded by the current caller segment and hardware transfer limits; packetSize must be nonzero.
+    static size_t GetDirectDMAReceiveLength(const void* buffer, size_t length, size_t packetSize);
+    static void CleanDMATransmitBuffer(const void* buffer, size_t length);
 
     bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
     void Shutdown();

@@ -133,7 +133,7 @@ bool USBDevice_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBu
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Failed to allocate USB device DMA bounce buffers.");
         return false;
     }
-    if (!USB_STM32::IsDirectDMABuffer(m_DMABounceBuffers, dmaBufferAllocationSize))
+    if (!USB_STM32::IsDirectDMAReceiveBuffer(m_DMABounceBuffers, dmaBufferAllocationSize))
     {
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USB device DMA bounce buffers are not DMA accessible.");
         free(m_DMABounceBuffers);
@@ -783,24 +783,28 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
         return false;
     }
 
-    size_t packetCount = std::min(requestedPacketCount, maximumPacketCount);
-    size_t transferDataLength = std::min(remainingLength, packetCount * endpointMaxSize);
-    size_t dmaTransferSize = directionIn ? transferDataLength : packetCount * endpointMaxSize;
+    size_t directDataLength = std::min(remainingLength, maximumPacketCount * endpointMaxSize);
+    if (!directionIn) {
+        directDataLength = USB_STM32::GetDirectDMAReceiveLength(callerBuffer, directDataLength, endpointMaxSize);
+    }
+    const bool useDirectDMA = directDataLength != 0
+        && (!directionIn || USB_STM32::IsDirectDMATransmitBuffer(callerBuffer, directDataLength));
 
-    const bool useDirectDMA = transferDataLength != 0
-        && (directionIn || transferDataLength == dmaTransferSize)
-        && USB_STM32::IsDirectDMABuffer(callerBuffer, dmaTransferSize);
-
-    if (!useDirectDMA)
+    size_t packetCount;
+    if (useDirectDMA)
+    {
+        packetCount = 1 + (directDataLength - 1) / endpointMaxSize;
+    }
+    else
     {
         const size_t bouncePacketCount = DMA_BOUNCE_BUFFER_SIZE / endpointMaxSize;
         if (bouncePacketCount == 0) {
             return false;
         }
-        packetCount = std::min(packetCount, bouncePacketCount);
-        transferDataLength = std::min(remainingLength, packetCount * endpointMaxSize);
-        dmaTransferSize = directionIn ? transferDataLength : packetCount * endpointMaxSize;
+        packetCount = std::min(requestedPacketCount, std::min(maximumPacketCount, bouncePacketCount));
     }
+    const size_t transferDataLength = std::min(remainingLength, packetCount * endpointMaxSize);
+    const size_t dmaTransferSize = directionIn ? transferDataLength : packetCount * endpointMaxSize;
 
     uint8_t* dmaTransferBuffer = useDirectDMA ? callerBuffer : GetDMABounceBuffer(endpointAddr);
     if (!useDirectDMA && directionIn && transferDataLength != 0) {
@@ -810,7 +814,7 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
     const size_t cacheLength = align_up(dmaTransferSize, __SCB_DCACHE_LINE_SIZE);
     if (cacheLength != 0) {
         if (directionIn) {
-            SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTransferBuffer), static_cast<int32_t>(cacheLength));
+            USB_STM32::CleanDMATransmitBuffer(dmaTransferBuffer, dmaTransferSize);
         } else {
             SCB_CleanInvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTransferBuffer), static_cast<int32_t>(cacheLength));
         }

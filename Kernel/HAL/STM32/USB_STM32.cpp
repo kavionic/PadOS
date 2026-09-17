@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 22.05.2022 17:00
 
+#include <bit>
 #include <utility>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
@@ -60,14 +61,64 @@ USB_STM32::~USB_STM32()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USB_STM32::IsDirectDMABuffer(const void* buffer, size_t length)
+bool USB_STM32::IsDMABufferAccessible(const void* buffer, size_t length)
 {
     const uintptr_t bufferAddress = reinterpret_cast<uintptr_t>(buffer);
-    if ((bufferAddress % __SCB_DCACHE_LINE_SIZE) != 0 || (length % __SCB_DCACHE_LINE_SIZE) != 0) {
-        return false;
-    }
     return bufferAddress >= USB_STM32_ITCM_INACCESSIBLE_END
         && (bufferAddress >= USB_STM32_DTCM_END || bufferAddress + length <= D1_DTCMRAM_BASE);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USB_STM32::IsDirectDMATransmitBuffer(const void* buffer, size_t length)
+{
+    // DMA addresses must be word aligned. A final partial word stays within the same accessible memory region.
+    return (reinterpret_cast<uintptr_t>(buffer) % sizeof(uint32_t)) == 0 && IsDMABufferAccessible(buffer, length);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USB_STM32::IsDirectDMAReceiveBuffer(const void* buffer, size_t length)
+{
+    return (reinterpret_cast<uintptr_t>(buffer) % __SCB_DCACHE_LINE_SIZE) == 0
+        && (length % __SCB_DCACHE_LINE_SIZE) == 0
+        && IsDMABufferAccessible(buffer, length);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USB_STM32::GetDirectDMAReceiveLength(const void* buffer, size_t length, size_t packetSize)
+{
+    if ((reinterpret_cast<uintptr_t>(buffer) % __SCB_DCACHE_LINE_SIZE) == 0)
+    {
+        // The cache-line size is a power of two, so the common factor depends only on trailing zero bits.
+        const int commonAlignmentShift = std::min(std::countr_zero(packetSize), std::countr_zero(size_t(__SCB_DCACHE_LINE_SIZE)));
+        const size_t chunkAlignment = (packetSize >> commonAlignmentShift) * __SCB_DCACHE_LINE_SIZE;
+        const size_t directLength = length - length % chunkAlignment;
+        return (directLength != 0 && IsDMABufferAccessible(buffer, directLength)) ? directLength : 0;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USB_STM32::CleanDMATransmitBuffer(const void* buffer, size_t length)
+{
+    if (length != 0)
+    {
+        const uintptr_t bufferAddress = reinterpret_cast<uintptr_t>(buffer);
+        const uintptr_t cacheAddress = align_down(bufferAddress, __SCB_DCACHE_LINE_SIZE);
+        const size_t cacheLength = align_up(bufferAddress + length, __SCB_DCACHE_LINE_SIZE) - cacheAddress;
+        SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(cacheAddress), static_cast<int32_t>(cacheLength));
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -340,7 +340,7 @@ bool USBHost_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusS
             kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to allocate USB host DMA bounce buffers.");
             return false;
         }
-        if (!USB_STM32::IsDirectDMABuffer(allocation, allocationSize))
+        if (!USB_STM32::IsDirectDMAReceiveBuffer(allocation, allocationSize))
         {
             kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "USB host DMA bounce buffers are not DMA accessible.");
             free(allocation);
@@ -1131,22 +1131,17 @@ uint32_t USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex)
     if (availableLength != 0) {
         requestedPacketCount = 1 + (availableLength - 1) / channel.MaxPacketSize;
     }
-    const uint32_t directPacketCount = static_cast<uint32_t>(
-        std::min<size_t>(requestedPacketCount, channel.MaxDMAPacketCount));
-    const size_t directDataLength = std::min(availableLength, static_cast<size_t>(directPacketCount) * channel.MaxPacketSize);
-    const size_t directTransferSize = (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST)
-        ? static_cast<size_t>(directPacketCount) * channel.MaxPacketSize
-        : directDataLength;
-    // A direct IN buffer must cover the packet-rounded HCTSIZ value so the
-    // controller can never DMA past the caller's allocation.
-    const bool useDirectDMA
-        = directDataLength > 0
-        && (channel.Direction != USB_RequestDirection::DEVICE_TO_HOST || directDataLength == directTransferSize)
-        && USB_STM32::IsDirectDMABuffer(transferBuffer, directTransferSize);
+    const bool receive = channel.Direction == USB_RequestDirection::DEVICE_TO_HOST;
+    size_t directDataLength = std::min(availableLength, static_cast<size_t>(channel.MaxDMAPacketCount) * channel.MaxPacketSize);
+    if (receive) {
+        directDataLength = USB_STM32::GetDirectDMAReceiveLength(transferBuffer, directDataLength, channel.MaxPacketSize);
+    }
+    const bool useDirectDMA = directDataLength != 0
+        && (receive || USB_STM32::IsDirectDMATransmitBuffer(transferBuffer, directDataLength));
 
-    const size_t packetCapacity = useDirectDMA ? channel.MaxDMAPacketCount : channel.BounceDMAPacketCount;
-
-    const uint32_t packetCount = static_cast<uint32_t>(std::min<size_t>(requestedPacketCount, packetCapacity));
+    const uint32_t packetCount = static_cast<uint32_t>(useDirectDMA
+        ? 1 + (directDataLength - 1) / channel.MaxPacketSize
+        : std::min<size_t>(requestedPacketCount, channel.BounceDMAPacketCount));
 
     channel.TransferPacketCount = packetCount;
     channel.TransferDataLength = std::min(availableLength, static_cast<size_t>(packetCount) * channel.MaxPacketSize);
@@ -1169,7 +1164,7 @@ uint32_t USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex)
         if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) {
             SCB_CleanInvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMATransferBuffer), static_cast<int32_t>(cacheLength));
         } else {
-            SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(channel.DMATransferBuffer), static_cast<int32_t>(cacheLength));
+            USB_STM32::CleanDMATransmitBuffer(channel.DMATransferBuffer, channel.XferSize);
         }
     }
     return packetCount;

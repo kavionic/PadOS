@@ -46,6 +46,9 @@ public:
 
     bool Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusSense, bool useSOF);
 
+    bool        CompleteDeviceReset(uint32_t generation);
+    bool        Recover();
+
     USB_Speed   DeviceGetSpeed() const;
     void        EndpointStall(uint8_t endpointAddr);
     void        EndpointClearStall(uint8_t endpointAddr);
@@ -62,6 +65,8 @@ private:
     static constexpr size_t DMA_BUFFER_COUNT = ENDPOINT_COUNT * 2;
     static_assert((DMA_BOUNCE_BUFFER_SIZE % __SCB_DCACHE_LINE_SIZE) == 0);
 
+    void        ConfigureDevice();
+    void        RequestRecovery();
     void        SetSpeed(USB_Speed speed);
     void        DeviceConnect();
     void        DeviceDisconnect();
@@ -71,7 +76,7 @@ private:
     bool        DisableInEndpointsFromIRQ();
     void        SetTurnaround(USB_Speed speed);
 
-    void        EndpointDisable(uint8_t endpointAddr, bool stall);
+    bool        EndpointDisable(uint8_t endpointAddr, bool stall);
     bool        StartDMATransfer(uint8_t endpointAddr, uint32_t transferGeneration);
     bool        FinishDMATransfer(uint8_t endpointAddr, bool commitTransfer, bool* shortPacketReceived);
     void        CancelEndpointTransfer(uint8_t endpointAddr);
@@ -155,8 +160,13 @@ private:
 
     uint32_t    m_AllocatedTXFIFOWords = 0; // TX FIFO size in words (IN endpoints).
 
+    bool        m_EnableVBusSense = false;
+    bool        m_UseSOF = false;
+    bool        m_RecoveryPending = false;
     bool        m_SupportHighSpeed = false;
     bool        m_ResetComplete = false; // Protected by the USB IRQ guard; false until hardware reset succeeds.
+    bool        m_DeviceReady = false; // Protected by the USB IRQ guard; true after device-thread reset cleanup.
+    uint32_t    m_DeviceGeneration = 0; // Protected by the USB IRQ guard; advanced at reset/recovery entry.
     USB_ControlRequest  m_ControlRequestPackage = {};
 
 };

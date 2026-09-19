@@ -168,6 +168,7 @@ public:
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 private:
+    void RequestRecovery();
     void SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state);
 
     void DriveVBus(bool state);
@@ -208,6 +209,7 @@ private:
     USBHostChannelErrorSnapshot m_ChannelErrorSnapshot;
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     KConditionVariable          m_ChannelHaltCondition;
+    bool                        m_RecoveryPending = false;
 };
 
 

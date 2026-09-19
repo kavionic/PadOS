@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <vector>
 #include <Kernel/KThread.h>
@@ -42,6 +43,7 @@ enum class USBDeviceEventID : int
     None,
     BusReset,
     SessionEnded,
+    RecoveryNeeded,
     StartOfFrame,
     Suspend,
     Resume,
@@ -59,7 +61,8 @@ struct USBDeviceEvent
     {
         struct
         {
-            USB_Speed speed;
+            USB_Speed Speed;
+            uint32_t Generation;
         } BusReset;
 
         struct
@@ -138,6 +141,8 @@ public:
 
     VFConnector<bool, USB_ControlStage, const USB_ControlRequest&> SignalHandleVendorControlTransfer;
 private:
+    static size_t GetEndpointIndex(uint8_t endpointAddr);
+
     void SetIsConnected(bool connected);
     void SetIsSuspended(bool suspended);
 
@@ -154,16 +159,19 @@ private:
     bool HandleGetDescriptor(const USB_ControlRequest& request);
     bool InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> driver, const USB_ControlRequest& request);
 
-    bool PopEvent(USBDeviceEvent& event);
+    bool PopEvent_pl(USBDeviceEvent& event);
+    void DiscardTransferEvents_pl(uint32_t endpointMask);
     void PushEvent(const USBDeviceEvent& event, bool clearQueue = false);
 
     void IRQControlRequestReceived(const USB_ControlRequest& request);
     void IRQTransferComplete(uint8_t endpointAddr, uint32_t length, USB_TransferResult result);
 
-    void IRQBusReset(USB_Speed speed);
+    void IRQBusResetStarted();
+    void IRQBusReset(USB_Speed speed, uint32_t generation);
     void IRQSuspend();
     void IRQResume();
     void IRQSessionEnded();
+    void IRQDeviceRecoveryNeeded();
     void IRQStartOfFrame();
 
     KMutex              m_Mutex;
@@ -172,6 +180,8 @@ private:
     USBDriver*          m_Driver = nullptr;
 
     PCircularBuffer<USBDeviceEvent, 128>      m_EventQueue;
+    // Reset can invalidate the dequeued event before the device thread dispatches it.
+    std::atomic<bool>                        m_DispatchEventValid = false;
     std::vector<Ptr<USBClassDriverDevice>>        m_ClassDrivers;
     std::map<uint8_t, Ptr<USBClassDriverDevice>>  m_InterfaceToDriverMap;
     std::map<uint8_t, Ptr<USBClassDriverDevice>>  m_EndpointToDriverMap;

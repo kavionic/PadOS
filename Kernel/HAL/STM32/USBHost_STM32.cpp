@@ -456,6 +456,19 @@ USB_Speed USBHost_STM32::HostGetSpeed() const
 
 bool USBHost_STM32::StartHost()
 {
+    if (m_RecoveryPending)
+    {
+        if (!m_Driver->ResetHostCore() || !InitializeController())
+        {
+            m_Driver->HoldCoreInReset();
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to recover the USB host controller.");
+            return false;
+        }
+        for (USBHostChannelData& channel : m_ChannelStates) {
+            channel = USBHostChannelData();
+        }
+        m_RecoveryPending = false;
+    }
     DriveVBus(true);
     m_Driver->EnableIRQ(true);
     return true;
@@ -467,6 +480,9 @@ bool USBHost_STM32::StartHost()
 
 bool USBHost_STM32::StopHost()
 {
+    if (m_RecoveryPending) {
+        return true; // RequestRecovery already stopped DMA and released every transfer.
+    }
     bool result = true;
     bool controllerResetRequired = false;
 
@@ -521,7 +537,7 @@ bool USBHost_STM32::StopHost()
     if (controllerResetRequired && !m_Driver->ResetHostCore())
     {
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to reset the USB host core while stopping active periodic DMA channels.");
-        m_ChannelHaltCondition.WakeupAll();
+        RequestRecovery();
         return false;
     }
 
@@ -542,7 +558,12 @@ bool USBHost_STM32::StopHost()
     m_ChannelHaltCondition.WakeupAll();
 
     if (controllerResetRequired) {
-        return InitializeController();
+        result = InitializeController() && result;
+    }
+    if (!result)
+    {
+        RequestRecovery();
+        return false;
     }
 
     // Clear any pending host interrupts.
@@ -881,6 +902,30 @@ bool USBHost_STM32::GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entry
     return true;
 }
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost_STM32::RequestRecovery()
+{
+    USBIRQDisabler irqDisabler(*m_Driver);
+    m_Driver->EnableIRQ(false);
+    m_Port->GINTMSK = 0;
+    m_Driver->HoldCoreInReset();
+    m_RecoveryPending = true;
+
+    for (size_t channelIndex = 0; channelIndex < CHANNEL_COUNT; ++channelIndex)
+    {
+        FinishDMATransfer(static_cast<USB_PipeIndex>(channelIndex), false, false, nullptr);
+        m_ChannelStates[channelIndex] = USBHostChannelData();
+        // Existing submission/setup guards keep the stopped controller quiescent until StartHost.
+        m_ChannelStates[channelIndex].CancelHaltPending = true;
+    }
+    m_ChannelHaltCondition.WakeupAll();
+    kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "USB host controller stopped for recovery.");
+    m_Driver->IRQDeviceDisconnected();
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -1386,6 +1431,10 @@ bool USBHost_STM32::HaltChannel(USB_PipeIndex pipeIndex)
         return false;
     }
 
+    if (m_RecoveryPending) {
+        return true;
+    }
+
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
@@ -1496,6 +1545,9 @@ bool USBHost_STM32::HaltChannel(USB_PipeIndex pipeIndex)
             result = transferReleased;
         }
     } CRITICAL_END;
+    if (!result) {
+        RequestRecovery();
+    }
     return result;
 }
 

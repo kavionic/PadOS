@@ -145,31 +145,55 @@ bool USBDevice_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBu
     m_OutEndpoints = reinterpret_cast<USB_OTG_OUTEndpointTypeDef*>(reinterpret_cast<uint8_t*>(m_Port) + USB_OTG_OUT_ENDPOINT_BASE);
     m_InEndpoints = reinterpret_cast<USB_OTG_INEndpointTypeDef*>(reinterpret_cast<uint8_t*>(m_Port) + USB_OTG_IN_ENDPOINT_BASE);
 
-    if (enableVBusSense)
-    {
-        m_Port->GCCFG |= USB_OTG_GCCFG_VBDEN;
-        m_Port->GOTGCTL &= ~(USB_OTG_GOTGCTL_BVALOEN | USB_OTG_GOTGCTL_BVALOVAL);
-    }
-    else
-    {
-        m_Port->GCCFG &= ~USB_OTG_GCCFG_VBDEN;
-        m_Port->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
-        m_Port->GOTGCTL |= USB_OTG_GOTGCTL_BVALOVAL;
-    }
-    const uint32_t interruptMask = USB_OTG_GINTMSK_MMISM | USB_OTG_GINTMSK_OTGINT
-        | USB_OTG_GINTMSK_USBRST | USB_OTG_GINTMSK_ENUMDNEM | USB_OTG_GINTMSK_USBSUSPM | USB_OTG_GINTMSK_WUIM | (useSOF ? USB_OTG_GINTMSK_SOFM : 0);
-    m_Port->GINTMSK = interruptMask;
-
-    // Full speed using internal FS PHY.
-    SetSpeed(USB_Speed::FULL);
-    // Send a STALL handshake on a nonzero-length status OUT transaction.
-    m_Device->DCFG |= USB_OTG_DCFG_NZLSOHSK;
+    m_EnableVBusSense = enableVBusSense;
+    m_UseSOF = useSOF;
+    ConfigureDevice();
 
     IRQn_Type irq = get_usb_irq(portID);
     register_irq_handler(irq, &USBDevice_STM32::IRQCallback, this);
 
     DeviceConnect();
 
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice_STM32::CompleteDeviceReset(uint32_t generation)
+{
+    USBIRQDisabler irqDisabler(*m_Driver);
+    if (generation != m_DeviceGeneration || !m_ResetComplete || m_RecoveryPending) {
+        return false;
+    }
+    m_DeviceReady = true;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice_STM32::Recover()
+{
+    USBIRQDisabler irqDisabler(*m_Driver);
+    if (!m_RecoveryPending) {
+        return true;
+    }
+    // Remain disconnected long enough for the host to observe removal. This runs in the device thread, never an IRQ.
+    snooze_ms(10);
+    if (!m_Driver->ResetDeviceCore())
+    {
+        m_Driver->HoldCoreInReset();
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USB device restart failed; controller held in reset.");
+        return false;
+    }
+    DeviceDisconnect();
+    ConfigureDevice();
+    m_RecoveryPending = false;
+    m_Driver->EnableIRQ(true);
+    DeviceConnect();
     return true;
 }
 
@@ -191,9 +215,13 @@ void USBDevice_STM32::EndpointStall(uint8_t endpointAddr)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
 
-    if (m_ResetComplete)
+    if (m_DeviceReady)
     {
-        EndpointDisable(endpointAddr, true);
+        if (!EndpointDisable(endpointAddr, true))
+        {
+            RequestRecovery();
+            return;
+        }
         CancelEndpointTransfer(endpointAddr);
         if (USB_ADDRESS_EPNUM(endpointAddr) == 0) {
             PrepareSetupPackets();
@@ -209,7 +237,7 @@ void USBDevice_STM32::EndpointClearStall(uint8_t endpointAddr)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
 
-    if (!m_ResetComplete) {
+    if (!m_DeviceReady) {
         return;
     }
 
@@ -236,7 +264,7 @@ bool USBDevice_STM32::EndpointOpen(const USB_DescEndpoint& endpointDescriptor)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
 
-    if (!m_ResetComplete) {
+    if (!m_DeviceReady) {
         return false;
     }
 
@@ -315,7 +343,14 @@ void USBDevice_STM32::EndpointClose(uint8_t endpointAddr)
 
     const uint8_t epNum = USB_ADDRESS_EPNUM(endpointAddr);
 
-    EndpointDisable(endpointAddr, false);
+    if (GetEndpointTranferState(endpointAddr)->EndpointMaxSize == 0) {
+        return;
+    }
+    if (!EndpointDisable(endpointAddr, false))
+    {
+        RequestRecovery();
+        return;
+    }
     CancelEndpointTransfer(endpointAddr);
 
     if (endpointAddr & USB_ADDRESS_DIR_IN)
@@ -360,8 +395,11 @@ void USBDevice_STM32::EndpointCloseAll()
 
     for (uint8_t endpointNumber = 1; endpointNumber < ENDPOINT_COUNT; ++endpointNumber)
     {
-        if (m_TransferStatusOut[endpointNumber].EndpointMaxSize != 0) {
-            EndpointDisable(USB_MK_OUT_ADDRESS(endpointNumber), false);
+        if (m_TransferStatusOut[endpointNumber].EndpointMaxSize != 0
+            && !EndpointDisable(USB_MK_OUT_ADDRESS(endpointNumber), false))
+        {
+            RequestRecovery();
+            return;
         }
         CancelEndpointTransfer(USB_MK_OUT_ADDRESS(endpointNumber));
         m_OutEndpoints[endpointNumber].DOEPCTL = 0;
@@ -369,8 +407,11 @@ void USBDevice_STM32::EndpointCloseAll()
         m_OutEndpoints[endpointNumber].DOEPDMA = 0;
         m_TransferStatusOut[endpointNumber].Reset();
 
-        if (m_TransferStatusIn[endpointNumber].EndpointMaxSize != 0) {
-            EndpointDisable(USB_MK_IN_ADDRESS(endpointNumber), false);
+        if (m_TransferStatusIn[endpointNumber].EndpointMaxSize != 0
+            && !EndpointDisable(USB_MK_IN_ADDRESS(endpointNumber), false))
+        {
+            RequestRecovery();
+            return;
         }
         CancelEndpointTransfer(USB_MK_IN_ADDRESS(endpointNumber));
         m_InEndpoints[endpointNumber].DIEPCTL = 0;
@@ -399,7 +440,7 @@ bool USBDevice_STM32::EndpointTransfer(uint8_t endpointAddr, void* buffer, size_
     {
         USBIRQDisabler irqDisabler(*m_Driver);
 
-        if (!m_ResetComplete || transfer == nullptr || transfer->EndpointMaxSize == 0 || transfer->TransferActive) {
+        if (!m_DeviceReady || transfer == nullptr || transfer->EndpointMaxSize == 0 || transfer->TransferActive) {
             return false;
         }
 
@@ -429,10 +470,10 @@ bool USBDevice_STM32::SetAddress(uint8_t deviceAddr)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
 
-    if (m_ResetComplete) {
+    if (m_DeviceReady) {
         set_bit_group(m_Device->DCFG, USB_OTG_DCFG_DAD_Msk, deviceAddr << USB_OTG_DCFG_DAD_Pos);
     }
-    return m_ResetComplete;
+    return m_DeviceReady;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -442,6 +483,9 @@ bool USBDevice_STM32::SetAddress(uint8_t deviceAddr)
 bool USBDevice_STM32::ActivateRemoteWakeup(bool activate)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
+    if (!m_DeviceReady) {
+        return false;
+    }
 
     if (activate)
     {
@@ -454,6 +498,61 @@ bool USBDevice_STM32::ActivateRemoteWakeup(bool activate)
         m_Device->DCTL &= ~USB_OTG_DCTL_RWUSIG;
     }
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBDevice_STM32::ConfigureDevice()
+{
+    if (m_EnableVBusSense)
+    {
+        m_Port->GCCFG |= USB_OTG_GCCFG_VBDEN;
+        m_Port->GOTGCTL &= ~(USB_OTG_GOTGCTL_BVALOEN | USB_OTG_GOTGCTL_BVALOVAL);
+    }
+    else
+    {
+        m_Port->GCCFG &= ~USB_OTG_GCCFG_VBDEN;
+        m_Port->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
+        m_Port->GOTGCTL |= USB_OTG_GOTGCTL_BVALOVAL;
+    }
+    const uint32_t interruptMask = USB_OTG_GINTMSK_MMISM | USB_OTG_GINTMSK_OTGINT
+        | USB_OTG_GINTMSK_USBRST | USB_OTG_GINTMSK_ENUMDNEM | USB_OTG_GINTMSK_USBSUSPM | USB_OTG_GINTMSK_WUIM | (m_UseSOF ? USB_OTG_GINTMSK_SOFM : 0);
+    m_Port->GINTMSK = interruptMask;
+
+    // Full speed using internal FS PHY.
+    SetSpeed(USB_Speed::FULL);
+    // Send a STALL handshake on a nonzero-length status OUT transaction.
+    m_Device->DCFG |= USB_OTG_DCFG_NZLSOHSK;
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBDevice_STM32::RequestRecovery()
+{
+    USBIRQDisabler irqDisabler(*m_Driver);
+    if (!m_RecoveryPending)
+    {
+        ++m_DeviceGeneration;
+        m_DeviceReady = false;
+        m_RecoveryPending = true;
+        m_ResetComplete = false;
+        DeviceDisconnect();
+        m_Port->GINTMSK = 0;
+        // The RCC reset is the ownership barrier when an endpoint cannot confirm that DMA has stopped.
+        m_Driver->HoldCoreInReset();
+        CancelAllEndpointTransfers();
+        for (size_t i = 0; i < ENDPOINT_COUNT; ++i)
+        {
+            m_TransferStatusIn[i].Reset();
+            m_TransferStatusOut[i].Reset();
+        }
+        m_Driver->IRQDeviceRecoveryNeeded();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -500,7 +599,11 @@ uint32_t USBDevice_STM32::CalculateRXFIFOSize(uint32_t maxEndpointSize) const
 
 void USBDevice_STM32::ResetReceived()
 {
+    // Reject old thread-context work immediately, including the interval before ENUMDNE.
+    ++m_DeviceGeneration;
+    m_DeviceReady = false;
     m_ResetComplete = false;
+    m_Driver->IRQBusResetStarted();
 
     // Drop any global NAK state left by an interrupted endpoint-disable sequence.
     m_Device->DCTL |= USB_OTG_DCTL_CGINAK | USB_OTG_DCTL_CGONAK;
@@ -517,7 +620,9 @@ void USBDevice_STM32::ResetReceived()
     }
 
     // RM0433: stop IN transfers before flushing or reprogramming their FIFOs.
-    if (!DisableInEndpointsFromIRQ()) {
+    if (!DisableInEndpointsFromIRQ())
+    {
+        RequestRecovery();
         return;
     }
 
@@ -530,10 +635,14 @@ void USBDevice_STM32::ResetReceived()
     }
     m_ControlRequestPackage = {};
 
-    if (!FlushTxFifoFromIRQ(USB_DEVICE_ALL_TX_FIFOS)) {
+    if (!FlushTxFifoFromIRQ(USB_DEVICE_ALL_TX_FIFOS))
+    {
+        RequestRecovery();
         return;
     }
-    if (!FlushRxFifoFromIRQ()) {
+    if (!FlushRxFifoFromIRQ())
+    {
+        RequestRecovery();
         return;
     }
 
@@ -668,7 +777,7 @@ void USBDevice_STM32::SetTurnaround(USB_Speed speed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
+bool USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
 {
     const uint8_t epNum = USB_ADDRESS_EPNUM(endpointAddr);
 
@@ -684,24 +793,34 @@ void USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
             // Stop transmitting packets and NAK IN transfers.
             m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_INEPNE;
             m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_SNAK;
-            if (!WaitForRegisterBitsSet(m_InEndpoints[epNum].DIEPINT, USB_OTG_DIEPINT_INEPNE)) {
+            if (!WaitForRegisterBitsSet(m_InEndpoints[epNum].DIEPINT, USB_OTG_DIEPINT_INEPNE))
+            {
                 kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for IN endpoint {:02x} NAK.", endpointAddr);
+                return false;
             }
 
             // Disable the endpoint.
             m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_EPDISD;
             m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_EPDIS | USB_OTG_DIEPCTL_SNAK | (stall ? USB_OTG_DIEPCTL_STALL : 0);
-            if (WaitForRegisterBitsSet(m_InEndpoints[epNum].DIEPINT, USB_OTG_DIEPINT_EPDISD_Msk)) {
+            if (WaitForRegisterBitsSet(m_InEndpoints[epNum].DIEPINT, USB_OTG_DIEPINT_EPDISD_Msk))
+            {
                 m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_EPDISD;
-            } else {
+            }
+            else
+            {
                 kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for IN endpoint {:02x} disable.", endpointAddr);
+                return false;
             }
         }
 
         // Flush the FIFO, and wait until we have confirmed it cleared.
-        if (!m_Driver->FlushTxFifo(epNum)) {
+        if (!m_Driver->FlushTxFifo(epNum))
+        {
             kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout flushing IN endpoint {:02x} TX FIFO.", endpointAddr);
+            return false;
         }
+        // Discard completion/error status belonging to the transfer that was stopped.
+        m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_XFRC | USB_DEVICE_IN_ENDPOINT_DMA_ERROR_MASK;
     }
     else
     {
@@ -716,24 +835,33 @@ void USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
         {
             m_Port->GINTSTS = USB_OTG_GINTSTS_BOUTNAKEFF;
             m_Device->DCTL |= USB_OTG_DCTL_SGONAK;
-            if (!WaitForRegisterBitsSet(m_Port->GINTSTS, USB_OTG_GINTSTS_BOUTNAKEFF_Msk)) {
+            if (!WaitForRegisterBitsSet(m_Port->GINTSTS, USB_OTG_GINTSTS_BOUTNAKEFF_Msk))
+            {
                 kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for global OUT NAK before disabling endpoint {:02x}.", endpointAddr);
+                return false;
             }
 
             // Disable the endpoint.
             m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_EPDISD;
             m_OutEndpoints[epNum].DOEPCTL |= USB_OTG_DOEPCTL_EPDIS | (stall ? USB_OTG_DOEPCTL_STALL : 0);
-            if (WaitForRegisterBitsSet(m_OutEndpoints[epNum].DOEPINT, USB_OTG_DOEPINT_EPDISD_Msk)) {
+            if (WaitForRegisterBitsSet(m_OutEndpoints[epNum].DOEPINT, USB_OTG_DOEPINT_EPDISD_Msk))
+            {
                 m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_EPDISD;
-            } else {
+            }
+            else
+            {
                 kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for OUT endpoint {:02x} disable.", endpointAddr);
+                return false;
             }
 
             // Allow other OUT endpoints to keep receiving.
             m_Port->GINTSTS = USB_OTG_GINTSTS_BOUTNAKEFF;
             m_Device->DCTL |= USB_OTG_DCTL_CGONAK;
         }
+        // Preserve SETUP status on EP0 while discarding the canceled transfer status.
+        m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_XFRC | USB_DEVICE_OUT_ENDPOINT_DMA_ERROR_MASK;
     }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -752,7 +880,7 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
     {
         USBIRQDisabler irqDisabler(*m_Driver);
 
-        if (!m_ResetComplete || transfer == nullptr || transfer->Generation != transferGeneration || !transfer->TransferActive
+        if (!m_DeviceReady || transfer == nullptr || transfer->Generation != transferGeneration || !transfer->TransferActive
             || transfer->DMATransferActive || transfer->EndpointMaxSize == 0 || transfer->BytesTransferred > transfer->BufferSize)
         {
             return false;
@@ -823,7 +951,7 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
     {
         USBIRQDisabler irqDisabler(*m_Driver);
 
-        if (!m_ResetComplete || transfer->Generation != transferGeneration || !transfer->TransferActive
+        if (!m_DeviceReady || transfer->Generation != transferGeneration || !transfer->TransferActive
             || transfer->DMATransferActive) {
             return false;
         }
@@ -867,13 +995,6 @@ bool USBDevice_STM32::FinishDMATransfer(uint8_t endpointAddr, bool commitTransfe
         );
     }
 
-    uint32_t residualLength;
-    if (directionIn) {
-        residualLength = (m_InEndpoints[endpointNumber].DIEPTSIZ & USB_OTG_DIEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DIEPTSIZ_XFRSIZ_Pos;
-    } else {
-        residualLength = (m_OutEndpoints[endpointNumber].DOEPTSIZ & USB_OTG_DOEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DOEPTSIZ_XFRSIZ_Pos;
-    }
-
     transfer->DMATransferBuffer = nullptr;
     transfer->DMATransferSize = 0;
     transfer->DMATransferDataLength = 0;
@@ -883,6 +1004,13 @@ bool USBDevice_STM32::FinishDMATransfer(uint8_t endpointAddr, bool commitTransfe
     if (!commitTransfer) {
         return true;
     }
+    uint32_t residualLength;
+    if (directionIn) {
+        residualLength = (m_InEndpoints[endpointNumber].DIEPTSIZ & USB_OTG_DIEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DIEPTSIZ_XFRSIZ_Pos;
+    } else {
+        residualLength = (m_OutEndpoints[endpointNumber].DOEPTSIZ & USB_OTG_DOEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DOEPTSIZ_XFRSIZ_Pos;
+    }
+
     if (residualLength > dmaTransferSize) {
         return false;
     }
@@ -1062,6 +1190,9 @@ IRQResult USBDevice_STM32::IRQCallback(IRQn_Type irq, void* userData)
 
 IRQResult USBDevice_STM32::HandleIRQ()
 {
+    if (m_RecoveryPending) {
+        return IRQResult::HANDLED;
+    }
     const uint32_t intStatus = m_Port->GINTSTS & m_Port->GINTMSK;
 
     if (intStatus & USB_OTG_GINTMSK_MMISM)
@@ -1071,6 +1202,9 @@ IRQResult USBDevice_STM32::HandleIRQ()
     if (intStatus & USB_OTG_GINTSTS_USBRST)
     {
         ResetReceived();
+        if (m_RecoveryPending) {
+            return IRQResult::HANDLED;
+        }
         m_Port->GINTSTS = USB_OTG_GINTSTS_USBRST;
         return IRQResult::HANDLED;
     }
@@ -1080,7 +1214,7 @@ IRQResult USBDevice_STM32::HandleIRQ()
         const USB_Speed speed = DeviceGetSpeed();
         SetTurnaround(speed);
         if (m_ResetComplete) {
-            m_Driver->IRQBusReset(speed);
+            m_Driver->IRQBusReset(speed, m_DeviceGeneration);
         }
     }
     if (intStatus & USB_OTG_GINTSTS_USBSUSP)
@@ -1101,8 +1235,8 @@ IRQResult USBDevice_STM32::HandleIRQ()
         // Ignore a stale session-end interrupt if VBUS has already returned.
         if ((otgInt & USB_OTG_GOTGINT_SEDET) != 0 && (m_Port->GOTGCTL & USB_OTG_GOTGCTL_BSESVLD) == 0)
         {
-            CancelAllEndpointTransfers();
-            m_Driver->IRQSessionEnded();
+            RequestRecovery();
+            return IRQResult::HANDLED;
         }
     }
     if (intStatus & USB_OTG_GINTSTS_SOF)
@@ -1117,8 +1251,14 @@ IRQResult USBDevice_STM32::HandleIRQ()
     if (intStatus & USB_OTG_GINTSTS_OEPINT) {
         HandleOutEndpointIRQ();
     }
+    if (m_RecoveryPending) {
+        return IRQResult::HANDLED;
+    }
     if (intStatus & USB_OTG_GINTSTS_IEPINT) {
         HandleInEndpointIRQ();
+    }
+    if (m_RecoveryPending) {
+        return IRQResult::HANDLED;
     }
     if (intStatus & USB_OTG_GINTSTS_IISOIXFR)
     {
@@ -1176,13 +1316,8 @@ void USBDevice_STM32::HandleOutEndpointIRQ()
             {
                 if (transfer.TransferActive)
                 {
-                    const uint32_t transferLength = static_cast<uint32_t>(transfer.BytesTransferred);
-                    (void)FinishDMATransfer(USB_MK_OUT_ADDRESS(endpointNumber), false, nullptr);
-                    transfer.ResetTransfer();
-                    if (endpointNumber == 0) {
-                        PrepareSetupPackets();
-                    }
-                    m_Driver->IRQTransferComplete(USB_MK_OUT_ADDRESS(endpointNumber), transferLength, USB_TransferResult::Failed);
+                    RequestRecovery();
+                    return;
                 }
                 continue;
             }
@@ -1259,10 +1394,8 @@ void USBDevice_STM32::HandleInEndpointIRQ()
             {
                 if (transfer.TransferActive)
                 {
-                    const uint32_t transferLength = static_cast<uint32_t>(transfer.BytesTransferred);
-                    (void)FinishDMATransfer(USB_MK_IN_ADDRESS(endpointNumber), false, nullptr);
-                    transfer.ResetTransfer();
-                    m_Driver->IRQTransferComplete(USB_MK_IN_ADDRESS(endpointNumber), transferLength, USB_TransferResult::Failed);
+                    RequestRecovery();
+                    return;
                 }
                 continue;
             }

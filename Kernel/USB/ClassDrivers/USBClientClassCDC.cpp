@@ -188,17 +188,47 @@ const USB_DescriptorHeader* USBClientClassCDC::Open(const USB_DescInterface* int
         }
     }
 
-    const uint32_t channelIndex = m_Channels.size();
-    Ptr<USBClientCDCChannel> channel = ptr_new<USBClientCDCChannel>(m_DeviceHandler, channelIndex, endpointAddrNotifications, endpointOutAddr, endpointInAddr, endpointOutSize, endpointInSize);
-    m_Channels.push_back(channel);
-
-    m_InterfaceToChannelMap[interfaceDesc->bInterfaceNumber] = channel;
-    if (hasDataInterface) {
-        m_InterfaceToChannelMap[dataInterfaceNum] = channel;
+    if (!hasDataInterface)
+    {
+        if (endpointAddrNotifications != 0) {
+            m_DeviceHandler->CloseEndpoint(endpointAddrNotifications);
+        }
+        return nullptr;
     }
-    m_EndpointToChannelMap[endpointOutAddr] = channel;
-    m_EndpointToChannelMap[endpointInAddr]  = channel;
-
+    const size_t channelIndex = m_Channels.size();
+    Ptr<USBClientCDCChannel> channel;
+    try
+    {
+        channel = ptr_new<USBClientCDCChannel>(m_DeviceHandler, endpointAddrNotifications, endpointOutAddr,
+            endpointInAddr, endpointOutSize, endpointInSize);
+        m_Channels.push_back(channel);
+        m_InterfaceToChannelMap[interfaceDesc->bInterfaceNumber] = channel;
+        m_InterfaceToChannelMap[dataInterfaceNum] = channel;
+        m_EndpointToChannelMap[endpointOutAddr] = channel;
+        m_EndpointToChannelMap[endpointInAddr] = channel;
+        channel->Start_pl(channelIndex);
+    }
+    PERROR_CATCH([&](PErrorCode error)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Failed to create CDC channel: {}.", std::to_underlying(error));
+        m_InterfaceToChannelMap.erase(interfaceDesc->bInterfaceNumber);
+        m_InterfaceToChannelMap.erase(dataInterfaceNum);
+        m_EndpointToChannelMap.erase(endpointOutAddr);
+        m_EndpointToChannelMap.erase(endpointInAddr);
+        if (m_Channels.size() > channelIndex) {
+            m_Channels.pop_back();
+        }
+        // No DMA is submitted until Start_pl(), whose only throwing operation is device-node registration.
+        m_DeviceHandler->CloseEndpoint(endpointInAddr);
+        m_DeviceHandler->CloseEndpoint(endpointOutAddr);
+        if (endpointAddrNotifications != 0) {
+            m_DeviceHandler->CloseEndpoint(endpointAddrNotifications);
+        }
+        channel = nullptr;
+    });
+    if (channel == nullptr) {
+        return nullptr;
+    }
     SignalChannelAdded(channel);
 
     return desc;

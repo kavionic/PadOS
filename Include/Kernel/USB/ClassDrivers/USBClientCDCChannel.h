@@ -20,7 +20,7 @@
 #pragma once
 
 #include <Signals/Signal.h>
-#include <Utils/CircularBuffer.h>
+#include <Kernel/USB/ClassDrivers/USBCDCBuffers.h>
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/USB/USBProtocolCDC.h>
@@ -37,14 +37,15 @@ enum class USB_TransferResult : uint8_t;
 class USBClientCDCChannel : public KInode, public KFilesystemFileOps
 {
 public:
-    USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
+    USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
+
+    void Start_pl(int channelIndex);
 
     // From KNamedObject:
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
     int Close();
 
-    ssize_t  GetReadBytesAvailable() const;
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int openFlags) override;
     virtual void    CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
@@ -52,7 +53,6 @@ public:
     virtual void    Sync(Ptr<KFileNode> file) override;
     virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    ssize_t  GetWriteBytesAvailable() const;
 
     uint8_t  GetEndpointNotifications() const { return m_EndpointNotifications; }
     uint8_t  GetEndpointOut() const           { return m_EndpointOut; }
@@ -67,8 +67,8 @@ public:
     Signal<void, TimeValNanos/*duration*/>                  SignalBreak;
 
 private:
-    uint32_t    FlushInternal();
-    bool        StartOutTransaction();
+    uint32_t    FlushInternal_pl();
+    bool        StartOutTransaction_pl();
 
     USBDevice*          m_DeviceHandler;
     KConditionVariable  m_ReceiveCondition;
@@ -88,11 +88,14 @@ private:
     TimeValNanos    m_ReadTimeout = TimeValNanos::infinit;
     TimeValNanos    m_WriteTimeout = TimeValNanos::infinit;
 
-    PCircularBuffer<uint8_t, 1024, void> m_ReceiveFIFO;
-    PCircularBuffer<uint8_t, 1024, void> m_TransmitFIFO;
-
-    std::vector<uint8_t> m_OutEndpointBuffer;
-    std::vector<uint8_t> m_InEndpointBuffer;
+    size_t m_ReceivePacketSize;
+    size_t m_TransmitPacketSize;
+    USBCDCBuffers m_Buffers;
+    size_t m_TransmitLength = 0;
+    bool m_ReceiveActive = false;
+    bool m_TransmitActive = false;
+    bool m_ReceiveError = false;
+    bool m_TransmitError = false;
 };
 
 

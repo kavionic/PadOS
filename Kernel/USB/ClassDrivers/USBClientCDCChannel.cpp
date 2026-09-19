@@ -41,7 +41,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
+USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
     : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_DeviceHandler(deviceHandler)
     , m_ReceiveCondition("usbdcdc_receive")
@@ -49,6 +49,9 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
     , m_EndpointNotifications(endpointNotification)
     , m_EndpointOut(endpointOut)
     , m_EndpointIn(endpointIn)
+    , m_ReceivePacketSize(endpointOutMaxSize)
+    , m_TransmitPacketSize(endpointInMaxSize)
+    , m_Buffers(endpointOutMaxSize, endpointInMaxSize)
 {
     m_ATime = m_MTime = m_CTime = kget_real_time();
 
@@ -57,12 +60,18 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
     m_LineCoding.bParityType = USB_CDC_LineCodingParity::None;
     m_LineCoding.bDataBits   = 8;
 
-    m_OutEndpointBuffer.resize(endpointOutMaxSize);
-    m_InEndpointBuffer.resize(endpointInMaxSize);
+}
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBClientCDCChannel::Start_pl(int channelIndex)
+{
+    kassert(m_DeviceHandler->GetMutex().IsLocked());
     m_DevNodeHandle = kregister_device_root_trw(PString::format_string("com/udp{}", channelIndex).c_str(), ptr_tmp_cast(this));
 
-    StartOutTransaction();
+    StartOutTransaction_pl();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -78,19 +87,19 @@ bool USBClientCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode 
         switch (mode)
         {
             case ObjectWaitMode::Read:
-                if (m_ReceiveFIFO.GetLength() == 0) {
+                if (!m_ReceiveError && m_Buffers.GetReceiveQueue().GetLength() == 0) {
                     return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
                 } else {
                     return false; // Will not block.
                 }
             case ObjectWaitMode::Write:
-                if (m_TransmitFIFO.GetRemainingSpace() == 0) {
+                if (!m_TransmitError && m_Buffers.GetTransmitQueue().GetWriteSpace() == 0) {
                     return m_TransmitCondition.AddListener(waitNode, ObjectWaitMode::Read);
                 } else {
                     return false; // Will not block.
                 }
             case ObjectWaitMode::ReadWrite:
-                if (m_ReceiveFIFO.GetLength() == 0 && m_TransmitFIFO.GetRemainingSpace() == 0) {
+                if (!m_ReceiveError && !m_TransmitError && m_Buffers.GetReceiveQueue().GetLength() == 0 && m_Buffers.GetTransmitQueue().GetWriteSpace() == 0) {
                     return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read) && m_TransmitCondition.AddListener(waitNode, ObjectWaitMode::Read);
                 } else {
                     return false; // Will not block.
@@ -112,28 +121,21 @@ int USBClientCDCChannel::Close()
 
     const int devNodeHandle = m_DevNodeHandle;
 
+    if (m_IsActive)
+    {
+        // Closing is synchronous: storage stays owned until endpoint DMA has stopped or the core is held in reset.
+        m_DeviceHandler->CloseEndpoint(m_EndpointIn);
+        m_DeviceHandler->CloseEndpoint(m_EndpointOut);
+        if (m_EndpointNotifications != 0) {
+            m_DeviceHandler->CloseEndpoint(m_EndpointNotifications);
+        }
+    }
     m_DevNodeHandle = -1;
     m_IsActive = false;
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
 
     return devNodeHandle;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
-{
-    kassert(!m_DeviceHandler->GetMutex().IsLocked());
-    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
-    if (m_IsActive)
-    {
-        return m_ReceiveFIFO.GetLength();
-    }
-    set_last_error(EPIPE);
-    return -1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -177,13 +179,16 @@ size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t lengt
     }
     if (m_IsActive)
     {
-        if (m_ReceiveFIFO.GetLength() == 0)
+        if (m_ReceiveError && m_Buffers.GetReceiveQueue().GetLength() == 0) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        if (m_Buffers.GetReceiveQueue().GetLength() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
                 TimeValNanos deadline = m_ReadTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_monotonic_time() + m_ReadTimeout);
 
-                while (m_ReceiveFIFO.GetLength() == 0)
+                while (m_Buffers.GetReceiveQueue().GetLength() == 0)
                 {
                     const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
                     if (result != PErrorCode::Success && result != PErrorCode::INTR)
@@ -193,6 +198,9 @@ size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t lengt
                     if (!m_IsActive)
                     {
                         PERROR_THROW_CODE(PErrorCode::PIPE);
+                    }
+                    if (m_ReceiveError && m_Buffers.GetReceiveQueue().GetLength() == 0) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
                     }
                     if (!file->HasReadAccess())
                     {
@@ -205,9 +213,9 @@ size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t lengt
                 return 0;
             }
         }
-        const size_t result = m_ReceiveFIFO.Read(buffer, length);
+        const size_t result = m_Buffers.GetReceiveQueue().Read(buffer, length);
         if (result != 0) {
-            StartOutTransaction();
+            StartOutTransaction_pl();
         }
         return result;
     }
@@ -229,15 +237,21 @@ size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_
     }
     if (m_IsActive)
     {
-        if (m_TransmitFIFO.GetRemainingSpace() == 0)
+        if (m_TransmitError) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        if (m_Buffers.GetTransmitQueue().GetWriteSpace() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
                 TimeValNanos deadline = m_WriteTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_monotonic_time() + m_WriteTimeout);
 
-                while (m_TransmitFIFO.GetRemainingSpace() == 0)
+                while (m_Buffers.GetTransmitQueue().GetWriteSpace() == 0)
                 {
-                    FlushInternal();
+                    FlushInternal_pl();
+                    if (m_TransmitError) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
                     const PErrorCode result = m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
                     if (result != PErrorCode::Success && result != PErrorCode::INTR)
                     {
@@ -246,6 +260,9 @@ size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_
                     if (!m_IsActive)
                     {
                         PERROR_THROW_CODE(PErrorCode::PIPE);
+                    }
+                    if (m_TransmitError) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
                     }
                     if (!file->HasWriteAccess())
                     {
@@ -258,11 +275,12 @@ size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_
                 return 0;
             }
         }
-        const size_t result = std::min(m_TransmitFIFO.GetRemainingSpace(), length);
-        m_TransmitFIFO.Write(buffer, result);
+        const size_t result = std::min(m_Buffers.GetTransmitQueue().GetWriteSpace(), length);
+        m_Buffers.GetTransmitQueue().Write(buffer, result);
 
-        if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
-            FlushInternal();
+        if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT))
+            || m_Buffers.GetTransmitQueue().GetLength() - m_TransmitLength >= m_TransmitPacketSize) {
+            FlushInternal_pl();
         }
         return result;
     }
@@ -275,7 +293,10 @@ void USBClientCDCChannel::Sync(Ptr<KFileNode> file)
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
     if (m_IsActive)
     {
-        FlushInternal();
+        FlushInternal_pl();
+        if (m_TransmitError) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
         return;
     }
     PERROR_THROW_CODE(PErrorCode::PIPE);
@@ -345,21 +366,6 @@ void USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const 
         default:
             PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t USBClientCDCChannel::GetWriteBytesAvailable() const
-{
-    kassert(!m_DeviceHandler->GetMutex().IsLocked());
-    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
-    if (m_IsActive) {
-        return m_TransmitFIFO.GetRemainingSpace();
-    }
-    set_last_error(EPIPE);
-    return -1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -436,90 +442,108 @@ bool USBClientCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferR
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 
-    if (result != USB_TransferResult::Success) {
+    if (!m_IsActive) {
         return false;
     }
-
-    if (endpointAddr == m_EndpointOut)
+    if (endpointAddr == m_EndpointOut && m_ReceiveActive)
     {
-        m_ReceiveFIFO.Write(m_OutEndpointBuffer.data(), length);
+        m_ReceiveActive = false;
+        m_ReceiveError = result != USB_TransferResult::Success || length > m_ReceivePacketSize;
+        m_Buffers.GetReceiveQueue().CompleteReceive(m_ReceiveError ? 0 : length);
         m_ReceiveCondition.WakeupAll();
-        StartOutTransaction();
+        if (!m_ReceiveError) {
+            StartOutTransaction_pl();
+        }
+        return !m_ReceiveError;
     }
-    else if (endpointAddr == m_EndpointIn)
+    else if (endpointAddr == m_EndpointIn && m_TransmitActive)
     {
-        if (FlushInternal() == 0)
+        m_TransmitActive = false;
+        m_TransmitError = result != USB_TransferResult::Success || length != m_TransmitLength;
+        if (m_TransmitLength != 0) {
+            // Do not retry any part of an unsuccessfully transmitted block.
+            m_Buffers.GetTransmitQueue().CompleteTransmit();
+        }
+        m_TransmitLength = 0;
+        m_TransmitCondition.WakeupAll();
+        if (!m_TransmitError)
         {
-            // If the last block of data from the FIFO exactly filled the endpoint, send an
-            // empty packet to tell the host that there is no more data coming. 
-            if (length != 0 && m_TransmitFIFO.GetLength() == 0 && (length & (m_InEndpointBuffer.size() - 1)) == 0)
+            FlushInternal_pl();
+            if (!m_TransmitError && !m_TransmitActive && m_Buffers.GetTransmitQueue().GetLength() == 0
+                && length != 0 && length % m_TransmitPacketSize == 0)
             {
                 if (m_DeviceHandler->ClaimEndpoint(m_EndpointIn))
                 {
-                    m_DeviceHandler->EndpointTransfer(m_EndpointIn, nullptr, 0);
+                    m_TransmitActive = m_DeviceHandler->EndpointTransfer(m_EndpointIn, nullptr, 0);
+                    m_TransmitError = !m_TransmitActive;
+                    if (m_TransmitError) {
+                        m_TransmitCondition.WakeupAll();
+                    }
                 }
             }
         }
+        return !m_TransmitError;
     }
-    return true;
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t USBClientCDCChannel::FlushInternal()
+uint32_t USBClientCDCChannel::FlushInternal_pl()
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 
-    if (!m_DeviceHandler->IsReady() || m_TransmitFIFO.GetLength() == 0) {
+    if (!m_IsActive || m_TransmitError || m_TransmitActive || !m_DeviceHandler->IsReady()
+        || m_Buffers.GetTransmitQueue().GetLength() == 0)
+    {
         return 0;
     }
     if (!m_DeviceHandler->ClaimEndpoint(m_EndpointIn)) {
         return 0;
     }
-    const size_t result = m_TransmitFIFO.Read(m_InEndpointBuffer.data(), m_InEndpointBuffer.size());
-
-    if (result != 0)
+    uint8_t* storage = m_Buffers.GetTransmitQueue().BeginTransmit(m_TransmitLength);
+    kassert(storage != nullptr);
+    m_TransmitActive = m_DeviceHandler->EndpointTransfer(m_EndpointIn, storage, m_TransmitLength);
+    if (!m_TransmitActive)
     {
+        m_Buffers.GetTransmitQueue().CancelTransmit();
+        m_TransmitLength = 0;
+        m_TransmitError = true;
         m_TransmitCondition.WakeupAll();
-        if (m_DeviceHandler->EndpointTransfer(m_EndpointIn, m_InEndpointBuffer.data(), result)) {
-            return result;
-        }
-        return 0;
     }
-    else
-    {
-        m_DeviceHandler->ReleaseEndpoint(m_EndpointIn);
-        return 0;
-    }
+    return m_TransmitLength;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBClientCDCChannel::StartOutTransaction()
+bool USBClientCDCChannel::StartOutTransaction_pl()
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 
-    const size_t available = m_ReceiveFIFO.GetRemainingSpace();
-
-    if (available < m_OutEndpointBuffer.size()) {
+    if (!m_IsActive || m_ReceiveError || m_ReceiveActive) {
         return false;
     }
-    if (!m_DeviceHandler->ClaimEndpoint(m_EndpointOut)) {
+    uint8_t* storage = m_Buffers.GetReceiveQueue().BeginReceive();
+    if (storage == nullptr) {
         return false;
     }
-    if (available >= m_OutEndpointBuffer.size())
+    if (!m_DeviceHandler->ClaimEndpoint(m_EndpointOut))
     {
-        return m_DeviceHandler->EndpointTransfer(m_EndpointOut, m_OutEndpointBuffer.data(), m_OutEndpointBuffer.size());
-    }
-    else
-    {
-        m_DeviceHandler->ReleaseEndpoint(m_EndpointOut);
+        m_Buffers.GetReceiveQueue().CompleteReceive(0);
         return false;
     }
+    m_ReceiveActive = m_DeviceHandler->EndpointTransfer(m_EndpointOut, storage, m_ReceivePacketSize);
+    if (!m_ReceiveActive)
+    {
+        m_Buffers.GetReceiveQueue().CompleteReceive(0);
+        m_ReceiveError = true;
+        m_ReceiveCondition.WakeupAll();
+    }
+    return m_ReceiveActive;
 }
 
 } // namespace kernel

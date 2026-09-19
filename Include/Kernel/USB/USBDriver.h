@@ -63,6 +63,11 @@ public:
     virtual bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength) = 0;
     virtual bool        SetAddress(uint8_t deviceAddr) = 0;  // Return 'true' if a response needs to be sent.
 
+    // Called after the device thread has cleaned up the matching BusReset event.
+    virtual bool        CompleteDeviceReset(uint32_t generation) = 0;
+    // Called by the device thread after IRQDeviceRecoveryNeeded, once old class instances have been closed.
+    virtual bool        RecoverDevice() = 0;
+
     // Host interface:
 #ifdef PADOS_MODULE_USB_HOST
     virtual USB_Speed   HostGetSpeed() const = 0;
@@ -91,9 +96,11 @@ public:
     SignalUnguarded<void>                                                                   IRQResume;
     SignalUnguarded<void>                                                                   IRQDebounceDone;
     SignalUnguarded<void>                                                                   IRQSessionEnded;
+    SignalUnguarded<void>                                                                   IRQDeviceRecoveryNeeded;
     SignalUnguarded<void>                                                                   IRQDeviceDisconnected;  // Host & device mode.
     SignalUnguarded<void>                                                                   IRQStartOfFrame;        // Host & device mode.
-    SignalUnguarded<void (USB_Speed speed)>                                                 IRQBusReset;
+    SignalUnguarded<void>                                                                   IRQBusResetStarted;
+    SignalUnguarded<void (USB_Speed speed, uint32_t generation)>                            IRQBusReset;
     SignalUnguarded<void (const USB_ControlRequest& request)>                               IRQControlRequestReceived;
     SignalUnguarded<void(uint8_t endpointAddr, uint32_t length, USB_TransferResult result)> IRQTransferComplete;
     SignalUnguarded<void>                                                                   IRQIncompleteIsochronousINTransfer;

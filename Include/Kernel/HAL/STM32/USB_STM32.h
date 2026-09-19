@@ -72,6 +72,8 @@ public:
     bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
     void Shutdown();
     bool ResetHostCore();
+    void HoldCoreInReset();
+    bool ResetDeviceCore();
 
     USB_OTG_Phy         GetPhyInterface() const { return m_PhyInterface; }
     USB_Speed           GetConfigSpeed() const { return m_ConfigSpeed; }
@@ -88,6 +90,9 @@ public:
     virtual void        EndpointCloseAll() override                                         { m_DeviceDriver.EndpointCloseAll(); }
     virtual bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength) override { return m_DeviceDriver.EndpointTransfer(endpointAddr, buffer, totalLength); }
     virtual bool        SetAddress(uint8_t deviceAddr) override                             { return m_DeviceDriver.SetAddress(deviceAddr); }
+
+    virtual bool        CompleteDeviceReset(uint32_t generation) override { return m_DeviceDriver.CompleteDeviceReset(generation); }
+    virtual bool        RecoverDevice() override { return m_DeviceDriver.Recover(); }
 
     // Host interface:
 #ifdef PADOS_MODULE_USB_HOST
@@ -120,6 +125,7 @@ private:
     virtual bool DisableIRQDelivery() override;
     virtual void RestoreIRQDelivery(bool wasEnabled) override;
 
+    void                ReleaseCoreReset();
     bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
     bool                CoreReset();
     bool                WaitForAHBIdle();

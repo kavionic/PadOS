@@ -24,6 +24,7 @@
 #include <vector>
 #include <atomic>
 #include <cstdint>
+#include <utility>
 
 #include "System/Platform.h"
 
@@ -83,6 +84,12 @@ void panic(PFormatString<ARGS...>&& fmt, ARGS&&... args)
 }
 
 bool is_in_isr();
+
+inline bool kis_in_irq(IRQn_Type irq)
+{
+    return __get_IPSR() == static_cast<uint32_t>(std::to_underlying(irq)) + 16u;
+}
+
 bool kis_debugger_attached();
 
 void     kwrite_backup_register_trw(size_t registerID, uint32_t value);

@@ -21,7 +21,8 @@
 #pragma once
 
 #include <Signals/Signal.h>
-#include <Utils/CircularBuffer.h>
+#include <optional>
+#include <Kernel/USB/ClassDrivers/USBCDCBuffers.h>
 
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KConditionVariable.h>
@@ -56,7 +57,7 @@ public:
     uint8_t GetDeviceAddress() const { return m_DeviceAddress; }
     bool    IsActive() const { return m_IsActive; }
 
-    ssize_t GetReadBytesAvailable() const;
+    virtual void    CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
     virtual void    Sync(Ptr<KFileNode> file) override;
@@ -71,7 +72,10 @@ public:
 private:
     void    ReqGetLineCoding(USB_CDC_LineCoding* linecoding);
     void    ReqSetLineCoding(USB_CDC_LineCoding* linecoding);
-    void    FlushInternal();
+    void    FlushInternal_pl();
+    void    StartReceive_pl();
+    void    SubmitTransmit_pl();
+    void    SubmitReceive_pl();
 
     void    HandleSetLineCodingResult(bool result, uint8_t deviceAddr);
     void    HandleEndpointHaltResult(bool result, uint8_t deviceAddr);
@@ -104,13 +108,12 @@ private:
     KConditionVariable  m_ReceiveCondition;
     KConditionVariable  m_TransmitCondition;
 
-    size_t              m_CurrentTxTransactionLength = 0;
-
-    std::vector<uint8_t> m_OutEndpointBuffer;
-    std::vector<uint8_t> m_InEndpointBuffer;
-
-    PCircularBuffer<uint8_t, 1024, void> m_ReceiveFIFO;
-    PCircularBuffer<uint8_t, 1024, void> m_TransmitFIFO;
+    std::optional<USBCDCBuffers> m_Buffers;
+    uint8_t* m_TransmitBuffer = nullptr;
+    uint8_t* m_ReceiveBuffer = nullptr;
+    size_t m_TransmitLength = 0;
+    bool m_TransmitError = false;
+    bool m_ReceiveError = false;
 
 };
 

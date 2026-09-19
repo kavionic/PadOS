@@ -58,32 +58,28 @@ USBHostCDCChannel::USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* clas
 
 bool USBHostCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 {
+    kassert(!m_HostHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_HostHandler->GetMutex());
     if (m_IsActive)
     {
-        kassert(!m_HostHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_HostHandler->GetMutex());
-
         switch (mode)
         {
             case ObjectWaitMode::Read:
-                if (m_ReceiveFIFO.GetLength() == 0) {
+                if (!m_ReceiveError && m_Buffers->GetReceiveQueue().GetLength() == 0) {
                     return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
-                }
-                else {
+                } else {
                     return false; // Will not block.
                 }
             case ObjectWaitMode::Write:
-                if (m_TransmitFIFO.GetRemainingSpace() == 0) {
+                if (!m_TransmitError && m_Buffers->GetTransmitQueue().GetWriteSpace() == 0) {
                     return m_TransmitCondition.AddListener(waitNode, ObjectWaitMode::Read);
-                }
-                else {
+                } else {
                     return false; // Will not block.
                 }
             case ObjectWaitMode::ReadWrite:
-                if (m_ReceiveFIFO.GetLength() == 0 && m_TransmitFIFO.GetRemainingSpace() == 0) {
+                if (!m_ReceiveError && !m_TransmitError && m_Buffers->GetReceiveQueue().GetLength() == 0 && m_Buffers->GetTransmitQueue().GetWriteSpace() == 0) {
                     return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read) && m_TransmitCondition.AddListener(waitNode, ObjectWaitMode::Read);
-                }
-                else {
+                } else {
                     return false; // Will not block.
                 }
             default:
@@ -110,7 +106,8 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     m_DataEndpointOutSize   = 0;
     m_DataEndpointInSize    = 0;
 
-    m_CurrentTxTransactionLength = 0;
+    kassert(m_HostHandler->GetMutex().IsLocked());
+    kassert(!m_IsActive && !m_Buffers.has_value());
 
     m_DeviceAddress = deviceAddr;
 
@@ -148,8 +145,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
             break;
         }
     }
-    if (m_NotificationEndpoint == USB_INVALID_ENDPOINT)
-    {
+    if (m_NotificationEndpoint == USB_INVALID_ENDPOINT) {
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
@@ -197,24 +193,30 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
-    m_NotificationPipe  = m_HostHandler->AllocPipe(m_NotificationEndpoint);
-    m_DataPipeOut       = m_HostHandler->AllocPipe(m_DataEndpointOut);
-    m_DataPipeIn        = m_HostHandler->AllocPipe(m_DataEndpointIn);
+    m_Buffers.emplace(m_DataEndpointInSize, m_DataEndpointOutSize);
+    PScopeFail closeOnError([this] { Close(); });
 
-    m_HostHandler->OpenPipe(m_NotificationPipe, m_NotificationEndpoint, device->m_Address, device->m_Speed, USB_TransferType::INTERRUPT, m_NotificationEndpointSize);
-    m_HostHandler->OpenPipe(m_DataPipeOut,      m_DataEndpointOut,      device->m_Address, device->m_Speed, USB_TransferType::BULK, m_DataEndpointOutSize);
-    m_HostHandler->OpenPipe(m_DataPipeIn,       m_DataEndpointIn,       device->m_Address, device->m_Speed, USB_TransferType::BULK, m_DataEndpointInSize);
+    m_NotificationPipe = m_HostHandler->AllocPipe(m_NotificationEndpoint);
+    m_DataPipeOut = m_HostHandler->AllocPipe(m_DataEndpointOut);
+    m_DataPipeIn = m_HostHandler->AllocPipe(m_DataEndpointIn);
+    if (m_NotificationPipe == USB_INVALID_PIPE || m_DataPipeOut == USB_INVALID_PIPE || m_DataPipeIn == USB_INVALID_PIPE) {
+        PERROR_THROW_CODE(PErrorCode::NOMEM);
+    }
+
+    if (!m_HostHandler->OpenPipe(m_NotificationPipe, m_NotificationEndpoint, device->m_Address, device->m_Speed,
+            USB_TransferType::INTERRUPT, m_NotificationEndpointSize)
+        || !m_HostHandler->OpenPipe(m_DataPipeOut, m_DataEndpointOut, device->m_Address, device->m_Speed,
+            USB_TransferType::BULK, m_DataEndpointOutSize)
+        || !m_HostHandler->OpenPipe(m_DataPipeIn, m_DataEndpointIn, device->m_Address, device->m_Speed,
+            USB_TransferType::BULK, m_DataEndpointInSize))
+    {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
 
     m_HostHandler->SetDataToggle(m_NotificationPipe, false);
     m_HostHandler->SetDataToggle(m_DataPipeOut, false);
     m_HostHandler->SetDataToggle(m_DataPipeIn, false);
 
-    m_OutEndpointBuffer.resize(m_DataEndpointOutSize);
-    m_InEndpointBuffer.resize(m_DataEndpointInSize);
-
-    if (m_DevNodeHandle != -1 ) {
-        kremove_device_root_trw(m_DevNodeHandle);
-    }
     m_DevNodeHandle = kregister_device_root_trw(PString::format_string("com/uhp{}", channelIndex).c_str(), ptr_tmp_cast(this));
 
     return desc;
@@ -226,38 +228,34 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
 
 void USBHostCDCChannel::Close()
 {
-    if (m_NotificationPipe != USB_INVALID_PIPE)
-    {
-        m_HostHandler->ClosePipe(m_NotificationPipe);
-        m_HostHandler->FreePipe(m_NotificationPipe);
-        m_NotificationPipe = USB_INVALID_PIPE;
-    }
-
-    if (m_DataPipeIn != USB_INVALID_PIPE)
-    {
-        m_HostHandler->ClosePipe(m_DataPipeIn);
-        m_HostHandler->FreePipe(m_DataPipeIn);
-        m_DataPipeIn = USB_INVALID_PIPE;
-    }
-
-    if (m_DataPipeOut != USB_INVALID_PIPE)
-    {
-        m_HostHandler->ClosePipe(m_DataPipeOut);
-        m_HostHandler->FreePipe(m_DataPipeOut);
-        m_DataPipeOut = USB_INVALID_PIPE;
-    }
-    m_OutEndpointBuffer.clear();
-    m_InEndpointBuffer.clear();
-
+    kassert(m_HostHandler->GetMutex().IsLocked());
     m_IsActive = false;
 
-    if (m_DevNodeHandle != -1) {
-        kremove_device_root_trw(m_DevNodeHandle);
-        m_DevNodeHandle = -1;
+    // HaltChannel returns only after DMA has stopped, including its controller-reset fallback.
+    for (USB_PipeIndex* pipe : {&m_NotificationPipe, &m_DataPipeIn, &m_DataPipeOut})
+    {
+        if (*pipe != USB_INVALID_PIPE)
+        {
+            m_HostHandler->CancelPipe(*pipe);
+            m_HostHandler->FreePipe(*pipe);
+            *pipe = USB_INVALID_PIPE;
+        }
     }
-
+    m_ReceiveBuffer = nullptr;
+    m_TransmitBuffer = nullptr;
+    m_TransmitLength = 0;
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
+
+    const int devNodeHandle = m_DevNodeHandle;
+    m_DevNodeHandle = -1;
+    if (devNodeHandle != -1)
+    {
+        // File operations can need the host mutex while holding a VFS lock.
+        m_HostHandler->GetMutex().Unlock();
+        PScopeExit relockMutex([this] { m_HostHandler->GetMutex().Lock(); });
+        kremove_device_root_trw(devNodeHandle);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -266,10 +264,9 @@ void USBHostCDCChannel::Close()
 
 void USBHostCDCChannel::Startup()
 {
+    kassert(m_HostHandler->GetMutex().IsLocked());
     m_IsActive = true;
-    const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
-    m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
-
+    StartReceive_pl();
     ReqSetLineCoding(&m_LineCoding);
 }
 
@@ -277,16 +274,11 @@ void USBHostCDCChannel::Startup()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
+void USBHostCDCChannel::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
-    if (m_IsActive)
-    {
-        kassert(!m_HostHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_HostHandler->GetMutex());
-        return m_ReceiveFIFO.GetLength();
-    }
-    set_last_error(EPIPE);
-    return -1;
+    m_ReceiveCondition.WakeupAll();
+    m_TransmitCondition.WakeupAll();
+    KFilesystemFileOps::CloseFile(volume, file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -295,17 +287,36 @@ ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
 
 size_t USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
+    kassert(!m_HostHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_HostHandler->GetMutex());
+
+    if (!file->HasReadAccess()) {
+        PERROR_THROW_CODE(PErrorCode::ACCES);
+    }
     if (m_IsActive)
     {
-        kassert(!m_HostHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_HostHandler->GetMutex());
-
-        if (m_ReceiveFIFO.GetLength() == 0)
+        if (m_ReceiveError && m_Buffers->GetReceiveQueue().GetLength() == 0) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        if (m_Buffers->GetReceiveQueue().GetLength() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                while (m_ReceiveFIFO.GetLength() == 0) {
-                    m_ReceiveCondition.Wait(m_HostHandler->GetMutex());
+                while (m_Buffers->GetReceiveQueue().GetLength() == 0)
+                {
+                    const PErrorCode result = m_ReceiveCondition.Wait(m_HostHandler->GetMutex());
+                    if (result != PErrorCode::Success && result != PErrorCode::INTR) {
+                        PERROR_THROW_CODE(result);
+                    }
+                    if (!m_IsActive) {
+                        PERROR_THROW_CODE(PErrorCode::PIPE);
+                    }
+                    if (m_ReceiveError && m_Buffers->GetReceiveQueue().GetLength() == 0) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
+                    if (!file->HasReadAccess()) {
+                        PERROR_THROW_CODE(PErrorCode::ACCES);
+                    }
                 }
             }
             else
@@ -313,16 +324,9 @@ size_t USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length,
                 return 0;
             }
         }
-        const size_t result = m_ReceiveFIFO.Read(buffer, length);
-        if (result != 0)
-        {
-            if (m_HostHandler->GetURBState(m_DataPipeIn) == USB_URBState::Idle)
-            {
-                const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
-                if (maxLength > 0) {
-                    m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
-                }
-            }
+        const size_t result = m_Buffers->GetReceiveQueue().Read(buffer, length);
+        if (result != 0) {
+            StartReceive_pl();
         }
         return result;
     }
@@ -335,25 +339,39 @@ size_t USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length,
 
 size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
+    kassert(!m_HostHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_HostHandler->GetMutex());
+
+    if (!file->HasWriteAccess()) {
+        PERROR_THROW_CODE(PErrorCode::ACCES);
+    }
     if (m_IsActive)
     {
-        kassert(!m_HostHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_HostHandler->GetMutex());
-
-        if (m_TransmitFIFO.GetRemainingSpace() == 0)
+        if (m_TransmitError) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        if (m_Buffers->GetTransmitQueue().GetWriteSpace() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                while (m_TransmitFIFO.GetRemainingSpace() == 0)
+                while (m_Buffers->GetTransmitQueue().GetWriteSpace() == 0)
                 {
+                    FlushInternal_pl();
+                    if (m_TransmitError) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
                     const PErrorCode result = m_TransmitCondition.Wait(m_HostHandler->GetMutex());
-                    if (result != PErrorCode::Success && result != PErrorCode::INTR)
-                    {
+                    if (result != PErrorCode::Success && result != PErrorCode::INTR) {
                         PERROR_THROW_CODE(result);
                     }
-                    if (!m_IsActive)
-                    {
+                    if (!m_IsActive) {
                         PERROR_THROW_CODE(PErrorCode::PIPE);
+                    }
+                    if (m_TransmitError) {
+                        PERROR_THROW_CODE(PErrorCode::IO);
+                    }
+                    if (!file->HasWriteAccess()) {
+                        PERROR_THROW_CODE(PErrorCode::ACCES);
                     }
                 }
             }
@@ -362,12 +380,33 @@ size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t 
                 return 0;
             }
         }
-        const size_t result = m_TransmitFIFO.Write(buffer, std::min(m_TransmitFIFO.GetRemainingSpace(), length));
+        const size_t result = std::min(m_Buffers->GetTransmitQueue().GetWriteSpace(), length);
+        m_Buffers->GetTransmitQueue().Write(buffer, result);
 
-        if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
-            FlushInternal();
+        if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT))
+            || m_Buffers->GetTransmitQueue().GetLength() - m_TransmitLength >= m_DataEndpointOutSize) {
+            FlushInternal_pl();
         }
         return result;
+    }
+    PERROR_THROW_CODE(PErrorCode::PIPE);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostCDCChannel::Sync(Ptr<KFileNode> file)
+{
+    kassert(!m_HostHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_HostHandler->GetMutex());
+    if (m_IsActive)
+    {
+        FlushInternal_pl();
+        if (m_TransmitError) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
+        return;
     }
     PERROR_THROW_CODE(PErrorCode::PIPE);
 }
@@ -422,16 +461,25 @@ void USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHostCDCChannel::Sync(Ptr<KFileNode> file)
+bool USBHostCDCChannel::SetLineCoding(const USB_CDC_LineCoding& lineCoding)
 {
-    if (m_IsActive)
-    {
-        kassert(!m_HostHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_HostHandler->GetMutex());
-        FlushInternal();
-        return;
+    CRITICAL_SCOPE(m_HostHandler->GetMutex());
+
+    m_LineCoding = lineCoding;
+
+    if (m_IsActive) {
+        ReqSetLineCoding(&m_LineCoding);
     }
-    PERROR_THROW_CODE(PErrorCode::PIPE);
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const USB_CDC_LineCoding& USBHostCDCChannel::GetLineCoding() const
+{
+    return m_LineCoding;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -474,51 +522,69 @@ void USBHostCDCChannel::ReqSetLineCoding(USB_CDC_LineCoding* linecoding)
 ///// \author Kurt Skauen
 /////////////////////////////////////////////////////////////////////////////////
 
-void USBHostCDCChannel::FlushInternal()
+void USBHostCDCChannel::FlushInternal_pl()
 {
     kassert(m_HostHandler->GetMutex().IsLocked());
-
-    if (m_HostHandler->GetURBState(m_DataPipeOut) == USB_URBState::Idle)
+    if (m_IsActive && !m_TransmitError && m_TransmitBuffer == nullptr)
     {
-        size_t length = std::min(m_OutEndpointBuffer.size(), m_TransmitFIFO.GetLength());
-        if (length > 0)
-        {
-            length = m_TransmitFIFO.Read(m_OutEndpointBuffer.data(), length);
-
-            if (length > 0)
-            {
-                m_TransmitCondition.WakeupAll();
-                m_CurrentTxTransactionLength = length;
-
-                m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
-            }
+        m_TransmitBuffer = m_Buffers->GetTransmitQueue().BeginTransmit(m_TransmitLength);
+        if (m_TransmitBuffer != nullptr) {
+            SubmitTransmit_pl();
         }
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////
-///// \author Kurt Skauen
-/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-bool USBHostCDCChannel::SetLineCoding(const USB_CDC_LineCoding& lineCoding)
+void USBHostCDCChannel::StartReceive_pl()
 {
-    CRITICAL_SCOPE(m_HostHandler->GetMutex());
-
-    m_LineCoding = lineCoding;
-
-    if (m_IsActive) {
-        ReqSetLineCoding(&m_LineCoding);
+    kassert(m_HostHandler->GetMutex().IsLocked());
+    if (m_IsActive && !m_ReceiveError && m_ReceiveBuffer == nullptr)
+    {
+        m_ReceiveBuffer = m_Buffers->GetReceiveQueue().BeginReceive();
+        if (m_ReceiveBuffer != nullptr) {
+            SubmitReceive_pl();
+        }
     }
-    return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////
-///// \author Kurt Skauen
-/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-const USB_CDC_LineCoding& USBHostCDCChannel::GetLineCoding() const
+void USBHostCDCChannel::SubmitTransmit_pl()
 {
-    return m_LineCoding;
+    kassert(m_HostHandler->GetMutex().IsLocked());
+    kassert(m_TransmitBuffer != nullptr);
+    if (!m_HostHandler->BulkSendData(m_DataPipeOut, m_TransmitBuffer, m_TransmitLength,
+            p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback)))
+    {
+        m_Buffers->GetTransmitQueue().CancelTransmit();
+        m_TransmitBuffer = nullptr;
+        m_TransmitLength = 0;
+        m_TransmitError = true;
+        m_TransmitCondition.WakeupAll();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostCDCChannel::SubmitReceive_pl()
+{
+    kassert(m_HostHandler->GetMutex().IsLocked());
+    kassert(m_ReceiveBuffer != nullptr);
+    if (!m_HostHandler->BulkReceiveData(m_DataPipeIn, m_ReceiveBuffer, m_DataEndpointInSize,
+            p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback)))
+    {
+        m_Buffers->GetReceiveQueue().CompleteReceive(0);
+        m_ReceiveBuffer = nullptr;
+        m_ReceiveError = true;
+        m_ReceiveCondition.WakeupAll();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -546,13 +612,25 @@ void USBHostCDCChannel::HandleEndpointHaltResult(bool result, uint8_t deviceAddr
 
 void USBHostCDCChannel::SendTransactionCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)
 {
-    if (urbState == USB_URBState::Done)
-    {
-        FlushInternal();
+    kassert(m_HostHandler->GetMutex().IsLocked());
+    if (!m_IsActive || m_TransmitBuffer == nullptr) {
+        return;
     }
-    else if (urbState == USB_URBState::NotReady)
+    if (urbState == USB_URBState::NotReady && transactionLength == 0)
     {
-        m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
+        // The HCD reports NotReady only after halting a request that made no progress.
+        // Keep the same queue head reserved while retrying; writers cannot append to it.
+        SubmitTransmit_pl();
+    }
+    else
+    {
+        m_TransmitError = urbState != USB_URBState::Done || transactionLength != m_TransmitLength;
+        // A failed or partially completed request must never be replayed as a whole.
+        m_Buffers->GetTransmitQueue().CompleteTransmit();
+        m_TransmitBuffer = nullptr;
+        m_TransmitLength = 0;
+        m_TransmitCondition.WakeupAll();
+        FlushInternal_pl();
     }
 }
 
@@ -562,17 +640,21 @@ void USBHostCDCChannel::SendTransactionCallback(USB_PipeIndex pipeIndex, USB_URB
 
 void USBHostCDCChannel::ReceiveTransactionCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)
 {
-    if (urbState == USB_URBState::Done)
+    kassert(m_HostHandler->GetMutex().IsLocked());
+    if (!m_IsActive || m_ReceiveBuffer == nullptr) {
+        return;
+    }
+    if (urbState == USB_URBState::NotReady && transactionLength == 0)
     {
-        if (transactionLength > 0)
-        {
-            m_ReceiveFIFO.Write(m_InEndpointBuffer.data(), transactionLength);
-            m_ReceiveCondition.WakeupAll();
-        }
-        const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
-        if (maxLength > 0) {
-            m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
-        }
+        SubmitReceive_pl();
+    }
+    else
+    {
+        m_ReceiveError = urbState != USB_URBState::Done || transactionLength > m_DataEndpointInSize;
+        m_Buffers->GetReceiveQueue().CompleteReceive(m_ReceiveError ? 0 : transactionLength);
+        m_ReceiveBuffer = nullptr;
+        m_ReceiveCondition.WakeupAll();
+        StartReceive_pl();
     }
 }
 

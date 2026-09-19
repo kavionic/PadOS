@@ -1,4 +1,5 @@
 target_sources(PadOS_Drivers_USB PRIVATE
+	USBCDCBuffers.cpp
 	USBClientCDCChannel.cpp
 	USBClientClassCDC.cpp
 )

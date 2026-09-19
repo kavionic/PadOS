@@ -68,20 +68,27 @@ void* USBDevice::Run()
     {
         USBDeviceEvent event;
 
-        if (!PopEvent(event)) {
+        if (!PopEvent_pl(event) || !m_DispatchEventValid.load(std::memory_order_relaxed)) {
             continue;
         }
         switch (event.EventID)
         {
             case USBDeviceEventID::BusReset:
-                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset. Speed: {}.", USB_GetSpeedName(event.BusReset.speed));
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset. Speed: {}.", USB_GetSpeedName(event.BusReset.Speed));
                 BusReset();
                 kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset cleanup completed.");
-                m_SelectedSpeed = event.BusReset.speed;
+                if (m_Driver->CompleteDeviceReset(event.BusReset.Generation)) {
+                    m_SelectedSpeed = event.BusReset.Speed;
+                }
                 break;
             case USBDeviceEventID::SessionEnded:
                 kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "SessionEnded.");
                 BusReset();
+                break;
+            case USBDeviceEventID::RecoveryNeeded:
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Recovering USB device controller.");
+                BusReset();
+                m_Driver->RecoverDevice();
                 break;
             case USBDeviceEventID::ControlRequestReceived:
             {
@@ -123,6 +130,9 @@ void* USBDevice::Run()
                 }
 
                 USBEndpointState& endpoint = GetEndpoint(endpointAddr);
+                if (!endpoint.Busy) {
+                    break;
+                }
                 endpoint.Busy    = false;
                 endpoint.Claimed = false;
 
@@ -193,10 +203,12 @@ bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPrior
 
     m_ControlTransfer.Setup(this, driver, m_Endpoint0Size);
 
+    m_Driver->IRQBusResetStarted.Connect(this, &USBDevice::IRQBusResetStarted);
     m_Driver->IRQBusReset.Connect(this, &USBDevice::IRQBusReset);
     m_Driver->IRQSuspend.Connect(this, &USBDevice::IRQSuspend);
     m_Driver->IRQResume.Connect(this, &USBDevice::IRQResume);
     m_Driver->IRQSessionEnded.Connect(this, &USBDevice::IRQSessionEnded);
+    m_Driver->IRQDeviceRecoveryNeeded.Connect(this, &USBDevice::IRQDeviceRecoveryNeeded);
     m_Driver->IRQStartOfFrame.Connect(this, &USBDevice::IRQStartOfFrame);
 
     m_Driver->IRQControlRequestReceived.Connect(this, &USBDevice::IRQControlRequestReceived);
@@ -436,11 +448,7 @@ USBEndpointState& USBDevice::GetEndpoint(uint8_t endpointAddr)
 {
     kassert(m_Mutex.IsLocked());
 
-    uint32_t index = endpointAddr & USB_ADDRESS_EPNUM_Msk;
-    if (endpointAddr & USB_ADDRESS_DIR_IN) {
-        index += USB_ADDRESS_MAX_EP_COUNT;
-    }
-    return m_EndpointStates[index];
+    return m_EndpointStates[GetEndpointIndex(endpointAddr)];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -522,6 +530,7 @@ void USBDevice::CloseEndpoint(uint8_t endpointAddr)
     kassert(m_Mutex.IsLocked());
 
     m_Driver->EndpointClose(endpointAddr);
+    DiscardTransferEvents_pl(1u << GetEndpointIndex(endpointAddr));
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
 
@@ -578,9 +587,18 @@ void USBDevice::EndpointSetStall(uint8_t endpointAddr)
     if (!endpoint.Stalled)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Stall endpoint {:02x}.", endpointAddr);
+        const bool transferCanceled = endpoint.Busy;
         m_Driver->EndpointStall(endpointAddr);
+        DiscardTransferEvents_pl(1u << GetEndpointIndex(endpointAddr));
         endpoint.Stalled = true;
         endpoint.Busy = true;
+        if (transferCanceled && USB_ADDRESS_EPNUM(endpointAddr) != 0)
+        {
+            Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
+            if (driver != nullptr) {
+                driver->HandleDataTransfer(endpointAddr, USB_TransferResult::Stalled, 0);
+            }
+        }
     }
 }
 
@@ -650,6 +668,16 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t USBDevice::GetEndpointIndex(uint8_t endpointAddr)
+{
+    const size_t directionOffset = ((endpointAddr & USB_ADDRESS_DIR_IN) != 0) ? USB_ADDRESS_MAX_EP_COUNT : 0;
+    return USB_ADDRESS_EPNUM(endpointAddr) + directionOffset;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void USBDevice::SetIsConnected(bool connected)
 {
     kassert(m_Mutex.IsLocked());
@@ -705,6 +733,13 @@ void USBDevice::UnsetConfiguration()
 {
     kassert(m_Mutex.IsLocked());
 
+    // Includes class-driver removal, not just SET_CONFIGURATION. Stop DMA before releasing class-owned storage.
+    m_Driver->EndpointCloseAll();
+    const uint32_t controlEndpointMask = (1u << GetEndpointIndex(USB_MK_OUT_ADDRESS(0)))
+        | (1u << GetEndpointIndex(USB_MK_IN_ADDRESS(0)));
+    // Remove canceled completions before releasing the mutex to class-driver cleanup.
+    DiscardTransferEvents_pl(~controlEndpointMask);
+
     {
         const std::vector<Ptr<USBClassDriverDevice>> classDrivers = m_ClassDrivers;
 
@@ -722,8 +757,9 @@ void USBDevice::UnsetConfiguration()
         }
     }
 
-    for (USBEndpointState& endpoint : m_EndpointStates)
-    {
+    // EP0 remains open during class cleanup; discard its queued completions before resetting its state.
+    DiscardTransferEvents_pl(controlEndpointMask);
+    for (USBEndpointState& endpoint : m_EndpointStates) {
         endpoint.Reset();
     }
     m_IsAddressed           = false;
@@ -832,8 +868,6 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
                 {
                     if (m_SelectedConfigNum != 0)
                     {
-                        // Close all non-control endpoints and cancel any pending transfers.
-                        m_Driver->EndpointCloseAll();
                         UnsetConfiguration();
                     }
                     if (configNum != 0)
@@ -1244,25 +1278,54 @@ bool USBDevice::InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> drive
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBDevice::PopEvent(USBDeviceEvent& event)
+bool USBDevice::PopEvent_pl(USBDeviceEvent& event)
 {
     kassert(m_Mutex.IsLocked());
-    m_Mutex.Unlock();
 
-    bool result;
-    // IRQWait() requires kernel-wide IRQ exclusion while the waiter is linked to the scheduler.
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    for (;;)
     {
-        while (m_EventQueue.GetLength() == 0)
+        m_Mutex.Unlock();
+        // IRQWait() requires kernel-wide IRQ exclusion while the waiter is linked to the scheduler.
+        CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            m_EventQueueCondition.IRQWait();
+            while (m_EventQueue.GetLength() == 0) {
+                m_EventQueueCondition.IRQWait();
+            }
+        } CRITICAL_END;
+        m_Mutex.Lock();
+
+        // Cancellation can empty the queue while we reacquire the mutex. Dequeue only after locking it.
+        CRITICAL_BEGIN(CRITICAL_IRQ)
+        {
+            if (m_EventQueue.Read(&event, 1) == 1)
+            {
+                m_DispatchEventValid.store(true, std::memory_order_relaxed);
+                return true;
+            }
+        } CRITICAL_END;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBDevice::DiscardTransferEvents_pl(uint32_t endpointMask)
+{
+    kassert(m_Mutex.IsLocked());
+    USBIRQDisabler irqDisabler(*m_Driver);
+
+    // Rotate the original queue once, retaining unrelated events in their original order.
+    const size_t eventCount = m_EventQueue.GetLength();
+    for (size_t i = 0; i < eventCount; ++i)
+    {
+        USBDeviceEvent event;
+        m_EventQueue.Read(&event, 1);
+        if (event.EventID != USBDeviceEventID::TransferComplete
+            || (endpointMask & (1u << GetEndpointIndex(event.TransferComplete.EndpointAddr))) == 0) {
+            m_EventQueue.Write(&event, 1);
         }
-        result = m_EventQueue.Read(&event, 1) == 1;
-    } CRITICAL_END;
-
-    m_Mutex.Lock();
-
-    return result;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1276,6 +1339,7 @@ void USBDevice::PushEvent(const USBDeviceEvent& event, bool clearQueue)
     if (clearQueue)
     {
         m_EventQueue.Clear();
+        m_DispatchEventValid.store(false, std::memory_order_relaxed);
     }
     else if (event.EventID == USBDeviceEventID::StartOfFrame)
     {
@@ -1316,10 +1380,21 @@ void USBDevice::IRQTransferComplete(uint8_t endpointAddr, uint32_t length, USB_T
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice::IRQBusReset(USB_Speed speed)
+void USBDevice::IRQBusResetStarted()
+{
+    m_EventQueue.Clear();
+    m_DispatchEventValid.store(false, std::memory_order_relaxed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBDevice::IRQBusReset(USB_Speed speed, uint32_t generation)
 {
     USBDeviceEvent event(USBDeviceEventID::BusReset);
-    event.BusReset.speed = speed;
+    event.BusReset.Speed = speed;
+    event.BusReset.Generation = generation;
     PushEvent(event, true);
 }
 
@@ -1350,6 +1425,16 @@ void USBDevice::IRQResume()
 void USBDevice::IRQSessionEnded()
 {
     const USBDeviceEvent event(USBDeviceEventID::SessionEnded);
+    PushEvent(event, true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBDevice::IRQDeviceRecoveryNeeded()
+{
+    const USBDeviceEvent event(USBDeviceEventID::RecoveryNeeded);
     PushEvent(event, true);
 }
 

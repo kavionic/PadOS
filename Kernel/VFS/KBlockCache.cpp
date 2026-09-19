@@ -52,7 +52,7 @@ static constexpr int    KBLOCK_CACHE_FLUSHER_THREAD_PRIORITY = 15;
 
 static uint8_t* gk_BCacheBuffer;
 static KCacheBuffer* gk_BCacheBuffers;
-static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_HEADER_COUNT];
+static KCacheBlockHeader* gk_BCacheHeaders;
 
 std::map<int, KBlockCache*>         KBlockCache::s_DeviceMap;
 PIntrusiveList<KCacheBuffer>        KBlockCache::s_FreeBufferList;
@@ -204,6 +204,8 @@ void KBlockCache::Initialize()
 
     gk_BCacheBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, allocationSize));
     kassert(gk_BCacheBuffer != nullptr);
+    gk_BCacheHeaders = new (std::nothrow) KCacheBlockHeader[KBLOCK_CACHE_BLOCK_HEADER_COUNT]{};
+    kassert(gk_BCacheHeaders != nullptr);
 #ifdef PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS
     InitializeFlushDiagnostics(gk_BCacheBuffer + KBLOCK_CACHE_MEMORY_SIZE);
 #endif // PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS

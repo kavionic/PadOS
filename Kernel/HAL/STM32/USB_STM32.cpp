@@ -19,6 +19,7 @@
 
 #include <bit>
 #include <utility>
+#include <Kernel/Kernel.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/HAL/PeripheralMapping.h>
@@ -205,6 +206,7 @@ void USB_STM32::Shutdown()
 
 bool USB_STM32::ResetHostCore()
 {
+    ReleaseCoreReset();
     if (!SetupCore(m_UseExternalVBus, m_BatteryChargingEnabled)) {
         return false;
     }
@@ -215,12 +217,36 @@ bool USB_STM32::ResetHostCore()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USB_STM32::HoldCoreInReset()
+{
+    const uint32_t resetMask = (m_Port == get_usb_from_id(USB_OTG_ID::USB1_HS))
+        ? RCC_AHB1RSTR_USB1OTGHSRST : RCC_AHB1RSTR_USB2OTGFSRST;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        RCC->AHB1RSTR |= resetMask;
+        const uint32_t resetState = RCC->AHB1RSTR;
+        (void)resetState;
+        __DSB();
+    } CRITICAL_END;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USB_STM32::ResetDeviceCore()
+{
+    ReleaseCoreReset();
+    return SetupCore(m_UseExternalVBus, m_BatteryChargingEnabled) && SetUSBMode(USB_Mode::Device);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USB_STM32::DisableIRQDelivery()
 {
-    const uint32_t currentExceptionNumber = __get_IPSR();
-    const uint32_t irqExceptionNumber = static_cast<uint32_t>(std::to_underlying(m_IRQ)) + 16u;
-
-    if (currentExceptionNumber == irqExceptionNumber) {
+    if (kis_in_irq(m_IRQ)) {
         return false;
     }
 
@@ -240,6 +266,23 @@ void USB_STM32::RestoreIRQDelivery(bool wasEnabled)
     if (wasEnabled) {
         NVIC_EnableIRQ(m_IRQ);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USB_STM32::ReleaseCoreReset()
+{
+    const uint32_t resetMask = (m_Port == get_usb_from_id(USB_OTG_ID::USB1_HS))
+        ? RCC_AHB1RSTR_USB1OTGHSRST : RCC_AHB1RSTR_USB2OTGFSRST;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        RCC->AHB1RSTR &= ~resetMask;
+        const uint32_t resetState = RCC->AHB1RSTR;
+        (void)resetState;
+        __DSB();
+    } CRITICAL_END;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

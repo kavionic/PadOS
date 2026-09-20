@@ -448,6 +448,7 @@ bool USBClientCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferR
     if (endpointAddr == m_EndpointOut && m_ReceiveActive)
     {
         m_ReceiveActive = false;
+        m_ReceiveHaltError = result == USB_TransferResult::Stalled;
         m_ReceiveError = result != USB_TransferResult::Success || length > m_ReceivePacketSize;
         m_Buffers.GetReceiveQueue().CompleteReceive(m_ReceiveError ? 0 : length);
         m_ReceiveCondition.WakeupAll();
@@ -459,28 +460,20 @@ bool USBClientCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferR
     else if (endpointAddr == m_EndpointIn && m_TransmitActive)
     {
         m_TransmitActive = false;
+        m_TransmitHaltError = result == USB_TransferResult::Stalled;
         m_TransmitError = result != USB_TransferResult::Success || length != m_TransmitLength;
         if (m_TransmitLength != 0) {
-            // Do not retry any part of an unsuccessfully transmitted block.
+            // Cancellation does not report reliable progress. Drop only this block; never replay its possible prefix.
             m_Buffers.GetTransmitQueue().CompleteTransmit();
         }
         m_TransmitLength = 0;
+        m_TransmitFlushPending = m_Buffers.GetTransmitQueue().GetLength() != 0;
         m_TransmitCondition.WakeupAll();
+        // A canceled ZLP stays pending; it has no payload to replay and owns no queue block.
         if (!m_TransmitError)
         {
+            m_TransmitZLPPending = length != 0 && length % m_TransmitPacketSize == 0;
             FlushInternal_pl();
-            if (!m_TransmitError && !m_TransmitActive && m_Buffers.GetTransmitQueue().GetLength() == 0
-                && length != 0 && length % m_TransmitPacketSize == 0)
-            {
-                if (m_DeviceHandler->ClaimEndpoint(m_EndpointIn))
-                {
-                    m_TransmitActive = m_DeviceHandler->EndpointTransfer(m_EndpointIn, nullptr, 0);
-                    m_TransmitError = !m_TransmitActive;
-                    if (m_TransmitError) {
-                        m_TransmitCondition.WakeupAll();
-                    }
-                }
-            }
         }
         return !m_TransmitError;
     }
@@ -491,27 +484,77 @@ bool USBClientCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferR
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USBClientCDCChannel::HandleEndpointHaltCleared(uint8_t endpointAddr)
+{
+    kassert(m_DeviceHandler->GetMutex().IsLocked());
+
+    if (m_IsActive) {
+        if (endpointAddr == m_EndpointOut)
+        {
+            if (m_ReceiveHaltError)
+            {
+                m_ReceiveHaltError = false;
+                m_ReceiveError = false;
+            }
+            StartOutTransaction_pl();
+            m_ReceiveCondition.WakeupAll();
+        }
+        else if (endpointAddr == m_EndpointIn)
+        {
+            if (m_TransmitHaltError)
+            {
+                m_TransmitHaltError = false;
+                m_TransmitError = false;
+            }
+            // Leave an idle short write buffered unless a flush was requested before or during the halt.
+            if (m_TransmitFlushPending || m_TransmitZLPPending) {
+                FlushInternal_pl();
+            }
+            m_TransmitCondition.WakeupAll();
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 uint32_t USBClientCDCChannel::FlushInternal_pl()
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 
-    if (!m_IsActive || m_TransmitError || m_TransmitActive || !m_DeviceHandler->IsReady()
-        || m_Buffers.GetTransmitQueue().GetLength() == 0)
-    {
+    if (!m_IsActive || m_TransmitError) {
+        return 0;
+    }
+    if (m_Buffers.GetTransmitQueue().GetLength() != 0) {
+        m_TransmitFlushPending = true;
+    }
+    if (m_TransmitActive || !m_DeviceHandler->IsReady() || (!m_TransmitFlushPending && !m_TransmitZLPPending)) {
         return 0;
     }
     if (!m_DeviceHandler->ClaimEndpoint(m_EndpointIn)) {
         return 0;
     }
-    uint8_t* storage = m_Buffers.GetTransmitQueue().BeginTransmit(m_TransmitLength);
-    kassert(storage != nullptr);
+    // A pending ZLP owns no queue block. Later payload can provide its own short-packet/ZLP termination.
+    uint8_t* storage = nullptr;
+    if (m_TransmitFlushPending)
+    {
+        storage = m_Buffers.GetTransmitQueue().BeginTransmit(m_TransmitLength);
+        kassert(storage != nullptr);
+    }
     m_TransmitActive = m_DeviceHandler->EndpointTransfer(m_EndpointIn, storage, m_TransmitLength);
     if (!m_TransmitActive)
     {
-        m_Buffers.GetTransmitQueue().CancelTransmit();
+        if (storage != nullptr) {
+            m_Buffers.GetTransmitQueue().CancelTransmit();
+        }
         m_TransmitLength = 0;
         m_TransmitError = true;
         m_TransmitCondition.WakeupAll();
+    }
+    else if (storage != nullptr)
+    {
+        m_TransmitZLPPending = false;
     }
     return m_TransmitLength;
 }

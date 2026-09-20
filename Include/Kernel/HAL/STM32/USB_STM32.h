@@ -84,7 +84,10 @@ public:
     // Device interface:
     virtual USB_Speed   DeviceGetSpeed() const override                                     { return m_DeviceDriver.DeviceGetSpeed(); }
     virtual void        EndpointStall(uint8_t endpointAddr) override                        { m_DeviceDriver.EndpointStall(endpointAddr); }
-    virtual void        EndpointClearStall(uint8_t endpointAddr) override                   { m_DeviceDriver.EndpointClearStall(endpointAddr);  }
+    virtual bool        EndpointClearStall(uint8_t endpointAddr) override
+    {
+        return m_DeviceDriver.EndpointClearStall(endpointAddr);
+    }
     virtual bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor) override   { return m_DeviceDriver.EndpointOpen(endpointDescriptor); }
     virtual void        EndpointClose(uint8_t endpointAddr) override                        { m_DeviceDriver.EndpointClose(endpointAddr); }
     virtual void        EndpointCloseAll() override                                         { m_DeviceDriver.EndpointCloseAll(); }

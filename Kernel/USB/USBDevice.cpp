@@ -589,14 +589,25 @@ void USBDevice::EndpointSetStall(uint8_t endpointAddr)
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Stall endpoint {:02x}.", endpointAddr);
         const bool transferCanceled = endpoint.Busy;
         m_Driver->EndpointStall(endpointAddr);
-        DiscardTransferEvents_pl(1u << GetEndpointIndex(endpointAddr));
+        USBDeviceEvent discardedCompletion;
+        DiscardTransferEvents_pl(1u << GetEndpointIndex(endpointAddr), &discardedCompletion);
         endpoint.Stalled = true;
-        endpoint.Busy = true;
+        endpoint.Busy = false;
+        endpoint.Claimed = false;
         if (transferCanceled && USB_ADDRESS_EPNUM(endpointAddr) != 0)
         {
             Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
             if (driver != nullptr) {
-                driver->HandleDataTransfer(endpointAddr, USB_TransferResult::Stalled, 0);
+                // A queued completion owns the old reservation and may report an unrelated failure or valid received data.
+                if (discardedCompletion.EventID == USBDeviceEventID::TransferComplete)
+                {
+                    const auto& completion = discardedCompletion.TransferComplete;
+                    driver->HandleDataTransfer(endpointAddr, completion.Result, completion.Length);
+                }
+                else
+                {
+                    driver->HandleDataTransfer(endpointAddr, USB_TransferResult::Stalled, 0);
+                }
             }
         }
     }
@@ -606,7 +617,7 @@ void USBDevice::EndpointSetStall(uint8_t endpointAddr)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice::EndpointClearStall(uint8_t endpointAddr)
+bool USBDevice::EndpointClearStall(uint8_t endpointAddr)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -615,10 +626,22 @@ void USBDevice::EndpointClearStall(uint8_t endpointAddr)
     if (endpoint.Stalled)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Clear stall on endpoint {:02x}.", endpointAddr);
-        m_Driver->EndpointClearStall(endpointAddr);
-        endpoint.Stalled = false;
-        endpoint.Busy = false;
+        {
+            USBIRQDisabler irqDisabler(*m_Driver);
+            if (!m_Driver->EndpointClearStall(endpointAddr)) {
+                return false;
+            }
+            endpoint.Reset();
+        }
+        if (USB_ADDRESS_EPNUM(endpointAddr) != 0)
+        {
+            Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
+            if (driver != nullptr) {
+                driver->HandleEndpointHaltCleared(endpointAddr);
+            }
+        }
     }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -645,8 +668,10 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
 
-    if (endpoint.Busy) {
-        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::EndpointTransfer() endpoint {:02x} is busy.", endpointAddr);
+    if (endpoint.Busy || endpoint.Stalled)
+    {
+        kernel_log<PLogSeverity::ERROR>(
+            LogCategoryUSBDevice, "USBDevice::EndpointTransfer() endpoint {:02x} is busy or halted.", endpointAddr);
         return false;
     }
     endpoint.Busy = true;
@@ -1030,9 +1055,14 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
             {
                 if (USB_RequestFeatureSelector(request.wValue) == USB_RequestFeatureSelector::ENDPOINT_HALT)
                 {
-                    if (requestCode == USB_RequestCode::CLEAR_FEATURE) {
-                        EndpointClearStall(endpointAddr);
-                    } else {
+                    if (requestCode == USB_RequestCode::CLEAR_FEATURE)
+                    {
+                        if (!EndpointClearStall(endpointAddr)) {
+                            return false;
+                        }
+                    }
+                    else
+                    {
                         EndpointSetStall(endpointAddr);
                     }
                 }
@@ -1310,7 +1340,7 @@ bool USBDevice::PopEvent_pl(USBDeviceEvent& event)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice::DiscardTransferEvents_pl(uint32_t endpointMask)
+void USBDevice::DiscardTransferEvents_pl(uint32_t endpointMask, USBDeviceEvent* discardedCompletion)
 {
     kassert(m_Mutex.IsLocked());
     USBIRQDisabler irqDisabler(*m_Driver);
@@ -1324,6 +1354,8 @@ void USBDevice::DiscardTransferEvents_pl(uint32_t endpointMask)
         if (event.EventID != USBDeviceEventID::TransferComplete
             || (endpointMask & (1u << GetEndpointIndex(event.TransferComplete.EndpointAddr))) == 0) {
             m_EventQueue.Write(&event, 1);
+        } else if (discardedCompletion != nullptr) {
+            *discardedCompletion = event;
         }
     }
 }

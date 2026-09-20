@@ -45,6 +45,7 @@ public:
     virtual const USB_DescriptorHeader* Open(USB_DescInterface const* desc_intf, const void* endDesc) = 0;
     virtual bool                        HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request) = 0;
     virtual bool                        HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length) = 0;
+    virtual void                        HandleEndpointHaltCleared(uint8_t endpointAddr) {}
     virtual void                        StartOfFrame() {}
 
 protected:

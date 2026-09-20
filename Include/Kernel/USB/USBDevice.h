@@ -130,7 +130,7 @@ public:
     bool ReleaseEndpoint(uint8_t endpointAddr);
     bool IsEndpointBusy(uint8_t endpointAddr);
     void EndpointSetStall(uint8_t endpointAddr);
-    void EndpointClearStall(uint8_t endpointAddr);
+    bool EndpointClearStall(uint8_t endpointAddr);
     bool IsEndpointStalled(uint8_t endpointAddr);
     bool EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t length);
 
@@ -141,6 +141,8 @@ public:
 
     VFConnector<bool, USB_ControlStage, const USB_ControlRequest&> SignalHandleVendorControlTransfer;
 private:
+    friend class USBClientCDCRecoveryTest;
+
     static size_t GetEndpointIndex(uint8_t endpointAddr);
 
     void SetIsConnected(bool connected);
@@ -160,7 +162,7 @@ private:
     bool InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> driver, const USB_ControlRequest& request);
 
     bool PopEvent_pl(USBDeviceEvent& event);
-    void DiscardTransferEvents_pl(uint32_t endpointMask);
+    void DiscardTransferEvents_pl(uint32_t endpointMask, USBDeviceEvent* discardedCompletion = nullptr);
     void PushEvent(const USBDeviceEvent& event, bool clearQueue = false);
 
     void IRQControlRequestReceived(const USB_ControlRequest& request);

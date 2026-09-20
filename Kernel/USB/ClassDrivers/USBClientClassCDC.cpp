@@ -281,6 +281,20 @@ bool USBClientClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferRes
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USBClientClassCDC::HandleEndpointHaltCleared(uint8_t endpointAddr)
+{
+    kassert(m_DeviceHandler->GetMutex().IsLocked());
+
+    const auto channelIterator = m_EndpointToChannelMap.find(endpointAddr);
+    if (channelIterator != m_EndpointToChannelMap.end()) {
+        channelIterator->second->HandleEndpointHaltCleared(endpointAddr);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<USBClientCDCChannel> USBClientClassCDC::GetChannel(uint32_t channelIndex)
 {
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());

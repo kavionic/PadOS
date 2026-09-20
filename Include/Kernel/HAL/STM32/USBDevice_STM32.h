@@ -51,7 +51,7 @@ public:
 
     USB_Speed   DeviceGetSpeed() const;
     void        EndpointStall(uint8_t endpointAddr);
-    void        EndpointClearStall(uint8_t endpointAddr);
+    bool        EndpointClearStall(uint8_t endpointAddr);
     bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor);
     void        EndpointClose(uint8_t endpointAddr);
     void        EndpointCloseAll();

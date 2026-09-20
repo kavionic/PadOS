@@ -51,6 +51,7 @@ public:
     virtual const USB_DescriptorHeader* Open(const USB_DescInterface* desc_intf, const void* endDesc) override;
     virtual bool                        HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request) override;
     virtual bool                        HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length) override;
+    virtual void                        HandleEndpointHaltCleared(uint8_t endpointAddr) override;
 
     uint32_t            GetChannelCount() const { return m_Channels.size(); }
     Ptr<USBClientCDCChannel>  GetChannel(uint32_t channelIndex);
@@ -59,6 +60,8 @@ public:
     Signal<void, Ptr<USBClientCDCChannel>> SignalChannelRemoved;
 
 private:
+    friend class USBClientCDCRecoveryTest;
+
     class DeviceNodeCleanupThread;
 
     void CloseChannels(std::vector<Ptr<USBClientCDCChannel>>& closedChannels, std::vector<int>& devNodeHandles);

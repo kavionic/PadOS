@@ -26,7 +26,7 @@ struct USBEndpointState
 {
     bool Claim()
     {
-        if (Busy || Claimed) {
+        if (Busy || Claimed || Stalled) {
             return false;
         }
         Claimed = true;

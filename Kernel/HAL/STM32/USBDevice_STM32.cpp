@@ -233,12 +233,12 @@ void USBDevice_STM32::EndpointStall(uint8_t endpointAddr)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice_STM32::EndpointClearStall(uint8_t endpointAddr)
+bool USBDevice_STM32::EndpointClearStall(uint8_t endpointAddr)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
 
     if (!m_DeviceReady) {
-        return;
+        return false;
     }
 
     const uint8_t epNum = USB_ADDRESS_EPNUM(endpointAddr);
@@ -254,6 +254,7 @@ void USBDevice_STM32::EndpointClearStall(uint8_t endpointAddr)
         m_OutEndpoints[epNum].DOEPCTL &= ~USB_OTG_DOEPCTL_STALL;
         m_OutEndpoints[epNum].DOEPCTL |= USB_OTG_DOEPCTL_SD0PID_SEVNFRM;
     }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

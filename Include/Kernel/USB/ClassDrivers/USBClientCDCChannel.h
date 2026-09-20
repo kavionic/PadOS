@@ -61,6 +61,7 @@ public:
 
     bool     HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request);
     bool     HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length);
+    void     HandleEndpointHaltCleared(uint8_t endpointAddr);
 
     Signal<void, const USB_CDC_LineCoding&/*lineCoding*/>   SignalLineCodingChanged;
     Signal<void, bool/*DTR*/, bool/*RTS*/>                  SignalControlLineStateChanged;
@@ -96,6 +97,10 @@ private:
     bool m_TransmitActive = false;
     bool m_ReceiveError = false;
     bool m_TransmitError = false;
+    bool m_ReceiveHaltError = false;
+    bool m_TransmitHaltError = false;
+    bool m_TransmitFlushPending = false;
+    bool m_TransmitZLPPending = false;
 };
 
 

@@ -309,6 +309,16 @@ void* USBHost::Run()
         USBHostEvent event;
         if (PopEvent(event))
         {
+            if (event.EventID != USBHostEventID::URBStateChanged && event.EventID != USBHostEventID::None) {
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(
+                    LogCategoryUSBHost,
+                    "Root event {} at {} ms: enabled={}, initialization={}.",
+                    std::to_underlying(event.EventID),
+                    kget_monotonic_time().AsMilliseconds(),
+                    m_PortEnabled,
+                    std::to_underlying(m_RootPortInitializationState)
+                );
+            }
             switch (event.EventID)
             {
                 case USBHostEventID::ReEnumerate:
@@ -920,6 +930,17 @@ void USBHost::CloseDevice(uint8_t deviceAddr)
     if (device == nullptr) {
         return;
     }
+
+    kernel_log<PLogSeverity::WARNING>(
+        LogCategoryUSBHost,
+        "Closing device {} at {} ms: parent-hub={}, port={}, hub={}, configured={}.",
+        deviceAddr,
+        kget_monotonic_time().AsMilliseconds(),
+        device->m_ParentHubAddress,
+        device->m_ParentHubPort,
+        device->m_IsHub,
+        device->m_IsConfigured
+    );
 
     for (USBDeviceNode& childDevice : m_Devices)
     {

@@ -593,6 +593,30 @@ void USBHostControl::ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState u
 
 void USBHostControl::ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)
 {
+    const bool isHubPortStatus
+        = m_Setup.bmRequestType == USB_ControlRequest::ComposeType(
+            USB_RequestRecipient::OTHER,
+            USB_RequestType::CLASS,
+            USB_RequestDirection::DEVICE_TO_HOST
+        )
+        && m_Setup.bRequest == std::to_underlying(USB_RequestCode::GET_STATUS)
+        && m_Length == sizeof(USB_HubPortStatus);
+    if (urbState == USB_URBState::Done && isHubPortStatus && transactionLength != m_Length)
+    {
+        const uint16_t portIndex = PLittleEndianToHost(m_Setup.wIndex);
+        kernel_log<PLogSeverity::WARNING>(
+            LogCategoryUSBHost,
+            "Hub port status length mismatch at {} ms: hub={}, port={}, pipe={}, received={}/{}, retry={}.",
+            kget_monotonic_time().AsMilliseconds(),
+            m_RequestDeviceAddress,
+            portIndex,
+            pipeIndex,
+            transactionLength,
+            m_Length,
+            m_ErrorCount
+        );
+    }
+
     if (urbState == USB_URBState::Done) {
         m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, p_bind_method(this, &USBHostControl::ControlStatusSentCallback));
     } else if (urbState == USB_URBState::Stall) {

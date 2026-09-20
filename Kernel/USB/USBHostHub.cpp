@@ -470,10 +470,11 @@ void USBHostHub::HandlePortStatusResult(bool result, uint8_t hubAddress, uint8_t
     {
         kernel_log<PLogSeverity::WARNING>(
             LogCategoryUSBHost,
-            "Hub {} port {} status event for device {}: status=0x{:04x}, change=0x{:04x}.",
+            "Hub {} port {} status event for device {} at {} ms: status=0x{:04x}, change=0x{:04x}.",
             hubAddress,
             portIndex,
             device->m_Address,
+            kget_monotonic_time().AsMilliseconds(),
             portStatus,
             portChange
         );
@@ -583,9 +584,10 @@ void USBHostHub::HandlePortResetStatusResult(bool result, uint8_t hubAddress, ui
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(
         LogCategoryUSBHost,
-        "Hub {} port {} reset result: status=0x{:04x}, change=0x{:04x}, enumeration-retry={}.",
+        "Hub {} port {} reset result at {} ms: status=0x{:04x}, change=0x{:04x}, enumeration-retry={}.",
         hubAddress,
         portIndex,
+        kget_monotonic_time().AsMilliseconds(),
         portStatus,
         portChange,
         m_PortEnumerationErrorCount

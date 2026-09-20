@@ -2,13 +2,18 @@
 // Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+// Keep this first: GCC diagnoses GoogleTest registration in STL template definitions.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnoexcept"
+#include <gtest/gtest.h>
+#pragma GCC diagnostic pop
+
 #include <array>
 #include <cstring>
 #include <functional>
 #include <system_error>
 #include <System/ExceptionHandling.h>
 
-#include <gtest/gtest.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/KThreadWaitNode.h>
 #include <Kernel/USB/USBDevice.h>
@@ -19,7 +24,8 @@
 namespace kernel
 {
 
-// Only the controller is replaced. USBDevice, control replies, CDC channels, queues and wait listeners are real.
+// USBDevice, CDC transfer/recovery handlers, queues and wait listeners are real.
+// The controller is modeled; channel opening below omits VFS registration and permanent threads.
 class USBClientCDCRecoveryController : public USB_STM32
 {
 public:
@@ -32,6 +38,9 @@ public:
         size_t Clears = 0;
         bool Active = false;
         bool Halted = false;
+        bool Data1 = false;
+        bool Open = false;
+        size_t ToggleResets = 0;
     };
 
     Transfer& GetTransfer(uint8_t endpointAddr)
@@ -50,6 +59,22 @@ public:
 
     void FailNextSubmission() { m_FailNextSubmission = true; }
     void FailNextDisable() { m_FailNextDisable = true; }
+    void FailNextClear() { m_FailNextClear = true; }
+    void SetOnCloseAll(const std::function<void()>& callback) { m_OnCloseAll = callback; }
+    void SetOnClear(const std::function<void()>& callback) { m_OnClear = callback; }
+
+    bool EndpointOpen(const USB_DescEndpoint& descriptor) override
+    {
+        if (!m_Ready) {
+            return false;
+        }
+        Transfer& transfer = GetTransfer(descriptor.bEndpointAddress);
+        transfer.Open = true;
+        transfer.Halted = false;
+        transfer.Data1 = false;
+        ++transfer.ToggleResets;
+        return true;
+    }
 
     void EndpointStall(uint8_t endpointAddr) override
     {
@@ -69,19 +94,31 @@ public:
 
     bool EndpointClearStall(uint8_t endpointAddr) override
     {
-        if (!m_Ready) {
-            return false;
+        if (m_FailNextClear)
+        {
+            m_FailNextClear = false;
+            SetReady(false);
+            IRQDeviceRecoveryNeeded();
         }
         Transfer& transfer = GetTransfer(endpointAddr);
+        if (!m_Ready || !transfer.Open) {
+            return false;
+        }
         transfer.Halted = false;
+        transfer.Data1 = false;
         ++transfer.Clears;
-        return true;
+        ++transfer.ToggleResets;
+        if (m_OnClear) {
+            m_OnClear();
+        }
+        return m_Ready;
     }
 
     bool EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength, size_t receiveCapacity = 0) override
     {
         Transfer& transfer = GetTransfer(endpointAddr);
-        if (!m_Ready || m_FailNextSubmission || transfer.Active || transfer.Halted)
+        if (!m_Ready || m_FailNextSubmission || transfer.Active || transfer.Halted
+            || (USB_ADDRESS_EPNUM(endpointAddr) != 0 && !transfer.Open))
         {
             m_FailNextSubmission = false;
             return false;
@@ -97,12 +134,21 @@ public:
         return true;
     }
 
-    void EndpointClose(uint8_t endpointAddr) override { GetTransfer(endpointAddr).Active = false; }
+    void EndpointClose(uint8_t endpointAddr) override
+    {
+        GetTransfer(endpointAddr).Active = false;
+        GetTransfer(endpointAddr).Open = false;
+    }
 
     void EndpointCloseAll() override
     {
-        for (Transfer& transfer : m_Transfers) {
-            transfer.Active = false;
+        for (uint8_t endpointNumber = 1; endpointNumber < USB_ADDRESS_MAX_EP_COUNT; ++endpointNumber)
+        {
+            EndpointClose(USB_MK_OUT_ADDRESS(endpointNumber));
+            EndpointClose(USB_MK_IN_ADDRESS(endpointNumber));
+        }
+        if (m_OnCloseAll) {
+            m_OnCloseAll();
         }
     }
 
@@ -114,57 +160,203 @@ private:
     bool m_Ready = true;
     bool m_FailNextSubmission = false;
     bool m_FailNextDisable = false;
+    bool m_FailNextClear = false;
+    std::function<void()> m_OnCloseAll;
+    std::function<void()> m_OnClear;
 };
 
-class USBClientCDCRecoveryTest : public ::testing::TestWithParam<size_t>
+class USBClientCDCRecoveryClassDriver : public USBClientClassCDC
+{
+public:
+    const USB_DescriptorHeader* Open(const USB_DescInterface* interfaceDesc, const void* endDesc) override
+    {
+        return m_OpenHandler(interfaceDesc, endDesc);
+    }
+
+    std::function<const USB_DescriptorHeader*(const USB_DescInterface*, const void*)> m_OpenHandler;
+};
+
+class USBClientCDCRecoveryTest : public ::testing::TestWithParam<uint16_t>
 {
 protected:
     void SetUp() override
     {
         m_PacketSize = GetParam();
-        m_ClassDriver = ptr_new<USBClientClassCDC>();
-        m_Channel = ptr_new<USBClientCDCChannel>(&m_Device, 0, m_EndpointOut, m_EndpointIn, m_PacketSize, m_PacketSize);
+        m_ClassDriver = ptr_new<USBClientCDCRecoveryClassDriver>();
+        m_ClassDriver->m_OpenHandler = [this](const USB_DescInterface* interfaceDesc, const void* endDesc)
+        {
+            return OpenChannel(interfaceDesc, endDesc);
+        };
         m_File = ptr_new<KFileNode>(O_RDWR | O_NONBLOCK);
         m_ClassDriver->USBClassDriverDevice::Init(&m_Device);
         m_Controller.IRQDeviceRecoveryNeeded.Connect(&m_Device, &USBDevice::IRQDeviceRecoveryNeeded);
         m_Controller.IRQBusResetStarted.Connect(&m_Device, &USBDevice::IRQBusResetStarted);
         m_Controller.IRQSessionEnded.Connect(&m_Device, &USBDevice::IRQSessionEnded);
+        AddDescriptor(USB_DescConfiguration(0, 4, m_ConfigurationValue, 0, USB_DescConfiguration::ATTRIBUTES_RESERVED_HIGH, 100));
+        AddChannelDescriptors(0, m_EndpointNotification, m_EndpointOut, m_EndpointIn);
+        AddChannelDescriptors(2, m_SecondNotification, m_SecondOut, m_SecondIn);
 
         CRITICAL_SCOPE(m_Device.GetMutex());
         m_Device.m_Driver = &m_Controller;
-        m_Device.m_SelectedConfigNum = 1;
+        m_Device.m_SelectedSpeed = USB_Speed::FULL;
+        m_Device.m_DispatchEventValid.store(true, std::memory_order_relaxed);
+        m_Device.m_ClassDrivers.push_back(m_ClassDriver);
         m_Device.m_ControlTransfer.Setup(&m_Device, &m_Controller, m_PacketSize);
-        for (uint8_t endpointAddr : {m_EndpointOut, m_EndpointIn})
-        {
-            m_Device.m_EndpointToDriverMap[endpointAddr] = m_ClassDriver;
-            m_ClassDriver->m_EndpointToChannelMap[endpointAddr] = m_Channel;
-        }
-        // Start reception without registering a device node or starting a permanent device thread.
-        m_ClassDriver->HandleEndpointHaltCleared(m_EndpointOut);
+        ASSERT_TRUE(m_Device.HandleSelectConfiguration(m_ConfigurationValue));
+        m_Channel = m_ClassDriver->m_Channels[0];
+        m_SecondChannel = m_ClassDriver->m_Channels[1];
     }
 
     void TearDown() override
     {
+        m_Controller.SetOnCloseAll({});
+        m_Controller.SetOnClear({});
+        m_ClassDriver->Reset();
         CRITICAL_SCOPE(m_Device.GetMutex());
-        m_Channel->Close();
-        m_ClassDriver->m_EndpointToChannelMap.clear();
+        m_Device.m_ClassDrivers.clear();
+        m_Device.m_InterfaceToDriverMap.clear();
         m_Device.m_EndpointToDriverMap.clear();
         m_ClassDriver->USBClassDriverDevice::Shutdown();
     }
 
     bool Request(USB_RequestCode requestCode, uint8_t endpointAddr)
     {
+        return StandardRequest(
+            USB_RequestRecipient::ENDPOINT,
+            requestCode,
+            std::to_underlying(USB_RequestFeatureSelector::ENDPOINT_HALT),
+            endpointAddr
+        );
+    }
+
+    bool StandardRequest(USB_RequestRecipient recipient, USB_RequestCode requestCode, uint16_t value, uint16_t index)
+    {
         CRITICAL_SCOPE(m_Device.GetMutex());
-        // Reproduce the SETUP ownership reset normally performed by USBDevice::Run().
+        // Reproduce SETUP dispatch and EP0 ownership reset without running the permanent device thread.
+        m_Device.m_DispatchEventValid.store(true, std::memory_order_relaxed);
         for (uint8_t controlEndpoint : {USB_MK_OUT_ADDRESS(0), USB_MK_IN_ADDRESS(0)})
         {
             m_Controller.GetTransfer(controlEndpoint).Active = false;
             m_Device.GetEndpoint(controlEndpoint).Reset();
         }
         USB_ControlRequest request(
-            USB_RequestRecipient::ENDPOINT, USB_RequestType::STANDARD, USB_RequestDirection::HOST_TO_DEVICE,
-            std::to_underlying(requestCode), std::to_underlying(USB_RequestFeatureSelector::ENDPOINT_HALT), endpointAddr, 0);
+            recipient,
+            USB_RequestType::STANDARD,
+            USB_RequestDirection::HOST_TO_DEVICE,
+            std::to_underlying(requestCode),
+            value,
+            index,
+            0
+        );
         return m_Device.HandleControlRequest(request);
+    }
+
+    template<typename Descriptor>
+    void AddDescriptor(const Descriptor& descriptor)
+    {
+        m_Device.AddConfigDescriptor(0, &descriptor, sizeof(descriptor));
+    }
+
+    void AddChannelDescriptors(uint8_t interfaceNum, uint8_t notification, uint8_t endpointOut, uint8_t endpointIn)
+    {
+        AddDescriptor(USB_DescInterface(
+            interfaceNum,
+            0,
+            1,
+            USB_ClassCode::CDC,
+            std::to_underlying(USB_CDC_CommSubclassType::ABSTRACT_CONTROL_MODEL),
+            0,
+            0
+        ));
+        AddDescriptor(USB_DescEndpoint(
+            notification,
+            USB_TransferType::INTERRUPT,
+            USB_IsoEndpointSyncType::NONE,
+            USB_EndpointUsageType::DATA,
+            8,
+            16
+        ));
+        AddDescriptor(USB_DescInterface(interfaceNum + 1, 0, 2, USB_ClassCode::CDC_DATA, 0, 0, 0));
+        AddDescriptor(USB_DescEndpoint(
+            endpointOut,
+            USB_TransferType::BULK,
+            USB_IsoEndpointSyncType::NONE,
+            USB_EndpointUsageType::DATA,
+            m_PacketSize,
+            0
+        ));
+        AddDescriptor(USB_DescEndpoint(
+            endpointIn,
+            USB_TransferType::BULK,
+            USB_IsoEndpointSyncType::NONE,
+            USB_EndpointUsageType::DATA,
+            m_PacketSize,
+            0
+        ));
+    }
+
+    const USB_DescriptorHeader* OpenChannel(const USB_DescInterface* interfaceDesc, const void* endDesc)
+    {
+        // Test-only opening omits device nodes. Configuration parsing, endpoint opening and CDC Reset() remain real.
+        const auto* notification = static_cast<const USB_DescEndpoint*>(interfaceDesc->GetNext());
+        const auto* dataInterface = static_cast<const USB_DescInterface*>(notification->GetNext());
+        uint8_t endpointOut = 0;
+        uint8_t endpointIn = 0;
+        uint16_t outSize = 0;
+        uint16_t inSize = 0;
+        if (!m_Device.OpenEndpoint(*notification)) {
+            return nullptr;
+        }
+        const USB_DescriptorHeader* next = m_Device.OpenEndpointPair(
+            dataInterface->GetNext(),
+            USB_TransferType::BULK,
+            endpointOut,
+            endpointIn,
+            outSize,
+            inSize
+        );
+        if (next == nullptr || next > endDesc) {
+            return nullptr;
+        }
+        Ptr<USBClientCDCChannel> channel = ptr_new<USBClientCDCChannel>(
+            &m_Device,
+            notification->bEndpointAddress,
+            endpointOut,
+            endpointIn,
+            outSize,
+            inSize
+        );
+        m_ClassDriver->m_Channels.push_back(channel);
+        m_ClassDriver->m_InterfaceToChannelMap[interfaceDesc->bInterfaceNumber] = channel;
+        m_ClassDriver->m_InterfaceToChannelMap[dataInterface->bInterfaceNumber] = channel;
+        m_ClassDriver->m_EndpointToChannelMap[endpointOut] = channel;
+        m_ClassDriver->m_EndpointToChannelMap[endpointIn] = channel;
+        channel->HandleEndpointHaltCleared(endpointOut);
+        return next;
+    }
+
+    bool SelectConfiguration(uint16_t value)
+    {
+        return StandardRequest(USB_RequestRecipient::DEVICE, USB_RequestCode::SET_CONFIGURATION, value, 0);
+    }
+
+    bool SelectInterface(uint16_t interfaceNum, uint16_t alternate = 0)
+    {
+        return StandardRequest(USB_RequestRecipient::INTERFACE, USB_RequestCode::SET_INTERFACE, alternate, interfaceNum);
+    }
+
+    void DispatchQueuedCompletion()
+    {
+        CRITICAL_SCOPE(m_Device.GetMutex());
+        USBDeviceEvent event;
+        ASSERT_EQ(m_Device.m_EventQueue.Read(&event, 1), 1u);
+        ASSERT_EQ(event.EventID, USBDeviceEventID::TransferComplete);
+        const auto& completion = event.TransferComplete;
+        USBEndpointState& endpoint = m_Device.GetEndpoint(completion.EndpointAddr);
+        ASSERT_TRUE(endpoint.Busy);
+        endpoint.Busy = false;
+        endpoint.Claimed = false;
+        m_ClassDriver->HandleDataTransfer(completion.EndpointAddr, completion.Result, completion.Length);
     }
 
     void Halt(uint8_t endpointAddr)
@@ -240,12 +432,18 @@ protected:
 
     static constexpr uint8_t m_EndpointOut = USB_MK_OUT_ADDRESS(1);
     static constexpr uint8_t m_EndpointIn = USB_MK_IN_ADDRESS(1);
-    size_t m_PacketSize = 0;
+    static constexpr uint8_t m_EndpointNotification = USB_MK_IN_ADDRESS(2);
+    static constexpr uint8_t m_SecondOut = USB_MK_OUT_ADDRESS(3);
+    static constexpr uint8_t m_SecondIn = USB_MK_IN_ADDRESS(3);
+    static constexpr uint8_t m_SecondNotification = USB_MK_IN_ADDRESS(4);
+    static constexpr uint8_t m_ConfigurationValue = 7; // Value deliberately differs from descriptor index + 1.
+    uint16_t m_PacketSize = 0;
 
     USBClientCDCRecoveryController m_Controller;
     USBDevice m_Device;
-    Ptr<USBClientClassCDC> m_ClassDriver;
+    Ptr<USBClientCDCRecoveryClassDriver> m_ClassDriver;
     Ptr<USBClientCDCChannel> m_Channel;
+    Ptr<USBClientCDCChannel> m_SecondChannel;
     Ptr<KFileNode> m_File;
     std::array<uint8_t, 2048> m_Data{};
 };
@@ -364,29 +562,39 @@ TEST_P(USBClientCDCRecoveryTest, CanceledZLPOwnsNoBlockAndRetainsTermination)
     EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointIn).Active);
 }
 
-TEST_P(USBClientCDCRecoveryTest, RepeatedHaltAndClearDoNotDisturbAnUnhaltedTransfer)
+TEST_P(USBClientCDCRecoveryTest, RepeatedClearsResetData0WithoutReleasingAnUnhaltedTransfer)
 {
+    std::memset(m_Data.data(), 0xa5, m_PacketSize);
     ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
     for (uint8_t endpointAddr : {m_EndpointOut, m_EndpointIn})
     {
-        const auto& transfer = m_Controller.GetTransfer(endpointAddr);
+        auto& transfer = m_Controller.GetTransfer(endpointAddr);
         uint8_t* originalBuffer = transfer.Buffer;
         const size_t originalSubmissions = transfer.Submissions;
         const size_t originalClears = transfer.Clears;
-        Clear(endpointAddr);
-        EXPECT_EQ(transfer.Buffer, originalBuffer);
-        EXPECT_EQ(transfer.Submissions, originalSubmissions);
-        EXPECT_EQ(transfer.Clears, originalClears);
-        ExpectState(endpointAddr, true, true, false);
-        Halt(endpointAddr);
-        Halt(endpointAddr);
-        Clear(endpointAddr);
-        Clear(endpointAddr);
-        EXPECT_EQ(transfer.Clears, originalClears + 1);
+        const size_t originalResets = transfer.ToggleResets;
+        for (size_t repeat = 0; repeat < 3; ++repeat)
+        {
+            transfer.Data1 = true;
+            Clear(endpointAddr);
+            EXPECT_FALSE(transfer.Data1);
+            EXPECT_EQ(transfer.ToggleResets, originalResets + repeat + 1);
+            EXPECT_EQ(transfer.Buffer, originalBuffer);
+            EXPECT_EQ(transfer.Submissions, originalSubmissions);
+            EXPECT_EQ(transfer.Clears, originalClears + repeat + 1);
+            ExpectState(endpointAddr, true, true, false);
+        }
     }
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointIn).Buffer[0], 0xa5);
+    Complete(m_EndpointIn, USB_TransferResult::Success, m_PacketSize);
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointIn).Length, 0u);
+    Clear(m_EndpointIn);
+    Complete(m_EndpointIn, USB_TransferResult::Success, 0);
     for (size_t i = 0; i < 4; ++i)
     {
         Halt(m_EndpointOut);
+        Halt(m_EndpointOut);
+        Clear(m_EndpointOut);
         Clear(m_EndpointOut);
         Receive(static_cast<uint8_t>(i), 1);
         EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), 1, 0), 1u);
@@ -448,7 +656,8 @@ TEST_P(USBClientCDCRecoveryTest, FailedRecoverySubmissionIsNotClearedByAnotherHa
 TEST_P(USBClientCDCRecoveryTest, FailedDisableResetAndDisconnectPreventRearming)
 {
     m_Controller.FailNextDisable();
-    Halt(m_EndpointOut);
+    EXPECT_FALSE(Request(USB_RequestCode::SET_FEATURE, m_EndpointOut));
+    ExpectState(m_EndpointOut, false, false, true);
     const size_t submissions = m_Controller.GetTransfer(m_EndpointOut).Submissions;
     EXPECT_FALSE(Request(USB_RequestCode::CLEAR_FEATURE, m_EndpointOut));
     ExpectState(m_EndpointOut, false, false, true);
@@ -459,7 +668,7 @@ TEST_P(USBClientCDCRecoveryTest, FailedDisableResetAndDisconnectPreventRearming)
     m_Controller.IRQSessionEnded();
     CloseChannel();
     m_Controller.SetReady(true);
-    Clear(m_EndpointOut);
+    EXPECT_FALSE(Request(USB_RequestCode::CLEAR_FEATURE, m_EndpointOut));
     EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointOut).Active);
     ExpectError(PErrorCode::PIPE, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
     ExpectError(PErrorCode::PIPE, [this] { m_Channel->Write(m_File, m_Data.data(), 1, 0); });
@@ -479,6 +688,208 @@ TEST_P(USBClientCDCRecoveryTest, SpareCapacityPublishesOnlySuccessfulPayload)
     ExpectError(PErrorCode::IO, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
 }
 
-INSTANTIATE_TEST_SUITE_P(PacketSizes, USBClientCDCRecoveryTest, ::testing::Values(size_t(8), size_t(16), size_t(64)));
+TEST_P(USBClientCDCRecoveryTest, UnhaltedClearPreservesQueuedPayloadAndUnrelatedErrors)
+{
+    auto& receive = m_Controller.GetTransfer(m_EndpointOut);
+    receive.Buffer[0] = 0x5a;
+    QueueCompletion(m_EndpointOut, USB_TransferResult::Success, 1);
+    receive.Data1 = true;
+    Clear(m_EndpointOut);
+    Clear(m_EndpointOut);
+    EXPECT_FALSE(receive.Data1);
+    EXPECT_EQ(GetQueuedEventCount(), 1u);
+    ExpectState(m_EndpointOut, true, true, false);
+    DispatchQueuedCompletion();
+    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), 1, 0), 1u);
+    EXPECT_EQ(m_Data[0], 0x5a);
+
+    ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
+    auto& transmit = m_Controller.GetTransfer(m_EndpointIn);
+    QueueCompletion(m_EndpointIn, USB_TransferResult::Success, m_PacketSize);
+    transmit.Data1 = true;
+    Clear(m_EndpointIn);
+    EXPECT_FALSE(transmit.Data1);
+    EXPECT_EQ(GetQueuedEventCount(), 1u);
+    DispatchQueuedCompletion();
+    EXPECT_TRUE(transmit.Active);
+    EXPECT_EQ(transmit.Length, 0u);
+    Complete(m_EndpointIn, USB_TransferResult::Success, 0);
+
+    QueueCompletion(m_EndpointOut, USB_TransferResult::Failed, 0);
+    Clear(m_EndpointOut);
+    DispatchQueuedCompletion();
+    Clear(m_EndpointOut);
+    EXPECT_FALSE(receive.Active);
+    ExpectError(PErrorCode::IO, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
+}
+
+TEST_P(USBClientCDCRecoveryTest, InterfaceZeroResetsOnlyItsEndpointsAndPreservesChannels)
+{
+    const auto& otherReceive = m_Controller.GetTransfer(m_SecondOut);
+    uint8_t* otherBuffer = otherReceive.Buffer;
+    const size_t otherSubmissions = otherReceive.Submissions;
+    Halt(m_EndpointNotification);
+    Halt(m_EndpointOut);
+    Halt(m_EndpointIn);
+    Halt(m_SecondIn);
+    ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), 7, 0), 7u);
+    m_Channel->Sync(m_File);
+    for (uint8_t endpointAddr : {m_EndpointOut, m_EndpointIn, m_EndpointNotification, m_SecondIn}) {
+        m_Controller.GetTransfer(endpointAddr).Data1 = true;
+    }
+    ASSERT_TRUE(SelectInterface(1));
+    EXPECT_EQ(m_ClassDriver->GetChannel(0), m_Channel);
+    EXPECT_EQ(m_ClassDriver->GetChannel(1), m_SecondChannel);
+    ExpectState(m_EndpointOut, true, true, false);
+    ExpectState(m_EndpointIn, true, true, false);
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointIn).Length, 7u);
+    EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointOut).Data1);
+    EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointIn).Data1);
+    ExpectState(m_EndpointNotification, false, false, true);
+    ExpectState(m_SecondIn, false, false, true);
+    EXPECT_TRUE(m_Controller.GetTransfer(m_EndpointNotification).Data1);
+    EXPECT_TRUE(m_Controller.GetTransfer(m_SecondIn).Data1);
+    EXPECT_EQ(otherReceive.Buffer, otherBuffer);
+    EXPECT_EQ(otherReceive.Submissions, otherSubmissions);
+    EXPECT_TRUE(otherReceive.Active);
+    ASSERT_TRUE(SelectInterface(0));
+    EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointNotification).Data1);
+    ExpectState(m_EndpointNotification, false, false, false);
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointIn).Length, 7u);
+    Complete(m_EndpointIn, USB_TransferResult::Success, 7);
+}
+
+TEST_P(USBClientCDCRecoveryTest, InterfaceReselectionPreservesActiveAndQueuedTransfers)
+{
+    ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
+    auto& transmit = m_Controller.GetTransfer(m_EndpointIn);
+    uint8_t* originalBuffer = transmit.Buffer;
+    const size_t originalSubmissions = transmit.Submissions;
+    m_Controller.GetTransfer(m_EndpointOut).Buffer[0] = 0xa5;
+    QueueCompletion(m_EndpointOut, USB_TransferResult::Success, 1);
+    for (size_t repeat = 0; repeat < 3; ++repeat)
+    {
+        transmit.Data1 = true;
+        ASSERT_TRUE(SelectInterface(1));
+        EXPECT_FALSE(transmit.Data1);
+        EXPECT_EQ(transmit.Buffer, originalBuffer);
+        EXPECT_EQ(transmit.Submissions, originalSubmissions);
+        EXPECT_EQ(GetQueuedEventCount(), 1u);
+    }
+    DispatchQueuedCompletion();
+    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), 1, 0), 1u);
+    EXPECT_EQ(m_Data[0], 0xa5);
+    Complete(m_EndpointIn, USB_TransferResult::Success, m_PacketSize);
+    ASSERT_TRUE(SelectInterface(1));
+    EXPECT_EQ(transmit.Length, 0u);
+    Complete(m_EndpointIn, USB_TransferResult::Success, 0);
+}
+
+TEST_P(USBClientCDCRecoveryTest, InterfaceReselectionPreservesBufferedWritesAndUnrelatedErrors)
+{
+    ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), 7, 0), 7u);
+    ASSERT_TRUE(SelectInterface(1));
+    EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointIn).Active);
+    m_Channel->Sync(m_File);
+    ASSERT_EQ(m_Controller.GetTransfer(m_EndpointIn).Length, 7u);
+    Complete(m_EndpointIn, USB_TransferResult::Success, 7);
+    Complete(m_EndpointOut, USB_TransferResult::Failed, 0);
+    Halt(m_EndpointOut);
+    ASSERT_TRUE(SelectInterface(1));
+    EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointOut).Active);
+    ExpectError(PErrorCode::IO, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
+}
+
+TEST_P(USBClientCDCRecoveryTest, CurrentConfigurationRecreatesChannelsAndResetsEveryEndpoint)
+{
+    ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
+    QueueCompletion(m_EndpointIn, USB_TransferResult::Success, m_PacketSize);
+    Halt(m_EndpointOut);
+    Halt(m_SecondIn);
+    QueueCompletion(USB_MK_IN_ADDRESS(0), USB_TransferResult::Success, 0);
+    for (uint8_t endpointAddr : {m_EndpointNotification, m_EndpointOut, m_EndpointIn,
+            m_SecondNotification, m_SecondOut, m_SecondIn}) {
+        m_Controller.GetTransfer(endpointAddr).Data1 = true;
+    }
+    ASSERT_TRUE(SelectConfiguration(m_ConfigurationValue));
+    EXPECT_EQ(GetQueuedEventCount(), 0u);
+    EXPECT_NE(m_ClassDriver->GetChannel(0), m_Channel);
+    EXPECT_NE(m_ClassDriver->GetChannel(1), m_SecondChannel);
+    ExpectError(PErrorCode::PIPE, [this] { m_Channel->Write(m_File, m_Data.data(), 1, 0); });
+    ExpectError(PErrorCode::PIPE, [this] { m_SecondChannel->Read(m_File, m_Data.data(), 1, 0); });
+    for (uint8_t endpointAddr : {m_EndpointNotification, m_EndpointOut, m_EndpointIn,
+            m_SecondNotification, m_SecondOut, m_SecondIn})
+    {
+        const auto& transfer = m_Controller.GetTransfer(endpointAddr);
+        EXPECT_FALSE(transfer.Halted);
+        EXPECT_FALSE(transfer.Data1);
+        EXPECT_EQ(transfer.ToggleResets, 2u);
+    }
+    EXPECT_TRUE(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Active);
+    EXPECT_EQ(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Length, 0u);
+    m_Channel = m_ClassDriver->GetChannel(0);
+    m_SecondChannel = m_ClassDriver->GetChannel(1);
+    Receive(0x5a, 1);
+    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), 1, 0), 1u);
+    EXPECT_EQ(m_Data[0], 0x5a);
+    ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
+    Complete(m_EndpointIn, USB_TransferResult::Success, m_PacketSize);
+}
+
+TEST_P(USBClientCDCRecoveryTest, UnsupportedSelectionsLeaveBothChannelsUntouched)
+{
+    auto& receive = m_Controller.GetTransfer(m_EndpointOut);
+    uint8_t* originalBuffer = receive.Buffer;
+    const size_t originalResets = receive.ToggleResets;
+    EXPECT_FALSE(SelectInterface(1, 1));
+    EXPECT_FALSE(SelectInterface(4));
+    EXPECT_FALSE(SelectInterface(0x101));
+    EXPECT_FALSE(SelectConfiguration(1));
+    EXPECT_FALSE(SelectConfiguration(0x100 | m_ConfigurationValue));
+    EXPECT_EQ(receive.Buffer, originalBuffer);
+    EXPECT_EQ(receive.ToggleResets, originalResets);
+    EXPECT_EQ(m_ClassDriver->GetChannel(0), m_Channel);
+    EXPECT_EQ(m_ClassDriver->GetChannel(1), m_SecondChannel);
+    EXPECT_FALSE(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Active);
+}
+
+TEST_P(USBClientCDCRecoveryTest, FailedClearAndSelectionOverlapDoNotSubmitStaleDMA)
+{
+    m_Controller.FailNextClear();
+    const size_t submissions = m_Controller.GetTransfer(m_EndpointOut).Submissions;
+    EXPECT_FALSE(Request(USB_RequestCode::CLEAR_FEATURE, m_EndpointOut));
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointOut).Submissions, submissions);
+    EXPECT_FALSE(SelectInterface(1));
+    EXPECT_FALSE(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Active);
+    EXPECT_FALSE(SelectConfiguration(m_ConfigurationValue));
+    EXPECT_EQ(m_ClassDriver->GetChannelCount(), 0u);
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointOut).Submissions, submissions);
+}
+
+TEST_P(USBClientCDCRecoveryTest, ResetDuringConfigurationCleanupPreventsReopening)
+{
+    m_Controller.SetOnCloseAll([this] { m_Controller.IRQBusResetStarted(); });
+    const size_t submissions = m_Controller.GetTransfer(m_EndpointOut).Submissions;
+    EXPECT_FALSE(SelectConfiguration(m_ConfigurationValue));
+    EXPECT_EQ(m_ClassDriver->GetChannelCount(), 0u);
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointOut).Submissions, submissions);
+    EXPECT_FALSE(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Active);
+}
+
+TEST_P(USBClientCDCRecoveryTest, DisconnectDuringInterfaceResetPreventsStatusAndRearming)
+{
+    m_Controller.SetOnClear([this]
+    {
+        m_Controller.SetReady(false);
+        m_Controller.IRQSessionEnded();
+    });
+    Halt(m_EndpointOut);
+    const size_t submissions = m_Controller.GetTransfer(m_EndpointOut).Submissions;
+    EXPECT_FALSE(SelectInterface(1));
+    EXPECT_EQ(m_Controller.GetTransfer(m_EndpointOut).Submissions, submissions);
+    EXPECT_FALSE(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Active);
+}
+
+INSTANTIATE_TEST_SUITE_P(PacketSizes, USBClientCDCRecoveryTest, ::testing::Values(uint16_t(8), uint16_t(16), uint16_t(64)));
 
 } // namespace kernel

@@ -80,6 +80,8 @@ private:
     void        SetTurnaround(USB_Speed speed);
 
     bool        EndpointDisable(uint8_t endpointAddr, bool stall);
+    bool        ResetInEndpointDataToggle(uint8_t endpointNumber);
+    bool        ResetOutEndpointDataToggle(uint8_t endpointNumber);
     bool        StartDMATransfer(uint8_t endpointAddr, uint32_t transferGeneration);
     bool        FinishDMATransfer(uint8_t endpointAddr, bool commitTransfer, bool* shortPacketReceived);
     void        CancelEndpointTransfer(uint8_t endpointAddr);

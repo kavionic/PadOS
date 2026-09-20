@@ -2,13 +2,18 @@
 // Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+// Keep this first: GCC diagnoses GoogleTest registration in STL template definitions.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnoexcept"
+#include <gtest/gtest.h>
+#pragma GCC diagnostic pop
+
 #include <array>
 #include <cstdlib>
 #include <cstring>
 #include <malloc.h>
 #include <memory>
 #include <system_error>
-#include <gtest/gtest.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/USB/USBHost.h>
 #ifdef PADOS_MODULE_USB_HOST
@@ -43,6 +48,9 @@ protected:
         m_Device.m_Driver = &m_Controller;
         m_Device.m_DeviceReady = true;
         m_Device.m_OutEndpoints = m_OutEndpoints.data();
+        m_Device.m_InEndpoints = m_InEndpoints.data();
+        m_Device.m_Port = &m_GlobalRegisters;
+        m_Device.m_Device = &m_DeviceRegisters;
         m_Device.m_DMABounceBuffers = static_cast<uint8_t*>(memalign(__SCB_DCACHE_LINE_SIZE,
             USBDevice_STM32::DMA_BUFFER_COUNT * USBDevice_STM32::DMA_BOUNCE_BUFFER_SIZE));
         ASSERT_NE(m_Device.m_DMABounceBuffers, nullptr);
@@ -57,15 +65,18 @@ protected:
 
     void Configure(size_t packetSize)
     {
+        ASSERT_GT(packetSize, 0u);
         m_Device.CancelEndpointTransfer(m_EndpointOut);
         DeviceTransfer().EndpointMaxSize = packetSize;
 #ifdef PADOS_MODULE_USB_HOST
+        ASSERT_LE(packetSize, USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE);
         CancelHost();
         HostTransfer() = USBHostChannelData();
-        HostTransfer().MaxPacketSize = packetSize;
-        HostTransfer().MaxDMAPacketCount = std::min<size_t>(
-            USB_OTG_HCTSIZ_PKTCNT_Msk >> USB_OTG_HCTSIZ_PKTCNT_Pos, USB_OTG_HCTSIZ_XFRSIZ_Msk / packetSize);
-        HostTransfer().BounceDMAPacketCount = USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE / packetSize;
+        HostTransfer().MaxPacketSize = static_cast<uint16_t>(packetSize);
+        HostTransfer().MaxDMAPacketCount = static_cast<uint16_t>(std::min<size_t>(
+            USB_OTG_HCTSIZ_PKTCNT_Msk >> USB_OTG_HCTSIZ_PKTCNT_Pos,
+            USB_OTG_HCTSIZ_XFRSIZ_Msk / packetSize));
+        HostTransfer().BounceDMAPacketCount = static_cast<uint16_t>(USBHost_STM32::DMA_BOUNCE_BUFFER_SIZE / packetSize);
 #endif
     }
 
@@ -104,6 +115,59 @@ protected:
     }
 
     bool ContinueDevice() { return m_Device.StartDMATransfer(m_EndpointOut, DeviceTransfer().Generation); }
+
+    void CheckToggleReset(USB_TransferType transferType, bool directionIn, bool enabled)
+    {
+        const uint8_t endpointAddr = directionIn ? USB_MK_IN_ADDRESS(1) : m_EndpointOut;
+        m_DeviceRegisters.DCTL = 0;
+        auto& transfer = *m_Device.GetEndpointTranferState(endpointAddr);
+        transfer.EndpointMaxSize = 64;
+        transfer.Buffer = m_Storage.get();
+        transfer.BufferSize = 64;
+        transfer.Generation = 17;
+        transfer.BytesTransferred = 32;
+        transfer.TransferActive = enabled;
+        const uint32_t control = (std::to_underlying(transferType) << USB_OTG_DIEPCTL_EPTYP_Pos)
+            | USB_OTG_DIEPCTL_USBAEP | USB_OTG_DIEPCTL_EONUM_DPID | (enabled ? USB_OTG_DIEPCTL_EPENA : 0);
+        if (directionIn)
+        {
+            m_InEndpoints[1].DIEPCTL = control;
+            m_InEndpoints[1].DIEPINT = USB_OTG_DIEPINT_INEPNE | USB_OTG_DIEPINT_XFRC;
+            m_InEndpoints[1].DIEPTSIZ = 32;
+            m_InEndpoints[1].DIEPDMA = 0x12345678;
+        }
+        else
+        {
+            m_OutEndpoints[1].DOEPCTL = control;
+            m_OutEndpoints[1].DOEPINT = USB_OTG_DOEPINT_XFRC;
+            m_OutEndpoints[1].DOEPTSIZ = 32;
+            m_OutEndpoints[1].DOEPDMA = 0x12345678;
+            m_GlobalRegisters.GINTSTS = USB_OTG_GINTSTS_BOUTNAKEFF;
+        }
+        // RAM supplies the NAK acknowledgements. It cannot emulate read/set bits or the actual PID change.
+        ASSERT_TRUE(m_Device.EndpointClearStall(endpointAddr));
+        EXPECT_EQ(transfer.Buffer, m_Storage.get());
+        EXPECT_EQ(transfer.Generation, 17u);
+        EXPECT_EQ(transfer.BytesTransferred, 32u);
+        EXPECT_EQ(transfer.TransferActive, enabled);
+        if (directionIn)
+        {
+            EXPECT_NE(m_InEndpoints[1].DIEPCTL & USB_OTG_DIEPCTL_SD0PID_SEVNFRM, 0u);
+            EXPECT_EQ(m_InEndpoints[1].DIEPCTL & USB_OTG_DIEPCTL_EPENA, 0u);
+            EXPECT_EQ(m_InEndpoints[1].DIEPINT, USB_OTG_DIEPINT_INEPNE | USB_OTG_DIEPINT_XFRC);
+            EXPECT_EQ(m_InEndpoints[1].DIEPTSIZ, 32u);
+            EXPECT_EQ(m_InEndpoints[1].DIEPDMA, 0x12345678u);
+        }
+        else
+        {
+            EXPECT_NE(m_OutEndpoints[1].DOEPCTL & USB_OTG_DOEPCTL_SD0PID_SEVNFRM, 0u);
+            EXPECT_EQ(m_OutEndpoints[1].DOEPCTL & USB_OTG_DOEPCTL_EPENA, 0u);
+            EXPECT_EQ(m_OutEndpoints[1].DOEPINT, USB_OTG_DOEPINT_XFRC);
+            EXPECT_EQ(m_OutEndpoints[1].DOEPTSIZ, 32u);
+            EXPECT_EQ(m_OutEndpoints[1].DOEPDMA, 0x12345678u);
+            EXPECT_EQ((m_DeviceRegisters.DCTL & USB_OTG_DCTL_CGONAK) != 0, enabled);
+        }
+    }
 
     void CancelDevice() { m_Device.CancelEndpointTransfer(m_EndpointOut); }
 
@@ -163,6 +227,9 @@ protected:
     USBReceiveCapacityController m_Controller;
     USBDevice_STM32 m_Device;
     std::array<USB_OTG_OUTEndpointTypeDef, 2> m_OutEndpoints{};
+    std::array<USB_OTG_INEndpointTypeDef, 2> m_InEndpoints{};
+    USB_OTG_GlobalTypeDef m_GlobalRegisters{};
+    USB_OTG_DeviceTypeDef m_DeviceRegisters{};
     bool m_ShortPacket = false;
 #ifdef PADOS_MODULE_USB_HOST
     USBHost_STM32 m_Host;
@@ -170,6 +237,17 @@ protected:
     USB_OTG_HostChannelTypeDef m_ChannelRegisters{};
 #endif
 };
+
+TEST_F(USBReceiveCapacityTest, ToggleResetWritesData0WithoutChangingTransferOwnership)
+{
+    for (USB_TransferType transferType : {USB_TransferType::BULK, USB_TransferType::INTERRUPT}) {
+        for (bool directionIn : {false, true}) {
+            for (bool enabled : {false, true}) {
+                CheckToggleReset(transferType, directionIn, enabled);
+            }
+        }
+    }
+}
 
 TEST_F(USBReceiveCapacityTest, SmallPacketsKeepOnePacketWindows)
 {

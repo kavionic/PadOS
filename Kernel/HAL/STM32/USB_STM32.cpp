@@ -373,9 +373,6 @@ bool USB_STM32::CoreReset()
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "CoreReset() Timeout while waiting for AHB to become idle.");
         return false;
     }
-    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL) == 0; ) {
-        if (kget_monotonic_time() > endTime) return false;
-    }
 
     // Core soft reset.
     m_Port->GRSTCTL |= USB_OTG_GRSTCTL_CSRST;

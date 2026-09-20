@@ -622,23 +622,21 @@ bool USBDevice::EndpointClearStall(uint8_t endpointAddr)
     kassert(m_Mutex.IsLocked());
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
+    const bool wasStalled = endpoint.Stalled;
 
-    if (endpoint.Stalled)
     {
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Clear stall on endpoint {:02x}.", endpointAddr);
-        {
-            USBIRQDisabler irqDisabler(*m_Driver);
-            if (!m_Driver->EndpointClearStall(endpointAddr)) {
-                return false;
-            }
-            endpoint.Reset();
+        USBIRQDisabler irqDisabler(*m_Driver);
+        // CLEAR_FEATURE resets DATA0 even without a halt. The controller preserves pending transfer ownership.
+        if (!m_Driver->EndpointClearStall(endpointAddr)) {
+            return false;
         }
-        if (USB_ADDRESS_EPNUM(endpointAddr) != 0)
-        {
-            Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
-            if (driver != nullptr) {
-                driver->HandleEndpointHaltCleared(endpointAddr);
-            }
+        endpoint.Stalled = false;
+    }
+    if (wasStalled && USB_ADDRESS_EPNUM(endpointAddr) != 0)
+    {
+        Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
+        if (driver != nullptr) {
+            driver->HandleEndpointHaltCleared(endpointAddr);
         }
     }
     return true;
@@ -754,7 +752,7 @@ void USBDevice::BusReset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice::UnsetConfiguration()
+void USBDevice::UnsetConfiguration(bool resetDeviceState)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -787,7 +785,9 @@ void USBDevice::UnsetConfiguration()
     for (USBEndpointState& endpoint : m_EndpointStates) {
         endpoint.Reset();
     }
-    m_IsAddressed           = false;
+    if (resetDeviceState) {
+        m_IsAddressed = false;
+    }
     m_RemoteWakeupEnabled   = false;
     m_RemoteWakeupSupport   = false;
     m_SelfPowered           = false;
@@ -800,8 +800,11 @@ void USBDevice::UnsetConfiguration()
     m_InterfaceToDriverMap.clear();
     m_EndpointToDriverMap.clear();
 
-    SetIsSuspended(false);
-    SetIsConnected(false);
+    if (resetDeviceState)
+    {
+        SetIsSuspended(false);
+        SetIsConnected(false);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -888,22 +891,26 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
             case USB_RequestCode::SET_CONFIGURATION:
             {
                 const uint8_t configNum = uint8_t(request.wValue & 0xff);
-
-                if (configNum != m_SelectedConfigNum)
+                if (request.wValue > UINT8_MAX || request.wIndex != 0 || request.wLength != 0
+                    || (request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) != 0
+                    || (configNum != 0 && FindConfigurationDescriptor(configNum) == nullptr))
                 {
-                    if (m_SelectedConfigNum != 0)
-                    {
-                        UnsetConfiguration();
-                    }
-                    if (configNum != 0)
-                    {
-                        if (!HandleSelectConfiguration(configNum)) {
-                            return false;
-                        }
-                    }
+                    return false;
                 }
-                m_ControlTransfer.SendControlStatusReply(request);
-                break;
+                // Re-selecting the current configuration has the same channel lifetime as changing it.
+                if (m_SelectedConfigNum != 0) {
+                    UnsetConfiguration(false);
+                }
+                // Class cleanup releases the mutex. Reset/disconnect can invalidate this SETUP in the meantime.
+                if (!m_DispatchEventValid.load(std::memory_order_relaxed)) {
+                    return false;
+                }
+                if (configNum != 0 && !HandleSelectConfiguration(configNum))
+                {
+                    UnsetConfiguration(false);
+                    return false;
+                }
+                return m_ControlTransfer.SendControlStatusReply(request);
             }
             case USB_RequestCode::GET_DESCRIPTOR:
                 if (!HandleGetDescriptor(request)) {
@@ -969,48 +976,48 @@ bool USBDevice::HandleInterfaceControlRequest(const USB_ControlRequest& request)
 {
     kassert(m_Mutex.IsLocked());
 
-    const USB_RequestCode requestCode  = USB_RequestCode(request.bRequest);
-    const uint8_t         interfaceNum = uint8_t(request.wIndex & 0xff);
-
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "{}: {} {}.", __PRETTY_FUNCTION__, int(requestCode), interfaceNum);
+    const USB_RequestCode requestCode = USB_RequestCode(request.bRequest);
+    const uint8_t interfaceNum = uint8_t(request.wIndex & 0xff);
+    const USB_RequestType requestType = USB_RequestType(
+        (request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
 
     Ptr<USBClassDriverDevice> driver = GetInterfaceDriver(interfaceNum);
-    if (driver != nullptr && InvokeClassDriverControlTransfer(driver, request)) {
-        return true;
-    }
-    const USB_RequestType requestType = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
-    if (requestType == USB_RequestType::STANDARD)
-    {
-        // For GET_INTERFACE, SET_INTERFACE and GET_STATUS it is mandatory to respond even if the class driver don't implement them.
-        switch (requestCode)
-        {
-            case USB_RequestCode::GET_INTERFACE:
-            case USB_RequestCode::SET_INTERFACE:
-                m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);
-                if (requestCode == USB_RequestCode::GET_INTERFACE)
-                {
-                    uint8_t alternate = 0;
-                    m_ControlTransfer.SendControlDataReply(request, &alternate, 1);
-                }
-                else
-                {
-                    m_ControlTransfer.SendControlStatusReply(request);
-                }
-                return true;
-            case USB_RequestCode::GET_STATUS:
-            {
-                uint16_t status = 0;
-                m_ControlTransfer.SendControlDataReply(request, &status, sizeof(status));
-                return true;
-            }
-            default:
-                return false;
-        }
-    }
-    else
-    {
+    if (driver == nullptr || request.wIndex > UINT8_MAX || m_SelectedConfigNum == 0) {
         return false;
     }
+    if (requestType == USB_RequestType::STANDARD
+        && (requestCode == USB_RequestCode::GET_INTERFACE || requestCode == USB_RequestCode::SET_INTERFACE))
+    {
+        // The current configuration machinery opens alternate zero only. Never ACK an unimplemented alternate.
+        const USB_DescInterface* interfaceDesc = FindInterfaceDescriptor(interfaceNum);
+        if (request.wValue != 0 || interfaceDesc == nullptr) {
+            return false;
+        }
+        m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);
+        if (requestCode == USB_RequestCode::GET_INTERFACE)
+        {
+            uint8_t alternate = 0;
+            return m_ControlTransfer.SendControlDataReply(request, &alternate, 1);
+        }
+        else
+        {
+            if (request.wLength != 0 || (request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) != 0
+                || !HandleSelectInterface(*interfaceDesc))
+            {
+                return false;
+            }
+            return m_ControlTransfer.SendControlStatusReply(request);
+        }
+    }
+    if (InvokeClassDriverControlTransfer(driver, request)) {
+        return true;
+    }
+    if (requestType == USB_RequestType::STANDARD && requestCode == USB_RequestCode::GET_STATUS)
+    {
+        uint16_t status = 0;
+        return m_ControlTransfer.SendControlDataReply(request, &status, sizeof(status));
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1072,7 +1079,7 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
                     {
                         // STANDARD requests must always be ACKed.
                         m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);
-                        m_ControlTransfer.SendControlStatusReply(request);
+                        return m_ControlTransfer.SendControlStatusReply(request);
                     }
                 }
                 break;
@@ -1089,12 +1096,99 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+const USB_DescConfiguration* USBDevice::FindConfigurationDescriptor(uint8_t configNum) const
+{
+    kassert(m_Mutex.IsLocked());
+
+    for (const auto& descriptorBuffer : m_ConfigDescriptors)
+    {
+        const USB_DescConfiguration* descriptor = GetConfigDescriptor(descriptorBuffer.first);
+        if (descriptor != nullptr && descriptor->bDescriptorType == USB_DescriptorType::CONFIGURATION
+            && descriptor->bConfigurationValue == configNum)
+        {
+            return descriptor;
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const USB_DescInterface* USBDevice::FindInterfaceDescriptor(uint8_t interfaceNum) const
+{
+    kassert(m_Mutex.IsLocked());
+
+    const USB_DescConfiguration* configuration = FindConfigurationDescriptor(m_SelectedConfigNum);
+    if (configuration == nullptr) {
+        return nullptr;
+    }
+    const void* endDesc = reinterpret_cast<const uint8_t*>(configuration) + PLittleEndianToHost(configuration->wTotalLength);
+    for (const USB_DescriptorHeader* descriptor = configuration->GetNext(); descriptor < endDesc;
+        descriptor = descriptor->GetNext())
+    {
+        if (!descriptor->ValidateLength(endDesc)) {
+            return nullptr;
+        }
+        if (descriptor->bDescriptorType == USB_DescriptorType::INTERFACE && descriptor->bLength >= sizeof(USB_DescInterface))
+        {
+            const USB_DescInterface* interfaceDesc = static_cast<const USB_DescInterface*>(descriptor);
+            if (interfaceDesc->bInterfaceNumber == interfaceNum && interfaceDesc->bAlternateSetting == 0) {
+                return interfaceDesc;
+            }
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice::HandleSelectInterface(const USB_DescInterface& interfaceDesc)
+{
+    kassert(m_Mutex.IsLocked());
+
+    const USB_DescConfiguration* configuration = FindConfigurationDescriptor(m_SelectedConfigNum);
+    if (configuration == nullptr) {
+        return false;
+    }
+    const void* endDesc = reinterpret_cast<const uint8_t*>(configuration) + PLittleEndianToHost(configuration->wTotalLength);
+    for (const USB_DescriptorHeader* descriptor = interfaceDesc.GetNext(); descriptor < endDesc;
+        descriptor = descriptor->GetNext())
+    {
+        if (!descriptor->ValidateLength(endDesc)) {
+            return false;
+        }
+        if (descriptor->bDescriptorType == USB_DescriptorType::INTERFACE
+            || descriptor->bDescriptorType == USB_DescriptorType::INTERFACE_ASSOCIATION)
+        {
+            break;
+        }
+        if (descriptor->bDescriptorType == USB_DescriptorType::ENDPOINT)
+        {
+            if (descriptor->bLength < sizeof(USB_DescEndpoint)) {
+                return false;
+            }
+            const USB_DescEndpoint* endpointDesc = static_cast<const USB_DescEndpoint*>(descriptor);
+            if (!EndpointClearStall(endpointDesc->bEndpointAddress)) {
+                return false;
+            }
+        }
+    }
+    return m_DispatchEventValid.load(std::memory_order_relaxed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
 {
     kassert(m_Mutex.IsLocked());
 
-    const uint32_t descriptorIndex = configNum - 1;
-    const USB_DescConfiguration* configDesc = GetConfigDescriptor(descriptorIndex);
+    const USB_DescConfiguration* configDesc = FindConfigurationDescriptor(configNum);
 
     if (configDesc == nullptr || configDesc->bDescriptorType != USB_DescriptorType::CONFIGURATION) {
         return false;
@@ -1121,6 +1215,9 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
         }
 
         const USB_DescInterface* interfaceDesc = static_cast<const USB_DescInterface*>(desc);
+        if (interfaceDesc->bAlternateSetting != 0 || !m_DispatchEventValid.load(std::memory_order_relaxed)) {
+            return false;
+        }
 
         // Find a driver that can handle this interface.
         bool driverFound = false;
@@ -1151,8 +1248,9 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
                 }
                 m_InterfaceToDriverMap[interfaceNum] = driver;
             }
-            // Map endpoints to driver.
-            for (const USB_DescriptorHeader* endpointDesc = interfaceDesc; endpointDesc < endDesc; endpointDesc = endpointDesc->GetNext())
+            // Map only the descriptors consumed by this Open(), not the endpoints of later functions.
+            for (const USB_DescriptorHeader* endpointDesc = interfaceDesc; endpointDesc < nextDesc;
+                endpointDesc = endpointDesc->GetNext())
             {
                 if (endpointDesc->bDescriptorType == USB_DescriptorType::ENDPOINT)
                 {
@@ -1178,6 +1276,9 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
         if (!driverFound) {
             return false;
         }
+    }
+    if (!m_DispatchEventValid.load(std::memory_order_relaxed)) {
+        return false;
     }
     m_SelectedConfigNum = configNum;
     SignalMounted(true);

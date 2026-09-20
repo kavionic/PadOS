@@ -56,7 +56,9 @@ public:
     // Device interface:
     virtual USB_Speed   DeviceGetSpeed() const = 0;
     virtual void        EndpointStall(uint8_t endpointAddr) = 0;
-    // Returns false while reset or controller recovery prevents clearing the halt.
+    // Clear halt and reset DATA0, including on an unhalted bulk/interrupt endpoint.
+    // Preserve pending transfers and their completion events. Hardware failure must block submissions until recovery.
+    // Returns false while reset or controller recovery prevents the operation.
     virtual bool        EndpointClearStall(uint8_t endpointAddr) = 0;
     virtual bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor) = 0;
     virtual void        EndpointClose(uint8_t endpointAddr) = 0;

@@ -237,24 +237,24 @@ bool USBDevice_STM32::EndpointClearStall(uint8_t endpointAddr)
 {
     USBIRQDisabler irqDisabler(*m_Driver);
 
-    if (!m_DeviceReady) {
+    const uint8_t endpointNumber = USB_ADDRESS_EPNUM(endpointAddr);
+    const EndpointTransferState* transfer = GetEndpointTranferState(endpointAddr);
+    if (!m_DeviceReady || endpointNumber == 0 || transfer == nullptr || transfer->EndpointMaxSize == 0) {
         return false;
     }
-
-    const uint8_t epNum = USB_ADDRESS_EPNUM(endpointAddr);
-
-    // Clear stall and reset data toggle.
-    if (endpointAddr & USB_ADDRESS_DIR_IN)
-    {
-        m_InEndpoints[epNum].DIEPCTL &= ~USB_OTG_DIEPCTL_STALL;
-        m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_SD0PID_SEVNFRM;
+    const bool directionIn = (endpointAddr & USB_ADDRESS_DIR_IN) != 0;
+    const uint32_t control = directionIn ? m_InEndpoints[endpointNumber].DIEPCTL : m_OutEndpoints[endpointNumber].DOEPCTL;
+    const USB_TransferType transferType = USB_TransferType((control & USB_OTG_DIEPCTL_EPTYP_Msk) >> USB_OTG_DIEPCTL_EPTYP_Pos);
+    if (transferType != USB_TransferType::BULK && transferType != USB_TransferType::INTERRUPT) {
+        return false;
     }
-    else
-    {
-        m_OutEndpoints[epNum].DOEPCTL &= ~USB_OTG_DOEPCTL_STALL;
-        m_OutEndpoints[epNum].DOEPCTL |= USB_OTG_DOEPCTL_SD0PID_SEVNFRM;
+    // NAK pauses bus traffic without disabling DMA, flushing FIFOs or changing transfer generations.
+    // Neither a queued completion nor an active buffer changes ownership during a successful toggle reset.
+    const bool success = directionIn ? ResetInEndpointDataToggle(endpointNumber) : ResetOutEndpointDataToggle(endpointNumber);
+    if (!success) {
+        RequestRecovery();
     }
-    return true;
+    return success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -865,6 +865,64 @@ bool USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
         }
         // Preserve SETUP status on EP0 while discarding the canceled transfer status.
         m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_XFRC | USB_DEVICE_OUT_ENDPOINT_DMA_ERROR_MASK;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice_STM32::ResetInEndpointDataToggle(uint8_t endpointNumber)
+{
+    USB_OTG_INEndpointTypeDef& endpoint = m_InEndpoints[endpointNumber];
+    const uint32_t initialControl = endpoint.DIEPCTL;
+    const bool wasEnabled = (initialControl & USB_OTG_DIEPCTL_EPENA) != 0;
+    const bool wasNAKing = (initialControl & USB_OTG_DIEPCTL_NAKSTS) != 0;
+
+    // RM0433: wait until SNAK has taken effect in the core before changing the packet PID.
+    // EPENA is read/set: writing zero preserves enable state and cannot restart a concurrent completion.
+    if (wasEnabled)
+    {
+        endpoint.DIEPCTL = (initialControl & ~(USB_OTG_DIEPCTL_EPENA | USB_OTG_DIEPCTL_EPDIS)) | USB_OTG_DIEPCTL_SNAK;
+        if (!WaitForRegisterBitsSet(endpoint.DIEPINT, USB_OTG_DIEPINT_INEPNE)) {
+            return false;
+        }
+    }
+    endpoint.DIEPCTL = (endpoint.DIEPCTL & ~(USB_OTG_DIEPCTL_EPENA | USB_OTG_DIEPCTL_EPDIS | USB_OTG_DIEPCTL_STALL))
+        | USB_OTG_DIEPCTL_SD0PID_SEVNFRM;
+    // A completion/error can arrive during the NAK handshake. Leave its status and core NAK untouched.
+    if (wasEnabled && !wasNAKing && (endpoint.DIEPCTL & USB_OTG_DIEPCTL_EPENA) != 0
+        && (endpoint.DIEPINT & (USB_OTG_DIEPINT_XFRC | USB_DEVICE_IN_ENDPOINT_DMA_ERROR_MASK)) == 0)
+    {
+        endpoint.DIEPCTL = (endpoint.DIEPCTL & ~(USB_OTG_DIEPCTL_EPENA | USB_OTG_DIEPCTL_EPDIS)) | USB_OTG_DIEPCTL_CNAK;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice_STM32::ResetOutEndpointDataToggle(uint8_t endpointNumber)
+{
+    USB_OTG_OUTEndpointTypeDef& endpoint = m_OutEndpoints[endpointNumber];
+    const bool wasEnabled = (endpoint.DOEPCTL & USB_OTG_DOEPCTL_EPENA) != 0;
+    const bool wasGlobalNAKing = (m_Device->DCTL & USB_OTG_DCTL_GONSTS) != 0;
+
+    // Global OUT NAK provides a core acknowledgement; endpoint SNAK alone has no NAK-effective interrupt.
+    if (wasEnabled)
+    {
+        m_Device->DCTL |= USB_OTG_DCTL_SGONAK;
+        if (!WaitForRegisterBitsSet(m_Port->GINTSTS, USB_OTG_GINTSTS_BOUTNAKEFF)) {
+            return false;
+        }
+    }
+    endpoint.DOEPCTL = (endpoint.DOEPCTL & ~(USB_OTG_DOEPCTL_EPENA | USB_OTG_DOEPCTL_EPDIS | USB_OTG_DOEPCTL_STALL))
+        | USB_OTG_DOEPCTL_SD0PID_SEVNFRM;
+    // Preserve endpoint NAK, transfer size, DMA address and completion/error status in both directions.
+    if (wasEnabled && !wasGlobalNAKing) {
+        m_Device->DCTL |= USB_OTG_DCTL_CGONAK;
     }
     return true;
 }

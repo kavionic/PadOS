@@ -151,13 +151,16 @@ private:
 
     void BusReset();
 
-    void UnsetConfiguration();
+    void UnsetConfiguration(bool resetDeviceState = true);
     
     bool HandleControlRequest(const USB_ControlRequest& request);
     bool HandleDeviceControlRequests(const USB_ControlRequest& request);
     bool HandleInterfaceControlRequest(const USB_ControlRequest& request);
     bool HandleEndpointControlRequest(const USB_ControlRequest& request);
 
+    const USB_DescConfiguration* FindConfigurationDescriptor(uint8_t configNum) const;
+    const USB_DescInterface* FindInterfaceDescriptor(uint8_t interfaceNum) const;
+    bool HandleSelectInterface(const USB_DescInterface& interfaceDesc);
     bool HandleSelectConfiguration(uint8_t configNum);
     bool HandleGetDescriptor(const USB_ControlRequest& request);
     bool InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> driver, const USB_ControlRequest& request);

@@ -1,4 +1,8 @@
+// Keep this first: GCC diagnoses GoogleTest registration in STL template definitions.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnoexcept"
 #include <gtest/gtest.h>
+#pragma GCC diagnostic pop
 
 #include <Kernel/USB/ClassDrivers/USBHIDReportParser.h>
 

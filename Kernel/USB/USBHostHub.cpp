@@ -466,7 +466,6 @@ void USBHostHub::HandlePortStatusResult(bool result, uint8_t hubAddress, uint8_t
     const uint16_t portChange = PLittleEndianToHost(status->wPortChange);
     USBDeviceNode* device = m_Host->GetDeviceOnHubPort(hubAddress, portIndex);
 
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     if (device != nullptr)
     {
         kernel_log<PLogSeverity::WARNING>(
@@ -479,7 +478,6 @@ void USBHostHub::HandlePortStatusResult(bool result, uint8_t hubAddress, uint8_t
             portChange
         );
     }
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if ((portChange & USB_HubPortStatus::PORT_CHANGE_CONNECTION) != 0)
     {
@@ -583,7 +581,6 @@ void USBHostHub::HandlePortResetStatusResult(bool result, uint8_t hubAddress, ui
     const uint16_t portStatus = PLittleEndianToHost(status->wPortStatus);
     const uint16_t portChange = PLittleEndianToHost(status->wPortChange);
 
-#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     kernel_log<PLogSeverity::INFO_LOW_VOL>(
         LogCategoryUSBHost,
         "Hub {} port {} reset result: status=0x{:04x}, change=0x{:04x}, enumeration-retry={}.",
@@ -593,7 +590,6 @@ void USBHostHub::HandlePortResetStatusResult(bool result, uint8_t hubAddress, ui
         portChange,
         m_PortEnumerationErrorCount
     );
-#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if ((portChange & USB_HubPortStatus::PORT_CHANGE_RESET) != 0)
     {

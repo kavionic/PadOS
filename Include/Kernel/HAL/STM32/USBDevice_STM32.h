@@ -55,11 +55,14 @@ public:
     bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor);
     void        EndpointClose(uint8_t endpointAddr);
     void        EndpointCloseAll();
-    bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength);
+    // receiveCapacity follows USB_TransferSegment::ReceiveCapacity; ignored for transmit.
+    bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength, size_t receiveCapacity = 0);
     bool        SetAddress(uint8_t deviceAddr);
     bool        ActivateRemoteWakeup(bool activate);
 
 private:
+    friend class USBReceiveCapacityTest;
+
     static constexpr uint32_t ENDPOINT_COUNT = 9;
     static constexpr size_t DMA_BOUNCE_BUFFER_SIZE = 1024;
     static constexpr size_t DMA_BUFFER_COUNT = ENDPOINT_COUNT * 2;
@@ -109,6 +112,7 @@ private:
             ++Generation;
             Buffer = nullptr;
             BufferSize = 0;
+            ReceiveCapacity = 0;
             BytesTransferred = 0;
             DMATransferBuffer = nullptr;
             DMATransferSize = 0;
@@ -127,6 +131,7 @@ private:
 
         uint8_t*    Buffer = nullptr;
         size_t      BufferSize = 0;
+        size_t      ReceiveCapacity = 0;
         size_t      BytesTransferred = 0;
         uint8_t*    DMATransferBuffer = nullptr;
         size_t      DMATransferSize = 0;

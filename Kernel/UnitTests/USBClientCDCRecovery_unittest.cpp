@@ -27,6 +27,7 @@ public:
     {
         uint8_t* Buffer = nullptr;
         size_t Length = 0;
+        size_t ReceiveCapacity = 0;
         size_t Submissions = 0;
         size_t Clears = 0;
         bool Active = false;
@@ -77,7 +78,7 @@ public:
         return true;
     }
 
-    bool EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength) override
+    bool EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength, size_t receiveCapacity = 0) override
     {
         Transfer& transfer = GetTransfer(endpointAddr);
         if (!m_Ready || m_FailNextSubmission || transfer.Active || transfer.Halted)
@@ -87,6 +88,10 @@ public:
         }
         transfer.Buffer = static_cast<uint8_t*>(buffer);
         transfer.Length = totalLength;
+        transfer.ReceiveCapacity = receiveCapacity;
+        if (endpointAddr == USB_MK_OUT_ADDRESS(1)) {
+            EXPECT_EQ(receiveCapacity, std::max<size_t>(totalLength, __SCB_DCACHE_LINE_SIZE));
+        }
         transfer.Active = true;
         ++transfer.Submissions;
         return true;
@@ -111,11 +116,12 @@ private:
     bool m_FailNextDisable = false;
 };
 
-class USBClientCDCRecoveryTest : public ::testing::Test
+class USBClientCDCRecoveryTest : public ::testing::TestWithParam<size_t>
 {
 protected:
     void SetUp() override
     {
+        m_PacketSize = GetParam();
         m_ClassDriver = ptr_new<USBClientClassCDC>();
         m_Channel = ptr_new<USBClientCDCChannel>(&m_Device, 0, m_EndpointOut, m_EndpointIn, m_PacketSize, m_PacketSize);
         m_File = ptr_new<KFileNode>(O_RDWR | O_NONBLOCK);
@@ -234,7 +240,7 @@ protected:
 
     static constexpr uint8_t m_EndpointOut = USB_MK_OUT_ADDRESS(1);
     static constexpr uint8_t m_EndpointIn = USB_MK_IN_ADDRESS(1);
-    static constexpr size_t m_PacketSize = 64;
+    size_t m_PacketSize = 0;
 
     USBClientCDCRecoveryController m_Controller;
     USBDevice m_Device;
@@ -244,7 +250,7 @@ protected:
     std::array<uint8_t, 2048> m_Data{};
 };
 
-TEST_F(USBClientCDCRecoveryTest, ActiveOutRecoversAndWakesReaders)
+TEST_P(USBClientCDCRecoveryTest, ActiveOutRecoversAndWakesReaders)
 {
     KThreadWaitNode listener;
     PScopeExit detachListener([&listener] { listener.Detatch(); });
@@ -257,13 +263,14 @@ TEST_F(USBClientCDCRecoveryTest, ActiveOutRecoversAndWakesReaders)
     ExpectState(m_EndpointOut, true, true, false);
     ASSERT_TRUE(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Active);
     EXPECT_EQ(m_Controller.GetTransfer(USB_MK_IN_ADDRESS(0)).Length, 0u);
-    Receive(0x5a, 13);
-    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), m_Data.size(), 0), 13u);
+    const size_t receivedLength = std::min<size_t>(13, m_PacketSize);
+    Receive(0x5a, receivedLength);
+    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), m_Data.size(), 0), receivedLength);
     EXPECT_EQ(m_Data[0], 0x5a);
     EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), 1, 0), 0u);
 }
 
-TEST_F(USBClientCDCRecoveryTest, FullReceiveQueueRearmsOnlyAfterAWholeBlockIsDrained)
+TEST_P(USBClientCDCRecoveryTest, FullReceiveQueueRearmsOnlyAfterAWholeBlockIsDrained)
 {
     size_t packetCount = 0;
     while (m_Controller.GetTransfer(m_EndpointOut).Active)
@@ -289,7 +296,7 @@ TEST_F(USBClientCDCRecoveryTest, FullReceiveQueueRearmsOnlyAfterAWholeBlockIsDra
     EXPECT_EQ(m_Data[0], 0xa5);
 }
 
-TEST_F(USBClientCDCRecoveryTest, ActiveInDropsOnlyTheCanceledBlockAndWakesWriters)
+TEST_P(USBClientCDCRecoveryTest, ActiveInDropsOnlyTheCanceledBlockAndWakesWriters)
 {
     ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
     std::memset(m_Data.data(), 0xa5, m_Data.size());
@@ -317,7 +324,7 @@ TEST_F(USBClientCDCRecoveryTest, ActiveInDropsOnlyTheCanceledBlockAndWakesWriter
     EXPECT_FALSE(m_Channel->AddListener(&listener, ObjectWaitMode::Write));
 }
 
-TEST_F(USBClientCDCRecoveryTest, IdleInPreservesBufferedWritesAndRemembersSync)
+TEST_P(USBClientCDCRecoveryTest, IdleInPreservesBufferedWritesAndRemembersSync)
 {
     ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), 7, 0), 7u);
     Halt(m_EndpointIn);
@@ -339,7 +346,7 @@ TEST_F(USBClientCDCRecoveryTest, IdleInPreservesBufferedWritesAndRemembersSync)
     EXPECT_EQ(m_Controller.GetTransfer(m_EndpointIn).Length, 9u);
 }
 
-TEST_F(USBClientCDCRecoveryTest, CanceledZLPOwnsNoBlockAndRetainsTermination)
+TEST_P(USBClientCDCRecoveryTest, CanceledZLPOwnsNoBlockAndRetainsTermination)
 {
     ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
     Complete(m_EndpointIn, USB_TransferResult::Success, m_PacketSize);
@@ -357,7 +364,7 @@ TEST_F(USBClientCDCRecoveryTest, CanceledZLPOwnsNoBlockAndRetainsTermination)
     EXPECT_FALSE(m_Controller.GetTransfer(m_EndpointIn).Active);
 }
 
-TEST_F(USBClientCDCRecoveryTest, RepeatedHaltAndClearDoNotDisturbAnUnhaltedTransfer)
+TEST_P(USBClientCDCRecoveryTest, RepeatedHaltAndClearDoNotDisturbAnUnhaltedTransfer)
 {
     ASSERT_EQ(m_Channel->Write(m_File, m_Data.data(), m_PacketSize, 0), m_PacketSize);
     for (uint8_t endpointAddr : {m_EndpointOut, m_EndpointIn})
@@ -387,7 +394,7 @@ TEST_F(USBClientCDCRecoveryTest, RepeatedHaltAndClearDoNotDisturbAnUnhaltedTrans
     }
 }
 
-TEST_F(USBClientCDCRecoveryTest, QueuedCompletionsAreConsumedBeforeRearming)
+TEST_P(USBClientCDCRecoveryTest, QueuedCompletionsAreConsumedBeforeRearming)
 {
     auto& receive = m_Controller.GetTransfer(m_EndpointOut);
     receive.Buffer[0] = 0x5a;
@@ -410,7 +417,7 @@ TEST_F(USBClientCDCRecoveryTest, QueuedCompletionsAreConsumedBeforeRearming)
     ExpectError(PErrorCode::IO, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
 }
 
-TEST_F(USBClientCDCRecoveryTest, UnrelatedCompletionAndSubmissionErrorsRemainLatched)
+TEST_P(USBClientCDCRecoveryTest, UnrelatedCompletionAndSubmissionErrorsRemainLatched)
 {
     Complete(m_EndpointOut, USB_TransferResult::Failed, 0);
     Halt(m_EndpointOut);
@@ -426,7 +433,7 @@ TEST_F(USBClientCDCRecoveryTest, UnrelatedCompletionAndSubmissionErrorsRemainLat
     ExpectError(PErrorCode::IO, [this] { m_Channel->Sync(m_File); });
 }
 
-TEST_F(USBClientCDCRecoveryTest, FailedRecoverySubmissionIsNotClearedByAnotherHalt)
+TEST_P(USBClientCDCRecoveryTest, FailedRecoverySubmissionIsNotClearedByAnotherHalt)
 {
     Halt(m_EndpointOut);
     m_Controller.FailNextSubmission();
@@ -438,7 +445,7 @@ TEST_F(USBClientCDCRecoveryTest, FailedRecoverySubmissionIsNotClearedByAnotherHa
     ExpectError(PErrorCode::IO, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
 }
 
-TEST_F(USBClientCDCRecoveryTest, FailedDisableResetAndDisconnectPreventRearming)
+TEST_P(USBClientCDCRecoveryTest, FailedDisableResetAndDisconnectPreventRearming)
 {
     m_Controller.FailNextDisable();
     Halt(m_EndpointOut);
@@ -457,5 +464,21 @@ TEST_F(USBClientCDCRecoveryTest, FailedDisableResetAndDisconnectPreventRearming)
     ExpectError(PErrorCode::PIPE, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
     ExpectError(PErrorCode::PIPE, [this] { m_Channel->Write(m_File, m_Data.data(), 1, 0); });
 }
+
+TEST_P(USBClientCDCRecoveryTest, SpareCapacityPublishesOnlySuccessfulPayload)
+{
+    const auto& transfer = m_Controller.GetTransfer(m_EndpointOut);
+    EXPECT_EQ(transfer.Length, m_PacketSize);
+    EXPECT_EQ(transfer.ReceiveCapacity, std::max<size_t>(m_PacketSize, __SCB_DCACHE_LINE_SIZE));
+    Receive(0, 0);
+    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), m_Data.size(), 0), 0u);
+    Receive(0x5a, m_PacketSize - 1);
+    EXPECT_EQ(m_Channel->Read(m_File, m_Data.data(), m_Data.size(), 0), m_PacketSize - 1);
+    Complete(m_EndpointOut, USB_TransferResult::Success, m_PacketSize + 1);
+    EXPECT_FALSE(transfer.Active);
+    ExpectError(PErrorCode::IO, [this] { m_Channel->Read(m_File, m_Data.data(), 1, 0); });
+}
+
+INSTANTIATE_TEST_SUITE_P(PacketSizes, USBClientCDCRecoveryTest, ::testing::Values(size_t(8), size_t(16), size_t(64)));
 
 } // namespace kernel

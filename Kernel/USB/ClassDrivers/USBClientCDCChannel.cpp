@@ -579,7 +579,8 @@ bool USBClientCDCChannel::StartOutTransaction_pl()
         m_Buffers.GetReceiveQueue().CompleteReceive(0);
         return false;
     }
-    m_ReceiveActive = m_DeviceHandler->EndpointTransfer(m_EndpointOut, storage, m_ReceivePacketSize);
+    m_ReceiveActive = m_DeviceHandler->EndpointTransfer(
+        m_EndpointOut, storage, m_ReceivePacketSize, m_Buffers.GetReceiveQueue().GetBlockSize());
     if (!m_ReceiveActive)
     {
         m_Buffers.GetReceiveQueue().CompleteReceive(0);

@@ -132,7 +132,8 @@ public:
     void EndpointSetStall(uint8_t endpointAddr);
     bool EndpointClearStall(uint8_t endpointAddr);
     bool IsEndpointStalled(uint8_t endpointAddr);
-    bool EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t length);
+    // receiveCapacity follows USB_TransferSegment::ReceiveCapacity; ignored for transmit.
+    bool EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t length, size_t receiveCapacity = 0);
 
     Signal<void, bool/*isConnected*/>           SignalConnected;
     Signal<void, bool/*isMounted*/>             SignalMounted;

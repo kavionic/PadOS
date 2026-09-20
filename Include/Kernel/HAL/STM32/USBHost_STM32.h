@@ -93,6 +93,7 @@ struct USBHostChannelData
     size_t                      XferSize;                       // Current OTG Channel transfer size.
     size_t                      TransferDataLength = 0;         // Caller-visible bytes represented by the current DMA transfer.
     size_t                      RequestedTransferLength;        // Transfer length as requested by user.
+    size_t                      ReceiveCapacity = 0;            // Single-buffer ownership; vectors retain per-segment capacity.
     size_t                      BytesTransferred;               // Bytes transferred so far during the transaction.
     uint32_t                    TransferPacketCount = 0;        // Packets programmed for the current DMA transfer.
     USB_URBState                PendingHaltURBState = USB_URBState::Idle; // Terminal state reported after the channel halt completes.
@@ -168,6 +169,8 @@ public:
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 private:
+    friend class USBReceiveCapacityTest;
+
     void RequestRecovery();
     void SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state);
 

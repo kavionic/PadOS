@@ -642,6 +642,18 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
     }
 #endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
+    if (direction == USB_RequestDirection::DEVICE_TO_HOST)
+    {
+        size_t remainingLength = length;
+        for (size_t i = 0; i < segmentCount && remainingLength != 0; ++i)
+        {
+            if (segments[i].ReceiveCapacity != 0 && segments[i].ReceiveCapacity < segments[i].Length) {
+                return false;
+            }
+            remainingLength -= std::min(remainingLength, segments[i].Length);
+        }
+    }
+
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
     if (channel.CancelHaltPending || channel.DMATransferActive) {
         return false;
@@ -699,6 +711,7 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
     channel.TransferBuffer           = static_cast<uint8_t*>(segments[0].Buffer);
     channel.TransferDataLength      = 0;
     channel.RequestedTransferLength = length;
+    channel.ReceiveCapacity         = (segmentCount == 1) ? segments[0].ReceiveCapacity : 0;
     channel.URBState                = USB_URBState::Idle;
     channel.PendingHaltURBState     = USB_URBState::Idle;
     channel.BytesTransferred        = 0;
@@ -1155,19 +1168,24 @@ uint32_t USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex)
 
     uint8_t* transferBuffer = m_DMABounceBuffers[pipeIndex];
     size_t segmentRemainingLength = 0;
+    size_t remainingCapacity = 0;
     if (remainingLength != 0)
     {
         if (channel.TransferSegments != nullptr)
         {
             const USB_TransferSegment& segment = channel.TransferSegments[channel.TransferSegmentIndex];
             transferBuffer = channel.TransferBuffer;
-            segmentRemainingLength = reinterpret_cast<uintptr_t>(segment.Buffer) + segment.Length
-                - reinterpret_cast<uintptr_t>(transferBuffer);
+            const size_t segmentOffset
+                = reinterpret_cast<uintptr_t>(transferBuffer) - reinterpret_cast<uintptr_t>(segment.Buffer);
+            segmentRemainingLength = segment.Length - segmentOffset;
+            remainingCapacity = (segment.ReceiveCapacity > segmentOffset) ? segment.ReceiveCapacity - segmentOffset : 0;
         }
         else
         {
             transferBuffer = channel.TransferBuffer + channel.BytesTransferred;
             segmentRemainingLength = remainingLength;
+            remainingCapacity = (channel.ReceiveCapacity > channel.BytesTransferred)
+                ? channel.ReceiveCapacity - channel.BytesTransferred : 0;
         }
     }
     const size_t availableLength = std::min(remainingLength, segmentRemainingLength);
@@ -1179,7 +1197,8 @@ uint32_t USBHost_STM32::PrepareDMATransfer(USB_PipeIndex pipeIndex)
     const bool receive = channel.Direction == USB_RequestDirection::DEVICE_TO_HOST;
     size_t directDataLength = std::min(availableLength, static_cast<size_t>(channel.MaxDMAPacketCount) * channel.MaxPacketSize);
     if (receive) {
-        directDataLength = USB_STM32::GetDirectDMAReceiveLength(transferBuffer, directDataLength, channel.MaxPacketSize);
+        directDataLength = USB_STM32::GetDirectDMAReceiveLength(
+            transferBuffer, directDataLength, channel.MaxPacketSize, remainingCapacity);
     }
     const bool useDirectDMA = directDataLength != 0
         && (receive || USB_STM32::IsDirectDMATransmitBuffer(transferBuffer, directDataLength));

@@ -70,6 +70,8 @@ public:
     Signal<void, USBHostClassCDC*, const USB_CDC_LineCoding&>  SignalLineCodingChanged;
 
 private:
+    friend class USBHostCDCReceiveTest;
+
     void    ReqGetLineCoding(USB_CDC_LineCoding* linecoding);
     void    ReqSetLineCoding(USB_CDC_LineCoding* linecoding);
     void    FlushInternal_pl();

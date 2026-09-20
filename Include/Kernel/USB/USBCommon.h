@@ -55,6 +55,12 @@ struct USB_TransferSegment
 {
     void*  Buffer = nullptr;
     size_t Length = 0;
+    // Receive-only storage extent from Buffer. Zero preserves the existing payload-only DMA policy.
+    // A nonzero capacity must cover Length. The caller grants exclusive DMA/cache-maintenance ownership
+    // of every affected cache line until completion or synchronous cancellation, including padding.
+    // Each segment grants ownership independently; adjacent segments do not imply shared cache-line ownership.
+    // Capacity never increases the requested payload, packet count, or successful completion length.
+    size_t ReceiveCapacity = 0;
 };
 
 const char* USB_GetSpeedName(USB_Speed speed);

@@ -587,9 +587,11 @@ bool USBHost::GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, USB_TransactionCallback&& callback)
+bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
+        USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length,
+        USB_TransactionCallback&& callback, size_t receiveCapacity)
 {
-    const USB_TransferSegment segment = {buffer, length};
+    const USB_TransferSegment segment = {buffer, length, receiveCapacity};
     return SubmitVectorURB(pipeIndex, direction, enpointType, initialPID, &segment, 1, length, std::move(callback));
 }
 
@@ -669,9 +671,11 @@ bool USBHost::BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback)
+bool USBHost::BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length,
+        USB_TransactionCallback&& callback, size_t receiveCapacity)
 {
-    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK, USBH_InitialTransactionPID::Data, buffer, length, std::move(callback));
+    return SubmitURB(pipeIndex, USB_RequestDirection::DEVICE_TO_HOST, USB_TransferType::BULK,
+        USBH_InitialTransactionPID::Data, buffer, length, std::move(callback), receiveCapacity);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

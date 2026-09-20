@@ -94,15 +94,27 @@ bool USB_STM32::IsDirectDMAReceiveBuffer(const void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t USB_STM32::GetDirectDMAReceiveLength(const void* buffer, size_t length, size_t packetSize)
+size_t USB_STM32::GetDirectDMAReceiveLength(const void* buffer, size_t length, size_t packetSize, size_t receiveCapacity)
 {
     if ((reinterpret_cast<uintptr_t>(buffer) % __SCB_DCACHE_LINE_SIZE) == 0)
     {
-        // The cache-line size is a power of two, so the common factor depends only on trailing zero bits.
-        const int commonAlignmentShift = std::min(std::countr_zero(packetSize), std::countr_zero(size_t(__SCB_DCACHE_LINE_SIZE)));
-        const size_t chunkAlignment = (packetSize >> commonAlignmentShift) * __SCB_DCACHE_LINE_SIZE;
-        const size_t directLength = length - length % chunkAlignment;
-        return (directLength != 0 && IsDMABufferAccessible(buffer, directLength)) ? directLength : 0;
+        size_t directLength;
+        if (receiveCapacity != 0)
+        {
+            // Hardware still receives complete packets; only cache maintenance may use the owned padding.
+            const size_t availableLength = std::min(length, receiveCapacity - receiveCapacity % __SCB_DCACHE_LINE_SIZE);
+            directLength = availableLength - availableLength % packetSize;
+        }
+        else
+        {
+            // The cache-line size is a power of two, so the common factor depends only on trailing zero bits.
+            const int commonAlignmentShift = std::min(
+                std::countr_zero(packetSize), std::countr_zero(size_t(__SCB_DCACHE_LINE_SIZE)));
+            const size_t chunkAlignment = (packetSize >> commonAlignmentShift) * __SCB_DCACHE_LINE_SIZE;
+            directLength = length - length % chunkAlignment;
+        }
+        const size_t cacheLength = align_up(directLength, __SCB_DCACHE_LINE_SIZE);
+        return (directLength != 0 && IsDMABufferAccessible(buffer, cacheLength)) ? directLength : 0;
     }
     return 0;
 }

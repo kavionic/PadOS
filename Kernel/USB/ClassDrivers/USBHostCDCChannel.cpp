@@ -578,7 +578,7 @@ void USBHostCDCChannel::SubmitReceive_pl()
     kassert(m_HostHandler->GetMutex().IsLocked());
     kassert(m_ReceiveBuffer != nullptr);
     if (!m_HostHandler->BulkReceiveData(m_DataPipeIn, m_ReceiveBuffer, m_DataEndpointInSize,
-            p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback)))
+            p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback), m_Buffers->GetReceiveQueue().GetBlockSize()))
     {
         m_Buffers->GetReceiveQueue().CompleteReceive(0);
         m_ReceiveBuffer = nullptr;

@@ -61,7 +61,8 @@ public:
     virtual bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor) = 0;
     virtual void        EndpointClose(uint8_t endpointAddr) = 0;
     virtual void        EndpointCloseAll() = 0;
-    virtual bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength) = 0;
+    // receiveCapacity follows USB_TransferSegment::ReceiveCapacity; ignored for transmit.
+    virtual bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength, size_t receiveCapacity = 0) = 0;
     virtual bool        SetAddress(uint8_t deviceAddr) = 0;  // Return 'true' if a response needs to be sent.
 
     // Called after the device thread has cleaned up the matching BusReset event.

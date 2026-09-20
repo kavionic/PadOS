@@ -66,7 +66,8 @@ public:
     // Receive buffers and bounce allocations must own complete cache lines.
     static bool IsDirectDMAReceiveBuffer(const void* buffer, size_t length);
     // length is bounded by the current caller segment and hardware transfer limits; packetSize must be nonzero.
-    static size_t GetDirectDMAReceiveLength(const void* buffer, size_t length, size_t packetSize);
+    // receiveCapacity grants cache-line ownership as specified by USB_TransferSegment::ReceiveCapacity.
+    static size_t GetDirectDMAReceiveLength(const void* buffer, size_t length, size_t packetSize, size_t receiveCapacity = 0);
     static void CleanDMATransmitBuffer(const void* buffer, size_t length);
 
     bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
@@ -91,7 +92,10 @@ public:
     virtual bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor) override   { return m_DeviceDriver.EndpointOpen(endpointDescriptor); }
     virtual void        EndpointClose(uint8_t endpointAddr) override                        { m_DeviceDriver.EndpointClose(endpointAddr); }
     virtual void        EndpointCloseAll() override                                         { m_DeviceDriver.EndpointCloseAll(); }
-    virtual bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength) override { return m_DeviceDriver.EndpointTransfer(endpointAddr, buffer, totalLength); }
+    virtual bool EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength, size_t receiveCapacity = 0) override
+    {
+        return m_DeviceDriver.EndpointTransfer(endpointAddr, buffer, totalLength, receiveCapacity);
+    }
     virtual bool        SetAddress(uint8_t deviceAddr) override                             { return m_DeviceDriver.SetAddress(deviceAddr); }
 
     virtual bool        CompleteDeviceReset(uint32_t generation) override { return m_DeviceDriver.CompleteDeviceReset(generation); }

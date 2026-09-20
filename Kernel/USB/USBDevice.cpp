@@ -660,7 +660,7 @@ bool USBDevice::IsEndpointStalled(uint8_t endpointAddr)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t length)
+bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t length, size_t receiveCapacity)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -676,7 +676,7 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
     }
     endpoint.Busy = true;
 
-    if (m_Driver->EndpointTransfer(endpointAddr, buffer, length))
+    if (m_Driver->EndpointTransfer(endpointAddr, buffer, length, receiveCapacity))
     {
         return true;
     }

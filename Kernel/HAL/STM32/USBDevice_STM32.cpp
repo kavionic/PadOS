@@ -429,11 +429,14 @@ void USBDevice_STM32::EndpointCloseAll()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBDevice_STM32::EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength)
+bool USBDevice_STM32::EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength, size_t receiveCapacity)
 {
     EndpointTransferState* transfer = GetEndpointTranferState(endpointAddr);
 
     if (totalLength != 0 && buffer == nullptr) {
+        return false;
+    }
+    if ((endpointAddr & USB_ADDRESS_DIR_IN) == 0 && receiveCapacity != 0 && receiveCapacity < totalLength) {
         return false;
     }
 
@@ -448,6 +451,7 @@ bool USBDevice_STM32::EndpointTransfer(uint8_t endpointAddr, void* buffer, size_
         transfer->ResetTransfer();
         transfer->Buffer = static_cast<uint8_t*>(buffer);
         transfer->BufferSize = totalLength;
+        transfer->ReceiveCapacity = receiveCapacity;
         transfer->TransferActive = true;
         transferGeneration = transfer->Generation;
     }
@@ -877,6 +881,7 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
 
     size_t endpointMaxSize;
     size_t remainingLength;
+    size_t remainingCapacity;
     uint8_t* callerBuffer;
     {
         USBIRQDisabler irqDisabler(*m_Driver);
@@ -889,6 +894,8 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
 
         endpointMaxSize = transfer->EndpointMaxSize;
         remainingLength = transfer->BufferSize - transfer->BytesTransferred;
+        remainingCapacity = (transfer->ReceiveCapacity > transfer->BytesTransferred)
+            ? transfer->ReceiveCapacity - transfer->BytesTransferred : 0;
         callerBuffer = (remainingLength != 0) ? transfer->Buffer + transfer->BytesTransferred : nullptr;
     }
 
@@ -914,7 +921,8 @@ bool USBDevice_STM32::StartDMATransfer(uint8_t endpointAddr, uint32_t transferGe
 
     size_t directDataLength = std::min(remainingLength, maximumPacketCount * endpointMaxSize);
     if (!directionIn) {
-        directDataLength = USB_STM32::GetDirectDMAReceiveLength(callerBuffer, directDataLength, endpointMaxSize);
+        directDataLength = USB_STM32::GetDirectDMAReceiveLength(
+            callerBuffer, directDataLength, endpointMaxSize, remainingCapacity);
     }
     const bool useDirectDMA = directDataLength != 0
         && (!directionIn || USB_STM32::IsDirectDMATransmitBuffer(callerBuffer, directDataLength));

@@ -6,5 +6,6 @@ target_sources(PadOS_Kernel_Unconditional PRIVATE
 if(PADOS_DRIVER_USB)
     target_sources(PadOS_Kernel_Unconditional PRIVATE
         USBClientCDCRecovery_unittest.cpp
+        USBReceiveCapacity_unittest.cpp
     )
 endif()

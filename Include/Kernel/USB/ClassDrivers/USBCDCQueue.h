@@ -26,6 +26,7 @@ public:
     }
 
     size_t GetLength() const { return m_Length; }
+    size_t GetBlockSize() const { return m_BlockSize; }
     size_t GetWriteSpace() const
     {
         size_t available = (m_Blocks.size() - m_Count) * m_BlockSize;

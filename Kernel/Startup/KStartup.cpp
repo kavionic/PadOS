@@ -26,6 +26,7 @@
 #include <Threads/ThreadUserspaceState.h>
 
 #include <Kernel/KThreadCB.h>
+#include <Kernel/KUserspaceService.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
@@ -297,7 +298,15 @@ static void* init_thread_entry(void* arguments)
             zombie->SetState(ThreadState_Deleted);
 
 #ifdef PADOS_MODULE_USER_SPACE
-            p_thread_reaper_schedule_cleanup(zombie->m_ThreadUserData);
+            if (zombie->m_ThreadUserData != nullptr)
+            {
+                const PErrorCode cleanupResult = kuserspace_service_schedule_thread_cleanup(zombie->m_ThreadUserData);
+                if (cleanupResult != PErrorCode::Success) {
+                    panic("User-space service failed to clean up a thread.\n");
+                }
+                zombie->m_ThreadUserData = nullptr;
+                zombie->m_UserspaceTLS = nullptr;
+            }
 #endif // PADOS_MODULE_USER_SPACE
 
             try

@@ -59,3 +59,7 @@ if(PADOS_MODULE_POSIX_SPAWN)
 		KPosixSpawn.cpp
 	)
 endif()
+
+if(PADOS_MODULE_USER_SPACE)
+	target_sources(PadOS_KernelExt PRIVATE KUserspaceService.cpp)
+endif()

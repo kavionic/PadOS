@@ -92,7 +92,7 @@ PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* inAttribs, T
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-__attribute__((naked)) void thread_exit(void* returnValue)
+__attribute__((naked, no_instrument_function)) void thread_exit(void* returnValue)
 {
     __asm volatile (
     "ldr    r12, =%0\n"
@@ -233,52 +233,6 @@ void delete_thread_user_data(PThreadUserData* threadData)
         delete_thread_tls_block(threadData->TLSData);
     }
     delete threadData;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void p_thread_reaper_run()
-{
-    sem_id semaphore;
-    semaphore_create(&semaphore, "zombie_thread_usr", CLOCK_MONOTONIC_COARSE, 0);
-
-    __app_definition.ThreadReaperQueue->Semaphore = semaphore;
-
-    for (;;)
-    {
-        semaphore_acquire(semaphore);
-
-        PThreadUserData* currentThread = __app_definition.ThreadReaperQueue->FirstZombie.exchange(nullptr, std::memory_order_acquire);
-
-        while (currentThread != nullptr)
-        {
-            PThreadUserData* nextThread = currentThread->NextZombie;
-
-            delete_thread_user_data(currentThread);
-
-            currentThread = nextThread;
-        }
-
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void p_thread_reaper_schedule_cleanup(PThreadUserData* threadData)
-{
-    if (threadData != nullptr)
-    {
-        PThreadUserData* oldHead = __app_definition.ThreadReaperQueue->FirstZombie.load(std::memory_order_relaxed);
-        do {
-            threadData->NextZombie = oldHead;
-        } while (!__app_definition.ThreadReaperQueue->FirstZombie.compare_exchange_weak(oldHead, threadData, std::memory_order_release, std::memory_order_relaxed));
-
-        semaphore_release(__app_definition.ThreadReaperQueue->Semaphore);
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

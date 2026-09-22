@@ -302,7 +302,7 @@ extern "C" uint32_t syscall_return()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" __attribute__((naked)) void syscall_trampoline_entry(void)
+extern "C" __attribute__((naked, no_instrument_function)) void syscall_trampoline_entry(void)
 {
     __asm volatile (
         "   blx     r12\n"              // Call syscall.
@@ -336,7 +336,7 @@ extern "C" void SetupSystemCall(KExceptionStackFrame* frame, uint32_t syscallNum
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" __attribute__((naked)) void SVCall_Handler(void)
+extern "C" __attribute__((naked, no_instrument_function)) void SVCall_Handler(void)
 {
     __asm volatile (
     "   tst     lr, #4\n"       // EXC_RETURN bit2: 0=MSP, 1=PSP

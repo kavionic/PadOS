@@ -31,7 +31,8 @@ namespace kernel
 enum class KGProfImage : uint8_t
 {
     Kernel,
-    Application
+    Application,
+    COUNT
 };
 
 using KGProfWriteCallback = PErrorCode (*)(void* context, KGProfImage image, const void* data, size_t length) noexcept;
@@ -41,6 +42,7 @@ struct KGProfStatus
     bool Running;
     bool Busy;
     bool HasCapture;
+    bool CallGraphEnabled;
     uint32_t SampleRateHz;
     uint32_t BinSizeBytes;
     uint32_t TotalSamples;
@@ -49,12 +51,23 @@ struct KGProfStatus
     uint32_t UnmappedSamples;
     uint32_t SaturatedSamples;
     size_t CounterBytes;
+    size_t ArcCount;
+    size_t ArcCapacity;
+    size_t ArcBytes;
+    uint64_t RecordedCalls;
+    uint64_t UnmappedCalls;
+    uint64_t DroppedCalls;
+    uint64_t SaturatedCalls;
 };
 
 PErrorCode kgprof_start();
 PErrorCode kgprof_stop() noexcept;
 KGProfStatus kgprof_get_status() noexcept;
 PErrorCode kgprof_write_gmon(KGProfWriteCallback callback, void* context) noexcept;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+class KThreadCB;
+void kgprof_thread_exited(KThreadCB& thread) noexcept;
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 #endif // PADOS_MODULE_GPROF_SAMPLING
 
 } // namespace kernel

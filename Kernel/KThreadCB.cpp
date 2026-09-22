@@ -36,6 +36,7 @@
 #include <Kernel/ThreadSyncDebugTracker.h>
 #include <Kernel/Syscalls.h>
 #include <System/AppDefinition.h>
+#include <System/GProf.h>
 #include <System/ModuleTLSDefinition.h>
 #include <Threads/ThreadUserspaceState.h>
 #include <Utils/Utils.h>
@@ -72,7 +73,7 @@ SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
     .alloc_memory                   = nullptr,
     .free_memory                    = nullptr,
     .FirstAppPointer = PAppDefinition::s_FirstApp,
-    .ThreadReaperQueue = nullptr,
+    .UserspaceService = nullptr,
     .TLSDefinition =
     {
         .TLSData = &__tdata_start,
@@ -92,7 +93,10 @@ SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
             {.Start = &_iflash_text_start, .End = &_iflash_text_end},
             {.Start = &_sram_text_start, .End = &_sram_text_end},
             {.Start = &_sdram_text_start, .End = &_sdram_text_end}
-        }
+        },
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        .CallGraph = &g_PGProfCallGraph
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
     }
 #endif // PADOS_MODULE_GPROF_SAMPLING
 };

@@ -27,6 +27,8 @@
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KThreadCB.h>
+#include <Kernel/KUserspaceService.h>
+#include <Kernel/Profiler/KGProf.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KTime.h>
@@ -255,6 +257,9 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 
     _reclaim_reent(nullptr);
 
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    kgprof_thread_exited(thread);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
     thread.SetState(ThreadState_Zombie);
 
     KSWITCH_CONTEXT();
@@ -476,7 +481,15 @@ void* kthread_join_trw(thread_id handle)
         void* returnValue = child->m_ReturnValue;
 
 #ifdef PADOS_MODULE_USER_SPACE
-        p_thread_reaper_schedule_cleanup(child->m_ThreadUserData);
+        if (child->m_ThreadUserData != nullptr)
+        {
+            const PErrorCode cleanupResult = kuserspace_service_schedule_thread_cleanup(child->m_ThreadUserData);
+            if (cleanupResult != PErrorCode::Success) {
+                panic("User-space service failed to clean up a thread.\n");
+            }
+            child->m_ThreadUserData = nullptr;
+            child->m_UserspaceTLS = nullptr;
+        }
 #endif // PADOS_MODULE_USER_SPACE
 
         kassert(!g_PIDMapMutex.IsLocked());

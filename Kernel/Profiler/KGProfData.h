@@ -27,6 +27,7 @@
 
 #include <Kernel/Profiler/KGProf.h>
 #include <System/AppDefinition.h>
+#include <System/GProf.h>
 
 namespace kernel
 {
@@ -36,6 +37,7 @@ enum class KGProfState : uint8_t
     Stopped,
     Preparing,
     Running,
+    Stopping,
     Writing
 };
 
@@ -49,12 +51,24 @@ struct KGProfRegionData
     std::unique_ptr<uint32_t[]> Counters;
 };
 
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+struct KGProfArcDeleter
+{
+    bool Userspace = false;
+    void operator()(PGProfArc* arcs) const noexcept;
+};
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+
 struct KGProfImageData
 {
     std::array<KGProfRegionData, PFIRMWARE_PROFILE_REGION_COUNT> Regions;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    std::unique_ptr<PGProfArc[], KGProfArcDeleter> Arcs;
+    PGProfCallGraph* CallGraph = nullptr;
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 };
 
-inline constexpr size_t KGPROF_IMAGE_COUNT = std::to_underlying(KGProfImage::Application) + 1;
+inline constexpr size_t KGPROF_IMAGE_COUNT = std::to_underlying(KGProfImage::COUNT);
 
 struct KGProfData
 {
@@ -68,6 +82,13 @@ struct KGProfData
     uint32_t UnmappedSamples = 0;
     uint32_t SaturatedSamples = 0;
     size_t CounterBytes = 0;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    size_t ArcCount = 0;
+    uint64_t RecordedCalls = 0;
+    uint64_t UnmappedCalls = 0;
+    uint64_t DroppedCalls = 0;
+    uint64_t SaturatedCalls = 0;
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 };
 
 extern KGProfData g_KGProfData;

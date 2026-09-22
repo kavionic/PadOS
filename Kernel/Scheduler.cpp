@@ -71,7 +71,7 @@ static void wakeup_sleeping_threads();
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" __attribute__((naked)) void* __aeabi_read_tp(void)
+extern "C" __attribute__((naked, no_instrument_function)) void* __aeabi_read_tp(void)
 {
     __asm__ volatile(
         "ldr   r0, =__kernel_thread_data \n"
@@ -300,7 +300,7 @@ extern "C" void switch_context()
 ///////////////////////////////////////////////////////////////////////////////
 
 #if defined(STM32H7)
-extern "C" __attribute__((naked)) void PendSV_Handler(void)
+extern "C" __attribute__((naked, no_instrument_function)) void PendSV_Handler(void)
 {
     __asm volatile
     (
@@ -324,7 +324,7 @@ extern "C" __attribute__((naked)) void PendSV_Handler(void)
 }
 #elif defined(STM32G030xx)
 
-extern "C" __attribute__((naked)) void PendSV_Handler(void)
+extern "C" __attribute__((naked, no_instrument_function)) void PendSV_Handler(void)
 {
     __asm volatile
     (

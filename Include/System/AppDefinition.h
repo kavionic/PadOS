@@ -29,11 +29,12 @@
 #include <System/ModuleTLSDefinition.h>
 
 struct PThreadUserData;
-struct PThreadReaperQueue;
+struct PUserspaceService;
+struct PGProfCallGraph;
 
 #ifdef PADOS_MODULE_GPROF_SAMPLING
 inline constexpr uint32_t PFIRMWARE_PROFILE_INFO_MAGIC = 0x464f5250;
-inline constexpr uint16_t PFIRMWARE_PROFILE_INFO_VERSION = 1;
+inline constexpr uint16_t PFIRMWARE_PROFILE_INFO_VERSION = 2;
 inline constexpr uint16_t PFIRMWARE_PROFILE_REGION_COUNT = 3;
 
 struct PFirmwareExecutableRegion
@@ -48,6 +49,7 @@ struct PFirmwareProfileInfo
     uint16_t Version;
     uint16_t RegionCount;
     PFirmwareExecutableRegion Regions[PFIRMWARE_PROFILE_REGION_COUNT];
+    PGProfCallGraph* CallGraph = nullptr;
 };
 #endif // PADOS_MODULE_GPROF_SAMPLING
 
@@ -89,7 +91,7 @@ struct PFirmwareImageDefinition
 
     PAppDefinition*&        FirstAppPointer;
 #ifdef PADOS_MODULE_USER_SPACE
-    PThreadReaperQueue*     ThreadReaperQueue;
+    PUserspaceService*      UserspaceService;
 #endif // PADOS_MODULE_USER_SPACE
     PModuleTLSDefinition    TLSDefinition;
 #ifdef PADOS_MODULE_GPROF_SAMPLING

@@ -7,6 +7,8 @@ target_sources(PadOS_System PRIVATE
 	HandleObject.h
 	ModuleTLSDefinition.h
 	Platform.h
+	GProf.h
+	UserspaceService.h
 	Sections.h
 	SyscallEpilogues.h
 	System.h

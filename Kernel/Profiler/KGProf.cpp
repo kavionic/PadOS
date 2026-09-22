@@ -31,6 +31,13 @@
 #include <Kernel/Profiler/KGProfSampler.h>
 #include <Kernel/Scheduler.h>
 #include <System/AppDefinition.h>
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/KPIDNode.h>
+#include <Kernel/KUserspaceService.h>
+#include <Ptr/NoPtr.h>
+#include <Threads/ThreadUserspaceState.h>
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 
 namespace kernel
 {
@@ -39,8 +46,187 @@ static constexpr uint32_t KGPROF_GMON_VERSION = 1;
 static constexpr uint8_t KGPROF_GMON_HISTOGRAM_TAG = 0;
 static constexpr uint32_t KGPROF_MAX_WIRE_COUNT = std::numeric_limits<uint16_t>::max();
 static constexpr size_t KGPROF_COUNTERS_PER_WRITE = 256;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+static constexpr uint8_t KGPROF_GMON_CALL_GRAPH_TAG = 1;
+static constexpr size_t KGPROF_ARC_RECORD_SIZE = 13;
+static constexpr size_t KGPROF_ARCS_PER_WRITE = 32;
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 
 KGProfData g_KGProfData;
+
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+static NoPtr<KConditionVariable> gk_KGProfDrainCondition("gprof_drain");
+static handle_id gk_KGProfDrainHandle = INVALID_HANDLE;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KGProfArcDeleter::operator()(PGProfArc* arcs) const noexcept
+{
+    if (Userspace)
+    {
+        PUserspaceServiceRequest request
+        {
+            .Command = PUserspaceServiceCommand::FreeMemory,
+            .Memory = arcs
+        };
+        if (kuserspace_service_request(request) != PErrorCode::Success) {
+            panic("User-space service failed to release a call-graph table.\n");
+        }
+    }
+    else
+    {
+        delete[] arcs;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool KGProfThreadIsRecording(KThreadCB& thread)
+{
+    if (std::atomic_ref<uint32_t>(thread.m_GProfState.Active).load() != 0) {
+        return true;
+    }
+    return thread.m_ThreadUserData != nullptr &&
+        std::atomic_ref<uint32_t>(thread.m_ThreadUserData->GProfState.Active).load() != 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool KGProfHasActiveRecorders()
+{
+    // The PID-map mutex and scheduler lock keep thread records alive here.
+    for (const auto& entry : g_PIDMap)
+    {
+        const Ptr<KThreadCB>& thread = entry.second->Thread;
+        if (thread != nullptr && !thread->IsZombie() && KGProfThreadIsRecording(*thread)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void KGProfSetCallGraphRunning(KGProfData& profilerData, bool running)
+{
+    for (KGProfImageData& image : profilerData.Images)
+    {
+        PGProfCallGraph& graph = *image.CallGraph;
+        if (running) {
+            graph.Arcs = image.Arcs.get();
+        }
+        graph.DrainRequested.store(!running, std::memory_order_release);
+        graph.Enabled->store(running ? 1 : 0);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PErrorCode KGProfWaitForRecorders(KGProfData& profilerData)
+{
+    for (;;)
+    {
+        KMutexGuardRaw threadLock(g_PIDMapMutex, true);
+        CRITICAL_SCOPE(CRITICAL_IRQ);
+        const bool active = KGProfHasActiveRecorders();
+        threadLock.Unlock();
+        if (!active)
+        {
+            for (KGProfImageData& image : profilerData.Images) {
+                image.CallGraph->DrainRequested.store(false, std::memory_order_release);
+            }
+            return PErrorCode::Success;
+        }
+        // IRQWait links the waiter before allowing a recorder to run and
+        // signal completion. There is no polling or lost-wakeup window.
+        const PErrorCode result = gk_KGProfDrainCondition.IRQWait();
+        if (result != PErrorCode::Success) {
+            return result;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void KGProfClearCallGraph(KGProfImageData& image)
+{
+    PGProfCallGraph& graph = *image.CallGraph;
+    std::fill_n(image.Arcs.get(), PGPROF_ARC_CAPACITY, PGProfArc{});
+    graph.DroppedCalls = 0;
+    graph.SaturatedCalls = 0;
+    graph.UnmappedCalls = 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool KGProfArcMatchesImage(const PGProfArc& arc, const KGProfImageData& image)
+{
+    bool callerMapped = false;
+    bool calleeMapped = false;
+    for (const KGProfRegionData& region : image.Regions)
+    {
+        callerMapped |= arc.CallerPC >= region.ActualLowPC && arc.CallerPC < region.ActualHighPC;
+        calleeMapped |= arc.CalleePC >= region.ActualLowPC && arc.CalleePC < region.ActualHighPC;
+    }
+    return callerMapped && calleeMapped;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void KGProfSummarizeCallGraphs(KGProfData& profilerData)
+{
+    size_t arcCount = 0;
+    uint64_t recordedCalls = 0;
+    uint64_t unmappedCalls = 0;
+    uint64_t droppedCalls = 0;
+    uint64_t saturatedCalls = 0;
+    for (const KGProfImageData& image : profilerData.Images)
+    {
+        const PGProfCallGraph& graph = *image.CallGraph;
+        unmappedCalls += graph.UnmappedCalls;
+        droppedCalls += graph.DroppedCalls;
+        saturatedCalls += graph.SaturatedCalls;
+        for (size_t i = 0; i < PGPROF_ARC_CAPACITY; ++i)
+        {
+            const PGProfArc& arc = graph.Arcs[i];
+            if (arc.CalleePC == 0) {
+                continue;
+            }
+            if (KGProfArcMatchesImage(arc, image))
+            {
+                ++arcCount;
+                recordedCalls += arc.Count;
+            }
+            else
+            {
+                unmappedCalls += arc.Count;
+            }
+        }
+    }
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    profilerData.ArcCount = arcCount;
+    profilerData.RecordedCalls = recordedCalls;
+    profilerData.UnmappedCalls = unmappedCalls;
+    profilerData.DroppedCalls = droppedCalls;
+    profilerData.SaturatedCalls = saturatedCalls;
+}
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -105,13 +291,46 @@ static PErrorCode KGProfInitializeRegion(const PFirmwareExecutableRegion& defini
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static PErrorCode KGProfInitializeImage(const PFirmwareProfileInfo& definition, KGProfImageData& image, size_t& counterBytes)
+static PErrorCode KGProfInitializeImage(
+    const PFirmwareProfileInfo& definition,
+    KGProfImageData& image,
+    size_t& counterBytes,
+    [[maybe_unused]] KGProfImage imageID)
 {
     if (definition.Magic != PFIRMWARE_PROFILE_INFO_MAGIC ||
         definition.Version != PFIRMWARE_PROFILE_INFO_VERSION ||
         definition.RegionCount != PFIRMWARE_PROFILE_REGION_COUNT) {
         return PErrorCode::INVAL;
     }
+
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    if (definition.CallGraph == nullptr || definition.CallGraph->Enabled == nullptr) {
+        return PErrorCode::INVAL;
+    }
+    image.CallGraph = definition.CallGraph;
+    image.CallGraph->DrainCondition = gk_KGProfDrainHandle;
+    if (imageID == KGProfImage::Application)
+    {
+        PUserspaceServiceRequest request
+        {
+            .Command = PUserspaceServiceCommand::AllocateMemory,
+            .Size = PGPROF_ARC_CAPACITY * sizeof(PGProfArc)
+        };
+        const PErrorCode result = kuserspace_service_request(request);
+        if (result != PErrorCode::Success) {
+            return result;
+        }
+        image.Arcs = {static_cast<PGProfArc*>(request.Memory), KGProfArcDeleter{.Userspace = true}};
+    }
+    else
+    {
+        image.Arcs.reset(new(std::nothrow) PGProfArc[PGPROF_ARC_CAPACITY]);
+        if (image.Arcs == nullptr) {
+            return PErrorCode::NOMEM;
+        }
+    }
+    KGProfClearCallGraph(image);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 
     for (size_t i = 0; i < image.Regions.size(); ++i)
     {
@@ -151,6 +370,9 @@ static void KGProfClearImages(KGProfData& profilerData)
         for (KGProfRegionData& region : image.Regions) {
             std::fill_n(region.Counters.get(), region.BinCount, uint32_t(0));
         }
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        KGProfClearCallGraph(image);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
     }
 }
 
@@ -166,6 +388,13 @@ static void KGProfResetStatistics(KGProfData& profilerData)
     profilerData.ApplicationSamples = 0;
     profilerData.UnmappedSamples = 0;
     profilerData.SaturatedSamples = 0;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    profilerData.ArcCount = 0;
+    profilerData.RecordedCalls = 0;
+    profilerData.UnmappedCalls = 0;
+    profilerData.DroppedCalls = 0;
+    profilerData.SaturatedCalls = 0;
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -214,6 +443,44 @@ static PErrorCode KGProfWriteHistogramRecord(
     return PErrorCode::Success;
 }
 
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PErrorCode KGProfWriteCallGraph(
+    KGProfWriteCallback callback,
+    void* context,
+    KGProfImage imageID,
+    const KGProfImageData& image)
+{
+    std::array<uint8_t, KGPROF_ARCS_PER_WRITE * KGPROF_ARC_RECORD_SIZE> outputBuffer;
+    size_t bytesUsed = 0;
+    for (size_t i = 0; i < PGPROF_ARC_CAPACITY; ++i)
+    {
+        const PGProfArc& arc = image.CallGraph->Arcs[i];
+        if (arc.CalleePC == 0 || !KGProfArcMatchesImage(arc, image)) {
+            continue;
+        }
+        uint8_t* record = outputBuffer.data() + bytesUsed;
+        record[0] = KGPROF_GMON_CALL_GRAPH_TAG;
+        KGProfPutLE32(record + 1, arc.CallerPC);
+        KGProfPutLE32(record + 5, arc.CalleePC);
+        KGProfPutLE32(record + 9, arc.Count);
+        bytesUsed += KGPROF_ARC_RECORD_SIZE;
+        if (bytesUsed == outputBuffer.size())
+        {
+            const PErrorCode result = callback(context, imageID, outputBuffer.data(), bytesUsed);
+            if (result != PErrorCode::Success) {
+                return result;
+            }
+            bytesUsed = 0;
+        }
+    }
+    return (bytesUsed != 0) ? callback(context, imageID, outputBuffer.data(), bytesUsed) : PErrorCode::Success;
+}
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -248,7 +515,11 @@ static PErrorCode KGProfWriteImage(
             }
         }
     }
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    return KGProfWriteCallGraph(callback, context, imageID, image);
+#else
     return PErrorCode::Success;
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -264,17 +535,48 @@ PErrorCode kgprof_start()
         if (profilerData.State != KGProfState::Stopped) {
             return PErrorCode::BUSY;
         }
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        if (KGProfThreadIsRecording(*gk_CurrentThread)) {
+            return PErrorCode::BUSY;
+        }
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
         profilerData.State = KGProfState::Preparing;
         reuseCapture = profilerData.HasCapture;
     }
 
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    if (gk_KGProfDrainHandle == INVALID_HANDLE)
+    {
+        const PErrorCode result = KNamedObject::RegisterObject(gk_KGProfDrainHandle, ptr_tmp_cast(&gk_KGProfDrainCondition));
+        if (result != PErrorCode::Success)
+        {
+            CRITICAL_SCOPE(CRITICAL_IRQ);
+            profilerData.State = KGProfState::Stopped;
+            return result;
+        }
+    }
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+
     if (reuseCapture)
     {
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        // Also drain a previous stop attempt that returned an error.
+        const PErrorCode result = KGProfWaitForRecorders(profilerData);
+        if (result != PErrorCode::Success)
+        {
+            CRITICAL_SCOPE(CRITICAL_IRQ);
+            profilerData.State = KGProfState::Stopped;
+            return result;
+        }
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
         KGProfClearImages(profilerData);
         {
             CRITICAL_SCOPE(CRITICAL_IRQ);
             KGProfResetStatistics(profilerData);
             profilerData.State = KGProfState::Running;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+            KGProfSetCallGraphRunning(profilerData, true);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
         }
         return PErrorCode::Success;
     }
@@ -284,13 +586,15 @@ PErrorCode kgprof_start()
     PErrorCode result = KGProfInitializeImage(
         __kernel_definition.ProfileInfo,
         images[std::to_underlying(KGProfImage::Kernel)],
-        counterBytes);
+        counterBytes,
+        KGProfImage::Kernel);
     if (result == PErrorCode::Success)
     {
         result = KGProfInitializeImage(
             __app_definition.ProfileInfo,
             images[std::to_underlying(KGProfImage::Application)],
-            counterBytes);
+            counterBytes,
+            KGProfImage::Application);
     }
 
     if (result != PErrorCode::Success)
@@ -307,6 +611,9 @@ PErrorCode kgprof_start()
         profilerData.CounterBytes = counterBytes;
         profilerData.HasCapture = true;
         profilerData.State = KGProfState::Running;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        KGProfSetCallGraphRunning(profilerData, true);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
     }
     return PErrorCode::Success;
 }
@@ -318,12 +625,34 @@ PErrorCode kgprof_start()
 PErrorCode kgprof_stop() noexcept
 {
     KGProfData& profilerData = g_KGProfData;
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-    if (profilerData.State == KGProfState::Preparing || profilerData.State == KGProfState::Writing) {
-        return PErrorCode::BUSY;
+    {
+        CRITICAL_SCOPE(CRITICAL_IRQ);
+        if (profilerData.State != KGProfState::Stopped && profilerData.State != KGProfState::Running) {
+            return PErrorCode::BUSY;
+        }
+        if (!profilerData.HasCapture) {
+            return PErrorCode::Success;
+        }
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        if (KGProfThreadIsRecording(*gk_CurrentThread)) {
+            return PErrorCode::BUSY;
+        }
+        KGProfSetCallGraphRunning(profilerData, false);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+        profilerData.State = KGProfState::Stopping;
     }
-    profilerData.State = KGProfState::Stopped;
-    return PErrorCode::Success;
+    PErrorCode result = PErrorCode::Success;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    result = KGProfWaitForRecorders(profilerData);
+    if (result == PErrorCode::Success) {
+        KGProfSummarizeCallGraphs(profilerData);
+    }
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+    {
+        CRITICAL_SCOPE(CRITICAL_IRQ);
+        profilerData.State = KGProfState::Stopped;
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -337,8 +666,13 @@ KGProfStatus kgprof_get_status() noexcept
     return
     {
         .Running = profilerData.State == KGProfState::Running,
-        .Busy = profilerData.State == KGProfState::Preparing || profilerData.State == KGProfState::Writing,
+        .Busy = profilerData.State != KGProfState::Stopped && profilerData.State != KGProfState::Running,
         .HasCapture = profilerData.HasCapture,
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        .CallGraphEnabled = true,
+#else
+        .CallGraphEnabled = false,
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
         .SampleRateHz = KGPROF_SAMPLE_RATE_HZ,
         .BinSizeBytes = KGPROF_BIN_SIZE_BYTES,
         .TotalSamples = profilerData.TotalSamples,
@@ -346,7 +680,24 @@ KGProfStatus kgprof_get_status() noexcept
         .ApplicationSamples = profilerData.ApplicationSamples,
         .UnmappedSamples = profilerData.UnmappedSamples,
         .SaturatedSamples = profilerData.SaturatedSamples,
-        .CounterBytes = profilerData.CounterBytes
+        .CounterBytes = profilerData.CounterBytes,
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        .ArcCount = profilerData.ArcCount,
+        .ArcCapacity = KGPROF_IMAGE_COUNT * PGPROF_ARC_CAPACITY,
+        .ArcBytes = profilerData.HasCapture ? KGPROF_IMAGE_COUNT * PGPROF_ARC_CAPACITY * sizeof(PGProfArc) : 0,
+        .RecordedCalls = profilerData.RecordedCalls,
+        .UnmappedCalls = profilerData.UnmappedCalls,
+        .DroppedCalls = profilerData.DroppedCalls,
+        .SaturatedCalls = profilerData.SaturatedCalls
+#else
+        .ArcCount = 0,
+        .ArcCapacity = 0,
+        .ArcBytes = 0,
+        .RecordedCalls = 0,
+        .UnmappedCalls = 0,
+        .DroppedCalls = 0,
+        .SaturatedCalls = 0
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
     };
 }
 
@@ -363,20 +714,35 @@ PErrorCode kgprof_write_gmon(KGProfWriteCallback callback, void* context) noexce
     KGProfData& profilerData = g_KGProfData;
     {
         CRITICAL_SCOPE(CRITICAL_IRQ);
-        if (profilerData.State == KGProfState::Preparing || profilerData.State == KGProfState::Writing) {
+        if (profilerData.State != KGProfState::Stopped && profilerData.State != KGProfState::Running) {
             return PErrorCode::BUSY;
         }
         if (!profilerData.HasCapture) {
             return PErrorCode::NOENT;
         }
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+        if (KGProfThreadIsRecording(*gk_CurrentThread)) {
+            return PErrorCode::BUSY;
+        }
+        KGProfSetCallGraphRunning(profilerData, false);
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
         profilerData.State = KGProfState::Writing;
     }
 
-    PErrorCode result = KGProfWriteImage(
-        callback,
-        context,
-        KGProfImage::Kernel,
-        profilerData.Images[std::to_underlying(KGProfImage::Kernel)]);
+    PErrorCode result = PErrorCode::Success;
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    result = KGProfWaitForRecorders(profilerData);
+    if (result == PErrorCode::Success) {
+        KGProfSummarizeCallGraphs(profilerData);
+    }
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+    if (result == PErrorCode::Success) {
+        result = KGProfWriteImage(
+            callback,
+            context,
+            KGProfImage::Kernel,
+            profilerData.Images[std::to_underlying(KGProfImage::Kernel)]);
+    }
 
     if (result == PErrorCode::Success)
     {
@@ -393,5 +759,23 @@ PErrorCode kgprof_write_gmon(KGProfWriteCallback callback, void* context) noexce
     }
     return result;
 }
+
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kgprof_thread_exited(KThreadCB& thread) noexcept
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    std::atomic_ref<uint32_t>(thread.m_GProfState.Active).store(0);
+    if (thread.m_ThreadUserData != nullptr) {
+        std::atomic_ref<uint32_t>(thread.m_ThreadUserData->GProfState.Active).store(0);
+    }
+    if (g_KGProfData.HasCapture && g_KGProfData.State != KGProfState::Running && g_KGProfData.State != KGProfState::Stopped) {
+        gk_KGProfDrainCondition.WakeupAll();
+    }
+}
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
 
 } // namespace kernel

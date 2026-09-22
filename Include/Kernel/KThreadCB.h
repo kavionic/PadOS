@@ -23,6 +23,7 @@
 #include <sys/pados_threads.h>
 #include <PadOS/Threads.h>
 #include <System/TimeValue.h>
+#include <System/GProf.h>
 #include <Utils/IntrusiveList.h>
 #include <Threads/Threads.h>
 #include <Kernel/KNamedObject.h>
@@ -138,6 +139,9 @@ public:
     uint8_t*                  m_StackBuffer;
     int                       m_StackSize;
 
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+    PGProfThreadState          m_GProfState = {};
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
     PThreadControlBlock*      m_KernelTLS = nullptr;
 #ifdef PADOS_MODULE_USER_SPACE
     PThreadControlBlock*      m_UserspaceTLS = nullptr;

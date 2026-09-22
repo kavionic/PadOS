@@ -34,7 +34,7 @@
 #ifdef PADOS_MODULE_USER_SPACE
 
 #define PEXPAND_SYSCALL(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
-  extern "C" __attribute__((naked)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+  extern "C" __attribute__((naked, no_instrument_function)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ( \
         "ldr r12, =%0                           \n" \
         "svc 0                                  \n" \
@@ -43,7 +43,7 @@
   extern "C" RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { return EPILOGUE<RETTYPE>(__##FPREFIX##FNAME(PNAME_LIST(SIGNATURE))); }
 
 #define PEXPAND_SYSCALL_VOID(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
-  extern "C" __attribute__((naked)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+  extern "C" __attribute__((naked, no_instrument_function)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ( \
         "ldr r12, =%0                           \n" \
         "svc 0                                  \n" \
@@ -51,7 +51,7 @@
   }
 
 #define PEXPAND_SYSCALL_NORET(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
-  extern "C" __attribute__((naked, noreturn)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+  extern "C" __attribute__((naked, noreturn, no_instrument_function)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ( \
         "ldr r12, =%0                           \n" \
         "svc 0                                  \n" \
@@ -79,29 +79,29 @@ T get_not_implemented_retval()
 }
 
 #define PEXPAND_SYSCALL(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
-  __attribute__((naked)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+  __attribute__((naked, no_instrument_function)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ("b " __XSTRING(sys_##FNAME)); \
   } \
   extern "C" RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { return EPILOGUE<RETTYPE>(__##FPREFIX##FNAME(PNAME_LIST(SIGNATURE))); } \
-  extern "C" __attribute__((naked)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
+  extern "C" __attribute__((naked, no_instrument_function)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ("b sys_" #FNAME); \
   } \
   extern "C" __attribute__((weak)) RETTYPE_SYS sys_##FNAME(PDECL_LIST(SIGNATURE)) { return get_not_implemented_retval<RETTYPE_SYS>(); }
 
 #define PEXPAND_SYSCALL_VOID(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
-  __attribute__((naked)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+  __attribute__((naked, no_instrument_function)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ("b " __XSTRING(sys_##FNAME)); \
   } \
-  extern "C" __attribute__((naked)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
+  extern "C" __attribute__((naked, no_instrument_function)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ("b sys_" #FNAME); \
   } \
   extern "C" __attribute__((weak)) RETTYPE_SYS sys_##FNAME(PDECL_LIST(SIGNATURE)) {}
 
 #define PEXPAND_SYSCALL_NORET(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
-  __attribute__((naked, noreturn)) RETTYPE __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+  __attribute__((naked, noreturn, no_instrument_function)) RETTYPE __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ("b " __XSTRING(sys_##FNAME)); \
   } \
-  extern "C" __attribute__((naked)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
+  extern "C" __attribute__((naked, no_instrument_function)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ("b sys_" #FNAME); \
   }
 

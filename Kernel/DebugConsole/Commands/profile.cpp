@@ -269,6 +269,36 @@ static PErrorCode ProfileCommandDump(const PString& kernelPath, const PString& a
     return result;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void ProfileCommandPrintCallGraph(KConsoleCommand& command, const KGProfStatus& status)
+{
+    if (status.CallGraphEnabled && (status.Running || status.Busy))
+    {
+        command.Print("Call graph: collecting locally; counts available after stop ({} bytes of storage)\n", status.ArcBytes);
+    }
+    else if (status.CallGraphEnabled)
+    {
+        command.Print(
+            "Call graph: {} calls, {}/{} arcs, {} bytes of storage\n",
+            status.RecordedCalls,
+            status.ArcCount,
+            status.ArcCapacity,
+            status.ArcBytes);
+        command.Print(
+            "Unrecorded calls: {} unmapped/cross-image, {} overflow/reentrant, {} saturated\n",
+            status.UnmappedCalls,
+            status.DroppedCalls,
+            status.SaturatedCalls);
+    }
+    else
+    {
+        command.Print("Call graph: disabled in this build\n");
+    }
+}
+
 class CCmdProfile : public KConsoleCommand
 {
 public:
@@ -285,6 +315,7 @@ public:
             const KGProfStatus status = kgprof_get_status();
             Print("Sampling thread-mode execution at {} Hz into {}-byte bins ({} bytes of counters).\n",
                 status.SampleRateHz, status.BinSizeBytes, status.CounterBytes);
+            ProfileCommandPrintCallGraph(*this, status);
             return 0;
         }
 
@@ -319,6 +350,7 @@ public:
                 status.SaturatedSamples);
             Print("Resolution: {} Hz, {} bytes/bin, {} bytes of counters\n",
                 status.SampleRateHz, status.BinSizeBytes, status.CounterBytes);
+            ProfileCommandPrintCallGraph(*this, status);
             return 0;
         }
 
@@ -353,6 +385,7 @@ public:
                 status.ApplicationSamples,
                 status.UnmappedSamples,
                 status.SaturatedSamples);
+            ProfileCommandPrintCallGraph(*this, status);
             return 0;
         }
 
@@ -360,7 +393,7 @@ public:
         return 1;
     }
 
-    static PString GetDescription() { return "Control GNU gprof thread-mode flat-profile sampling."; }
+    static PString GetDescription() { return "Control GNU gprof thread-mode sampling and call graphs."; }
 };
 
 static KConsoleCommandRegistrator<CCmdProfile> g_RegisterCCmdProfile("profile");

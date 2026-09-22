@@ -357,7 +357,7 @@ void HardFault_Handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-__attribute__((naked)) void Fault_Handler()
+__attribute__((naked, no_instrument_function)) void Fault_Handler()
 {
     __asm volatile
     (

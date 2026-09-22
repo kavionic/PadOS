@@ -31,6 +31,18 @@ namespace kernel
 static_assert(KGPROF_SAMPLE_RATE_HZ > 0 && KGPROF_SAMPLE_RATE_HZ <= SYS_TICKS_PER_SEC);
 static_assert(KGPROF_BIN_SIZE_BYTES > 0 && (KGPROF_BIN_SIZE_BYTES & (KGPROF_BIN_SIZE_BYTES - 1)) == 0);
 
+#ifdef PADOS_MODULE_GPROF_CALL_GRAPH
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" PGProfThreadState* p_gprof_get_thread_state()
+{
+    KThreadCB* const thread = gk_CurrentThread;
+    return (thread != nullptr) ? &thread->m_GProfState : nullptr;
+}
+#endif // PADOS_MODULE_GPROF_CALL_GRAPH
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////

@@ -421,6 +421,32 @@ TIM_TypeDef* get_timer_from_id(HWTimerID timerID)
     }
 }
 
+bool enable_timer_clock(HWTimerID timerID)
+{
+    switch (timerID)
+    {
+        case HWTimerID::Timer1: RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; break;
+        case HWTimerID::Timer2: RCC->APB1LENR |= RCC_APB1LENR_TIM2EN; break;
+        case HWTimerID::Timer3: RCC->APB1LENR |= RCC_APB1LENR_TIM3EN; break;
+        case HWTimerID::Timer4: RCC->APB1LENR |= RCC_APB1LENR_TIM4EN; break;
+        case HWTimerID::Timer5: RCC->APB1LENR |= RCC_APB1LENR_TIM5EN; break;
+        case HWTimerID::Timer6: RCC->APB1LENR |= RCC_APB1LENR_TIM6EN; break;
+        case HWTimerID::Timer7: RCC->APB1LENR |= RCC_APB1LENR_TIM7EN; break;
+        case HWTimerID::Timer8: RCC->APB2ENR |= RCC_APB2ENR_TIM8EN; break;
+        case HWTimerID::Timer12: RCC->APB1LENR |= RCC_APB1LENR_TIM12EN; break;
+        case HWTimerID::Timer13: RCC->APB1LENR |= RCC_APB1LENR_TIM13EN; break;
+        case HWTimerID::Timer14: RCC->APB1LENR |= RCC_APB1LENR_TIM14EN; break;
+        case HWTimerID::Timer15: RCC->APB2ENR |= RCC_APB2ENR_TIM15EN; break;
+        case HWTimerID::Timer16: RCC->APB2ENR |= RCC_APB2ENR_TIM16EN; break;
+        case HWTimerID::Timer17: RCC->APB2ENR |= RCC_APB2ENR_TIM17EN; break;
+        default: return false;
+    }
+    // Read back the enable registers before accessing the timer.
+    (void)RCC->APB1LENR;
+    (void)RCC->APB2ENR;
+    return true;
+}
+
 volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMask)
 {
     switch (timerID)

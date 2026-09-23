@@ -19,6 +19,10 @@
 
 
 #include <stdint.h>
+#include <Kernel/HAL/PeripheralMapping.h>
+#ifdef PADOS_GPROF_HW_TIMER
+#include <Kernel/Profiler/KGProfSampler.h>
+#endif // PADOS_GPROF_HW_TIMER
 
 extern "C"
 {
@@ -208,6 +212,17 @@ typedef struct _DeviceVectors
     void* pfnWAKEUP_PIN_IRQHandler;         // Interrupt for all 6 wake-up pins 
 } DeviceVectors;
 
+static constexpr auto KGProfGetTimerVector(
+    [[maybe_unused]] HWTimerID timerID,
+    [[maybe_unused]] HWTimerID sharedTimerID = HWTimerID::None)
+{
+#ifdef PADOS_GPROF_HW_TIMER
+    return (timerID == PADOS_GPROF_TIMER_ID || sharedTimerID == PADOS_GPROF_TIMER_ID) ? KGProfTimer_Handler : KernelHandleIRQ;
+#else
+    return KernelHandleIRQ;
+#endif // PADOS_GPROF_HW_TIMER
+}
+
 // Exception Table
 __attribute__((section(".vectors"), used))
 extern const DeviceVectors exception_table = {
@@ -260,12 +275,12 @@ extern const DeviceVectors exception_table = {
     .pfnFDCAN2_IT1_IRQHandler         = (void*) KernelHandleIRQ,    // FDCAN2 interrupt line 1      
     .pfnEXTI9_5_IRQHandler            = (void*) KernelHandleIRQ,    // External Line[9:5]s          
     .pfnTIM1_BRK_IRQHandler           = (void*) KernelHandleIRQ,    // TIM1 Break interrupt         
-    .pfnTIM1_UP_IRQHandler            = (void*) KernelHandleIRQ,    // TIM1 Update interrupt        
+    .pfnTIM1_UP_IRQHandler            = (void*) KGProfGetTimerVector(HWTimerID::Timer1),    // TIM1 Update interrupt
     .pfnTIM1_TRG_COM_IRQHandler       = (void*) KernelHandleIRQ,    // TIM1 Trigger and Commutation interrupt 
     .pfnTIM1_CC_IRQHandler            = (void*) KernelHandleIRQ,    // TIM1 Capture Compare         
-    .pfnTIM2_IRQHandler               = (void*) KernelHandleIRQ,    // TIM2                         
-    .pfnTIM3_IRQHandler               = (void*) KernelHandleIRQ,    // TIM3                         
-    .pfnTIM4_IRQHandler               = (void*) KernelHandleIRQ,    // TIM4                         
+    .pfnTIM2_IRQHandler               = (void*) KGProfGetTimerVector(HWTimerID::Timer2),    // TIM2
+    .pfnTIM3_IRQHandler               = (void*) KGProfGetTimerVector(HWTimerID::Timer3),    // TIM3
+    .pfnTIM4_IRQHandler               = (void*) KGProfGetTimerVector(HWTimerID::Timer4),    // TIM4
     .pfnI2C1_EV_IRQHandler            = (void*) KernelHandleIRQ,    // I2C1 Event                   
     .pfnI2C1_ER_IRQHandler            = (void*) KernelHandleIRQ,    // I2C1 Error                   
     .pfnI2C2_EV_IRQHandler            = (void*) KernelHandleIRQ,    // I2C2 Event                   
@@ -278,19 +293,21 @@ extern const DeviceVectors exception_table = {
     .pfnEXTI15_10_IRQHandler          = (void*) KernelHandleIRQ,    // External Line[15:10]s        
     .pfnRTC_Alarm_IRQHandler          = (void*) KernelHandleIRQ,    // RTC Alarm (A and B) through EXTI Line 
     .pvReservedC10                    = (void*) (0UL),              // Reserved                     
-    .pfnTIM8_BRK_TIM12_IRQHandler     = (void*) KernelHandleIRQ,    // TIM8 Break and TIM12         
-    .pfnTIM8_UP_TIM13_IRQHandler      = (void*) KernelHandleIRQ,    // TIM8 Update and TIM13        
-    .pfnTIM8_TRG_COM_TIM14_IRQHandler = (void*) KernelHandleIRQ,    // TIM8 Trigger and Commutation and TIM14 
+    .pfnTIM8_BRK_TIM12_IRQHandler     = (void*) KGProfGetTimerVector(HWTimerID::Timer12),    // TIM8 Break and TIM12
+    .pfnTIM8_UP_TIM13_IRQHandler      = (void*) KGProfGetTimerVector(
+        HWTimerID::Timer8,
+        HWTimerID::Timer13),    // TIM8 Update and TIM13
+    .pfnTIM8_TRG_COM_TIM14_IRQHandler = (void*) KGProfGetTimerVector(HWTimerID::Timer14), // TIM8 trigger/commutation, TIM14
     .pfnTIM8_CC_IRQHandler            = (void*) KernelHandleIRQ,    // TIM8 Capture Compare         
     .pfnDMA1_Stream7_IRQHandler       = (void*) KernelHandleIRQ,    // DMA1 Stream7                 
     .pfnFMC_IRQHandler                = (void*) KernelHandleIRQ,    // FMC                          
     .pfnSDMMC1_IRQHandler             = (void*) KernelHandleIRQ,    // SDMMC1                       
-    .pfnTIM5_IRQHandler               = (void*) KernelHandleIRQ,    // TIM5                         
+    .pfnTIM5_IRQHandler               = (void*) KGProfGetTimerVector(HWTimerID::Timer5),    // TIM5
     .pfnSPI3_IRQHandler               = (void*) KernelHandleIRQ,    // SPI3                         
     .pfnUART4_IRQHandler              = (void*) KernelHandleIRQ,    // UART4                        
     .pfnUART5_IRQHandler              = (void*) KernelHandleIRQ,    // UART5                        
-    .pfnTIM6_DAC_IRQHandler           = (void*) KernelHandleIRQ,    // TIM6 and DAC1&2 underrun errors 
-    .pfnTIM7_IRQHandler               = (void*) KernelHandleIRQ,    // TIM7                         
+    .pfnTIM6_DAC_IRQHandler           = (void*) KGProfGetTimerVector(HWTimerID::Timer6),    // TIM6 and DAC1&2 underrun errors
+    .pfnTIM7_IRQHandler               = (void*) KGProfGetTimerVector(HWTimerID::Timer7),    // TIM7
     .pfnDMA2_Stream0_IRQHandler       = (void*) KernelHandleIRQ,    // DMA2 Stream 0                
     .pfnDMA2_Stream1_IRQHandler       = (void*) KernelHandleIRQ,    // DMA2 Stream 1                
     .pfnDMA2_Stream2_IRQHandler       = (void*) KernelHandleIRQ,    // DMA2 Stream 2                
@@ -351,9 +368,9 @@ extern const DeviceVectors exception_table = {
     .pfnDFSDM1_FLT3_IRQHandler        = (void*) KernelHandleIRQ,    // DFSDM Filter3 Interrupt        
     .pfnSAI3_IRQHandler               = (void*) KernelHandleIRQ,    // SAI3 global Interrupt          
     .pfnSWPMI1_IRQHandler             = (void*) KernelHandleIRQ,    // Serial Wire Interface 1 global interrupt 
-    .pfnTIM15_IRQHandler              = (void*) KernelHandleIRQ,    // TIM15 global Interrupt      
-    .pfnTIM16_IRQHandler              = (void*) KernelHandleIRQ,    // TIM16 global Interrupt      
-    .pfnTIM17_IRQHandler              = (void*) KernelHandleIRQ,    // TIM17 global Interrupt      
+    .pfnTIM15_IRQHandler              = (void*) KGProfGetTimerVector(HWTimerID::Timer15),    // TIM15 global Interrupt
+    .pfnTIM16_IRQHandler              = (void*) KGProfGetTimerVector(HWTimerID::Timer16),    // TIM16 global Interrupt
+    .pfnTIM17_IRQHandler              = (void*) KGProfGetTimerVector(HWTimerID::Timer17),    // TIM17 global Interrupt
     .pfnMDIOS_WKUP_IRQHandler         = (void*) KernelHandleIRQ,    // MDIOS Wakeup  Interrupt     
     .pfnMDIOS_IRQHandler              = (void*) KernelHandleIRQ,    // MDIOS global Interrupt      
     .pfnJPEG_IRQHandler               = (void*) KernelHandleIRQ,    // JPEG global Interrupt       

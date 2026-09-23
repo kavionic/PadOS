@@ -126,6 +126,7 @@ namespace kernel
 {
 
 TIM_TypeDef* get_timer_from_id(HWTimerID timerID);
+bool enable_timer_clock(HWTimerID timerID);
 volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMask);
 
 USART_TypeDef* get_usart_from_id(USARTID id);

@@ -20,6 +20,9 @@
 #include <sys/errno.h>
 
 #include <Kernel/IRQDispatcher.h>
+#ifdef PADOS_GPROF_HW_TIMER
+#include <Kernel/Profiler/KGProfSampler.h>
+#endif // PADOS_GPROF_HW_TIMER
 #include <Kernel/Scheduler.h>
 #include <Kernel/KTime.h>
 #include <Kernel/Syscalls.h>
@@ -44,6 +47,13 @@ int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
         set_last_error(EINVAL);
         return -1;
     }
+#ifdef PADOS_GPROF_HW_TIMER
+    if (irqNum == get_timer_irq(PADOS_GPROF_TIMER_ID, HWTimerIRQType::Update))
+    {
+        set_last_error(EBUSY);
+        return -1;
+    }
+#endif // PADOS_GPROF_HW_TIMER
     KIRQAction* action = new KIRQAction;
     if (action == nullptr) {
         set_last_error(ENOMEM);

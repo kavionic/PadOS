@@ -42,6 +42,25 @@ option(PADOS_MODULE_USER_SPACE			"Build user-space syscall dispatch support."			
 option(PADOS_MODULE_POSIX_SPAWN			"Build posix_spawn() and posix_spawnattr/file-action support."		ON)
 option(PADOS_MODULE_POSIX_SIGNALS		"Build POSIX signals and thread_cancel() support."			ON)
 
+set(PADOS_GPROF_SAMPLING_TIMER "SysTick" CACHE STRING "Sampling source: SysTick or an exclusively reserved STM32H7 timer.")
+set_property(CACHE PADOS_GPROF_SAMPLING_TIMER PROPERTY STRINGS
+	SysTick TIM1 TIM2 TIM3 TIM4 TIM5 TIM6 TIM7 TIM8 TIM12 TIM13 TIM14 TIM15 TIM16 TIM17
+)
+set(PADOS_GPROF_SAMPLE_RATE_HZ "500" CACHE STRING "Profiler samples per second; prefer a rate unrelated to SysTick.")
+set(PADOS_GPROF_IRQ_PRIORITY "1" CACHE STRING "Hardware profiler timer NVIC priority; lower values have higher priority.")
+
+if(PADOS_MODULE_GPROF_SAMPLING)
+	if(NOT PADOS_GPROF_SAMPLING_TIMER MATCHES "^(SysTick|TIM([1-8]|1[2-7]))$")
+		message(FATAL_ERROR "Unsupported PADOS_GPROF_SAMPLING_TIMER: ${PADOS_GPROF_SAMPLING_TIMER}")
+	endif()
+	if(NOT PADOS_GPROF_SAMPLE_RATE_HZ MATCHES "^[1-9][0-9]*$" OR PADOS_GPROF_SAMPLE_RATE_HZ GREATER 1000000)
+		message(FATAL_ERROR "PADOS_GPROF_SAMPLE_RATE_HZ must be an integer between 1 and 1000000")
+	endif()
+	if(NOT PADOS_GPROF_IRQ_PRIORITY MATCHES "^(0|[1-9][0-9]*)$" OR PADOS_GPROF_IRQ_PRIORITY GREATER 15)
+		message(FATAL_ERROR "PADOS_GPROF_IRQ_PRIORITY must be an integer between 0 and 15")
+	endif()
+endif()
+
 if(PADOS_MODULE_GPROF_CALL_GRAPH AND NOT PADOS_MODULE_GPROF_SAMPLING)
 	message(FATAL_ERROR "PADOS_MODULE_GPROF_CALL_GRAPH requires PADOS_MODULE_GPROF_SAMPLING")
 endif()
@@ -132,6 +151,18 @@ pados_add_compile_option(PADOS_FSDRIVER_PIPE			PADOS_FSDRIVER_PIPE)
 pados_add_compile_option(PADOS_MODULE_DEBUG_CONSOLE		PADOS_MODULE_DEBUG_CONSOLE)
 pados_add_compile_option(PADOS_MODULE_GPROF_SAMPLING		PADOS_MODULE_GPROF_SAMPLING)
 pados_add_compile_option(PADOS_MODULE_GPROF_CALL_GRAPH		PADOS_MODULE_GPROF_CALL_GRAPH)
+
+if(PADOS_MODULE_GPROF_SAMPLING)
+	target_compile_definitions(PadOS_Config INTERFACE PADOS_GPROF_SAMPLE_RATE_HZ=${PADOS_GPROF_SAMPLE_RATE_HZ})
+	if(NOT PADOS_GPROF_SAMPLING_TIMER STREQUAL "SysTick")
+		string(REPLACE "TIM" "Timer" PADOS_GPROF_TIMER_ID "${PADOS_GPROF_SAMPLING_TIMER}")
+		target_compile_definitions(PadOS_Config INTERFACE
+			PADOS_GPROF_HW_TIMER
+			PADOS_GPROF_TIMER_ID=HWTimerID::${PADOS_GPROF_TIMER_ID}
+			PADOS_GPROF_IRQ_PRIORITY=${PADOS_GPROF_IRQ_PRIORITY}
+		)
+	endif()
+endif()
 if(PADOS_MODULE_GPROF_CALL_GRAPH)
 	target_compile_options(PadOS_Config INTERFACE "$<$<COMPILE_LANGUAGE:C,CXX>:-pg>")
 endif()

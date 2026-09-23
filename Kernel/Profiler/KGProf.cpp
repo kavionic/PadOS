@@ -413,7 +413,7 @@ static PErrorCode KGProfWriteHistogramRecord(
     KGProfPutLE32(&recordHeader[1], region.HistogramLowPC);
     KGProfPutLE32(&recordHeader[5], region.HistogramHighPC);
     KGProfPutLE32(&recordHeader[9], uint32_t(region.BinCount));
-    KGProfPutLE32(&recordHeader[13], KGPROF_SAMPLE_RATE_HZ);
+    KGProfPutLE32(&recordHeader[13], g_KGProfData.SampleRateHz);
     memcpy(&recordHeader[17], "seconds", 7);
     recordHeader[32] = 's';
 
@@ -557,6 +557,16 @@ PErrorCode kgprof_start()
     }
 #endif // PADOS_MODULE_GPROF_CALL_GRAPH
 
+#ifdef PADOS_GPROF_HW_TIMER
+    const PErrorCode samplerResult = kgprof_initialize_sampler(profilerData.SampleRateHz);
+    if (samplerResult != PErrorCode::Success)
+    {
+        CRITICAL_SCOPE(CRITICAL_IRQ);
+        profilerData.State = KGProfState::Stopped;
+        return samplerResult;
+    }
+#endif // PADOS_GPROF_HW_TIMER
+
     if (reuseCapture)
     {
 #ifdef PADOS_MODULE_GPROF_CALL_GRAPH
@@ -577,6 +587,9 @@ PErrorCode kgprof_start()
 #ifdef PADOS_MODULE_GPROF_CALL_GRAPH
             KGProfSetCallGraphRunning(profilerData, true);
 #endif // PADOS_MODULE_GPROF_CALL_GRAPH
+#ifdef PADOS_GPROF_HW_TIMER
+            kgprof_start_sampler();
+#endif // PADOS_GPROF_HW_TIMER
         }
         return PErrorCode::Success;
     }
@@ -614,6 +627,9 @@ PErrorCode kgprof_start()
 #ifdef PADOS_MODULE_GPROF_CALL_GRAPH
         KGProfSetCallGraphRunning(profilerData, true);
 #endif // PADOS_MODULE_GPROF_CALL_GRAPH
+#ifdef PADOS_GPROF_HW_TIMER
+        kgprof_start_sampler();
+#endif // PADOS_GPROF_HW_TIMER
     }
     return PErrorCode::Success;
 }
@@ -639,6 +655,9 @@ PErrorCode kgprof_stop() noexcept
         }
         KGProfSetCallGraphRunning(profilerData, false);
 #endif // PADOS_MODULE_GPROF_CALL_GRAPH
+#ifdef PADOS_GPROF_HW_TIMER
+        kgprof_stop_sampler();
+#endif // PADOS_GPROF_HW_TIMER
         profilerData.State = KGProfState::Stopping;
     }
     PErrorCode result = PErrorCode::Success;
@@ -663,6 +682,9 @@ KGProfStatus kgprof_get_status() noexcept
 {
     KGProfData& profilerData = g_KGProfData;
     CRITICAL_SCOPE(CRITICAL_IRQ);
+#ifdef PADOS_GPROF_HW_TIMER
+    const KGProfSamplerIRQGuard samplerIRQGuard;
+#endif // PADOS_GPROF_HW_TIMER
     return
     {
         .Running = profilerData.State == KGProfState::Running,
@@ -673,7 +695,7 @@ KGProfStatus kgprof_get_status() noexcept
 #else
         .CallGraphEnabled = false,
 #endif // PADOS_MODULE_GPROF_CALL_GRAPH
-        .SampleRateHz = KGPROF_SAMPLE_RATE_HZ,
+        .SampleRateHz = profilerData.SampleRateHz,
         .BinSizeBytes = KGPROF_BIN_SIZE_BYTES,
         .TotalSamples = profilerData.TotalSamples,
         .KernelSamples = profilerData.KernelSamples,
@@ -726,6 +748,9 @@ PErrorCode kgprof_write_gmon(KGProfWriteCallback callback, void* context) noexce
         }
         KGProfSetCallGraphRunning(profilerData, false);
 #endif // PADOS_MODULE_GPROF_CALL_GRAPH
+#ifdef PADOS_GPROF_HW_TIMER
+        kgprof_stop_sampler();
+#endif // PADOS_GPROF_HW_TIMER
         profilerData.State = KGProfState::Writing;
     }
 

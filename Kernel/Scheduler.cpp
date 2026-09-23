@@ -102,7 +102,7 @@ void check_stack_overflow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef PADOS_MODULE_GPROF_SAMPLING
+#if defined(PADOS_MODULE_GPROF_SAMPLING) && !defined(PADOS_GPROF_HW_TIMER)
 extern "C" __attribute__((used, no_instrument_function)) void SysTick_HandlerImpl(const KExceptionStackFrame* exceptionFrame)
 {
     Kernel::ResetWatchdog();
@@ -141,7 +141,7 @@ extern "C" void SysTick_Handler()
     wakeup_sleeping_threads();
     KSWITCH_CONTEXT();
 }
-#endif // PADOS_MODULE_GPROF_SAMPLING
+#endif // PADOS_MODULE_GPROF_SAMPLING && !PADOS_GPROF_HW_TIMER
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

@@ -26,6 +26,7 @@
 #include <utility>
 
 #include <Kernel/Profiler/KGProf.h>
+#include <Kernel/Profiler/KGProfSampler.h>
 #include <System/AppDefinition.h>
 #include <System/GProf.h>
 
@@ -75,6 +76,7 @@ struct KGProfData
     std::array<KGProfImageData, KGPROF_IMAGE_COUNT> Images;
     volatile KGProfState State = KGProfState::Stopped;
     bool HasCapture = false;
+    uint32_t SampleRateHz = KGPROF_SAMPLE_RATE_HZ;
     uint32_t SamplePhase = 0;
     uint32_t TotalSamples = 0;
     uint32_t KernelSamples = 0;

@@ -28,7 +28,10 @@
 namespace kernel
 {
 
-static_assert(KGPROF_SAMPLE_RATE_HZ > 0 && KGPROF_SAMPLE_RATE_HZ <= SYS_TICKS_PER_SEC);
+static_assert(KGPROF_SAMPLE_RATE_HZ > 0);
+#ifndef PADOS_GPROF_HW_TIMER
+static_assert(KGPROF_SAMPLE_RATE_HZ <= SYS_TICKS_PER_SEC);
+#endif // !PADOS_GPROF_HW_TIMER
 static_assert(KGPROF_BIN_SIZE_BYTES > 0 && (KGPROF_BIN_SIZE_BYTES & (KGPROF_BIN_SIZE_BYTES - 1)) == 0);
 
 #ifdef PADOS_MODULE_GPROF_CALL_GRAPH
@@ -54,11 +57,13 @@ void __attribute__((no_instrument_function)) kgprof_record_sample(const KExcepti
         return;
     }
 
+#ifndef PADOS_GPROF_HW_TIMER
     profilerData.SamplePhase += KGPROF_SAMPLE_RATE_HZ;
     if (profilerData.SamplePhase < SYS_TICKS_PER_SEC) {
         return;
     }
     profilerData.SamplePhase -= SYS_TICKS_PER_SEC;
+#endif // !PADOS_GPROF_HW_TIMER
     ++profilerData.TotalSamples;
 
     const uint32_t programCounter = exceptionFrame->PC;

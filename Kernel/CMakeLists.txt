@@ -22,6 +22,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KConditionVariable.cpp
 	Kernel.cpp
 	KHandleArray.cpp
+	KIRQGuard.cpp
 	KMessagePort.cpp
 	KMutex.cpp
 	KNamedObject.cpp

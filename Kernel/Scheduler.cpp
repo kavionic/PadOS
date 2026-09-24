@@ -20,11 +20,13 @@
 #include "System/Platform.h"
 #include <sys/errno.h>
 
+#include <algorithm>
 #include <string.h>
 #include <vector>
 #include <map>
 
 #include <Kernel/KTime.h>
+#include <Kernel/IRQDispatcher.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/HAL/DigitalPort.h>
@@ -60,6 +62,7 @@ KThreadCB* gk_InitThread = nullptr;
 
 static KThreadList          gk_ReadyThreadLists[KTHREAD_PRIORITY_LEVELS];
 static KThreadWaitList      gk_SleepingThreads;
+static TimeValNanos         gk_AccountedIRQTime;
 KThreadList                 gk_ZombieThreadLists;
 volatile thread_id          gk_DebugWakeupThread = 0;
 
@@ -222,6 +225,7 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
 {
     {
         KSchedulerLock slock;
+        dispatch_deferred_irq_handlers();
 
         KThreadCB* const prevThread = gk_CurrentThread;
         const uint32_t stackAddrInt = intptr_t(currentStack);
@@ -263,7 +267,12 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
             }
         }
         const TimeValNanos curTime = kget_monotonic_time_hires();
-        prevThread->m_RunTime += curTime - prevThread->m_StartTime;
+        const TimeValNanos elapsedTime = curTime - prevThread->m_StartTime;
+        const TimeValNanos pendingIRQTime = kget_total_irq_time() - gk_AccountedIRQTime;
+        const TimeValNanos deductedIRQTime = std::min(pendingIRQTime, elapsedTime);
+        // IRQs between the two samples may be charged to either thread. Carry any excess into the next interval.
+        prevThread->m_RunTime += elapsedTime - deductedIRQTime;
+        gk_AccountedIRQTime += deductedIRQTime;
         gk_CurrentThread->m_StartTime = curTime;
     }
 

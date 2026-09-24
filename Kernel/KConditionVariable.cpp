@@ -20,6 +20,7 @@
 
 #include <PadOS/Time.h>
 #include <Kernel/KConditionVariable.h>
+#include <Kernel/KIRQGuard.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KTime.h>
@@ -231,7 +232,62 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
         p_system_log<PLogSeverity::ERROR>(LogCatKernel_General, "KConditionVariable::IRQWaitDeadline() called with interrupts enabled!");
         return PErrorCode::INVAL;
     }
-    
+    return IRQWaitDeadlineInternal(nullptr, clockID, clockDeadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KConditionVariable::IRQWaitTimeout(TimeValNanos timeout)
+{
+    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
+}
+
+PErrorCode KConditionVariable::IRQWait(KIRQGuard& irqGuard)
+{
+    return IRQWaitClock(irqGuard, CLOCK_MONOTONIC, TimeValNanos::infinit);
+}
+
+PErrorCode KConditionVariable::IRQWaitTimeout(KIRQGuard& irqGuard, TimeValNanos timeout)
+{
+    const TimeValNanos deadline = timeout.IsInfinit() ? TimeValNanos::infinit : kget_monotonic_time() + timeout;
+    return IRQWaitClock(irqGuard, CLOCK_MONOTONIC_COARSE, deadline);
+}
+
+PErrorCode KConditionVariable::IRQWaitDeadline(KIRQGuard& irqGuard, TimeValNanos deadline)
+{
+    return IRQWaitClock(irqGuard, m_ClockID, deadline);
+}
+
+PErrorCode KConditionVariable::IRQWaitClock(KIRQGuard& irqGuard, clockid_t clockID, TimeValNanos deadline)
+{
+    if (!irqGuard.CanWait() || is_in_isr() || __get_PRIMASK() != 0 || __get_FAULTMASK() != 0) {
+        return PErrorCode::INVAL;
+    }
+    return IRQWaitDeadlineInternal(&irqGuard, clockID, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Wakeup 1 or more threads waiting for the condition. If threadCount is 0 all
+/// waiting threads will be woken up, if threadCount is > 0, up to threadCount
+/// number of threads are woken up.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KConditionVariable::Wakeup(int threadCount)
+{
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        if (wakeup_wait_queue(&m_WaitQueue, 0, threadCount)) KSWITCH_CONTEXT();
+    } CRITICAL_END;    
+    return PErrorCode::Success;
+}
+
+PErrorCode KConditionVariable::IRQWaitDeadlineInternal(KIRQGuard* irqGuard, clockid_t clockID, TimeValNanos clockDeadline)
+{
+    const IRQEnableState irqState = get_interrupt_enabled_state();
+
     TimeValNanos deadline;
     const PErrorCode result = kconvert_clock_to_monotonic(clockID, clockDeadline, deadline);
     if (result != PErrorCode::Success) {
@@ -239,7 +295,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
     }
 
     KThreadCB* thread = gk_CurrentThread;
-    
+
     for (;;)
     {
         KThreadWaitNode waitNode;
@@ -266,12 +322,20 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
         {
             return PErrorCode::TIMEDOUT;
         }
-        
+
         thread->SetBlockingObject(this);
 
         KSWITCH_CONTEXT();
-        set_interrupt_enabled_state(IRQEnableState::Enabled); // Enable interrupts and allow the scheduled context switch to happen.
-        set_interrupt_enabled_state(irqState); // Disable interrupts again when we wake up.
+        if (irqGuard != nullptr)
+        {
+            irqGuard->Unlock(); // Restore the source IRQ and BASEPRI after the waiter is visible.
+            irqGuard->Lock(); // Reacquire both protections before inspecting the wait nodes.
+        }
+        else
+        {
+            set_interrupt_enabled_state(IRQEnableState::Enabled);
+            set_interrupt_enabled_state(irqState);
+        }
 
         thread->SetBlockingObject(nullptr);
 
@@ -279,36 +343,10 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
         if (waitNode.m_TargetDeleted) {
             return PErrorCode::INVAL;
         }
-        if (!waitNode.Detatch())
-        {
+        if (!waitNode.Detatch()) {
             return PErrorCode::Success;
-        }                
+        }
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode KConditionVariable::IRQWaitTimeout(TimeValNanos timeout)
-{
-    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// Wakeup 1 or more threads waiting for the condition. If threadCount is 0 all
-/// waiting threads will be woken up, if threadCount is > 0, up to threadCount
-/// number of threads are woken up.
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode KConditionVariable::Wakeup(int threadCount)
-{
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        if (wakeup_wait_queue(&m_WaitQueue, 0, threadCount)) KSWITCH_CONTEXT();
-    } CRITICAL_END;    
-    return PErrorCode::Success;
 }
 
 } // namespace kernel

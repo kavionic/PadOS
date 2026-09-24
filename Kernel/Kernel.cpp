@@ -283,6 +283,12 @@ void Kernel::PreBSSInitialize()
 #endif
 
     s_CoreFrequencyToNanosecondScale = 1.0e9 / double(ResetAndClockControl::GetSysClockFrequency());
+#if defined(STM32H7)
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+#else
+#error IRQ cycle accounting must be implemented for this platform.
+#endif // defined(STM32H7)
 
     SpinTimer::Initialize();
 }

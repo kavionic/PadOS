@@ -25,6 +25,7 @@ namespace kernel
 {
 
 class KMutex;
+class KIRQGuard;
 
 class KConditionVariable : public KNamedObject
 {
@@ -54,6 +55,15 @@ public:
     PErrorCode IRQWaitDeadline(TimeValNanos deadline);
     PErrorCode IRQWaitClock(clockid_t clockID, TimeValNanos deadline);
 
+    // Require thread context and a guard whose release enables both the source IRQ and scheduler interrupts.
+    // No other IRQ guard or interrupt mask may enclose the wait.
+    // Release both protections after enqueueing the waiter, and reacquire them before returning, including on errors.
+    // The guard protects the caller's predicate against both immediate and deferred handlers for its IRQ.
+    PErrorCode IRQWait(KIRQGuard& irqGuard);
+    PErrorCode IRQWaitTimeout(KIRQGuard& irqGuard, TimeValNanos timeout);
+    PErrorCode IRQWaitDeadline(KIRQGuard& irqGuard, TimeValNanos deadline);
+    PErrorCode IRQWaitClock(KIRQGuard& irqGuard, clockid_t clockID, TimeValNanos deadline);
+
     PErrorCode Wakeup(int threadCount);
     inline PErrorCode WakeupAll() { return Wakeup(0); }
 
@@ -61,6 +71,7 @@ private:
     PErrorCode WaitInternal(KMutex* lock, bool cancelable);
     PErrorCode WaitTimeoutInternal(KMutex* lock, bool cancelable, TimeValNanos timeout);
     PErrorCode WaitDeadlineInternal(KMutex* lock, bool cancelable, clockid_t clockID, TimeValNanos deadline);
+    PErrorCode IRQWaitDeadlineInternal(KIRQGuard* irqGuard, clockid_t clockID, TimeValNanos deadline);
 
     clockid_t m_ClockID = CLOCK_MONOTONIC;
 

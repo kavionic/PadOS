@@ -6,6 +6,7 @@ target_sources(PadOS_Kernel PRIVATE
 	Kernel.h
 	KHandleArray.h
 	KInterrupts.h
+	KIRQGuard.h
 	KIRQPriorityLevels.h
 	KLogging.h
 	KMessagePort.h

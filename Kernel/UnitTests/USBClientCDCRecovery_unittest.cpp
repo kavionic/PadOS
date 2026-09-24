@@ -2,18 +2,13 @@
 // Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Keep this first: GCC diagnoses GoogleTest registration in STL template definitions.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnoexcept"
-#include <gtest/gtest.h>
-#pragma GCC diagnostic pop
-
 #include <array>
 #include <cstring>
 #include <functional>
 #include <system_error>
 #include <System/ExceptionHandling.h>
 
+#include <gtest/gtest.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/KThreadWaitNode.h>
 #include <Kernel/USB/USBDevice.h>

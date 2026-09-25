@@ -28,6 +28,7 @@
 #include <Kernel/KStackFrames.h>
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/KCapabilities.h>
+#include <Kernel/KInterrupts.h>
 #include <Threads/ThreadUserspaceState.h>
 
 namespace kernel
@@ -746,6 +747,13 @@ void kforce_process_signals()
     if (!kget_current_thread().HasUnblockedPendingSignals()) {
         return;
     }
+    // SVC runs at kernel priority and must be entered from thread mode with interrupts enabled.
+    kassert(!is_in_isr());
+    kassert(get_interrupt_enabled_state() == IRQEnableState::Enabled);
+    kassert(__get_PRIMASK() == 0);
+#if defined(STM32H7)
+    kassert(__get_FAULTMASK() == 0);
+#endif
     __asm volatile (
         "   ldr     r12, =%0\n"
         "   svc     0\n"

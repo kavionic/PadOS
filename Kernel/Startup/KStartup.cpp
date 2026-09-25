@@ -354,7 +354,7 @@ void start_scheduler(size_t mainThreadStackSize)
 {
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
-    NVIC_SetPriority(SVCall_IRQn, KIRQ_PRI_LOW_LATENCY_MAX);
+    NVIC_SetPriority(SVCall_IRQn, KIRQ_PRI_KERNEL);
     
     {
         KScopedLock lock(g_PIDMapMutex);

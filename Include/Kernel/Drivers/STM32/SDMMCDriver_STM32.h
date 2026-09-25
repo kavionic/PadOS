@@ -166,6 +166,18 @@ private:
         ((SDMMC_IDMABSIZE_IDMABNDT_Msk >> SDMMC_IDMABSIZE_IDMABNDT_Pos) * 32) & ~(BLOCK_SIZE - 1);
     static_assert((TRANSFER_BUFFER_SIZE % BLOCK_SIZE) == 0);
 
+    static constexpr uint32_t DATA_IRQ_FLAGS =
+        SDMMC_MASK_DATAENDIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE
+        | SDMMC_MASK_TXUNDERRIE | SDMMC_MASK_RXOVERRIE;
+
+    enum class DMATransferError
+    {
+        None,
+        UnexpectedBuffer,
+        AddressUpdateRejected,
+        CompletionCountMismatch
+    };
+
     struct TransferRequest
     {
         off64_t Position = 0;
@@ -180,8 +192,6 @@ private:
         void Normalize();
         size_t GetCurrentLength() const;
         uint8_t* GetCurrentAddress() const;
-        size_t GetRemainingSegmentCount(size_t maximumCount) const;
-        size_t PeekSegments(iovec_t* segments, size_t segmentCount) const;
         void Advance(size_t length);
         void CopyTo(void* destination, size_t length) const;
         void CopyFrom(const void* source, size_t length) const;
@@ -199,17 +209,28 @@ private:
     virtual uint32_t    GetResponse() override;
     virtual void        GetResponse128(uint8_t* response) override;
     virtual bool        StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, void* buffer) override;
-    bool                StartDataTransfer(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount);
+    bool StartDataTransfer(
+        uint32_t cmd,
+        uint32_t arg,
+        uint32_t blockSizePower,
+        uint32_t blockCount,
+        const IOVectorCursor& transfer);
     virtual bool        StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
     virtual void        ApplySpeedAndBusWidth() override;
 
     TransferRequest PrepareTransferRequest(const Ptr<KFileNode>& file, const iovec_t* segments, size_t segmentCount, off64_t position) const;
-    size_t PrepareDirectTransfer(const IOVectorCursor& cursor, iovec_t* transferSegments) const;
-    void ReadBlocks(uint32_t firstBlock, const iovec_t* segments, size_t segmentCount);
-    void WriteBlocks(uint32_t firstBlock, const iovec_t* segments, size_t segmentCount);
+    IOVectorCursor PrepareDirectTransfer(IOVectorCursor& cursor) const;
+    static size_t GetDMABufferSize(const IOVectorCursor& transfer);
+    uintptr_t GetNextDMABufferAddress();
+    void ReadBlocks(uint32_t firstBlock, const IOVectorCursor& transfer);
+    void WriteBlocks(uint32_t firstBlock, const IOVectorCursor& transfer);
 
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    static void      DeferredIRQCallback(IRQn_Type irq, void* userData);
     IRQResult        HandleIRQ();
+    void             HandleDeferredIRQ();
+    DMATransferError HandleDMABufferComplete();
+    IRQResult        FailDMATransfer(DMATransferError error);
 
     bool     WaitIRQ(uint32_t flags);
 
@@ -218,10 +239,21 @@ private:
     virtual void     SendClock() override;
 
     SDMMC_TypeDef*  m_SDMMC;
+    const IRQn_Type m_IRQ;
     uint32_t        m_PeripheralClockFrequency = 0;
     uint32_t        m_ClockCap = 0;
 
-    volatile WakeupReason   m_WakeupReason = WakeupReason::None;
+    const iovec_t* m_TransferSegments = nullptr;
+    size_t m_TransferSegmentIndex = 0;
+    size_t m_TransferSegmentOffset = 0;
+    size_t m_DMABufferSize = 0;
+    size_t m_DMABufferCount = 0;
+    size_t m_CompletedDMABufferCount = 0;
+    size_t m_QueuedDMABufferCount = 0;
+    DMATransferError m_DMATransferError = DMATransferError::None;
+
+    volatile uint32_t m_PendingIRQFlags = 0;
+    volatile WakeupReason m_WakeupReason = WakeupReason::None;
 };
 
 } // namespace

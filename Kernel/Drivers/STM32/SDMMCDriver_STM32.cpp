@@ -19,11 +19,13 @@
 
 #include <algorithm>
 #include <limits>
+#include <numeric>
 
 #include <string.h>
 #include <sys/uio.h>
 
 #include <Kernel/KTime.h>
+#include <Kernel/KIRQGuard.h>
 #include <Kernel/Drivers/STM32/SDMMCDriver_STM32.h>
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/FileIO.h>
@@ -55,7 +57,8 @@ static const uint32_t SDMMC_EVENT_FLAGS = SDMMC_MASK_CMDRENDIE      // Command R
                                         | SDMMC_MASK_BUSYD0ENDIE    // BUSYD0ENDIE interrupt Enable
                                         | SDMMC_MASK_SDIOITIE       // SDMMC Mode Interrupt Received interrupt Enable
                                         | SDMMC_MASK_VSWENDIE       // Voltage switch critical timing section completion Interrupt Enable
-                                        | SDMMC_MASK_CKSTOPIE;      // Voltage Switch clock stopped Interrupt Enable
+                                        | SDMMC_MASK_CKSTOPIE       // Voltage Switch clock stopped Interrupt Enable
+                                        | SDMMC_MASK_IDMABTCIE;     // IDMA buffer transfer complete Interrupt Enable
 
 static constexpr uint32_t SDMMC_ICR_ALL_FLAGS = 
       SDMMC_ICR_CCRCFAILC
@@ -83,7 +86,9 @@ static constexpr uint32_t SDMMC_ICR_ALL_FLAGS =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : SDMMCDriver(parameters, TRANSFER_BUFFER_SIZE)
+SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters)
+    : SDMMCDriver(parameters, TRANSFER_BUFFER_SIZE)
+    , m_IRQ(get_sdmmc_irq(parameters.PortID))
 {
     m_PeripheralClockFrequency = parameters.ClockFrequency;
     m_ClockCap = parameters.ClockCap;
@@ -113,7 +118,7 @@ SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : 
     SetClockFrequency(SDMMC_CLOCK_INIT);
     m_SDMMC->POWER = 3 << SDMMC_POWER_PWRCTRL_Pos;
 
-    register_irq_handler(get_sdmmc_irq(parameters.PortID), IRQCallback, this);
+    register_irq_handler(m_IRQ, IRQCallback, DeferredIRQCallback, this, KIRQ_PRI_LOW_LATENCY3);
 
     Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached);
 }
@@ -151,32 +156,30 @@ size_t SDMMCDriver_STM32::Read(Ptr<KFileNode> file, const iovec_t* segments, siz
 
     while (cursor.RemainingLength != 0)
     {
-        iovec_t transferSegments[2];
-        size_t transferSegmentCount = PrepareDirectTransfer(cursor, transferSegments);
-        size_t transferLength = 0;
-        const bool useTransferBuffer = transferSegmentCount == 0;
+        IOVectorCursor nextCursor = cursor;
+        IOVectorCursor transfer = PrepareDirectTransfer(nextCursor);
+        const bool useTransferBuffer = transfer.RemainingLength == 0;
+        iovec_t transferBufferSegment;
 
         if (useTransferBuffer)
         {
-            transferLength = std::min(cursor.RemainingLength, TRANSFER_BUFFER_SIZE);
-            transferSegments[0].iov_base = m_CacheAlignedBuffer;
-            transferSegments[0].iov_len = transferLength;
-            transferSegmentCount = 1;
+            const size_t transferLength = std::min(cursor.RemainingLength, TRANSFER_BUFFER_SIZE);
+            transferBufferSegment = { .iov_base = m_CacheAlignedBuffer, .iov_len = transferLength };
+            transfer = IOVectorCursor(&transferBufferSegment, 1, transferLength);
+        }
+
+        ReadBlocks(static_cast<uint32_t>(transferPosition / BLOCK_SIZE), transfer);
+
+        if (useTransferBuffer)
+        {
+            cursor.CopyFrom(m_CacheAlignedBuffer, transfer.RemainingLength);
+            cursor.Advance(transfer.RemainingLength);
         }
         else
         {
-            for (size_t segmentIndex = 0; segmentIndex < transferSegmentCount; ++segmentIndex) {
-                transferLength += transferSegments[segmentIndex].iov_len;
-            }
+            cursor = nextCursor;
         }
-
-        ReadBlocks(static_cast<uint32_t>(transferPosition / BLOCK_SIZE), transferSegments, transferSegmentCount);
-
-        if (useTransferBuffer) {
-            cursor.CopyFrom(m_CacheAlignedBuffer, transferLength);
-        }
-        cursor.Advance(transferLength);
-        transferPosition += transferLength;
+        transferPosition += transfer.RemainingLength;
     }
     return request.Length;
 }
@@ -206,28 +209,26 @@ size_t SDMMCDriver_STM32::Write(Ptr<KFileNode> file, const iovec_t* segments, si
 
     while (cursor.RemainingLength != 0)
     {
-        iovec_t transferSegments[2];
-        size_t transferSegmentCount = PrepareDirectTransfer(cursor, transferSegments);
-        size_t transferLength = 0;
+        IOVectorCursor nextCursor = cursor;
+        IOVectorCursor transfer = PrepareDirectTransfer(nextCursor);
+        const bool useTransferBuffer = transfer.RemainingLength == 0;
+        iovec_t transferBufferSegment;
 
-        if (transferSegmentCount == 0)
+        if (useTransferBuffer)
         {
-            transferLength = std::min(cursor.RemainingLength, TRANSFER_BUFFER_SIZE);
+            const size_t transferLength = std::min(cursor.RemainingLength, TRANSFER_BUFFER_SIZE);
             cursor.CopyTo(m_CacheAlignedBuffer, transferLength);
-            transferSegments[0].iov_base = m_CacheAlignedBuffer;
-            transferSegments[0].iov_len = transferLength;
-            transferSegmentCount = 1;
-        }
-        else
-        {
-            for (size_t segmentIndex = 0; segmentIndex < transferSegmentCount; ++segmentIndex) {
-                transferLength += transferSegments[segmentIndex].iov_len;
-            }
+            transferBufferSegment = { .iov_base = m_CacheAlignedBuffer, .iov_len = transferLength };
+            transfer = IOVectorCursor(&transferBufferSegment, 1, transferLength);
         }
 
-        WriteBlocks(static_cast<uint32_t>(transferPosition / BLOCK_SIZE), transferSegments, transferSegmentCount);
-        cursor.Advance(transferLength);
-        transferPosition += transferLength;
+        WriteBlocks(static_cast<uint32_t>(transferPosition / BLOCK_SIZE), transfer);
+        if (useTransferBuffer) {
+            cursor.Advance(transfer.RemainingLength);
+        } else {
+            cursor = nextCursor;
+        }
+        transferPosition += transfer.RemainingLength;
     }
     return request.Length;
 }
@@ -277,58 +278,41 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
     }
     commandR |= response << SDMMC_CMD_WAITRESP_Pos;
 
-    m_SDMMC->ICR = SDMMC_ICR_ALL_FLAGS;
-    m_SDMMC->ARG = arg;
-    m_SDMMC->CMD = commandR;
-
+    uint32_t enabledInterrupts = interrupts;
+    if ((cmd & SDMMC_RESP_BUSY) != 0) {
+        enabledInterrupts |= SDMMC_MASK_BUSYD0ENDIE;
+    }
     if ((extraCmdRFlags & SDMMC_CMD_CMDTRANS) != 0)
     {
-        const TimeValNanos commandDeadline =
-            kget_monotonic_time() + TimeValNanos::FromMilliseconds(500);
-        uint32_t status;
-        do
-        {
-            status = m_SDMMC->STA & interrupts;
-        } while (status == 0 && kget_monotonic_time() < commandDeadline);
-
-        m_SDMMC->ICR =
-            SDMMC_ICR_CCRCFAILC
-            | SDMMC_ICR_CTIMEOUTC
-            | SDMMC_ICR_CMDRENDC
-            | SDMMC_ICR_CMDSENTC;
-
-        if (status == 0)
-        {
-            m_IOError = ~0L;
-            set_last_error(PErrorCode::TIMEDOUT);
-            return false;
+        enabledInterrupts |= DATA_IRQ_FLAGS;
+        if (m_DMABufferCount != 0) {
+            enabledInterrupts |= SDMMC_MASK_IDMABTCIE;
         }
-
-        const uint32_t commandErrorFlags =
-            SDMMC_STA_CCRCFAIL | SDMMC_STA_CTIMEOUT;
-        if ((status & commandErrorFlags) != 0)
-        {
-            m_IOError = status & commandErrorFlags;
-            if ((status & SDMMC_STA_CTIMEOUT) != 0) {
-                RestartCard();
-            }
-            set_last_error(EIO);
-            return false;
-        }
-        m_IOError = 0;
     }
-    else if (!WaitIRQ(interrupts))
     {
-        if ((m_SDMMC->STA & SDMMC_STA_CTIMEOUT) != 0) {
+        KIRQGuard irqGuard(m_IRQ);
+        m_SDMMC->MASK = 0;
+        m_PendingIRQFlags = 0;
+        m_IOError = 0;
+        m_WakeupReason = WakeupReason::None;
+        m_SDMMC->ICR = SDMMC_ICR_ALL_FLAGS;
+        m_SDMMC->ARG = arg;
+        m_SDMMC->MASK = enabledInterrupts;
+        m_SDMMC->CMD = commandR;
+    }
+
+    if (!WaitIRQ(interrupts))
+    {
+        if ((m_IOError & SDMMC_STA_CTIMEOUT) != 0 && m_IOError != ~uint32_t(0)) {
             RestartCard();
         }
         return false;
     }
-    if ((cmd & SDMMC_RESP_BUSY) && (m_SDMMC->STA & SDMMC_STA_BUSYD0))
+    if ((cmd & SDMMC_RESP_BUSY) != 0 && (m_SDMMC->STA & SDMMC_STA_BUSYD0) != 0)
     {
         if (!WaitIRQ(SDMMC_MASK_BUSYD0ENDIE | SDMMC_MASK_CTIMEOUTIE))
         {
-            if ((m_SDMMC->STA & SDMMC_STA_CTIMEOUT) != 0) {
+            if ((m_IOError & SDMMC_STA_CTIMEOUT) != 0 && m_IOError != ~uint32_t(0)) {
                 RestartCard();
             }
             return false;
@@ -397,7 +381,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
     }
 
     const iovec_t segment = { .iov_base = dmaBuffer, .iov_len = transferLength };
-    const bool result = StartDataTransfer(cmd, arg, blockSizePower, blockCount, &segment, 1);
+    const bool result = StartDataTransfer(cmd, arg, blockSizePower, blockCount, IOVectorCursor(&segment, 1, transferLength));
 
     if (result && useTransferBuffer && (cmd & SDMMC_CMD_WRITE) == 0) {
         memmove(buffer, dmaBuffer, transferLength);
@@ -409,59 +393,42 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::StartDataTransfer(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount)
+bool SDMMCDriver_STM32::StartDataTransfer(
+    uint32_t cmd,
+    uint32_t arg,
+    uint32_t blockSizePower,
+    uint32_t blockCount,
+    const IOVectorCursor& transfer)
 {
     const size_t blockSize = size_t(1) << blockSizePower;
     const size_t byteLength = blockSize * blockCount;
 
-    if (segmentCount == 0 || segmentCount > 2 || byteLength == 0 || byteLength > MAX_DATA_TRANSFER_SIZE)
+    if (transfer.SegmentIndex >= transfer.SegmentCount || transfer.RemainingLength != byteLength
+        || byteLength == 0 || byteLength > MAX_DATA_TRANSFER_SIZE)
     {
         set_last_error(EINVAL);
         return false;
     }
 
-    size_t segmentLength = 0;
-    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
-    {
-        const iovec_t& segment = segments[segmentIndex];
-        if ((reinterpret_cast<uintptr_t>(segment.iov_base) & DCACHE_LINE_SIZE_MASK) != 0
-            || ((segment.iov_len & DCACHE_LINE_SIZE_MASK) != 0 && segment.iov_base != m_CacheAlignedBuffer))
-        {
-            set_last_error(EINVAL);
-            return false;
-        }
-        segmentLength += segment.iov_len;
-    }
-    if (segmentLength != byteLength)
-    {
-        set_last_error(EINVAL);
-        return false;
-    }
-    if (segmentCount == 2
-        && (segments[0].iov_len != segments[1].iov_len
-            || segments[0].iov_len > MAX_IDMA_BUFFER_SIZE
-            || (segments[0].iov_len % 32) != 0))
-    {
-        set_last_error(EINVAL);
-        return false;
-    }
-
+    const size_t segmentCount = transfer.SegmentCount - transfer.SegmentIndex;
     uint32_t dataControl = (blockSizePower << SDMMC_DCTRL_DBLOCKSIZE_Pos);
-    uint32_t idmaControl;
+    const size_t dmaBufferSize = (segmentCount > 1) ? GetDMABufferSize(transfer) : 0;
     if ((cmd & SDMMC_CMD_WRITE) == 0) {
         dataControl |= SDMMC_DCTRL_DTDIR; // From card to host (Read).
     }
-    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
+    IOVectorCursor cursor = transfer;
+    while (cursor.RemainingLength != 0)
     {
-        const size_t cacheLength =
-            (segments[segmentIndex].iov_len + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
-        uint32_t* const cacheAddress = reinterpret_cast<uint32_t*>(segments[segmentIndex].iov_base);
+        const size_t length = cursor.GetCurrentLength();
+        const size_t cacheLength = (length + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
+        uint32_t* const cacheAddress = reinterpret_cast<uint32_t*>(cursor.GetCurrentAddress());
 
         if ((cmd & SDMMC_CMD_WRITE) != 0) {
             SCB_CleanDCache_by_Addr(cacheAddress, cacheLength);
         } else {
             SCB_InvalidateDCache_by_Addr(cacheAddress, cacheLength);
         }
+        cursor.Advance(length);
     }
     if (cmd & SDMMC_CMD_SDIO_BYTE)
     {
@@ -482,59 +449,66 @@ bool SDMMCDriver_STM32::StartDataTransfer(uint32_t cmd, uint32_t arg, uint32_t b
             return false;
         }
     }
-    m_SDMMC->DTIMER = 0xffffffff;
-    m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
-
-    if (segmentCount == 2)
     {
-        m_SDMMC->IDMABASE0 = reinterpret_cast<uintptr_t>(segments[0].iov_base);
-        m_SDMMC->IDMABASE1 = reinterpret_cast<uintptr_t>(segments[1].iov_base);
+        KIRQGuard irqGuard(m_IRQ);
+        m_SDMMC->MASK = 0;
+        m_TransferSegments = transfer.Segments;
+        m_TransferSegmentIndex = transfer.SegmentIndex;
+        m_TransferSegmentOffset = transfer.SegmentOffset;
+        m_DMABufferSize = dmaBufferSize;
+        m_DMABufferCount = (dmaBufferSize != 0) ? byteLength / dmaBufferSize : 0;
+        m_CompletedDMABufferCount = 0;
+        m_QueuedDMABufferCount = 0;
+        m_DMATransferError = DMATransferError::None;
 
-        m_SDMMC->IDMABSIZE =
-            ((segments[0].iov_len / 32) << SDMMC_IDMABSIZE_IDMABNDT_Pos)
-            & SDMMC_IDMABSIZE_IDMABNDT_Msk;
-        idmaControl = SDMMC_IDMA_IDMAEN | SDMMC_IDMA_IDMABMODE;
+        m_SDMMC->DTIMER = 0xffffffff;
+        m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN;
+
+        uint32_t idmaControl = SDMMC_IDMA_IDMAEN;
+        if (dmaBufferSize != 0)
+        {
+            m_SDMMC->IDMABASE0 = GetNextDMABufferAddress();
+            m_SDMMC->IDMABASE1 = GetNextDMABufferAddress();
+            m_SDMMC->IDMABSIZE = (dmaBufferSize / 32) << SDMMC_IDMABSIZE_IDMABNDT_Pos;
+            idmaControl |= SDMMC_IDMA_IDMABMODE;
+        }
+        else
+        {
+            m_SDMMC->IDMABASE0 = reinterpret_cast<uintptr_t>(transfer.GetCurrentAddress());
+        }
+        m_SDMMC->DLEN = byteLength;
+        m_SDMMC->DCTRL = dataControl;
+        m_SDMMC->IDMACTRL = idmaControl;
     }
-    else
-    {
-        m_SDMMC->IDMABASE0 = reinterpret_cast<uintptr_t>(segments[0].iov_base);
-        idmaControl = SDMMC_IDMA_IDMAEN;
-    }
-    m_SDMMC->DLEN = byteLength;
-    m_SDMMC->DCTRL = dataControl;
-    m_SDMMC->CMD |= SDMMC_CMD_CMDTRANS;
-    m_SDMMC->IDMACTRL = idmaControl;
 
     bool result = ExecuteCmd(SDMMC_CMD_CMDTRANS, cmd, arg);
-
     if (result) {
-        result = WaitIRQ(
-            SDMMC_MASK_DATAENDIE
-            | SDMMC_MASK_DABORTIE
-            | SDMMC_MASK_DTIMEOUTIE
-            | SDMMC_MASK_DCRCFAILIE
-            | SDMMC_MASK_TXUNDERRIE
-            | SDMMC_MASK_RXOVERRIE);
+        result = WaitIRQ(DATA_IRQ_FLAGS);
     } else {
-        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartDataTransfer() failed to start cmd {} ({})", arg, int(m_WakeupReason));
+        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMC data command {} failed.", SDMMC_CMD_GET_INDEX(cmd));
     }
 
-    m_SDMMC->CMD &= ~SDMMC_CMD_CMDTRANS;
-    m_SDMMC->DLEN = 0;
-    m_SDMMC->DCTRL = 0;
-    m_SDMMC->IDMACTRL = 0;
-    m_SDMMC->ICR = SDMMC_ICR_ALL_FLAGS;
-//    m_SDMMC->CLKCR &= ~SDMMC_CLKCR_HWFC_EN; // Hardware flow-control disabled.
+    {
+        KIRQGuard irqGuard(m_IRQ);
+        m_SDMMC->MASK = 0;
+        m_SDMMC->CMD &= ~SDMMC_CMD_CMDTRANS;
+        m_SDMMC->DLEN = 0;
+        m_SDMMC->DCTRL = 0;
+        m_SDMMC->IDMACTRL = 0;
+        m_SDMMC->ICR = SDMMC_ICR_ALL_FLAGS;
+        m_TransferSegments = nullptr;
+        m_DMABufferCount = 0;
+    }
 
     if (result && (cmd & SDMMC_CMD_WRITE) == 0)
     {
-        for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex)
+        cursor = transfer;
+        while (cursor.RemainingLength != 0)
         {
-            const size_t cacheLength =
-                (segments[segmentIndex].iov_len + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
-            SCB_InvalidateDCache_by_Addr(
-                reinterpret_cast<uint32_t*>(segments[segmentIndex].iov_base),
-                cacheLength);
+            const size_t length = cursor.GetCurrentLength();
+            const size_t cacheLength = (length + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
+            SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(cursor.GetCurrentAddress()), cacheLength);
+            cursor.Advance(length);
         }
     }
     return result;
@@ -625,46 +599,6 @@ uint8_t* SDMMCDriver_STM32::IOVectorCursor::GetCurrentAddress() const
     kassert(RemainingLength != 0);
     kassert(SegmentIndex < SegmentCount);
     return static_cast<uint8_t*>(Segments[SegmentIndex].iov_base) + SegmentOffset;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SDMMCDriver_STM32::IOVectorCursor::GetRemainingSegmentCount(size_t maximumCount) const
-{
-    IOVectorCursor cursor = *this;
-    size_t segmentCount = 0;
-
-    while (cursor.RemainingLength != 0)
-    {
-        ++segmentCount;
-        if (segmentCount > maximumCount) {
-            break;
-        }
-        cursor.Advance(cursor.GetCurrentLength());
-    }
-    return segmentCount;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SDMMCDriver_STM32::IOVectorCursor::PeekSegments(iovec_t* segments, size_t segmentCount) const
-{
-    IOVectorCursor cursor = *this;
-    size_t outputSegmentCount = 0;
-
-    while (cursor.RemainingLength != 0 && outputSegmentCount < segmentCount)
-    {
-        const size_t segmentLength = cursor.GetCurrentLength();
-        segments[outputSegmentCount].iov_base = cursor.GetCurrentAddress();
-        segments[outputSegmentCount].iov_len = segmentLength;
-        ++outputSegmentCount;
-        cursor.Advance(segmentLength);
-    }
-    return outputSegmentCount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -795,49 +729,81 @@ SDMMCDriver_STM32::TransferRequest SDMMCDriver_STM32::PrepareTransferRequest(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t SDMMCDriver_STM32::PrepareDirectTransfer(const IOVectorCursor& cursor, iovec_t* transferSegments) const
+SDMMCDriver_STM32::IOVectorCursor SDMMCDriver_STM32::PrepareDirectTransfer(IOVectorCursor& cursor) const
 {
-    const size_t remainingSegmentCount = cursor.GetRemainingSegmentCount(2);
-    if (remainingSegmentCount == 0 || remainingSegmentCount > 2) {
-        return 0;
-    }
+    IOVectorCursor transfer = cursor;
+    transfer.SegmentCount = cursor.SegmentIndex;
+    transfer.RemainingLength = 0;
+    size_t remainingLength = MAX_DATA_TRANSFER_SIZE;
 
-    const size_t segmentCount = cursor.PeekSegments(transferSegments, remainingSegmentCount);
-    kassert(segmentCount == remainingSegmentCount);
-
-    if (segmentCount == 1)
+    // Advance the working cursor so the caller can retain the endpoint after successful I/O.
+    while (cursor.RemainingLength != 0 && remainingLength != 0)
     {
-        transferSegments[0].iov_len = std::min(transferSegments[0].iov_len, MAX_DATA_TRANSFER_SIZE);
-        transferSegments[0].iov_len -= transferSegments[0].iov_len % BLOCK_SIZE;
+        const uintptr_t address = reinterpret_cast<uintptr_t>(cursor.GetCurrentAddress());
+        size_t length = std::min(cursor.GetCurrentLength(), remainingLength);
+        length -= length % BLOCK_SIZE;
+        if (length == 0 || (address & DCACHE_LINE_SIZE_MASK) != 0) {
+            break;
+        }
+        transfer.SegmentCount = cursor.SegmentIndex + 1;
+        transfer.RemainingLength += length;
+        remainingLength -= length;
+        cursor.Advance(length);
 
-        if (transferSegments[0].iov_len != 0
-            && (reinterpret_cast<uintptr_t>(transferSegments[0].iov_base) & DCACHE_LINE_SIZE_MASK) == 0) {
-            return 1;
+        // A partial segment or skipped empty entries end the transaction.
+        if (cursor.SegmentIndex != transfer.SegmentCount) {
+            break;
         }
     }
-    else if (transferSegments[0].iov_len == transferSegments[1].iov_len
-        && transferSegments[0].iov_len <= MAX_IDMA_BUFFER_SIZE
-        && (transferSegments[0].iov_len % BLOCK_SIZE) == 0
-        && (reinterpret_cast<uintptr_t>(transferSegments[0].iov_base) & DCACHE_LINE_SIZE_MASK) == 0
-        && (reinterpret_cast<uintptr_t>(transferSegments[1].iov_base) & DCACHE_LINE_SIZE_MASK) == 0)
-    {
-        return 2;
-    }
-    return 0;
+    return transfer;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SDMMCDriver_STM32::ReadBlocks(uint32_t firstBlock, const iovec_t* segments, size_t segmentCount)
+size_t SDMMCDriver_STM32::GetDMABufferSize(const IOVectorCursor& transfer)
 {
-    size_t transferLength = 0;
-    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
-        transferLength += segments[segmentIndex].iov_len;
+    IOVectorCursor cursor = transfer;
+    size_t commonLength = 0;
+    while (cursor.RemainingLength != 0)
+    {
+        const size_t length = cursor.GetCurrentLength();
+        commonLength = std::gcd(commonLength, length);
+        cursor.Advance(length);
     }
+    size_t bufferSize = std::min(commonLength, MAX_IDMA_BUFFER_SIZE);
+    while ((commonLength % bufferSize) != 0) {
+        bufferSize -= BLOCK_SIZE;
+    }
+    return bufferSize;
+}
 
-    const uint32_t blockCount = static_cast<uint32_t>(transferLength / BLOCK_SIZE);
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uintptr_t SDMMCDriver_STM32::GetNextDMABufferAddress()
+{
+    const iovec_t& segment = m_TransferSegments[m_TransferSegmentIndex];
+    const uintptr_t address = reinterpret_cast<uintptr_t>(segment.iov_base) + m_TransferSegmentOffset;
+    m_TransferSegmentOffset += m_DMABufferSize;
+    if (m_TransferSegmentOffset == segment.iov_len)
+    {
+        ++m_TransferSegmentIndex;
+        m_TransferSegmentOffset = 0;
+    }
+    ++m_QueuedDMABufferCount;
+    return address;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver_STM32::ReadBlocks(uint32_t firstBlock, const IOVectorCursor& transfer)
+{
+    const uint32_t blockCount = static_cast<uint32_t>(transfer.RemainingLength / BLOCK_SIZE);
     const uint32_t cmd = (blockCount > 1) ? SDMMC_CMD18_READ_MULTIPLE_BLOCK : SDMMC_CMD17_READ_SINGLE_BLOCK;
 
     for (int retry = 0; retry < 10; ++retry)
@@ -851,7 +817,7 @@ void SDMMCDriver_STM32::ReadBlocks(uint32_t firstBlock, const iovec_t* segments,
             start *= BLOCK_SIZE;
         }
 
-        if (!StartDataTransfer(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
+        if (!StartDataTransfer(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, transfer)) {
             continue;
         }
 
@@ -875,14 +841,9 @@ void SDMMCDriver_STM32::ReadBlocks(uint32_t firstBlock, const iovec_t* segments,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SDMMCDriver_STM32::WriteBlocks(uint32_t firstBlock, const iovec_t* segments, size_t segmentCount)
+void SDMMCDriver_STM32::WriteBlocks(uint32_t firstBlock, const IOVectorCursor& transfer)
 {
-    size_t transferLength = 0;
-    for (size_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
-        transferLength += segments[segmentIndex].iov_len;
-    }
-
-    const uint32_t blockCount = static_cast<uint32_t>(transferLength / BLOCK_SIZE);
+    const uint32_t blockCount = static_cast<uint32_t>(transfer.RemainingLength / BLOCK_SIZE);
     const uint32_t cmd = (blockCount > 1) ? SDMMC_CMD25_WRITE_MULTIPLE_BLOCK : SDMMC_CMD24_WRITE_BLOCK;
 
     for (int retry = 0; retry < 10; ++retry)
@@ -892,7 +853,7 @@ void SDMMCDriver_STM32::WriteBlocks(uint32_t firstBlock, const iovec_t* segments
             start *= BLOCK_SIZE;
         }
 
-        if (!StartDataTransfer(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount))
+        if (!StartDataTransfer(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, transfer))
         {
             kernel_log<PLogSeverity::INFO_HIGH_VOL>(
                 LogCategorySDMMCDriver,
@@ -901,7 +862,7 @@ void SDMMCDriver_STM32::WriteBlocks(uint32_t firstBlock, const iovec_t* segments
                 SDMMC_CMD_GET_INDEX(cmd),
                 start,
                 blockCount,
-                segmentCount,
+                transfer.SegmentCount - transfer.SegmentIndex,
                 get_last_error());
             continue;
         }
@@ -954,34 +915,61 @@ IRQResult SDMMCDriver_STM32::IRQCallback(IRQn_Type irq, void* userData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void SDMMCDriver_STM32::DeferredIRQCallback(IRQn_Type irq, void* userData)
+{
+    static_cast<SDMMCDriver_STM32*>(userData)->HandleDeferredIRQ();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 IRQResult SDMMCDriver_STM32::HandleIRQ()
 {
-    uint32_t status = m_SDMMC->STA & m_SDMMC->MASK;
+    // IDMATE has no separate interrupt mask bit; inspect it when servicing the accompanying SDMMC event.
+    const uint32_t status = m_SDMMC->STA & (m_SDMMC->MASK | SDMMC_STA_IDMATE);
+    if (status == 0) {
+        return IRQResult::UNHANDLED;
+    }
 
-    static constexpr uint32_t errorFlags = ~SDMMC_EVENT_FLAGS;
-
-    if (status & errorFlags)
+    const uint32_t errorFlags = status & ~SDMMC_EVENT_FLAGS;
+    if (errorFlags != 0)
     {
         m_SDMMC->MASK = 0;
-        m_IOError = status & errorFlags;
+        m_SDMMC->ICR = status;
+        m_IOError = errorFlags;
         m_WakeupReason = WakeupReason::Error;
-        m_IOCondition.Wakeup(0);
+        return IRQResult::HANDLED_DEFERRED;
     }
-    else if (status & SDMMC_MASK_DATAENDIE)
+
+    if ((status & SDMMC_STA_IDMABTC) != 0)
     {
-        m_SDMMC->ICR = SDMMC_ICR_DATAENDC;
+        const DMATransferError error = HandleDMABufferComplete();
+        if (error != DMATransferError::None) {
+            return FailDMATransfer(error);
+        }
+    }
+    if ((status & SDMMC_STA_DATAEND) != 0)
+    {
+        // A sticky completion flag can hide multiple switches. Never accept a short completion count.
+        if (m_DMABufferCount != 0 && m_CompletedDMABufferCount != m_DMABufferCount) {
+            return FailDMATransfer(DMATransferError::CompletionCountMismatch);
+        }
         m_SDMMC->MASK = 0;
         m_SDMMC->CMD &= ~SDMMC_CMD_CMDTRANS;
-        m_IOError = 0;
         m_WakeupReason = WakeupReason::DataComplete;
-        m_IOCondition.Wakeup(0);
     }
-    else if (status & SDMMC_EVENT_FLAGS)
+
+    const uint32_t completedEvents = status & ~SDMMC_STA_IDMABTC;
+    if (completedEvents != 0)
     {
-        m_SDMMC->MASK = 0;
-        m_IOError = 0;
-        m_WakeupReason = WakeupReason::Event;
-        m_IOCondition.Wakeup(0);
+        m_SDMMC->ICR = completedEvents;
+        m_SDMMC->MASK &= ~completedEvents;
+        m_PendingIRQFlags = m_PendingIRQFlags | completedEvents;
+        if ((status & SDMMC_STA_DATAEND) == 0) {
+            m_WakeupReason = WakeupReason::Event;
+        }
+        return IRQResult::HANDLED_DEFERRED;
     }
     return IRQResult::HANDLED;
 }
@@ -990,53 +978,104 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void SDMMCDriver_STM32::HandleDeferredIRQ()
+{
+    // The waiter checks retained status, so coalesced or stale wakeups cannot lose a completion.
+    m_IOCondition.Wakeup(0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SDMMCDriver_STM32::DMATransferError SDMMCDriver_STM32::HandleDMABufferComplete()
+{
+    m_SDMMC->ICR = SDMMC_ICR_IDMABTCC;
+    if (m_CompletedDMABufferCount >= m_DMABufferCount) {
+        return DMATransferError::CompletionCountMismatch;
+    }
+
+    const uint32_t expectedActiveBuffer = ((m_CompletedDMABufferCount % 2) == 0) ? SDMMC_IDMA_IDMABACT : 0;
+    if ((m_SDMMC->IDMACTRL & SDMMC_IDMA_IDMABACT) != expectedActiveBuffer) {
+        return DMATransferError::UnexpectedBuffer;
+    }
+    ++m_CompletedDMABufferCount;
+
+    if (m_QueuedDMABufferCount < m_DMABufferCount)
+    {
+        volatile uint32_t* const baseRegister = (expectedActiveBuffer != 0) ? &m_SDMMC->IDMABASE0 : &m_SDMMC->IDMABASE1;
+        const uintptr_t address = GetNextDMABufferAddress();
+        *baseRegister = address;
+        // Writes to the active buffer are discarded by hardware.
+        if (*baseRegister != address) {
+            return DMATransferError::AddressUpdateRejected;
+        }
+    }
+    return DMATransferError::None;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult SDMMCDriver_STM32::FailDMATransfer(DMATransferError error)
+{
+    m_SDMMC->MASK = 0;
+    m_DMATransferError = error;
+    m_IOError = ~uint32_t(0);
+    m_WakeupReason = WakeupReason::Error;
+
+    // Use the allocation-free panic overload; transfer counters remain available to the debugger.
+    switch (error)
+    {
+        case DMATransferError::UnexpectedBuffer:
+            panic("SDMMC: unexpected active IDMA buffer.");
+            break;
+        case DMATransferError::AddressUpdateRejected:
+            panic("SDMMC: IDMA buffer address update missed its deadline.");
+            break;
+        case DMATransferError::CompletionCountMismatch:
+            panic("SDMMC: IDMA buffer completion count mismatch.");
+            break;
+        default:
+            panic("SDMMC: invalid IDMA transfer state.");
+            break;
+    }
+    return IRQResult::HANDLED_DEFERRED;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
 {
-    static constexpr uint32_t errorFlags = ~SDMMC_EVENT_FLAGS;
-    uint32_t status = m_SDMMC->STA & flags;
-
-    if (status & errorFlags)
+    const TimeValNanos deadline = kget_monotonic_time() + TimeValNanos::FromMilliseconds(500);
+    PErrorCode waitResult = PErrorCode::Success;
     {
-        set_last_error(EIO);
-        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR already flagged: {:x}", __PRETTY_FUNCTION__, status);
-        return false;
-    }
-    if (status & flags) {
-        return true;
-    }
-
-    m_WakeupReason = WakeupReason::None;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        m_SDMMC->MASK = flags;
-        const PErrorCode result = m_IOCondition.IRQWaitTimeout(TimeValNanos::FromMilliseconds(500));
-        while (result != PErrorCode::Success)
+        KIRQGuard irqGuard(m_IRQ);
+        while ((m_PendingIRQFlags & flags) == 0 && m_IOError == 0)
         {
-            if (result != PErrorCode::INTR)
+            waitResult = m_IOCondition.IRQWaitDeadline(irqGuard, deadline);
+            if (waitResult != PErrorCode::Success && waitResult != PErrorCode::INTR)
             {
-                set_last_error(result);
                 m_SDMMC->MASK = 0;
-                m_IOError = ~0L; // get_last_error();
+                m_IOError = ~uint32_t(0);
                 break;
             }
+            waitResult = PErrorCode::Success;
         }
-    } CRITICAL_END;
+        m_PendingIRQFlags = m_PendingIRQFlags & ~flags;
+    }
+
+    if (waitResult != PErrorCode::Success)
+    {
+        set_last_error(waitResult);
+        return false;
+    }
     if (m_IOError != 0)
     {
-        //      Reset();
-        if (m_IOError != ~0L)
-        {
-            if (m_IOError & SDMMC_STA_CTIMEOUT) {
-                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR SDMMC_STA_CTIMEOUT", __PRETTY_FUNCTION__);
-            }
-            if (m_IOError & SDMMC_STA_DTIMEOUT) {
-                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR SDMMC_STA_DTIMEOUT", __PRETTY_FUNCTION__);
-            }
-            if (m_IOError & SDMMC_STA_CCRCFAIL) {
-                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR SDMMC_STA_CCRCFAIL", __PRETTY_FUNCTION__);
-            }
-            set_last_error(EIO);
-        }
+        set_last_error(EIO);
         return false;
     }
     return true;

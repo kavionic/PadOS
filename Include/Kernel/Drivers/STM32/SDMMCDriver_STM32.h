@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -219,7 +219,7 @@ private:
     virtual void        ApplySpeedAndBusWidth() override;
 
     TransferRequest PrepareTransferRequest(const Ptr<KFileNode>& file, const iovec_t* segments, size_t segmentCount, off64_t position) const;
-    IOVectorCursor PrepareDirectTransfer(IOVectorCursor& cursor) const;
+    IOVectorCursor PrepareDirectTransfer(IOVectorCursor& cursor, bool isWrite) const;
     static size_t GetDMABufferSize(const IOVectorCursor& transfer);
     uintptr_t GetNextDMABufferAddress();
     void ReadBlocks(uint32_t firstBlock, const IOVectorCursor& transfer);

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -157,7 +157,7 @@ size_t SDMMCDriver_STM32::Read(Ptr<KFileNode> file, const iovec_t* segments, siz
     while (cursor.RemainingLength != 0)
     {
         IOVectorCursor nextCursor = cursor;
-        IOVectorCursor transfer = PrepareDirectTransfer(nextCursor);
+        IOVectorCursor transfer = PrepareDirectTransfer(nextCursor, false);
         const bool useTransferBuffer = transfer.RemainingLength == 0;
         iovec_t transferBufferSegment;
 
@@ -210,7 +210,7 @@ size_t SDMMCDriver_STM32::Write(Ptr<KFileNode> file, const iovec_t* segments, si
     while (cursor.RemainingLength != 0)
     {
         IOVectorCursor nextCursor = cursor;
-        IOVectorCursor transfer = PrepareDirectTransfer(nextCursor);
+        IOVectorCursor transfer = PrepareDirectTransfer(nextCursor, true);
         const bool useTransferBuffer = transfer.RemainingLength == 0;
         iovec_t transferBufferSegment;
 
@@ -364,10 +364,12 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 {
     const size_t blockSize = size_t(1) << blockSizePower;
     const size_t transferLength = blockSize * blockCount;
+    const bool isWrite = (cmd & SDMMC_CMD_WRITE) != 0;
+    const uintptr_t addressAlignmentMask = isWrite ? sizeof(uint32_t) - 1 : DCACHE_LINE_SIZE_MASK;
     const bool useTransferBuffer =
         buffer != m_CacheAlignedBuffer
-        && ((reinterpret_cast<uintptr_t>(buffer) & DCACHE_LINE_SIZE_MASK) != 0
-            || (transferLength & DCACHE_LINE_SIZE_MASK) != 0);
+        && ((reinterpret_cast<uintptr_t>(buffer) & addressAlignmentMask) != 0
+            || (!isWrite && (transferLength & DCACHE_LINE_SIZE_MASK) != 0));
 
     if (useTransferBuffer && transferLength > TRANSFER_BUFFER_SIZE)
     {
@@ -376,14 +378,14 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
     }
 
     void* dmaBuffer = useTransferBuffer ? m_CacheAlignedBuffer : buffer;
-    if (useTransferBuffer && (cmd & SDMMC_CMD_WRITE) != 0) {
+    if (useTransferBuffer && isWrite) {
         memmove(dmaBuffer, buffer, transferLength);
     }
 
     const iovec_t segment = { .iov_base = dmaBuffer, .iov_len = transferLength };
     const bool result = StartDataTransfer(cmd, arg, blockSizePower, blockCount, IOVectorCursor(&segment, 1, transferLength));
 
-    if (result && useTransferBuffer && (cmd & SDMMC_CMD_WRITE) == 0) {
+    if (result && useTransferBuffer && !isWrite) {
         memmove(buffer, dmaBuffer, transferLength);
     }
     return result;
@@ -420,13 +422,14 @@ bool SDMMCDriver_STM32::StartDataTransfer(
     while (cursor.RemainingLength != 0)
     {
         const size_t length = cursor.GetCurrentLength();
-        const size_t cacheLength = (length + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
-        uint32_t* const cacheAddress = reinterpret_cast<uint32_t*>(cursor.GetCurrentAddress());
+        const uintptr_t bufferAddress = reinterpret_cast<uintptr_t>(cursor.GetCurrentAddress());
+        const uintptr_t cacheAddress = align_down(bufferAddress, DCACHE_LINE_SIZE);
+        const size_t cacheLength = align_up(bufferAddress + length, DCACHE_LINE_SIZE) - cacheAddress;
 
         if ((cmd & SDMMC_CMD_WRITE) != 0) {
-            SCB_CleanDCache_by_Addr(cacheAddress, cacheLength);
+            SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(cacheAddress), cacheLength);
         } else {
-            SCB_InvalidateDCache_by_Addr(cacheAddress, cacheLength);
+            SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(cacheAddress), cacheLength);
         }
         cursor.Advance(length);
     }
@@ -729,8 +732,9 @@ SDMMCDriver_STM32::TransferRequest SDMMCDriver_STM32::PrepareTransferRequest(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver_STM32::IOVectorCursor SDMMCDriver_STM32::PrepareDirectTransfer(IOVectorCursor& cursor) const
+SDMMCDriver_STM32::IOVectorCursor SDMMCDriver_STM32::PrepareDirectTransfer(IOVectorCursor& cursor, bool isWrite) const
 {
+    const uintptr_t addressAlignmentMask = isWrite ? sizeof(uint32_t) - 1 : DCACHE_LINE_SIZE_MASK;
     IOVectorCursor transfer = cursor;
     transfer.SegmentCount = cursor.SegmentIndex;
     transfer.RemainingLength = 0;
@@ -742,7 +746,7 @@ SDMMCDriver_STM32::IOVectorCursor SDMMCDriver_STM32::PrepareDirectTransfer(IOVec
         const uintptr_t address = reinterpret_cast<uintptr_t>(cursor.GetCurrentAddress());
         size_t length = std::min(cursor.GetCurrentLength(), remainingLength);
         length -= length % BLOCK_SIZE;
-        if (length == 0 || (address & DCACHE_LINE_SIZE_MASK) != 0) {
+        if (length == 0 || (address & addressAlignmentMask) != 0) {
             break;
         }
         transfer.SegmentCount = cursor.SegmentIndex + 1;

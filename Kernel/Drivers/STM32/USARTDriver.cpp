@@ -18,6 +18,7 @@
 #include <Utils/Utils.h>
 #include <Utils/JSON.h>
 #include <Kernel/IRQDispatcher.h>
+#include <Kernel/KIRQGuard.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KDriverManager.h>
@@ -45,6 +46,7 @@ USARTDriverInode::USARTDriverInode(const USARTDriverParameters& parameters)
     , m_PinTX(parameters.PinTX)
 {
     m_Port = get_usart_from_id(parameters.PortID);
+    m_USARTIRQ = get_usart_irq(parameters.PortID);
 
     get_usart_dma_requests(parameters.PortID, m_DMARequestRX, m_DMARequestTX);
 
@@ -57,29 +59,13 @@ USARTDriverInode::USARTDriverInode(const USARTDriverParameters& parameters)
     m_ClockFrequency = get_usart_peripheral_clock_freq(parameters.PortID);
     SetBaudrate(921600);
 
-    m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;
+    InitializeDMA();
 
-    m_ReceiveDMAChannel = dma_allocate_channel();
-    m_SendDMAChannel = dma_allocate_channel();
-
-    if (m_ReceiveDMAChannel != -1)
-    {
-        m_ReceiveBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, m_ReceiveBufferSize));
-
-        auto irq = dma_get_channel_irq(m_ReceiveDMAChannel);
-        NVIC_ClearPendingIRQ(irq);
-        register_irq_handler(irq, IRQCallbackReceive, this);
-
-        m_PendingReceiveBytes = m_ReceiveBufferSize;
-        dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-        dma_start(m_ReceiveDMAChannel);
-    }
-    if (m_SendDMAChannel != -1)
-    {
-        auto irq = dma_get_channel_irq(m_SendDMAChannel);
-        NVIC_ClearPendingIRQ(irq);
-        register_irq_handler(irq, IRQCallbackSend, this);
-    }
+    // All handlers and receive state are ready before the USART can produce DMA requests.
+    KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+    m_Port->ICR = USART_ICR_IDLECF | USART_ICR_ORECF;
+    dma_start(m_ReceiveDMAChannel);
+    m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE | USART_CR1_IDLEIE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -93,31 +79,35 @@ size_t USARTDriverInode::Read(Ptr<KFileNode> file, void* buffer, const size_t le
     }
     CRITICAL_SCOPE(m_MutexRead);
 
-    uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
-
     for (;;)
     {
-        size_t curLen = ReadReceiveBuffer(file, currentTarget, length);
-        if (curLen > 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
-            return curLen;
+        const size_t bytesRead = ReadReceiveBuffer(buffer, length);
+        if (bytesRead != 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
+            return bytesRead;
         }
-        PErrorCode result = PErrorCode::Success;
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            dma_stop(m_ReceiveDMAChannel);
-            dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-            RestartReceiveDMA(1);
 
-            if (m_ReceiveBytesInBuffer == 0)
-            {
-                result = m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout);
-            }
-        } CRITICAL_END;
-        if (result != PErrorCode::Success)
+        PErrorCode result = PErrorCode::Success;
         {
-            if (result != PErrorCode::INTR) {
-                PERROR_THROW_CODE(result);
+            KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+            RefreshReceiveDMA();
+            if (!m_ReceiveError && m_ReceivePublishedPosition == m_ReceiveReadPosition)
+            {
+                result = m_ReceiveCondition.IRQWaitTimeout(irqGuard, m_ReadTimeout);
+                RefreshReceiveDMA();
             }
+
+            if (m_ReceiveError)
+            {
+                result = PErrorCode::IO;
+            }
+            else if ((result == PErrorCode::TIMEDOUT || result == PErrorCode::INTR) &&
+                m_ReceivePublishedPosition != m_ReceiveReadPosition)
+            {
+                result = PErrorCode::Success;
+            }
+        }
+        if (result != PErrorCode::Success && result != PErrorCode::INTR) {
+            PERROR_THROW_CODE(result);
         }
     }
 }
@@ -350,27 +340,122 @@ bool USARTDriverInode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mod
     {
         case ObjectWaitMode::Read:
         case ObjectWaitMode::ReadWrite:
-            CRITICAL_BEGIN(CRITICAL_IRQ)
-            {
-                if (m_ReceiveBytesInBuffer == 0)
-                {
-                    dma_stop(m_ReceiveDMAChannel);
-                    dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-                    RestartReceiveDMA(1);
-                }
-
-                if (m_ReceiveBytesInBuffer == 0) {
-                    return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
-                } else {
-                    return false; // Will not block.
-                }
-            } CRITICAL_END;
+        {
+            KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+            RefreshReceiveDMA();
+            if (!m_ReceiveError && m_ReceivePublishedPosition == m_ReceiveReadPosition) {
+                return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
+            } else {
+                return false; // Data or a receive error is ready.
+            }
+        }
         case ObjectWaitMode::Write:
             return false;
         default:
             return false;
     }
+}
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::InitializeDMA()
+{
+    m_ReceiveDMAChannel = dma_allocate_channel();
+    if (m_ReceiveDMAChannel == -1) {
+        PERROR_THROW_CODE(static_cast<PErrorCode>(get_last_error()));
+    }
+    PScopeFail releaseReceiveChannel([this]() { dma_free_channel(m_ReceiveDMAChannel); });
+
+    m_SendDMAChannel = dma_allocate_channel();
+    if (m_SendDMAChannel == -1) {
+        PERROR_THROW_CODE(static_cast<PErrorCode>(get_last_error()));
+    }
+    PScopeFail releaseSendChannel([this]() { dma_free_channel(m_SendDMAChannel); });
+
+    m_ReceiveBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, RECEIVE_BUFFER_SIZE));
+    if (m_ReceiveBuffer == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOMEM);
+    }
+    PScopeFail releaseReceiveBuffer([this]() { free(m_ReceiveBuffer); });
+
+    // The aligned buffer belongs exclusively to RX; discard any cache state before DMA first writes it.
+    SCB_CleanInvalidateDCache_by_Addr(m_ReceiveBuffer, RECEIVE_BUFFER_SIZE);
+
+    m_ReceiveDMAIRQ = dma_get_channel_irq(m_ReceiveDMAChannel);
+    m_ReceiveDMAStream = dma_get_channel_stream(m_ReceiveDMAChannel);
+    dma_stop(m_ReceiveDMAChannel);
+    InitializeReceiveDMA();
+
+    // Below SDMMC's LOW_LATENCY3, but above every scheduler-masked normal-latency IRQ.
+    const int receiveIRQHandle = register_irq_handler(
+        m_ReceiveDMAIRQ,
+        IRQCallbackReceive,
+        DeferredIRQCallbackReceive,
+        this,
+        KIRQ_PRI_LOW_LATENCY2);
+    if (receiveIRQHandle < 0) {
+        PERROR_THROW_CODE(static_cast<PErrorCode>(get_last_error()));
+    }
+    PScopeFail unregisterReceiveIRQ([this, receiveIRQHandle]() { unregister_irq_handler(m_ReceiveDMAIRQ, receiveIRQHandle); });
+
+    // IDLE only requests RX service. Normal latency lets the RX guard also exclude this handler.
+    m_Port->ICR = USART_ICR_IDLECF;
+    NVIC_ClearPendingIRQ(m_USARTIRQ);
+    const int usartIRQHandle = register_irq_handler(m_USARTIRQ, IRQCallbackUSART, this);
+    if (usartIRQHandle < 0) {
+        PERROR_THROW_CODE(static_cast<PErrorCode>(get_last_error()));
+    }
+    PScopeFail unregisterUSARTIRQ([this, usartIRQHandle]() { unregister_irq_handler(m_USARTIRQ, usartIRQHandle); });
+
+    const IRQn_Type sendIRQ = dma_get_channel_irq(m_SendDMAChannel);
+    dma_stop(m_SendDMAChannel);
+    dma_clear_interrupt_flags(m_SendDMAChannel, DMA_LIFCR_CTCIF0);
+    NVIC_ClearPendingIRQ(sendIRQ);
+    if (register_irq_handler(sendIRQ, IRQCallbackSend, this) < 0) {
+        PERROR_THROW_CODE(static_cast<PErrorCode>(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::InitializeReceiveDMA()
+{
+    // Initialization/reset only: the stream is stopped and its callbacks cannot run.
+    m_ReceiveReadPosition = 0;
+    m_ReceivePublishedPosition = 0;
+    m_ReceiveCompletedPosition = 0;
+    m_ReceivePaused = false;
+    m_ReceiveError = false;
+    m_ReceiveServicePending = false;
+    m_ReceiveWakeupPending = false;
+    ConfigureReceiveDMA();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::ConfigureReceiveDMA()
+{
+    // The stream is stopped. Only completed chunks precede this new active chunk.
+    const size_t bufferOffset = m_ReceiveCompletedPosition % RECEIVE_BUFFER_SIZE;
+    const size_t nextOffset = (bufferOffset + RECEIVE_CHUNK_SIZE) % RECEIVE_BUFFER_SIZE;
+    m_ReceiveActiveTarget = 0;
+    dma_setup(
+        m_ReceiveDMAChannel,
+        DMADirection::PeriphToMem,
+        m_DMARequestRX,
+        &m_Port->RDR,
+        m_ReceiveBuffer + bufferOffset,
+        RECEIVE_CHUNK_SIZE);
+    m_ReceiveDMAStream->FCR = 0; // Direct mode: short bursts must not remain buffered in the DMA FIFO.
+    m_ReceiveDMAStream->M1AR = reinterpret_cast<uintptr_t>(m_ReceiveBuffer + nextOffset);
+    m_ReceiveDMAStream->CR |= DMA_SxCR_DBM | DMA_SxCR_CIRC | DMA_SxCR_TEIE | DMA_SxCR_DMEIE;
+    NVIC_ClearPendingIRQ(m_ReceiveDMAIRQ);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -458,34 +543,28 @@ void USARTDriverInode::SetSwapRXTX(bool doSwap)
 {
     if (doSwap != GetSwapRXTX())
     {
-        uint32_t cr1 = m_Port->CR1;
+        // The write mutex excludes new transmissions while the existing TC wait completes.
+        while ((m_Port->ISR & USART_ISR_TC) == 0);
+        KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+        const uint32_t cr1 = m_Port->CR1;
 
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            dma_stop(m_ReceiveDMAChannel);
-            dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+        dma_stop(m_ReceiveDMAChannel);
+        m_Port->CR1 &= ~(USART_CR1_TE | USART_CR1_RE);
+        m_Port->CR1 &= ~USART_CR1_UE;
 
-            m_Port->CR1 &= ~(USART_CR1_TE | USART_CR1_RE);
-            while ((m_Port->ISR & USART_ISR_TC) == 0);
-            m_Port->CR1 &= ~USART_CR1_UE;
+        if (doSwap) {
+            m_Port->CR2 |= USART_CR2_SWAP;
+        } else {
+            m_Port->CR2 &= ~USART_CR2_SWAP;
+        }
 
-            if (doSwap) {
-                m_Port->CR2 |= USART_CR2_SWAP;
-            } else {
-                m_Port->CR2 &= ~USART_CR2_SWAP;
-            }
-            m_Port->CR1 = cr1;
-
-            m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
-
-            m_ReceiveBufferInPos = 0;
-            m_ReceiveBufferOutPos = 0;
-            m_ReceiveBytesInBuffer = 0;
-            m_PendingReceiveBytes = m_ReceiveBufferSize;
-            dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-            dma_start(m_ReceiveDMAChannel);
-        } CRITICAL_END;
-
+        m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer.
+        m_Port->ICR = USART_ICR_IDLECF | USART_ICR_ORECF;
+        NVIC_ClearPendingIRQ(m_USARTIRQ);
+        InitializeReceiveDMA();
+        m_Port->CR3 |= USART_CR3_DMAR;
+        dma_start(m_ReceiveDMAChannel);
+        m_Port->CR1 = cr1;
     }
 }
 
@@ -502,61 +581,198 @@ bool USARTDriverInode::GetSwapRXTX() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USARTDriverInode::RestartReceiveDMA(size_t maxLength)
+void USARTDriverInode::RefreshReceiveDMA()
 {
-    const int32_t bytesReceived = m_PendingReceiveBytes - dma_get_transfer_count(m_ReceiveDMAChannel);
-
-    m_ReceiveBytesInBuffer += bytesReceived;
-    m_ReceiveBufferInPos = (m_ReceiveBufferInPos + bytesReceived) % m_ReceiveBufferSize;
-
-    m_PendingReceiveBytes = std::min(m_ReceiveBufferSize - m_ReceiveBytesInBuffer, m_ReceiveBufferSize - m_ReceiveBufferInPos);
-    
-    if (m_ReceiveBytesInBuffer < maxLength && (m_ReceiveBytesInBuffer + m_PendingReceiveBytes) > maxLength)
-    {
-        m_PendingReceiveBytes = maxLength - m_ReceiveBytesInBuffer;
+    // Thread context, with m_ReceiveDMAIRQ guarded. Never stop DMA to inspect a partial chunk.
+    UpdateReceiveDMA();
+    if (m_ReceiveWakeupPending) {
+        NVIC_SetPendingIRQ(m_ReceiveDMAIRQ);
     }
-
-    if (m_PendingReceiveBytes > 0)
-    {
-        dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_PendingReceiveBytes);
-        dma_start(m_ReceiveDMAChannel);
-        return true;
-    }
-    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t USARTDriverInode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length)
+void USARTDriverInode::UpdateReceiveDMA()
 {
-    uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
-
-    if (m_ReceiveBytesInBuffer == 0)
-    {
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            dma_stop(m_ReceiveDMAChannel);
-            dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-            RestartReceiveDMA(0);
-        } CRITICAL_END;
+    if (m_ReceiveError) {
+        return;
     }
 
-    const int32_t bytesToRead = std::min<int32_t>(length, m_ReceiveBytesInBuffer);
-    if (bytesToRead > 0)
+    const uint32_t flags = dma_get_interrupt_flags(m_ReceiveDMAChannel);
+    if ((flags & (DMA_LISR_TEIF0 | DMA_LISR_DMEIF0)) != 0)
     {
-        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((m_ReceiveBufferSize + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-
-        const int32_t postLength = std::min(bytesToRead, m_ReceiveBufferSize - m_ReceiveBufferOutPos);
-        memcpy(currentTarget, m_ReceiveBuffer + m_ReceiveBufferOutPos, postLength);
-        if (postLength < bytesToRead)
+        FailReceiveDMA();
+        return;
+    }
+    if ((flags & DMA_LISR_TCIF0) != 0)
+    {
+        dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+        const uint32_t activeTarget = m_ReceiveDMAStream->CR & DMA_SxCR_CT;
+        if (m_ReceivePaused || activeTarget == m_ReceiveActiveTarget)
         {
-            const int32_t preLength = bytesToRead - postLength;
-            memcpy(currentTarget + postLength, m_ReceiveBuffer, preLength);
+            FailReceiveDMA();
+            return;
         }
-        m_ReceiveBufferOutPos = (m_ReceiveBufferOutPos + bytesToRead) % m_ReceiveBufferSize;
-        m_ReceiveBytesInBuffer -= bytesToRead;
+
+        m_ReceiveActiveTarget = activeTarget;
+        m_ReceiveCompletedPosition = m_ReceiveCompletedPosition + RECEIVE_CHUNK_SIZE;
+        PublishReceivePosition(m_ReceiveCompletedPosition);
+        QueueNextReceiveChunk();
+    }
+    if (m_ReceiveError || m_ReceivePaused) {
+        return;
+    }
+
+    // A target switch during the snapshot is serviced by its TC IRQ; do not guess which chunk NDTR describes.
+    const size_t remainingBytes = m_ReceiveDMAStream->NDTR;
+    const uint32_t activeTarget = m_ReceiveDMAStream->CR & DMA_SxCR_CT;
+    const uint32_t pendingFlags = dma_get_interrupt_flags(m_ReceiveDMAChannel);
+    if (activeTarget == m_ReceiveActiveTarget && remainingBytes != 0 && remainingBytes <= RECEIVE_CHUNK_SIZE &&
+        (pendingFlags & RECEIVE_DMA_INTERRUPT_FLAGS) == 0)
+    {
+        PublishReceivePosition(m_ReceiveCompletedPosition + RECEIVE_CHUNK_SIZE - remainingBytes);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::PublishReceivePosition(size_t position)
+{
+    // Ignore stale samples at a target reload. Publication never moves backwards.
+    const size_t newBytes = position - m_ReceivePublishedPosition;
+    if (newBytes != 0 && newBytes <= RECEIVE_CHUNK_SIZE)
+    {
+        m_ReceivePublishedPosition = position;
+        m_ReceiveWakeupPending = true;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::QueueNextReceiveChunk()
+{
+    const size_t nextPosition = m_ReceiveCompletedPosition + RECEIVE_CHUNK_SIZE;
+    const size_t firstOccupiedChunk = m_ReceiveReadPosition - m_ReceiveReadPosition % RECEIVE_CHUNK_SIZE;
+    if (nextPosition - firstOccupiedChunk >= RECEIVE_BUFFER_SIZE)
+    {
+        // Keep the active chunk as a guard. Its old alternate target must not overwrite unread data.
+        m_Port->CR3 &= ~USART_CR3_DMAR;
+        m_ReceivePaused = true;
+    }
+    else
+    {
+        if ((m_ReceiveDMAStream->CR & DMA_SxCR_CT) != m_ReceiveActiveTarget)
+        {
+            FailReceiveDMA();
+            return;
+        }
+        volatile uint32_t* nextAddress = (m_ReceiveActiveTarget == 0) ? &m_ReceiveDMAStream->M1AR : &m_ReceiveDMAStream->M0AR;
+        *nextAddress = reinterpret_cast<uintptr_t>(m_ReceiveBuffer + nextPosition % RECEIVE_BUFFER_SIZE);
+    }
+    if ((m_ReceiveDMAStream->CR & DMA_SxCR_CT) != m_ReceiveActiveTarget ||
+        (dma_get_interrupt_flags(m_ReceiveDMAChannel) & RECEIVE_DMA_INTERRUPT_FLAGS) != 0) {
+        FailReceiveDMA();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::ResumeReceiveDMA()
+{
+    // Thread context only, with the RX IRQ guarded. Retain unread completed chunks through overflow.
+    const size_t firstOccupiedChunk = m_ReceiveReadPosition - m_ReceiveReadPosition % RECEIVE_CHUNK_SIZE;
+    if (m_ReceiveCompletedPosition + RECEIVE_CHUNK_SIZE - firstOccupiedChunk < RECEIVE_BUFFER_SIZE)
+    {
+        dma_stop(m_ReceiveDMAChannel);
+        if ((m_ReceiveDMAStream->CR & DMA_SxCR_CT) != m_ReceiveActiveTarget ||
+            (dma_get_interrupt_flags(m_ReceiveDMAChannel) & (DMA_LISR_TEIF0 | DMA_LISR_DMEIF0)) != 0)
+        {
+            FailReceiveDMA();
+            return;
+        }
+        // Drop the guard chunk and FIFO received while full, including any already-consumed IDLE notification.
+        m_Port->RQR = USART_RQR_RXFRQ;
+        m_Port->ICR = USART_ICR_IDLECF | USART_ICR_ORECF;
+        ConfigureReceiveDMA();
+        m_ReceiveServicePending = false;
+        m_ReceivePaused = false;
+        dma_start(m_ReceiveDMAChannel);
+        m_Port->CR3 |= USART_CR3_DMAR;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::FailReceiveDMA()
+{
+    // Request an abort without waiting in the immediate handler. Reset stops the stream before reprogramming it.
+    m_Port->CR3 &= ~USART_CR3_DMAR;
+    m_ReceiveDMAStream->CR &= ~(DMA_SxCR_EN | DMA_SxCR_TCIE | DMA_SxCR_TEIE | DMA_SxCR_DMEIE);
+    dma_clear_interrupt_flags(m_ReceiveDMAChannel, RECEIVE_DMA_INTERRUPT_FLAGS);
+    m_ReceiveError = true;
+    m_ReceiveWakeupPending = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USARTDriverInode::ReadReceiveBuffer(void* buffer, size_t length)
+{
+    size_t readPosition;
+    size_t bytesToRead;
+    bool receiveError;
+    {
+        KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+        RefreshReceiveDMA();
+        readPosition = m_ReceiveReadPosition;
+        bytesToRead = std::min(length, m_ReceivePublishedPosition - readPosition);
+        receiveError = m_ReceiveError;
+    }
+    if (receiveError) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+
+    if (bytesToRead != 0)
+    {
+        // Published bytes stay reserved while copying, including prefixes of the active DMA chunk.
+        uint8_t* target = static_cast<uint8_t*>(buffer);
+        const size_t bufferOffset = readPosition % RECEIVE_BUFFER_SIZE;
+        const size_t firstLength = std::min(bytesToRead, RECEIVE_BUFFER_SIZE - bufferOffset);
+        SCB_InvalidateDCache_by_Addr(m_ReceiveBuffer + bufferOffset, firstLength);
+        memcpy(target, m_ReceiveBuffer + bufferOffset, firstLength);
+        if (firstLength < bytesToRead)
+        {
+            const size_t secondLength = bytesToRead - firstLength;
+            SCB_InvalidateDCache_by_Addr(m_ReceiveBuffer, secondLength);
+            memcpy(target + firstLength, m_ReceiveBuffer, secondLength);
+        }
+
+        {
+            KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+            if (!m_ReceiveError)
+            {
+                m_ReceiveReadPosition = readPosition + bytesToRead;
+                if (m_ReceivePaused) {
+                    ResumeReceiveDMA();
+                }
+                RefreshReceiveDMA();
+            }
+            receiveError = m_ReceiveError;
+        }
+        if (receiveError) {
+            PERROR_THROW_CODE(PErrorCode::IO);
+        }
     }
     return bytesToRead;
 }
@@ -574,17 +790,71 @@ IRQResult USARTDriverInode::IRQCallbackReceive(IRQn_Type irq, void* userData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USARTDriverInode::DeferredIRQCallbackReceive(IRQn_Type irq, void* userData)
+{
+    static_cast<USARTDriverInode*>(userData)->HandleDeferredIRQReceive();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 IRQResult USARTDriverInode::HandleIRQReceive()
 {
-    if (dma_get_interrupt_flags(m_ReceiveDMAChannel) & DMA_LISR_TCIF0)
-    {
-        dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-        dma_stop(m_ReceiveDMAChannel);
-        RestartReceiveDMA(0);
-        m_ReceiveCondition.WakeupAll();
-        KSWITCH_CONTEXT();
+    const uint32_t flags = dma_get_interrupt_flags(m_ReceiveDMAChannel) & RECEIVE_DMA_INTERRUPT_FLAGS;
+    const bool serviceRequested = m_ReceiveServicePending;
+    m_ReceiveServicePending = false;
+    if ((flags == 0 || m_ReceiveError) && !serviceRequested && !m_ReceiveWakeupPending) {
+        return IRQResult::UNHANDLED;
     }
-    return IRQResult::HANDLED;
+
+    UpdateReceiveDMA();
+    return m_ReceiveWakeupPending ? IRQResult::HANDLED_DEFERRED : IRQResult::HANDLED;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverInode::HandleDeferredIRQReceive()
+{
+    bool wakeReaders;
+    {
+        KIRQGuard irqGuard(m_ReceiveDMAIRQ);
+        wakeReaders = m_ReceiveWakeupPending && (m_ReceiveError || m_ReceivePublishedPosition != m_ReceiveReadPosition);
+        m_ReceiveWakeupPending = false;
+    }
+
+    // Retained readiness, rather than callback counts, handles coalescing and callbacks left over after a reset/read.
+    if (wakeReaders) {
+        m_ReceiveCondition.WakeupAll();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult USARTDriverInode::IRQCallbackUSART(IRQn_Type irq, void* userData)
+{
+    return static_cast<USARTDriverInode*>(userData)->HandleIRQUSART();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult USARTDriverInode::HandleIRQUSART()
+{
+    if ((m_Port->ISR & USART_ISR_IDLE) != 0 && (m_Port->CR1 & USART_CR1_IDLEIE) != 0)
+    {
+        // Let DMA retain ownership of RDR. Reading RDR here could steal a byte from the DMA stream.
+        m_Port->ICR = USART_ICR_IDLECF;
+        m_ReceiveServicePending = true;
+        NVIC_SetPendingIRQ(m_ReceiveDMAIRQ);
+        return IRQResult::HANDLED;
+    }
+    return IRQResult::UNHANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

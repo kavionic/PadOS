@@ -35,6 +35,7 @@ int dma_allocate_channel();
 void dma_free_channel(int channel);
 
 IRQn_Type dma_get_channel_irq(int channel);
+DMA_Stream_TypeDef* dma_get_channel_stream(int channel);
 
 void    dma_setup(int channel, DMADirection mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length);
 

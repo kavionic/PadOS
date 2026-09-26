@@ -81,6 +81,16 @@ public:
     virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
 private:
+    static constexpr size_t RECEIVE_BUFFER_SIZE = 8 * 1024;
+    static constexpr size_t RECEIVE_CHUNK_SIZE = 512;
+    static constexpr uint32_t RECEIVE_DMA_INTERRUPT_FLAGS = DMA_LISR_TCIF0 | DMA_LISR_TEIF0 | DMA_LISR_DMEIF0;
+    static_assert((RECEIVE_BUFFER_SIZE & (RECEIVE_BUFFER_SIZE - 1)) == 0);
+    static_assert(RECEIVE_BUFFER_SIZE % RECEIVE_CHUNK_SIZE == 0);
+    static_assert(RECEIVE_CHUNK_SIZE % DCACHE_LINE_SIZE == 0);
+
+    void InitializeDMA();
+    void InitializeReceiveDMA();
+    void ConfigureReceiveDMA();
     void SetBaudrate(int baudrate);
     void SetIOControl(uint32_t flags);
 
@@ -89,11 +99,21 @@ private:
     void SetSwapRXTX(bool doSwap);
     bool GetSwapRXTX() const;
 
-    bool    RestartReceiveDMA(size_t maxLength);
-    size_t  ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);
+    // Thread-side callers hold m_ReceiveDMAIRQ with KIRQGuard, which also masks the normal-latency USART IRQ.
+    void    RefreshReceiveDMA();
+    void    UpdateReceiveDMA();
+    void    PublishReceivePosition(size_t position);
+    void    QueueNextReceiveChunk();
+    void    ResumeReceiveDMA();
+    void    FailReceiveDMA();
+    size_t  ReadReceiveBuffer(void* buffer, size_t length);
 
     static IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData);
+    static void DeferredIRQCallbackReceive(IRQn_Type irq, void* userData);
     IRQResult HandleIRQReceive();
+    void HandleDeferredIRQReceive();
+    static IRQResult IRQCallbackUSART(IRQn_Type irq, void* userData);
+    IRQResult HandleIRQUSART();
     static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
     IRQResult HandleIRQSend();
 
@@ -116,16 +136,22 @@ private:
     USARTPinMode    m_PinModeTX = USARTPinMode::Normal;
     uint32_t        m_IOControl = 0;
     TimeValNanos    m_ReadTimeout = TimeValNanos::infinit;
+    IRQn_Type       m_ReceiveDMAIRQ = static_cast<IRQn_Type>(-1);
+    IRQn_Type       m_USARTIRQ = static_cast<IRQn_Type>(-1);
     int             m_ReceiveDMAChannel = -1;
     int             m_SendDMAChannel = -1;
-    int32_t         m_ReceiveBufferSize = 1024 * 8;
-    int32_t         m_ReceiveBufferOutPos = 0;
-    volatile int32_t         m_ReceiveBufferInPos = 0;
-    volatile int32_t         m_PendingReceiveBytes = 0;
-    volatile std::atomic_int32_t         m_ReceiveBytesInBuffer = 0;
-    uint8_t* m_ReceiveBuffer;
+    DMA_Stream_TypeDef* m_ReceiveDMAStream = nullptr;
+    uint8_t*        m_ReceiveBuffer = nullptr;
 
-    volatile bool m_ReceiveTransactionActive = false;
+    // Unsigned positions advance monotonically modulo size_t; the buffer size divides the counter range.
+    volatile size_t m_ReceiveReadPosition = 0;
+    volatile size_t m_ReceivePublishedPosition = 0;
+    volatile size_t m_ReceiveCompletedPosition = 0;
+    volatile uint32_t m_ReceiveActiveTarget = 0;
+    volatile bool m_ReceivePaused = false;
+    volatile bool m_ReceiveError = false;
+    volatile bool m_ReceiveServicePending = false;
+    volatile bool m_ReceiveWakeupPending = false;
 };
 
 } // namespace

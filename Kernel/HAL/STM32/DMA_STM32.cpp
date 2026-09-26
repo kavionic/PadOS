@@ -84,6 +84,21 @@ IRQn_Type dma_get_channel_irq(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+DMA_Stream_TypeDef* dma_get_channel_stream(int channel)
+{
+    if (channel < 0 || channel >= DMA_CHANNEL_COUNT)
+    {
+        set_last_error(EINVAL);
+        return nullptr;
+    }
+    const int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
+    return (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void dma_setup(int channel, DMADirection mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);

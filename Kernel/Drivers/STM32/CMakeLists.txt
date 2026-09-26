@@ -1,3 +1,9 @@
+# This file is part of PadOS.
+#
+# Copyright (c) 2020 Kurt Skauen
+#
+# SPDX-License-Identifier: Apache-2.0
+###############################################################################
 
 if(PADOS_DRIVER_I2C)
 	target_sources(PadOS_Drivers_I2C PRIVATE

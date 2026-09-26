@@ -1,3 +1,10 @@
+// This file is part of PadOS.
+//
+// Copyright (c) 2025 Kurt Skauen
+//
+// SPDX-License-Identifier: Apache-2.0
+///////////////////////////////////////////////////////////////////////////////
+
 // std_chrono_clocks_tests.cpp
 // Comprehensive on-device tests for <chrono> clocks + timing behavior.
 // - Exercises system_clock, steady_clock, high_resolution_clock always.

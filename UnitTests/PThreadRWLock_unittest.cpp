@@ -1,3 +1,10 @@
+// This file is part of PadOS.
+//
+// Copyright (c) 2025 Kurt Skauen
+//
+// SPDX-License-Identifier: Apache-2.0
+///////////////////////////////////////////////////////////////////////////////
+
 // pthread_rwlock_tests.cpp
 // GoogleTest coverage for POSIX pthread read-write locks.
 // Focus: correctness invariants, no fairness assumptions.

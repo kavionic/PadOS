@@ -1,6 +1,9 @@
 // This file is part of PadOS.
-// Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
-// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (c) 2026 Kurt Skauen
+//
+// SPDX-License-Identifier: Apache-2.0
+///////////////////////////////////////////////////////////////////////////////
 
 // Standalone host test: c++ -std=c++23 -I../Include USBCDCQueue_test.cpp -o cdc_queue_test
 #include <Kernel/USB/ClassDrivers/USBCDCQueue.h>

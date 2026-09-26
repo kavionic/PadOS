@@ -1,3 +1,10 @@
+// This file is part of PadOS.
+//
+// Copyright (c) 2025 Kurt Skauen
+//
+// SPDX-License-Identifier: Apache-2.0
+///////////////////////////////////////////////////////////////////////////////
+
 // posix_semaphore_tests.cpp (fixed)
 // Coverage: unnamed + named semaphores, sem_timedwait, sem_clockwait,
 // and two stress tests. No clock-jump tests.

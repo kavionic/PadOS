@@ -1,3 +1,10 @@
+// This file is part of PadOS.
+//
+// Copyright (c) 2022 Kurt Skauen
+//
+// SPDX-License-Identifier: Apache-2.0
+///////////////////////////////////////////////////////////////////////////////
+
 #include <Kernel/HAL/DigitalPort.h>
 #include <Utils/Utils.h>
 

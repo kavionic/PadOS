@@ -1,3 +1,9 @@
+# This file is part of PadOS.
+#
+# Copyright (c) 2020 Kurt Skauen
+#
+# SPDX-License-Identifier: Apache-2.0
+###############################################################################
 
 if(PADOS_DRIVER_FT5x0x)
 target_sources(PadOS_Drivers_FT5x0x PRIVATE

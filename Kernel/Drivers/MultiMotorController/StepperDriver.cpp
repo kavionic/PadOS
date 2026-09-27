@@ -7,6 +7,7 @@
 // Created: 09.10.2019 21:30
 
 
+#include <bit>
 #include <cmath>
 
 #include <System/ExceptionHandling.h>
@@ -22,7 +23,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-StepperDriver::StepperDriver() : m_RunningCondition("STEPPERDRV_RUN")
+StepperDriver::StepperDriver() : m_RunningCondition("STEPPERDRV_RUN"), m_QueueCondition("STEPPERDRV_QUEUE")
 {
 }
 
@@ -66,16 +67,17 @@ void StepperDriver::Setup_trw(HWTimerID timerID, PinMuxTarget pinStep, DigitalPi
     m_PinDirection.SetDirection(DigitalPinDirection_e::Out);
     m_PinStep.SetDirection(DigitalPinDirection_e::Out);
 
-    m_PinStep.SetPeripheralMux(m_PinStepMux.MUX);
-
     m_TimerPerifFrequency = get_timer_int_clock_freq(timerID);
-    m_TimerFrequency = 3000000;
-    m_TimerChannel->CR1 = TIM_CR1_ARPE_Msk;
-    m_TimerChannel->CCMR1 = (6 << TIM_CCMR1_OC1M_Pos); // PWM-mode1
+    m_PulseWidthTicks = (m_TimerPerifFrequency * STEP_PULSE_WIDTH_US + 999999) / 1000000;
+    m_TimerChannel->CR1 = TIM_CR1_ARPE_Msk | TIM_CR1_URS_Msk;
+    m_TimerChannel->CCMR1 = (4U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE_Msk; // Force inactive
     m_TimerChannel->CCER = TIM_CCER_CC1E_Msk; // Enable compare 1 output
     m_TimerChannel->BDTR = TIM_BDTR_MOE_Msk;
-    m_TimerChannel->CCR1 = 10;
-    m_TimerChannel->PSC = m_TimerPerifFrequency / m_TimerFrequency - 1;
+    m_TimerChannel->CCR1 = 0;
+    m_TimerChannel->ARR = 1;
+    m_TimerChannel->PSC = 0;
+    m_TimerChannel->SR = ~TIM_SR_UIF_Msk;
+    m_PinStep.SetPeripheralMux(m_PinStepMux.MUX);
     m_TimerChannel->DIER |= TIM_DIER_UIE_Msk;
     uint32_t dbgFlagMask = 0;
     volatile uint32_t* dbgReg = get_timer_dbg_clk_flag(timerID, dbgFlagMask);
@@ -93,6 +95,7 @@ void StepperDriver::Setup_trw(HWTimerID timerID, PinMuxTarget pinStep, DigitalPi
 
 void StepperDriver::Shutdown()
 {
+    ClearMotion();
     m_IsInitialized = false;
 }
 
@@ -153,77 +156,54 @@ void StepperMotionNode::Update(bool direction, int32_t distance, float startSpee
 
 void StepperDriver::SetSpeed(float speed, float acceleration)
 {
+    if (!m_IsInitialized) {
+        return;
+    }
+    MotionSnapshot snapshot = CaptureMotionSnapshot();
+    const uint32_t stopGeneration = snapshot.StopGeneration;
     const bool direction = CalcDirection(speed);
-    speed = std::abs(speed * m_StepsPerMillimeter);
-    acceleration *= m_StepsPerMillimeter;
-
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    const float stepSpeed = std::abs(speed * m_StepsPerMillimeter);
+    const float stepAcceleration = acceleration * m_StepsPerMillimeter;
+    for (;;)
     {
-        if (speed != 0.0f)
+        if (snapshot.StopGeneration != stopGeneration || (speed == 0.0f && !snapshot.Running)) {
+            return;
+        }
+        StepperMotionNode nodes[2] = {};
+        size_t count = 1;
+
+        if (stepSpeed != 0.0f && (!snapshot.Running || snapshot.QueueCount == 0 || snapshot.Speed < m_Jerk))
         {
-            if (!m_IsRunning || m_MotionQueueCurrentCount == 0 || m_CurrentSpeed < m_Jerk)
+            const float startSpeed = std::max(std::min(m_Jerk, stepSpeed), snapshot.Speed);
+            nodes[0].Update(direction, INFINIT_DISTANCE_I, startSpeed, stepSpeed, stepSpeed, stepAcceleration);
+        }
+        else if (stepSpeed != 0.0f && direction == snapshot.Direction)
+        {
+            nodes[0].Update(direction, INFINIT_DISTANCE_I, snapshot.Speed, stepSpeed, stepSpeed, stepAcceleration);
+        }
+        else
+        {
+            const float startSpeed = std::min(m_Jerk, stepSpeed);
+            const float stopSpeed = (stepSpeed == 0.0f)
+                ? std::min(snapshot.Speed, m_Jerk * 0.5f) : std::min(snapshot.Speed, m_Jerk - startSpeed);
+            const float stopDistance = PAcceleration::CalcAccelerationDistance(snapshot.Speed, stopSpeed, stepAcceleration);
+            nodes[0].m_Direction = snapshot.Direction;
+            nodes[0].m_StartSpeed = snapshot.Speed;
+            nodes[0].m_CruiseSpeed = snapshot.Speed;
+            nodes[0].m_EndSpeed = stopSpeed;
+            nodes[0].m_Acceleration = stepAcceleration;
+            nodes[0].m_DecelStepsLeft = int32_t(stopDistance + 0.5f);
+            if (stepSpeed != 0.0f)
             {
-                //            printf("%p: Start from %.3f to %.3f\n", m_TimerChannel, m_CurrentSpeed, speed);
-                m_MotionQueue[0].Update(direction, INFINIT_DISTANCE_I, std::max(m_Jerk, m_CurrentSpeed), speed, speed, acceleration);
-
-                m_MotionQueueCurrentNode = 0;
-                m_MotionQueueInPos = 1;
-                m_MotionQueueCurrentCount = 1;
-                ActivateCurrentNode();
-                if (!m_IsRunning) {
-                    StartStopTimer(true);
-                }
-            }
-            else
-            {
-                StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-                if (direction == node.m_Direction)
-                {
-                    //                printf("%p: update from %.3f to %.3f\n", m_TimerChannel, m_CurrentSpeed, speed);
-                    node.Update(node.m_Direction, INFINIT_DISTANCE_I, m_CurrentSpeed, speed, speed, acceleration);
-                    m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueCurrentNode);
-                    m_MotionQueueCurrentCount = 1;
-                }
-                else
-                {
-                    //                printf("%p: reverse from %.3f to %.3f\n", m_TimerChannel, m_CurrentSpeed, speed);
-                    const float startSpeed = std::min(m_Jerk, speed);
-                    const float stopSpeed = std::min(m_CurrentSpeed, m_Jerk - startSpeed);
-                    const float stopDist = PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration);
-
-                    node.m_Acceleration = acceleration;
-                    node.m_AccelStepsLeft = 0;
-                    node.m_CruiceStepsLeft = 0;
-                    node.m_DecelStepsLeft = int32_t(stopDist + 0.5f);
-                    node.m_EndSpeed = stopSpeed;
-                    node.m_StartSpeed = m_CurrentSpeed;
-                    node.m_TargetSpeed = 0;
-
-                    StepperMotionNode& nextNode = m_MotionQueue[GetNextBlockIndex(m_MotionQueueCurrentNode)];
-                    nextNode.Update(direction, INFINIT_DISTANCE_I, startSpeed, speed, speed, acceleration);
-                    m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueCurrentNode + 1);
-                    m_MotionQueueCurrentCount = 2;
-                }
+                nodes[1].Update(direction, INFINIT_DISTANCE_I, startSpeed, stepSpeed, stepSpeed, stepAcceleration);
+                count = 2;
             }
         }
-        else if (m_IsRunning)
-        {
-            StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-            m_MotionQueueCurrentCount = 1;
-            m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueCurrentNode);
-
-            const float stopSpeed = std::min(m_CurrentSpeed, m_Jerk * 0.5f);
-            const float stopDist = PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration);
-
-            node.m_Acceleration = acceleration;
-            node.m_AccelStepsLeft = 0;
-            node.m_CruiceStepsLeft = 0;
-            node.m_DecelStepsLeft = int32_t(stopDist + 0.5f);
-            node.m_EndSpeed = stopSpeed;
-            node.m_StartSpeed = m_CurrentSpeed;
-            node.m_TargetSpeed = 0;
+        if (ReplaceMotion(snapshot, nodes, count, true)) {
+            return;
         }
-    } CRITICAL_END;
+        snapshot = CaptureMotionSnapshot();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -241,60 +221,73 @@ void StepperDriver::StopAtOffset(float offset, float speed, float acceleration)
 
 void StepperDriver::StopAtPos(float position, float speed, float acceleration)
 {
-    const int32_t stepPosition = int32_t(position * m_StepsPerMillimeter + 0.5f);
-
-    speed *= m_StepsPerMillimeter;
-    acceleration *= m_StepsPerMillimeter;
-
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    if (!m_IsInitialized) {
+        return;
+    }
+    MotionSnapshot snapshot = CaptureMotionSnapshot();
+    const uint32_t stopGeneration = snapshot.StopGeneration;
+    const int32_t stepPosition = int32_t(std::round(position * m_StepsPerMillimeter));
+    const float stepSpeed = std::abs(speed * m_StepsPerMillimeter);
+    const float stepAcceleration = acceleration * m_StepsPerMillimeter;
+    for (;;)
     {
-        const int32_t currentPosition = GetStepPosition();
-        const int32_t distance = stepPosition - currentPosition;
-        if (m_MotionQueueCurrentCount > 0)
+        if (snapshot.StopGeneration != stopGeneration) {
+            return;
+        }
+        const int32_t distance = stepPosition - snapshot.Position;
+        const bool direction = CalcDirection(distance);
+        StepperMotionNode nodes[2] = {};
+        size_t count = 1;
+        int32_t correction = 0;
+
+        if (snapshot.QueueCount == 0)
         {
-            StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-            m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueCurrentNode);
-            m_MotionQueueCurrentCount = 1;
-            const bool newDirection = CalcDirection(distance);
-            if (newDirection == node.m_Direction)
+            if (distance != 0)
             {
-                node.Update(newDirection, std::abs(distance), m_CurrentSpeed, speed, m_Jerk, acceleration);
-                const int32_t nodeDistance = (node.m_AccelStepsLeft + node.m_CruiceStepsLeft + node.m_DecelStepsLeft) * (newDirection ? 1 : -1);
-                const int32_t stopPos = currentPosition + nodeDistance;
-                if (stopPos != stepPosition)
-                {
-                    // Correct for overshoot if necessary.
-                    QueueMotionInternal(stepPosition - stopPos, speed, acceleration);
-                }
+                nodes[0].Update(direction, std::abs(distance), std::min(m_Jerk, stepSpeed), stepSpeed, m_Jerk, stepAcceleration);
             }
-            else
-            {
-                if (m_CurrentSpeed < m_Jerk)
-                {
-                    node.Update(newDirection, std::abs(distance), m_Jerk - m_CurrentSpeed, speed, std::min(speed, m_Jerk), acceleration);
-                    m_CurrentSpeed = 0.0f;
-                    ActivateCurrentNode();
-                }
-                else
-                {
-                    const float startSpeed = std::min(m_Jerk, speed);
-                    const float stopSpeed = std::min(m_CurrentSpeed, m_Jerk - startSpeed);
-                    const int32_t stopDist = int32_t(ceil(PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration)));
-                    node.Update(node.m_Direction, stopDist, m_CurrentSpeed, m_CurrentSpeed, stopSpeed, acceleration);
-                    if (node.m_Direction) {
-                        QueueMotionInternal(distance - stopDist, speed, acceleration);
-                    } else {
-                        QueueMotionInternal(distance + stopDist, speed, acceleration);
-                    }
-                }
-            }
+        }
+        else if (direction == snapshot.Direction)
+        {
+            nodes[0].Update(direction, std::abs(distance), snapshot.Speed, stepSpeed, m_Jerk, stepAcceleration);
+            const int32_t nodeDistance = nodes[0].m_AccelStepsLeft + nodes[0].m_CruiceStepsLeft + nodes[0].m_DecelStepsLeft;
+            correction = distance - (direction ? nodeDistance : -nodeDistance);
+        }
+        else if (snapshot.Speed < m_Jerk)
+        {
+            nodes[0].Update(
+                direction,
+                std::abs(distance),
+                std::min(m_Jerk - snapshot.Speed, stepSpeed),
+                stepSpeed,
+                std::min(stepSpeed, m_Jerk),
+                stepAcceleration);
         }
         else
         {
-            QueueMotionInternal(distance, speed, acceleration);
-            StartStopTimer(true);
+            const float startSpeed = std::min(m_Jerk, stepSpeed);
+            const float stopSpeed = std::min(snapshot.Speed, m_Jerk - startSpeed);
+            const float stopDistanceFloat = PAcceleration::CalcAccelerationDistance(snapshot.Speed, stopSpeed, stepAcceleration);
+            const int32_t stopDistance = int32_t(std::ceil(stopDistanceFloat));
+            nodes[0].Update(snapshot.Direction, stopDistance, snapshot.Speed, snapshot.Speed, stopSpeed, stepAcceleration);
+            correction = distance - (snapshot.Direction ? stopDistance : -stopDistance);
         }
-    } CRITICAL_END;
+        if (correction != 0)
+        {
+            nodes[1].Update(
+                CalcDirection(correction),
+                std::abs(correction),
+                std::min(m_Jerk, stepSpeed),
+                stepSpeed,
+                m_Jerk,
+                stepAcceleration);
+            count = 2;
+        }
+        if (ReplaceMotion(snapshot, nodes, count, snapshot.Running || snapshot.QueueCount == 0)) {
+            return;
+        }
+        snapshot = CaptureMotionSnapshot();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -314,7 +307,10 @@ void StepperDriver::SyncMove(float distanceMM, float speedMMS, float acceleratio
 
 void StepperDriver::QueueMotion(float distanceMM, float speedMMS, float accelerationMMS)
 {
-    QueueMotionInternal(int32_t(distanceMM * m_StepsPerMillimeter + 0.5f), speedMMS * m_StepsPerMillimeter, accelerationMMS * m_StepsPerMillimeter);
+    QueueMotionInternal(
+        int32_t(std::round(distanceMM * m_StepsPerMillimeter)),
+        speedMMS * m_StepsPerMillimeter,
+        accelerationMMS * m_StepsPerMillimeter);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -324,20 +320,28 @@ void StepperDriver::QueueMotion(float distanceMM, float speedMMS, float accelera
 void StepperDriver::StepForward()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
-    if (!m_IsInitialized) return;
+    if (!m_IsInitialized) {
+        return;
+    }
 
-    while (m_IsRunning) Wait();
+    while (m_IsRunning) {
+        Wait();
+    }
 
+    m_TimerChannel->CCMR1 = (4U << TIM_CCMR1_OC1M_Pos);
+    SpinTimer::SleepuS(1);
     m_PinDirection = !m_Reverse;
     for (int i = 0; i < 10; ++i) {
         m_TimerChannel->CCMR1 = (5 << TIM_CCMR1_OC1M_Pos); // Force active
     }
-    m_TimerChannel->CCMR1 = (6 << TIM_CCMR1_OC1M_Pos); // PWM-mode1
-    if (m_PinDirection) {
+    m_TimerChannel->CCMR1 = (4U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE_Msk; // Force inactive
+    if (m_PinDirection.Read()) {
         m_Position++;
     } else {
         m_Position--;
     }
+    m_HasTimerPhase = false;
+    ++m_MotionRevision;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -347,20 +351,28 @@ void StepperDriver::StepForward()
 void StepperDriver::StepBackward()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
-    if (!m_IsInitialized) return;
+    if (!m_IsInitialized) {
+        return;
+    }
 
-    while (m_IsRunning) Wait();
+    while (m_IsRunning) {
+        Wait();
+    }
 
+    m_TimerChannel->CCMR1 = (4U << TIM_CCMR1_OC1M_Pos);
+    SpinTimer::SleepuS(1);
     m_PinDirection = m_Reverse;
     for (int i = 0; i < 10; ++i) {
         m_TimerChannel->CCMR1 = (5 << TIM_CCMR1_OC1M_Pos); // Force active
     }
-    m_TimerChannel->CCMR1 = (6 << TIM_CCMR1_OC1M_Pos); // PWM-mode1
-    if (m_PinDirection) {
+    m_TimerChannel->CCMR1 = (4U << TIM_CCMR1_OC1M_Pos) | TIM_CCMR1_OC1PE_Msk; // Force inactive
+    if (m_PinDirection.Read()) {
         m_Position++;
     } else {
         m_Position--;
     }
+    m_HasTimerPhase = false;
+    ++m_MotionRevision;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -369,7 +381,9 @@ void StepperDriver::StepBackward()
 
 void StepperDriver::Wait()
 {
-    if (!m_IsInitialized) return;
+    if (!m_IsInitialized) {
+        return;
+    }
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
@@ -393,24 +407,18 @@ void StepperDriver::Wait()
 
 float StepperDriver::GetCurrentStopDistance(float acceleration) const
 {
-    float stopDist = 0.0f;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        if (!m_IsInitialized) return 0.0f;
-        if (m_MotionQueueCurrentCount > 0 && m_CurrentSpeed > m_Jerk)
-        {
-            const StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-            stopDist = PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, m_Jerk, acceleration * m_StepsPerMillimeter);
-            if (node.m_Direction == m_Reverse) {
-                stopDist = -stopDist;
-            }
-        }
-        else
-        {
-            return 0.0f;
-        }
-    } CRITICAL_END;
-    return stopDist / m_StepsPerMillimeter;
+    if (!m_IsInitialized) {
+        return 0.0f;
+    }
+    const MotionSnapshot snapshot = CaptureMotionSnapshot();
+    if (snapshot.QueueCount == 0 || snapshot.Speed <= m_Jerk) {
+        return 0.0f;
+    }
+    const float stopDistance = PAcceleration::CalcAccelerationDistance(
+        snapshot.Speed,
+        m_Jerk,
+        acceleration * m_StepsPerMillimeter) / m_StepsPerMillimeter;
+    return snapshot.Direction ? stopDistance : -stopDistance;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -419,25 +427,37 @@ float StepperDriver::GetCurrentStopDistance(float acceleration) const
 
 void StepperDriver::StartStopTimer(bool doRun)
 {
-    if (!m_IsInitialized) return;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    if (!m_IsInitialized) {
+        return;
+    }
+    if (!doRun)
     {
-        if (doRun && m_MotionQueueCurrentCount == 0) {
-            return;
+        ++m_StopGeneration;
+        m_TimerChannel->CR1 &= ~TIM_CR1_CEN_Msk;
+        if (IsInterruptFlagged() && m_IsRunning) {
+            CompleteStep(false);
         }
-        if (doRun != m_IsRunning)
+        m_QueueCondition.Wakeup(0);
+    }
+    if (doRun != m_IsRunning)
+    {
+        if (doRun)
         {
-            m_IsRunning = doRun;
-            if (m_IsRunning) {
-                m_TimerChannel->EGR = TIM_EGR_UG_Msk;
-                m_TimerChannel->CR1 |= TIM_CR1_CEN_Msk;
+            if (m_MotionQueueCurrentCount == 0) {
+                return;
             }
-            else {
-                m_TimerChannel->CR1 &= ~TIM_CR1_CEN_Msk;
-            }
-            m_RunningCondition.Wakeup(0);
+            PrimeTimer(CaptureTimerPhase());
+            m_IsRunning = true;
+            m_TimerChannel->CR1 |= TIM_CR1_CEN_Msk;
         }
-    } CRITICAL_END;
+        else
+        {
+            m_IsRunning = false;
+        }
+        ++m_MotionRevision;
+        m_RunningCondition.Wakeup(0);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -447,9 +467,13 @@ void StepperDriver::StartStopTimer(bool doRun)
 void StepperDriver::ClearMotion()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
+    StartStopTimer(false);
     m_MotionQueueCurrentCount = 0;
     m_MotionQueueCurrentNode = 0;
     m_MotionQueueInPos = 0;
+    m_HasTimerPhase = false;
+    ++m_MotionRevision;
+    m_QueueCondition.Wakeup(0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -458,45 +482,320 @@ void StepperDriver::ClearMotion()
 
 void StepperDriver::QueueMotionInternal(int32_t distance, float speed, float acceleration)
 {
-    if (distance == 0) {
+    if (!m_IsInitialized || distance == 0) {
         return;
     }
     const bool direction = CalcDirection(float(distance) * speed);
-
     distance = std::abs(distance);
     speed = std::abs(speed);
+    MotionSnapshot snapshot = CaptureMotionSnapshot();
+    const uint32_t stopGeneration = snapshot.StopGeneration;
 
-    while (m_MotionQueueCurrentCount == MOTION_BUFFER_COUNT);
-
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-
-    if (m_MotionQueueCurrentCount < MOTION_BUFFER_COUNT)
+    for (;;)
     {
-        StepperMotionNode& node = m_MotionQueue[m_MotionQueueInPos];
-
-        float startSpeed = std::min(m_Jerk, speed);
-        if (m_MotionQueueCurrentCount > 0)
-        {
-            StepperMotionNode& prevNode = m_MotionQueue[GetPrevBlockIndex(m_MotionQueueInPos)];
-            if (direction == prevNode.m_Direction)
-            {
-                const int32_t remainingDistance = prevNode.m_AccelStepsLeft + prevNode.m_CruiceStepsLeft + prevNode.m_DecelStepsLeft;
-                prevNode.Update(direction, remainingDistance, prevNode.m_StartSpeed, prevNode.m_TargetSpeed, speed, acceleration);
-                startSpeed = std::max(startSpeed, prevNode.m_EndSpeed);
-                //                if (startSpeed < m_Jerk) startSpeed = m_Jerk;
-            }
+        if (snapshot.StopGeneration != stopGeneration) {
+            return;
         }
-
+        if (snapshot.QueueCount == MOTION_BUFFER_COUNT)
+        {
+            CRITICAL_SCOPE(CRITICAL_IRQ);
+            while (m_MotionQueueCurrentCount == MOTION_BUFFER_COUNT && m_StopGeneration == stopGeneration) {
+                m_QueueCondition.IRQWait();
+            }
+            snapshot = CaptureMotionSnapshot();
+            continue;
+        }
+        StepperMotionNode previous = snapshot.Tail;
+        StepperMotionNode node;
+        float startSpeed = std::min(m_Jerk, speed);
+        const bool updatePrevious = snapshot.QueueCount != 0 && previous.m_Direction == direction;
+        if (updatePrevious)
+        {
+            const int32_t remainingDistance = (previous.m_CruiceStepsLeft == std::numeric_limits<int32_t>::max())
+                ? INFINIT_DISTANCE_I : previous.m_AccelStepsLeft + previous.m_CruiceStepsLeft + previous.m_DecelStepsLeft;
+            const float previousSpeed = (snapshot.TailIndex == snapshot.CurrentNode) ? snapshot.Speed : previous.m_StartSpeed;
+            previous.Update(direction, remainingDistance, previousSpeed, previous.m_TargetSpeed, speed, acceleration);
+            startSpeed = std::max(startSpeed, previous.m_EndSpeed);
+        }
         node.Update(direction, distance, startSpeed, speed, m_Jerk, acceleration);
 
-        if (m_MotionQueueCurrentCount == 0)
+        CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            ActivateCurrentNode();
+            if (SuspendForMotionChange(snapshot))
+            {
+                if (updatePrevious) {
+                    m_MotionQueue[snapshot.TailIndex] = previous;
+                }
+                const bool wasEmpty = m_MotionQueueCurrentCount == 0;
+                m_MotionQueue[m_MotionQueueInPos] = node;
+                m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueInPos);
+                m_MotionQueueCurrentCount = m_MotionQueueCurrentCount + 1;
+                if (wasEmpty) {
+                    ActivateCurrentNode();
+                }
+                ++m_MotionRevision;
+                if (m_IsRunning)
+                {
+                    const StepperMotionNode& currentNode = m_MotionQueue[m_MotionQueueCurrentNode];
+                    UpdateLookahead(currentNode, GetMotionPhase(currentNode));
+                    m_TimerChannel->CR1 |= TIM_CR1_CEN_Msk;
+                }
+                else if (m_MotionQueueCurrentCount > MOTION_BUFFER_COUNT / 2)
+                {
+                    StartStopTimer(true);
+                }
+                return;
+            }
+        } CRITICAL_END;
+        snapshot = CaptureMotionSnapshot();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+StepperDriver::MotionSnapshot StepperDriver::CaptureMotionSnapshot() const
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    MotionSnapshot snapshot = {};
+    snapshot.Revision = m_MotionRevision;
+    snapshot.StopGeneration = m_StopGeneration;
+    snapshot.QueueCount = m_MotionQueueCurrentCount;
+    snapshot.CurrentNode = m_MotionQueueCurrentNode;
+    snapshot.TailIndex = GetPrevBlockIndex(m_MotionQueueInPos);
+    snapshot.Position = GetStepPosition();
+    snapshot.Speed = m_CurrentSpeed;
+    snapshot.Running = m_IsRunning;
+    if (snapshot.QueueCount != 0)
+    {
+        snapshot.Direction = m_MotionQueue[m_MotionQueueCurrentNode].m_Direction;
+        snapshot.Tail = m_MotionQueue[snapshot.TailIndex];
+    }
+    else
+    {
+        snapshot.Direction = m_StepDirection != m_Reverse;
+    }
+    return snapshot;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool StepperDriver::SuspendForMotionChange(const MotionSnapshot& snapshot)
+{
+    if (snapshot.Revision != m_MotionRevision || snapshot.StopGeneration != m_StopGeneration ||
+        snapshot.Position != GetStepPosition())
+    {
+        return false;
+    }
+    // Masking the IRQ does not stop the timer. Freeze it before checking for an unaccounted pulse.
+    m_TimerChannel->CR1 &= ~TIM_CR1_CEN_Msk;
+    if (IsInterruptFlagged() && m_IsRunning)
+    {
+        CompleteStep(true);
+        if (m_IsRunning) {
+            m_TimerChannel->CR1 |= TIM_CR1_CEN_Msk;
         }
-        m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueInPos);
-        m_MotionQueueCurrentCount++;
-        if (m_MotionQueueCurrentCount > MOTION_BUFFER_COUNT / 2) {
-            StartStopTimer(true);
+        return false;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool StepperDriver::ReplaceMotion(const MotionSnapshot& snapshot, const StepperMotionNode* nodes, size_t count, bool run)
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    if (!SuspendForMotionChange(snapshot)) {
+        return false;
+    }
+    const TimerPhase phase = CaptureTimerPhase();
+    uint32_t nodeCount = 0;
+    for (size_t index = 0; index < count; ++index)
+    {
+        if (!IsMotionEmpty(nodes[index])) {
+            m_MotionQueue[nodeCount++] = nodes[index];
+        }
+    }
+    m_MotionQueueCurrentNode = 0;
+    m_MotionQueueInPos = nodeCount;
+    m_MotionQueueCurrentCount = nodeCount;
+    ActivateCurrentNode();
+
+    const bool wasRunning = m_IsRunning;
+    m_IsRunning = run && m_MotionQueueCurrentCount != 0;
+    if (m_IsRunning)
+    {
+        PrimeTimer(phase);
+        m_TimerChannel->CR1 |= TIM_CR1_CEN_Msk;
+    }
+    else
+    {
+        m_HasTimerPhase = false;
+    }
+    ++m_MotionRevision;
+    m_QueueCondition.Wakeup(0);
+    if (wasRunning != m_IsRunning) {
+        m_RunningCondition.Wakeup(0);
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+StepperDriver::TimerPhase StepperDriver::CaptureTimerPhase() const
+{
+    TimerPhase phase;
+    phase.High = m_PinStep.Read();
+    if (m_HasTimerPhase)
+    {
+        const uint32_t counter = m_TimerChannel->CNT;
+        phase.ElapsedTicks = m_ElapsedTimerTicks + (uint64_t(counter) << m_ActiveInterval.PrescalerShift);
+        if (!phase.High && counter >= m_ActiveInterval.Pulse)
+        {
+            const uint32_t lowTicks = (counter - m_ActiveInterval.Pulse) << m_ActiveInterval.PrescalerShift;
+            phase.LowTicks = m_LowTimerTicks + std::min(lowTicks, m_PulseWidthTicks - m_LowTimerTicks);
+        }
+    }
+    return phase;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+StepperDriver::TimerInterval StepperDriver::CalculateTimerInterval(float speed)
+{
+    if (speed != m_CachedTimerSpeed)
+    {
+        const float period = (speed > 0.0f)
+            ? std::max(float(m_TimerPerifFrequency) / speed, float(m_PulseWidthTicks * 2)) : TIMER_MAX_REFERENCE_PERIOD;
+        if (period >= TIMER_MAX_REFERENCE_PERIOD)
+        {
+            m_CachedInterval.PrescalerShift = TIMER_REGISTER_BITS;
+            m_CachedInterval.Reload = TIMER_MAX_RELOAD;
+        }
+        else
+        {
+            const uint32_t referenceReload = uint32_t(std::ceil(period)) - 1;
+            const uint32_t usedBits = std::bit_width(referenceReload);
+            m_CachedInterval.PrescalerShift = (usedBits > TIMER_REGISTER_BITS) ? usedBits - TIMER_REGISTER_BITS : 0;
+            m_CachedInterval.Reload = referenceReload >> m_CachedInterval.PrescalerShift;
+        }
+        const uint32_t roundMask = (1U << m_CachedInterval.PrescalerShift) - 1;
+        m_CachedInterval.Pulse = (m_PulseWidthTicks + roundMask) >> m_CachedInterval.PrescalerShift;
+        m_CachedTimerSpeed = speed;
+    }
+    return m_CachedInterval;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void StepperDriver::PrimeTimer(const TimerPhase& phase)
+{
+    // Used only at startup, resume, or explicit motion replacement. The step ISR never generates UG.
+    // Keep STEP at its existing level while loading the active registers, then time the next real rising edge.
+    m_TimerChannel->CCMR1 = (phase.High ? (5U << TIM_CCMR1_OC1M_Pos) : (4U << TIM_CCMR1_OC1M_Pos)) |
+        TIM_CCMR1_OC1PE_Msk;
+    m_TimerChannel->CR1 = TIM_CR1_ARPE_Msk | TIM_CR1_URS_Msk;
+    m_StopAfterCurrentStep = false;
+
+    m_ActiveInterval = CalculateTimerInterval(m_CurrentSpeed);
+    const uint32_t shift = m_ActiveInterval.PrescalerShift;
+    const uint32_t roundMask = (1U << shift) - 1;
+    const uint64_t periodTicks = uint64_t(m_ActiveInterval.Reload + 1) << shift;
+    const uint64_t remainingTicks = (periodTicks > phase.ElapsedTicks) ? periodTicks - phase.ElapsedTicks : 0;
+    const uint32_t remainingHigh = (phase.High && phase.ElapsedTicks < m_PulseWidthTicks)
+        ? m_PulseWidthTicks - uint32_t(phase.ElapsedTicks) : 0;
+    const uint32_t remainingLow = phase.High ? m_PulseWidthTicks : m_PulseWidthTicks - phase.LowTicks;
+    const uint32_t highCount = phase.High ? std::max<uint32_t>(1, (remainingHigh + roundMask) >> shift) : 0;
+    const uint32_t lowCount = std::max<uint32_t>(1, (remainingLow + roundMask) >> shift);
+    const uint32_t remainingCount = uint32_t((remainingTicks + roundMask) >> shift);
+    const uint32_t periodCount = std::max<uint32_t>(2, std::max(remainingCount, highCount + lowCount));
+
+    // Carry elapsed time across repeated replacements, including when the new deadline is already in the past.
+    // Only preserve the minimum high/low durations; never manufacture catch-up pulses with UG.
+    m_ActiveInterval.Reload = periodCount - 1;
+    m_ActiveInterval.Pulse = highCount;
+    m_ElapsedTimerTicks = phase.ElapsedTicks;
+    m_LowTimerTicks = phase.High ? 0 : phase.LowTicks;
+    m_HasTimerPhase = true;
+
+    m_PinDirection = m_StepDirection;
+    m_TimerChannel->PSC = (1U << shift) - 1;
+    m_TimerChannel->ARR = m_ActiveInterval.Reload;
+    m_TimerChannel->CCR1 = m_ActiveInterval.Pulse;
+    m_TimerChannel->EGR = TIM_EGR_UG_Msk;
+    m_TimerChannel->SR = ~TIM_SR_UIF_Msk;
+    m_PreloadedInterval = m_ActiveInterval;
+    const StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
+    UpdateLookahead(node, GetMotionPhase(node));
+    m_TimerChannel->CCMR1 = TIMER_PWM_CONFIG;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void StepperDriver::UpdateLookahead(const StepperMotionNode& node, MotionPhase phase)
+{
+    // Commands can replace a cruise with a ramp or change the interval already preloaded.
+    m_CruiseIntervalReady = false;
+    m_NextSpeed = m_CurrentSpeed;
+    bool nodeComplete;
+    if (phase == MotionPhase::Acceleration)
+    {
+        m_NextSpeed = AdvanceSpeed(m_CurrentSpeed, node.m_CruiseSpeed, node.m_Acceleration, m_Jerk);
+        nodeComplete = node.m_AccelStepsLeft == 1 && node.m_CruiceStepsLeft == 0 && node.m_DecelStepsLeft == 0;
+    }
+    else if (phase == MotionPhase::Cruise)
+    {
+        nodeComplete = node.m_CruiceStepsLeft == 1 && node.m_DecelStepsLeft == 0;
+    }
+    else
+    {
+        m_NextSpeed = AdvanceSpeed(m_CurrentSpeed, node.m_EndSpeed, node.m_Acceleration, m_Jerk);
+        nodeComplete = node.m_DecelStepsLeft == 1;
+    }
+    const bool hasNext = !nodeComplete || m_MotionQueueCurrentCount > 1;
+    if (nodeComplete && hasNext)
+    {
+        const StepperMotionNode& nextNode = m_MotionQueue[GetNextBlockIndex(m_MotionQueueCurrentNode)];
+        m_NextSpeed = GetInitialSpeed(nextNode);
+    }
+    // A final update must still produce the last rising edge. OPM stops the counter at that edge,
+    // without relying on IRQ latency to prevent another pulse.
+    const TimerInterval nextInterval = CalculateTimerInterval(hasNext ? m_NextSpeed : m_CurrentSpeed);
+    if (nextInterval.PrescalerShift != m_PreloadedInterval.PrescalerShift)
+    {
+        m_PreloadedInterval.PrescalerShift = nextInterval.PrescalerShift;
+        m_TimerChannel->PSC = (1U << nextInterval.PrescalerShift) - 1;
+    }
+    if (nextInterval.Reload != m_PreloadedInterval.Reload)
+    {
+        m_PreloadedInterval.Reload = nextInterval.Reload;
+        m_TimerChannel->ARR = nextInterval.Reload;
+    }
+    if (nextInterval.Pulse != m_PreloadedInterval.Pulse)
+    {
+        m_PreloadedInterval.Pulse = nextInterval.Pulse;
+        m_TimerChannel->CCR1 = nextInterval.Pulse;
+    }
+    if (hasNext == m_StopAfterCurrentStep)
+    {
+        m_StopAfterCurrentStep = !hasNext;
+        if (hasNext) {
+            m_TimerChannel->CR1 &= ~TIM_CR1_OPM_Msk;
+        } else {
+            m_TimerChannel->CR1 |= TIM_CR1_OPM_Msk;
         }
     }
 }
@@ -505,31 +804,155 @@ void StepperDriver::QueueMotionInternal(int32_t distance, float speed, float acc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void StepperDriver::SetTimerSpeed(float speed)
+void StepperDriver::CompleteStep(bool prepareNext)
 {
-    if (speed > 0.0f)
+    m_Position += m_StepDirection ? 1 : -1;
+    ++m_MotionRevision;
+
+    StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
+    // Leave two cruise steps for lookahead to prepare a phase/node transition or the final hardware stop.
+    if (m_CruiseIntervalReady && node.m_CruiceStepsLeft > 2 && m_StepDirection == (node.m_Direction != m_Reverse))
     {
-        uint32_t timerFrequency = uint32_t(std::min(3e6f/*m_TimerPerifFrequency*/, speed * 65535.0f));
-        const uint32_t divider = std::min(65536ul, (m_TimerPerifFrequency + timerFrequency - 1) / timerFrequency);
-
-        if ((divider - 1) != m_TimerChannel->PSC)
-        {
-            m_TimerChannel->PSC = divider - 1;
-            if (m_IsRunning) {
-                m_TimerChannel->EGR = TIM_EGR_UG_Msk;
-            }
-            m_TimerFrequency = m_TimerPerifFrequency / divider;
+        if (node.m_CruiceStepsLeft != std::numeric_limits<int32_t>::max()) {
+            --node.m_CruiceStepsLeft;
         }
-
-        const uint32_t period = uint32_t(std::min(65535.0f, float(m_TimerFrequency) / speed));
-
-        m_TimerChannel->ARR = period;
-        m_TimerChannel->CCR1 = period / 2;
     }
     else
     {
-        m_TimerChannel->ARR = 0; // Halt timer.
+        UpdateMotionAfterStep(node, prepareNext);
     }
+    if (m_IsRunning && m_WakeupOnFullStep && (m_Position & 0x0f) == 0) {
+        m_RunningCondition.Wakeup(0);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void StepperDriver::UpdateMotionAfterStep(StepperMotionNode& node, bool prepareNext)
+{
+    m_CruiseIntervalReady = false;
+    m_ActiveInterval = m_PreloadedInterval;
+    m_ElapsedTimerTicks = 0;
+    m_LowTimerTicks = 0;
+    m_CurrentSpeed = m_NextSpeed;
+
+    MotionPhase phase;
+    bool phaseComplete;
+    if (node.m_AccelStepsLeft != 0)
+    {
+        phase = MotionPhase::Acceleration;
+        phaseComplete = --node.m_AccelStepsLeft == 0;
+    }
+    else if (node.m_CruiceStepsLeft != 0)
+    {
+        phase = MotionPhase::Cruise;
+        phaseComplete = node.m_CruiceStepsLeft != std::numeric_limits<int32_t>::max() && --node.m_CruiceStepsLeft == 0;
+    }
+    else
+    {
+        phase = MotionPhase::Deceleration;
+        phaseComplete = --node.m_DecelStepsLeft == 0;
+    }
+
+    bool nodeComplete = false;
+    if (phaseComplete)
+    {
+        if (phase == MotionPhase::Acceleration && node.m_CruiceStepsLeft != 0) {
+            phase = MotionPhase::Cruise;
+        } else if (phase != MotionPhase::Deceleration && node.m_DecelStepsLeft != 0) {
+            phase = MotionPhase::Deceleration;
+        } else {
+            nodeComplete = true;
+        }
+    }
+    StepperMotionNode* currentNode = &node;
+    if (nodeComplete)
+    {
+        const uint32_t nextIndex = GetNextBlockIndex(m_MotionQueueCurrentNode);
+        const uint32_t remainingNodes = m_MotionQueueCurrentCount - 1;
+        m_MotionQueueCurrentNode = nextIndex;
+        m_MotionQueueCurrentCount = remainingNodes;
+        m_QueueCondition.Wakeup(0);
+        if (remainingNodes == 0)
+        {
+            m_TimerChannel->CR1 &= ~TIM_CR1_CEN_Msk;
+            m_IsRunning = false;
+            m_HasTimerPhase = false;
+            m_RunningCondition.Wakeup(0);
+            return;
+        }
+        currentNode = &m_MotionQueue[nextIndex];
+        phase = GetMotionPhase(*currentNode);
+    }
+    const bool direction = currentNode->m_Direction != m_Reverse;
+    if (prepareNext && direction != m_StepDirection) {
+        m_PinDirection = direction;
+    }
+    m_StepDirection = direction;
+    if (prepareNext)
+    {
+        UpdateLookahead(*currentNode, phase);
+        // A real update has promoted the preload and cleared any partial interval from PrimeTimer().
+        m_CruiseIntervalReady = phase == MotionPhase::Cruise && currentNode->m_CruiceStepsLeft > 1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float StepperDriver::AdvanceSpeed(float speed, float targetSpeed, float acceleration, float jerk)
+{
+    const float delta = acceleration / std::max(speed, jerk);
+    return (speed < targetSpeed) ? std::min(speed + delta, targetSpeed) : std::max(speed - delta, targetSpeed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float StepperDriver::GetInitialSpeed(const StepperMotionNode& node)
+{
+    return (node.m_AccelStepsLeft > 0) ? node.m_StartSpeed : node.m_CruiseSpeed;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+StepperDriver::MotionPhase StepperDriver::GetMotionPhase(const StepperMotionNode& node)
+{
+    if (node.m_AccelStepsLeft != 0) {
+        return MotionPhase::Acceleration;
+    } else if (node.m_CruiceStepsLeft != 0) {
+        return MotionPhase::Cruise;
+    } else {
+        return MotionPhase::Deceleration;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool StepperDriver::IsMotionEmpty(const StepperMotionNode& node)
+{
+    return node.m_AccelStepsLeft == 0 && node.m_CruiceStepsLeft == 0 && node.m_DecelStepsLeft == 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool StepperDriver::IsInterruptFlagged() const
+{
+    const bool flagged = (m_TimerChannel->SR & TIM_SR_UIF_Msk) != 0;
+    if (flagged) {
+        m_TimerChannel->SR = ~TIM_SR_UIF_Msk;
+    }
+    return flagged;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -547,91 +970,13 @@ IRQResult StepperDriver::IRQCallback(IRQn_Type irq, void* userData)
 
 IRQResult StepperDriver::HandleIRQ()
 {
-    if (IsInterruptFlagged())
-    {
-        if (m_PinDirection) {
-            m_Position++;
-        } else {
-            m_Position--;
-        }
-        if (m_WakeupOnFullStep && (m_Position & 0x0f) == 0) {
-            m_RunningCondition.Wakeup(0);
-        }
-        if (m_MotionQueueCurrentCount != 0)
-        {
-            StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-            if (node.m_AccelStepsLeft != 0)
-            {
-                --node.m_AccelStepsLeft;
-                float acceleration = node.m_Acceleration;
-
-                // Divide acceleration with the current speed to account for the current update frequency.
-                if (m_CurrentSpeed < m_Jerk) {
-                    acceleration /= m_Jerk;
-                } else {
-                    acceleration /= m_CurrentSpeed;
-                }
-                if (m_CurrentSpeed < node.m_CruiseSpeed)
-                {
-                    m_CurrentSpeed += acceleration;
-                    if (m_CurrentSpeed > node.m_CruiseSpeed) {
-                        m_CurrentSpeed = node.m_CruiseSpeed;
-                    }
-                }
-                else
-                {
-                    m_CurrentSpeed -= acceleration;
-                    if (m_CurrentSpeed < node.m_CruiseSpeed) {
-                        m_CurrentSpeed = node.m_CruiseSpeed;
-                    }
-                }
-                SetTimerSpeed(m_CurrentSpeed);
-            }
-            else if (node.m_CruiceStepsLeft != 0)
-            {
-                if (node.m_CruiceStepsLeft != std::numeric_limits<int32_t>::max()) {
-                    --node.m_CruiceStepsLeft;
-                }
-            }
-            else if (node.m_DecelStepsLeft != 0)
-            {
-                --node.m_DecelStepsLeft;
-                float acceleration = node.m_Acceleration;
-                if (m_CurrentSpeed < m_Jerk) {
-                    acceleration /= m_Jerk;
-                } else {
-                    acceleration /= m_CurrentSpeed;
-                }
-                if (m_CurrentSpeed < node.m_EndSpeed)
-                {
-                    m_CurrentSpeed += acceleration;
-                    if (m_CurrentSpeed > node.m_EndSpeed) {
-                        m_CurrentSpeed = node.m_EndSpeed;
-                    }
-                }
-                else
-                {
-                    m_CurrentSpeed -= acceleration;
-                    if (m_CurrentSpeed < node.m_EndSpeed) {
-                        m_CurrentSpeed = node.m_EndSpeed;
-                    }
-                }
-                SetTimerSpeed(m_CurrentSpeed);
-            }
-            if (node.m_AccelStepsLeft == 0 && node.m_CruiceStepsLeft == 0 && node.m_DecelStepsLeft == 0)
-            {
-                m_MotionQueueCurrentNode = GetNextBlockIndex(m_MotionQueueCurrentNode);
-                m_MotionQueueCurrentCount--;
-                if (m_MotionQueueCurrentCount != 0) {
-                    ActivateCurrentNode();
-                } else {
-                    StartStopTimer(false);
-                }
-            }
-        }
-        return IRQResult::HANDLED;
+    if (!IsInterruptFlagged()) {
+        return IRQResult::UNHANDLED;
     }
-    return IRQResult::UNHANDLED;
+    if (m_IsRunning) {
+        CompleteStep(true);
+    }
+    return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -640,14 +985,12 @@ IRQResult StepperDriver::HandleIRQ()
 
 void StepperDriver::ActivateCurrentNode()
 {
-    if (!m_IsInitialized) return;
-
-    StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-
-    m_PinDirection = m_Reverse ? (!node.m_Direction) : node.m_Direction;
-    m_CurrentSpeed = (node.m_AccelStepsLeft > 0) ? node.m_StartSpeed : node.m_CruiseSpeed;
-
-    SetTimerSpeed(m_CurrentSpeed);
+    if (m_MotionQueueCurrentCount != 0)
+    {
+        const StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
+        m_CurrentSpeed = GetInitialSpeed(node);
+        m_StepDirection = node.m_Direction != m_Reverse;
+    }
 }
 
 

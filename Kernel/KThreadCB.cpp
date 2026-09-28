@@ -98,6 +98,8 @@ PThreadControlBlock* __kernel_thread_data;
 namespace kernel
 {
 
+constinit KThreadCB::DebuggerThreadList KThreadCB::s_DebuggerThreads;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -203,6 +205,8 @@ KThreadCB::KThreadCB(
 
 KThreadCB::~KThreadCB()
 {
+    UnregisterDebuggerThread();
+
 #ifdef PADOS_MODULE_POSIX_SIGNALS
     while (m_FirstQueuedSignal != nullptr)
     {
@@ -274,6 +278,7 @@ void KThreadCB::InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadE
         m_CurrentStackAndPrivilege |= 0x01;
     }
 #endif
+    RegisterDebuggerThread();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -350,5 +355,29 @@ void KThreadCB::SetupTLS(const PThreadAttribs* attribs, void* kernelTLSMemory)
     m_FreeTLSOnExit = kernelTLSMemory == nullptr;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// Publish a thread only after its saved context has been initialized.
+///////////////////////////////////////////////////////////////////////////////
+
+void KThreadCB::RegisterDebuggerThread() noexcept
+{
+    KSchedulerLock lock;
+
+    kassert(!m_DebuggerListNode.IsListMember());
+    s_DebuggerThreads.Insert(nullptr, this);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Remove the thread before any of its stack or name storage can be released.
+///////////////////////////////////////////////////////////////////////////////
+
+void KThreadCB::UnregisterDebuggerThread() noexcept
+{
+    KSchedulerLock lock;
+
+    if (m_DebuggerListNode.IsListMember()) {
+        s_DebuggerThreads.Remove(this);
+    }
+}
 
 } // namespace kernel

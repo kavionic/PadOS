@@ -10,9 +10,7 @@ import gdb.unwinder
 
 TRAMPOLINE_NAME     = "kernel::syscall_trampoline_entry"
 THREAD_ENTRY_NAME   = "kernel::thread_entry_point"
-THREAD_VAR_NAME     = "gk_CurrentThread"
-
-import gdb
+MAX_DEBUGGER_THREADS = 1024 * 1024
 
 
 def get_function_range_for_pc(pc):
@@ -25,71 +23,81 @@ def get_function_range_for_pc(pc):
 def get_function_range(symbol):
     return get_function_range_for_pc(int(symbol.value().address) & ~1)
 
+def read_debugger_list_field(debugger_info, offset_field):
+    field_address = int(debugger_info["Threads"]) + int(debugger_info[offset_field])
+    word_pointer_type = debugger_info["Version"].type.pointer()
+    return int(gdb.Value(field_address).cast(word_pointer_type).dereference())
+
+
+def get_selected_thread_syscall_return():
+    selected_thread = gdb.selected_thread()
+    if selected_thread is None:
+        return None
+
+    # GDB stores the remote protocol's thread ID in the LWP component.
+    thread_id = selected_thread.ptid[1]
+    symbol = gdb.lookup_global_symbol("kernel::_kernel_debugger_info")
+    if symbol is None:
+        return None
+
+    # Use exported list offsets and the ELF's thread and intrusive-node types.
+    debugger_info = symbol.value()
+    node_address = read_debugger_list_field(debugger_info, "ThreadListFirstOffset")
+    node_offset = int(debugger_info["ThreadNodeOffset"])
+    thread_pointer_type = debugger_info["CurrentThread"].type.target().unqualified()
+    for _ in range(MAX_DEBUGGER_THREADS):
+        if node_address <= node_offset or node_address & 3:
+            return None
+        thread = gdb.Value(node_address - node_offset).cast(thread_pointer_type).dereference()
+        if int(thread["m_Handle"]) == thread_id:
+            return int(thread["m_SyscallReturn"])
+        node_address = int(thread["m_DebuggerListNode"]["m_Next"])
+    return None
+
+
 class PadosSyscallUnwinder(gdb.unwinder.Unwinder):
     def __init__(self):
         super().__init__("pados-syscall")
-        # Negative = run *after* normal unwinders
-        self.priority = -100
-        self._tcb_ptr = None
-        self._pc_type = gdb.lookup_type("unsigned int")  # 32-bit
 
     def __call__(self, pending_frame):
-        # Resolve trampoline address once.
-        if self._tcb_ptr is None:
-            tcb_sym, _ = gdb.lookup_symbol(THREAD_VAR_NAME)
-        
-            if tcb_sym is None:
-                return None
+        symbol = gdb.lookup_global_symbol(TRAMPOLINE_NAME)
+        if symbol is None:
+            return None
+        trampoline_range = get_function_range(symbol)
+        if trampoline_range is None:
+            return None
+        trampoline_start, trampoline_end = trampoline_range
 
-            self._tcb_ptr = tcb_sym.value()
-            if self._tcb_ptr is None or self._tcb_ptr.is_optimized_out:
-                self._tcb_ptr = None
-                return None
-
-            symbol, _ = gdb.lookup_symbol(TRAMPOLINE_NAME)
-            if symbol is None:
-                return None
-
-            self._tramp_start, self._tramp_end = get_function_range(symbol)
-
-        # Current frame’s PC (this is what we’re unwinding *from*).
-        cur_pc = int(pending_frame.read_register("pc")) & ~1
-        if not (self._tramp_start <= cur_pc < self._tramp_end):
-            # Not the syscall trampoline frame – let other unwinders handle it.
+        current_pc = int(pending_frame.read_register("pc")) & ~1
+        if not (trampoline_start <= current_pc < trampoline_end):
             return None
 
-        # Current frame’s SP (kernel/trampoline frame id).
-        cur_sp = int(pending_frame.read_register("sp"))
+        syscall_return = get_selected_thread_syscall_return()
+        if syscall_return is None or (syscall_return & ~1) == 0:
+            return None
 
-        # Look up current thread control block.
-        tcb = self._tcb_ptr.dereference()
+        # m_SyscallReturn stores nPRIV in bit 0; restore the Thumb bit.
+        register_type = pending_frame.read_register("pc").type
+        user_pc = gdb.Value(syscall_return | 1).cast(register_type)
+        current_sp = pending_frame.read_register("sp")
+        frame_id = gdb.unwinder.FrameId(current_sp, current_pc)
+        unwind_info = pending_frame.create_unwind_info(frame_id)
+        unwind_info.add_saved_register("pc", user_pc)
+        unwind_info.add_saved_register("sp", current_sp)
 
-        # m_SyscallReturn contains the user return address with the nPRIV bit
-        # stuffed into bit 0. Put back the Thumb bit.
-        user_pc = int(tcb["m_SyscallReturn"]) | 1  # force Thumb = 1
+        # Preserve the caller's nonvolatile core registers across the trampoline.
+        for register_name in [f"r{index}" for index in range(4, 12)] + ["xpsr", "msp", "psp"]:
+            unwind_info.add_saved_register(register_name, pending_frame.read_register(register_name))
 
-#        gdb.write(
-#            f"[pados] unwinder: pc=0x{cur_pc:x}, tramp=0x{self._tramp_start:x}, "
-#            f"cur_sp=0x{cur_sp:x}, user_pc=0x{user_pc:x}\n"
-#        )
+        # D8-D15 and their S16-S31 aliases are callee-saved. Python unwinders must
+        # describe both. Threads that never used the FPU may have no saved context.
+        for register_name in [f"d{index}" for index in range(8, 16)] + [f"s{index}" for index in range(16, 32)]:
+            try:
+                unwind_info.add_saved_register(register_name, pending_frame.read_register(register_name))
+            except gdb.error:
+                pass
 
-        # frame_id describes the *trampoline* frame we are unwinding.
-        frame_id = gdb.unwinder.FrameId(cur_sp, cur_pc)
-        ui = pending_frame.create_unwind_info(frame_id)
-
-        # Now describe the *previous* (user) frame’s registers:
-        pc_val = gdb.Value(user_pc).cast(self._pc_type)
-        sp_val = gdb.Value(cur_sp).cast(self._pc_type)
-
-        ui.add_saved_register("pc", pc_val)
-        ui.add_saved_register("sp", sp_val)
-
-        # Pass through Cortex-M special/pseudo regs unchanged.
-        # 25 = xpsr, 91 = psp, 92 = msp
-        for regnum in (25, 91, 92):
-            ui.add_saved_register(regnum, pending_frame.read_register(regnum))
-
-        return ui
+        return unwind_info
 
 
 class PadosThreadBottomUnwinder(gdb.unwinder.Unwinder):

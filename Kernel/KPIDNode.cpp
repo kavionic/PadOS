@@ -42,7 +42,8 @@ Ptr<KPIDNode> kallocate_pid_trw_pl()
     for (;;)
     {
         const pid_t pid = nextPID;
-        if (nextPID == std::numeric_limits<pid_t>::max()) {
+        // Reserve the maximum PID for debuggers to represent the idle thread's zero ID.
+        if (nextPID == std::numeric_limits<pid_t>::max() - 1) {
             nextPID = KTHREAD_ID_FIRST_DYNAMIC;
         } else {
             ++nextPID;

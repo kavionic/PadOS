@@ -52,6 +52,9 @@ target_sources(PadOS_Kernel PRIVATE
 	ThreadSyncDebugTracker.cpp
 )
 
+target_sources(PadOS_Kernel_Unconditional PRIVATE KDebugger.cpp)
+target_link_options(PadOS_Kernel_Unconditional INTERFACE "LINKER:--undefined=_kernel_debugger_info")
+
 target_sources(PadOS_KernelExt PRIVATE
 	KThreadExitTrampoline.cpp
 )

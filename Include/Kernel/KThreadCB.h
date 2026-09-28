@@ -15,6 +15,7 @@
 #include <System/GProf.h>
 #include <Utils/IntrusiveList.h>
 #include <Threads/Threads.h>
+#include <Kernel/KDebugger.h>
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KSchedulerLock.h>
 
@@ -142,6 +143,17 @@ public:
     int                       m_SymlinkDepth = 0;
 
     PIntrusiveListNode<KThreadCB> m_ProcessListNode;
+
+private:
+    friend struct KDebuggerInfo;
+
+    void RegisterDebuggerThread() noexcept;
+    void UnregisterDebuggerThread() noexcept;
+
+    PIntrusiveListNode<KThreadCB> m_DebuggerListNode;
+    using DebuggerThreadList = PIntrusiveList<KThreadCB, &KThreadCB::m_DebuggerListNode>;
+
+    static DebuggerThreadList s_DebuggerThreads;
 };
 
 typedef PIntrusiveList<KThreadCB>       KThreadList;

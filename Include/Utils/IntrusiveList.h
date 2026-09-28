@@ -9,6 +9,7 @@
 #pragma once
 
 #include <assert.h>
+#include <atomic>
 #include <cstddef>
 
 template<typename TNodeType> class PIntrusiveListNode;
@@ -61,6 +62,10 @@ class PIntrusiveList
 public:
     using Node = PIntrusiveListNode<TNodeType>;
 
+    // Field offsets for halted-target debugger metadata.
+    static constexpr size_t GetFirstNodeOffset() noexcept { return offsetof(PIntrusiveList, m_First); }
+    static constexpr size_t GetNextNodeOffset() noexcept { return offsetof(Node, m_Next); }
+
     void Append(TNodeType* owner) noexcept
     {
         Node* node = OwnerToNode(owner);
@@ -70,6 +75,8 @@ public:
         node->m_List = this;
         node->m_Prev = m_Last;
         node->m_Next = nullptr;
+        // Keep initialization before publishing the forward link to a halted-target debugger.
+        std::atomic_signal_fence(std::memory_order_seq_cst);
         if (m_Last != nullptr) {
             m_Last->m_Next = node;
         }
@@ -94,6 +101,8 @@ public:
             if (m_First != nullptr) {
                 m_First->m_Prev = node;
             }
+            // Publish only after the node is initialized.
+            std::atomic_signal_fence(std::memory_order_seq_cst);
             m_First = node;
             if (m_Last == nullptr) {
                 m_Last = node;
@@ -107,7 +116,8 @@ public:
             node->m_Prev = nextNode->m_Prev;
             
             nextNode->m_Prev = node;
-            
+
+            std::atomic_signal_fence(std::memory_order_seq_cst);
             if (node->m_Prev != nullptr) {
                 node->m_Prev->m_Next = node;
             } else {
@@ -130,6 +140,8 @@ public:
         } else {
             m_First = node->m_Next;
         }
+        // Remove forward reachability before clearing links or releasing the owner.
+        std::atomic_signal_fence(std::memory_order_seq_cst);
         if (node->m_Next != nullptr) {
             node->m_Next->m_Prev = node->m_Prev;
         } else {

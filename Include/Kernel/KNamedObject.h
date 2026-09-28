@@ -127,6 +127,8 @@ public:
     }
 
 private:
+    friend struct KDebuggerInfo;
+
     static const uint32_t MAGIC = 0x1ee3babe;
 
 #if DEBUG_HANDLE_OBJECT_LIST

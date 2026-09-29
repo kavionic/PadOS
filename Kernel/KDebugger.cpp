@@ -103,7 +103,7 @@ static constexpr uint16_t DEBUGGER_FLOATING_POINT_REGISTER_OFFSETS[] =
 static_assert(sizeof(void*) == sizeof(uint32_t));
 static_assert(sizeof(ThreadState) <= sizeof(uint32_t));
 static_assert(sizeof(KDebuggerThreadState) == 2 * sizeof(uint32_t));
-static_assert(sizeof(KDebuggerInfo) == 29 * sizeof(uint32_t));
+static_assert(sizeof(KDebuggerInfo) == 32 * sizeof(uint32_t));
 static_assert(std::size(DEBUGGER_BASIC_REGISTER_OFFSETS) == KDEBUGGER_CORE_REGISTER_COUNT);
 static_assert(std::size(DEBUGGER_EXTENDED_REGISTER_OFFSETS) == KDEBUGGER_CORE_REGISTER_COUNT);
 static_assert(std::size(DEBUGGER_FLOATING_POINT_REGISTER_OFFSETS) == KDEBUGGER_FLOATING_POINT_REGISTER_COUNT);
@@ -139,6 +139,13 @@ constexpr KDebuggerInfo::KDebuggerInfo() noexcept
     , ExtendedRegisterOffsets(DEBUGGER_EXTENDED_REGISTER_OFFSETS)
     , FloatingPointRegisterCount(KDEBUGGER_FLOATING_POINT_REGISTER_COUNT)
     , FloatingPointRegisterOffsets(DEBUGGER_FLOATING_POINT_REGISTER_OFFSETS)
+    , ThreadKernelTLSOffset(offsetof(KThreadCB, m_KernelTLS))
+#ifdef PADOS_MODULE_USER_SPACE
+    , ThreadUserspaceTLSOffset(offsetof(KThreadCB, m_UserspaceTLS))
+#else
+    , ThreadUserspaceTLSOffset(UINT32_MAX)
+#endif
+    , TLSDataOffset(sizeof(PThreadControlBlock))
 {
 }
 

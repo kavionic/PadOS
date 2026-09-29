@@ -14,7 +14,7 @@ namespace kernel
 
 class KThreadCB;
 
-inline constexpr uint32_t KDEBUGGER_VERSION = 1;
+inline constexpr uint32_t KDEBUGGER_VERSION = 2;
 inline constexpr uint32_t KDEBUGGER_ARCH_UNSUPPORTED = 0;
 inline constexpr uint32_t KDEBUGGER_ARCH_CORTEX_M = 1;
 inline constexpr uint32_t KDEBUGGER_CORE_REGISTER_COUNT = 17;
@@ -27,7 +27,7 @@ struct KDebuggerThreadState
     const char* Name;
 };
 
-// Version 1 uses target-endian 32-bit fields and pointers. Field offsets are
+// Version 2 uses target-endian 32-bit fields and pointers. Field offsets are
 // measured from the beginning of KThreadCB, including its base classes, except
 // ThreadListFirstOffset, which is relative to Threads. The first and next links
 // point to embedded PIntrusiveListNode objects; subtract ThreadNodeOffset to
@@ -38,6 +38,13 @@ struct KDebuggerThreadState
 // the frame size and the alignment bit in the saved xPSR. The floating-point
 // table describes D0-D15 (consecutive S-register pairs), followed by FPSCR,
 // in an extended frame. Each pair stores its low word before its high word.
+// qGetTLSAddr uses lm = 1 for kernel TLS and lm = 2 for user-space TLS.
+// The domain belongs to the variable's ELF image, independent of the stopped
+// thread's execution mode. An allocated _kernel_debugger_info identifies a
+// kernel image; otherwise, an allocated __app_definition identifies a user image.
+// TLS fields give the offsets of the thread's TLS pointers. TLSDataOffset is
+// the byte offset from either pointer to the TLS data addressed by DWARF.
+// ThreadUserspaceTLSOffset is UINT32_MAX when user space is not configured.
 struct KDebuggerInfo
 {
     constexpr KDebuggerInfo() noexcept;
@@ -71,6 +78,9 @@ struct KDebuggerInfo
     const uint16_t* ExtendedRegisterOffsets;
     uint32_t FloatingPointRegisterCount;
     const uint16_t* FloatingPointRegisterOffsets;
+    uint32_t ThreadKernelTLSOffset;
+    uint32_t ThreadUserspaceTLSOffset;
+    uint32_t TLSDataOffset;
 };
 
 extern "C" const KDebuggerInfo _kernel_debugger_info;

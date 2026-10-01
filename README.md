@@ -132,6 +132,62 @@ PadOS is organized into several cooperating layers:
 | Window manager | Window coordination and on-screen keyboard management |
 | Applications | Built-in utilities and firmware-specific applications |
 
+## Toolchain, debugging, and profiling
+
+The companion `PadOSToolchain` project provides PadOS ports of GCC, GDB, newlib, and OpenOCD, together with GNU
+binutils and gprof. The C/C++ toolchain targets `arm-unknown-pados-eabi` and integrates with PadOS threads,
+system calls, and runtime services.
+
+### Compiler and runtime
+
+- **GCC and libstdc++** provide C++23 support and a POSIX thread backend for standard C++ threads, mutexes,
+  and condition variables.
+- **Native thread-local storage (TLS)** supports C/C++ thread-local variables, with separate kernel and
+  user-space TLS blocks for each thread.
+- **newlib** supplies the C library and PadOS system-interface headers, with thread-local reentrancy state
+  and runtime locks backed by PadOS pthread mutexes.
+- **C++ stack cleanup** is supported by PadOS-specific GCC handling of `exit()` and `abort()`, preserving
+  cleanup paths for the runtime's forced stack unwinding.
+
+### Thread-aware debugging
+
+The OpenOCD port includes a `PadOS` RTOS backend that reads the kernel's versioned debugger interface. It exposes
+thread names, IDs, states, and priorities to GDB and reconstructs saved core and floating-point registers for
+suspended threads. This supports thread selection, register inspection, and backtraces across PadOS threads.
+
+The GDB port recognizes PadOS kernel and application ELF images and cooperates with OpenOCD to resolve TLS
+variables for the selected thread. Kernel and user-space TLS are distinguished by the variable's image, so
+both remain inspectable when a thread is stopped inside a system call.
+
+The supplied [GDB unwinder](Tools/gdb_pados_unwinder.py) reconstructs the caller across the syscall trampoline,
+allowing backtraces to continue from kernel code into the user-space caller. It also terminates backtraces at
+the thread entry point. Load it with GDB's `source` command after loading the firmware symbols; use the PadOS
+OpenOCD backend (`-rtos PadOS`) and load both kernel and application symbols when debugging a split image.
+
+### Sampling and call-graph profiling
+
+PadOS includes an on-target profiler that exports GNU gprof data for the kernel and application images:
+
+- **Statistical sampling** is enabled with `PADOS_MODULE_GPROF_SAMPLING`. It uses SysTick or a dedicated STM32H7
+  hardware timer, with a configurable sample rate. A hardware timer can also sample lower-priority interrupt
+  handlers, subject to interrupt masking.
+- **Instrumented call graphs** are enabled with `PADOS_MODULE_GPROF_CALL_GRAPH`, which adds GCC's `-pg`
+  instrumentation and records caller/callee counts for thread-mode execution. This option requires sampling;
+  profiling currently also requires `PADOS_MODULE_USER_SPACE`.
+- **Runtime capture control** is available through the debug console's `profile start`, `profile stop`,
+  `profile status`, and `profile dump [path-prefix]` commands.
+- **Whole-application runs** can be timed and profiled with `time -P <app> [arguments...]` (or `time --profile`).
+  This reports elapsed (`real`), user CPU (`user`), and kernel CPU (`sys`) times, starts profiling before launching
+  the application, and stops capture when it finishes. Run `profile dump [path-prefix]` afterward to save the data.
+
+Run `profile start`, exercise the workload, then run `profile stop` and `profile dump`. By default, the dump
+creates timestamped `-kernel.gmon` and `-application.gmon` files under `/var/profiles`. Copy them to the host
+and analyze each file with `arm-unknown-pados-eabi-gprof`, passing the matching kernel or application ELF from
+the same build. Sampling provides flat execution-time profiles; instrumented captures also provide call graphs.
+
+See the [profiler configuration notes](Kernel/Profiler/README.md) for timer selection, sampling frequency,
+interrupt priority, and hardware reservation requirements.
+
 ## Building and integration
 
 PadOS uses CMake with Ninja-based STM32H7 presets and C++23 enabled.

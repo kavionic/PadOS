@@ -6,6 +6,8 @@ PadOS supports devices that combine hardware control with interactive graphical 
 
 The current build configuration targets STM32H7 Cortex-M7 microcontrollers.
 
+[API documentation](https://kavionic.github.io/PadOS/classes.html)
+
 ## Features
 
 ### Kernel and multitasking
@@ -159,7 +161,8 @@ The GDB port recognizes PadOS kernel and application ELF images and cooperates w
 variables for the selected thread. Kernel and user-space TLS are distinguished by the variable's image, so
 both remain inspectable when a thread is stopped inside a system call.
 
-The supplied [GDB unwinder](Tools/gdb_pados_unwinder.py) reconstructs the caller across the syscall trampoline,
+The supplied [GDB unwinder](https://github.com/kavionic/PadOS/blob/master/Tools/gdb_pados_unwinder.py)
+reconstructs the caller across the syscall trampoline,
 allowing backtraces to continue from kernel code into the user-space caller. It also terminates backtraces at
 the thread entry point. Load it with GDB's `source` command after loading the firmware symbols; use the PadOS
 OpenOCD backend (`-rtos PadOS`) and load both kernel and application symbols when debugging a split image.

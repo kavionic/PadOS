@@ -9,8 +9,21 @@ cmake_minimum_required(VERSION 3.25)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(PADOS_DOCS_ONLY "Configure only the repository documentation, without the PadOS toolchain." OFF)
+
+if(PADOS_DOCS_ONLY)
+    set(PADOS_PROJECT_LANGUAGES NONE)
+else()
+    set(PADOS_PROJECT_LANGUAGES C CXX)
+endif()
+
 # set the project name
-project(PadOS VERSION 0.1)
+project(PadOS VERSION 0.1 LANGUAGES ${PADOS_PROJECT_LANGUAGES})
+
+if(PADOS_DOCS_ONLY)
+    include("CMake/Doxygen.cmake")
+    return()
+endif()
 
 set(GLOBAL PADOS_KERNEL_MODULE_TARGETS "")
 set(GLOBAL PADOS_KERNEL_LIBRARY_TARGETS "")

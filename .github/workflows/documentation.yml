@@ -1,0 +1,59 @@
+name: Publish documentation
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out PadOS
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install documentation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y doxygen graphviz ninja-build
+
+      - name: Configure documentation
+        run: cmake -S . -B Build/Documentation -G Ninja -DPADOS_DOCS_ONLY=ON
+
+      - name: Generate documentation
+        run: cmake --build Build/Documentation --target docs
+
+      - name: Check generated documentation
+        run: test -s Build/Documentation/docs/html/index.html
+
+      - name: Upload documentation
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: Build/Documentation/docs/html
+
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v4

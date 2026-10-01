@@ -1,4 +1,8 @@
-find_package(Doxygen OPTIONAL_COMPONENTS dot)
+if(PADOS_DOCS_ONLY)
+    find_package(Doxygen REQUIRED OPTIONAL_COMPONENTS dot)
+else()
+    find_package(Doxygen OPTIONAL_COMPONENTS dot)
+endif()
 
 if(NOT DOXYGEN_FOUND)
     message(STATUS "Doxygen not found — 'docs' target unavailable.")
@@ -20,7 +24,6 @@ set(DOXYGEN_ENABLE_PREPROCESSING YES)
 set(DOXYGEN_MACRO_EXPANSION      YES)
 set(DOXYGEN_EXPAND_ONLY_PREDEF   YES)
 set(DOXYGEN_PREDEFINED           "__attribute__(x)=" "__WCHAR_MIN__=0" "__WCHAR_MAX__=0xffffffff")
-set(DOXYGEN_INCLUDE_PATH         $ENV{PADOS_TOOLCHAIN_PATH}/arm-unknown-pados-eabi/include)
 
 if(DOXYGEN_DOT_FOUND)
     set(DOXYGEN_HAVE_DOT            YES)
@@ -30,7 +33,15 @@ if(DOXYGEN_DOT_FOUND)
     set(DOXYGEN_INCLUDED_BY_GRAPH   YES)
 endif()
 
-file(GLOB PADOS_TOOLKIT_SYS_HEADERS $ENV{PADOS_TOOLCHAIN_PATH}/arm-unknown-pados-eabi/include/sys/pados_*.h)
+set(PADOS_DOCS_TOOLCHAIN_INPUTS "")
+if(NOT PADOS_DOCS_ONLY AND IS_DIRECTORY "$ENV{PADOS_TOOLCHAIN_PATH}/arm-unknown-pados-eabi/include")
+    set(DOXYGEN_INCLUDE_PATH "$ENV{PADOS_TOOLCHAIN_PATH}/arm-unknown-pados-eabi/include")
+    file(GLOB PADOS_TOOLKIT_SYS_HEADERS "${DOXYGEN_INCLUDE_PATH}/sys/pados_*.h")
+    list(APPEND PADOS_DOCS_TOOLCHAIN_INPUTS ${PADOS_TOOLKIT_SYS_HEADERS})
+    if(IS_DIRECTORY "${DOXYGEN_INCLUDE_PATH}/PadOS")
+        list(APPEND PADOS_DOCS_TOOLCHAIN_INPUTS "${DOXYGEN_INCLUDE_PATH}/PadOS")
+    endif()
+endif()
 
 doxygen_add_docs(docs
     ${CMAKE_CURRENT_SOURCE_DIR}/Include
@@ -41,8 +52,7 @@ doxygen_add_docs(docs
     ${CMAKE_CURRENT_SOURCE_DIR}/SerialConsole
     ${CMAKE_CURRENT_SOURCE_DIR}/DataTranslation
     ${CMAKE_CURRENT_SOURCE_DIR}/DataTranslators
-    $ENV{PADOS_TOOLCHAIN_PATH}/arm-unknown-pados-eabi/include/PadOS
-    ${PADOS_TOOLKIT_SYS_HEADERS}
+    ${PADOS_DOCS_TOOLCHAIN_INPUTS}
     COMMENT "Generating PadOS API documentation with Doxygen"
 )
 

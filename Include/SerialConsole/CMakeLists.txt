@@ -6,6 +6,7 @@
 ###############################################################################
 
 target_sources(PadOS_Kernel PRIVATE
+	BootloaderMessages.h
 	CommandHandlerFilesystem.h
 	FilesystemMessages.h
 	SerialCommandHandler.h

@@ -63,6 +63,7 @@ SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
     .free_memory                    = nullptr,
     .FirstAppPointer = PAppDefinition::s_FirstApp,
     .UserspaceService = nullptr,
+    .MemoryInitialization = &FIRMWARE_MEMORY_INITIALIZATION,
     .TLSDefinition =
     {
         .TLSData = &__tdata_start,

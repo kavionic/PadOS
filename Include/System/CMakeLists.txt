@@ -13,6 +13,7 @@ target_sources(PadOS_System PRIVATE
 	ExceptionHandling.h
 	HandleObject.h
 	ModuleTLSDefinition.h
+	MemoryRegions.h
 	Platform.h
 	GProf.h
 	UserspaceService.h

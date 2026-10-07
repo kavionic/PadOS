@@ -7,6 +7,7 @@
 
 target_sources(PadOS_Kernel_Unconditional PRIVATE
 	USBHIDReportParser_unittest.cpp
+	MemoryProtection_unittest.cpp
 )
 
 if(PADOS_DRIVER_USB)

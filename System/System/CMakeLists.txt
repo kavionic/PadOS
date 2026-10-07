@@ -22,3 +22,10 @@ endif()
 if(PADOS_MODULE_USER_SPACE)
 	target_sources(PadOS_System PRIVATE UserspaceService.cpp)
 endif()
+
+target_sources(PadOS_SystemIFlash PRIVATE MemoryRegions.cpp)
+set_source_files_properties(MemoryRegions.cpp TARGET_DIRECTORY PadOS_SystemIFlash PROPERTIES
+    COMPILE_OPTIONS "-fno-profile;-mgeneral-regs-only"
+    SKIP_UNITY_BUILD_INCLUSION ON
+    SKIP_PRECOMPILE_HEADERS ON
+)

@@ -16,6 +16,7 @@
 
 #include <PadOS/Threads.h>
 #include <System/ModuleTLSDefinition.h>
+#include <System/MemoryRegions.h>
 
 struct PThreadUserData;
 struct PUserspaceService;
@@ -82,6 +83,8 @@ struct PFirmwareImageDefinition
 #ifdef PADOS_MODULE_USER_SPACE
     PUserspaceService*      UserspaceService;
 #endif // PADOS_MODULE_USER_SPACE
+    const PMemoryRegionTable* MemoryRegions = nullptr;
+    const PMemoryInitializationTable* MemoryInitialization = nullptr;
     PModuleTLSDefinition    TLSDefinition;
 #ifdef PADOS_MODULE_GPROF_SAMPLING
     PFirmwareProfileInfo    ProfileInfo;

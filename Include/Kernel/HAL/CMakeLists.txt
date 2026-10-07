@@ -16,3 +16,5 @@ target_sources(PadOS_Kernel PRIVATE
 
 add_subdirectory(ATSAM)
 add_subdirectory(STM32)
+
+target_sources(PadOS_Kernel PRIVATE MemoryProtection.h MPU_ARMv7M.h)

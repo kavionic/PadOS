@@ -18,9 +18,19 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void* PDisplayCommandAllocator::operator()(size_t size) const
+{
+    return m_Driver.AllocCommand(m_CommandID, size);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PDisplayDriver::PDisplayDriver(const PString& devicePath)
     : m_DevicePath(devicePath)
     , m_CommandBuffer(DISPLAY_COMMAND_BUFFER_SIZE / sizeof(uint64_t))
+    , m_Commands(*this)
 {
 }
 
@@ -103,8 +113,7 @@ void PDisplayDriver::Close()
 
 void PDisplayDriver::PowerLost(bool hasPower)
 {
-    PDisplayPowerLostCommand* storage = AllocCommand<PDisplayPowerLostCommand>();
-    ConstructCommand(storage, 0, hasPower);
+    m_Commands.PowerLost(hasPower);
     Flush();
 }
 
@@ -190,8 +199,7 @@ PEColorSpace PDisplayDriver::GetColorSpace()
 
 void PDisplayDriver::SetColor(size_t index, PColor color)
 {
-    PDisplaySetColorCommand* storage = AllocCommand<PDisplaySetColorCommand>();
-    ConstructCommand(storage, 0, index, color);
+    m_Commands.SetColor(index, color);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -200,28 +208,7 @@ void PDisplayDriver::SetColor(size_t index, PColor color)
 
 bool PDisplayDriver::SetMouseCursorBitmap(const PMouseCursorBitmap& cursor)
 {
-    if (cursor.Width <= 0 || cursor.Height <= 0
-        || size_t(cursor.Width) > std::numeric_limits<size_t>::max() / size_t(cursor.Height)) {
-        return false;
-    }
-    const size_t count = size_t(cursor.Width) * size_t(cursor.Height);
-    if (cursor.Raster.size() < count) {
-        return false;
-    }
-    const size_t payloadSize = count * sizeof(PMouseCursorPixel);
-    PDisplaySetMouseCursorBitmapCommand* storage = AllocCommand<PDisplaySetMouseCursorBitmapCommand>(payloadSize);
-    PDisplaySetMouseCursorBitmapCommand* command = ConstructCommand(
-        storage,
-        payloadSize,
-        cursor.Width,
-        cursor.Height,
-        cursor.HotSpot,
-        cursor.Color1,
-        cursor.Color2,
-        count);
-    std::uninitialized_copy_n(cursor.Raster.data(), count, reinterpret_cast<PMouseCursorPixel*>(command + 1));
-    Flush();
-    return m_LastResult.CursorAccepted;
+    return m_DeviceControl.SetMouseCursorBitmap(cursor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -230,8 +217,7 @@ bool PDisplayDriver::SetMouseCursorBitmap(const PMouseCursorBitmap& cursor)
 
 void PDisplayDriver::SetMouseCursorVisible(bool visible)
 {
-    PDisplaySetMouseCursorVisibleCommand* storage = AllocCommand<PDisplaySetMouseCursorVisibleCommand>();
-    ConstructCommand(storage, 0, visible);
+    m_Commands.SetMouseCursorVisible(visible);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -240,8 +226,7 @@ void PDisplayDriver::SetMouseCursorVisible(bool visible)
 
 void PDisplayDriver::SetMousePos(PIPoint position)
 {
-    PDisplaySetMousePosCommand* storage = AllocCommand<PDisplaySetMousePosCommand>();
-    ConstructCommand(storage, 0, position);
+    m_Commands.SetMousePos(position);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -252,8 +237,7 @@ void PDisplayDriver::SetFgColor(PColor color)
 {
     if (color.GetColor32() != m_FgColor.GetColor32())
     {
-        PDisplaySetFgColorCommand* storage = AllocCommand<PDisplaySetFgColorCommand>();
-        ConstructCommand(storage, 0, color);
+        m_Commands.SetFgColor(color);
         m_FgColor = color;
     }
 }
@@ -266,8 +250,7 @@ void PDisplayDriver::SetBgColor(PColor color)
 {
     if (color.GetColor32() != m_BgColor.GetColor32())
     {
-        PDisplaySetBgColorCommand* storage = AllocCommand<PDisplaySetBgColorCommand>();
-        ConstructCommand(storage, 0, color);
+        m_Commands.SetBgColor(color);
         m_BgColor = color;
     }
 }
@@ -278,8 +261,8 @@ void PDisplayDriver::SetBgColor(PColor color)
 
 void PDisplayDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color)
 {
-    PDisplayWritePixelCommand* storage = AllocCommand<PDisplayWritePixelCommand>();
-    ConstructCommand(storage, 0, ReferenceBitmap(bitmap), pos, color);
+    void* buffer = m_Commands.WritePixel.Alloc();
+    m_Commands.WritePixel(buffer, ReferenceBitmap(bitmap), pos, color);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -294,8 +277,8 @@ void PDisplayDriver::DrawLine(
     const PColor& color,
     PDrawingMode mode)
 {
-    PDisplayDrawLineCommand* storage = AllocCommand<PDisplayDrawLineCommand>();
-    ConstructCommand(storage, 0, ReferenceBitmap(bitmap), clipRect, pos1, pos2, color, mode);
+    void* buffer = m_Commands.DrawLine.Alloc();
+    m_Commands.DrawLine(buffer, ReferenceBitmap(bitmap), clipRect, pos1, pos2, color, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -325,8 +308,8 @@ void PDisplayDriver::FillTriangle(
     const PIPoint& pos3,
     PDrawingMode mode)
 {
-    PDisplayFillTriangleCommand* storage = AllocCommand<PDisplayFillTriangleCommand>();
-    ConstructCommand(storage, 0, ReferenceBitmap(bitmap), clipRect, pos1, pos2, pos3, mode);
+    void* buffer = m_Commands.FillTriangle.Alloc();
+    m_Commands.FillTriangle(buffer, ReferenceBitmap(bitmap), clipRect, pos1, pos2, pos3, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -365,8 +348,8 @@ void PDisplayDriver::FillTriangleStrip(
 
 void PDisplayDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect)
 {
-    PDisplayFillRectCommand* storage = AllocCommand<PDisplayFillRectCommand>();
-    ConstructCommand(storage, 0, ReferenceBitmap(bitmap), rect);
+    void* buffer = m_Commands.FillRect.Alloc();
+    m_Commands.FillRect(buffer, ReferenceBitmap(bitmap), rect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -382,8 +365,8 @@ void PDisplayDriver::CopyRect(
     const PIPoint& dstPos,
     PDrawingMode mode)
 {
-    PDisplayCopyRectCommand* storage = AllocCommand<PDisplayCopyRectCommand>();
-    ConstructCommand(storage, 0, ReferenceBitmap(dstBitmap), ReferenceBitmap(srcBitmap), bgColor, fgColor, srcRect, dstPos, mode);
+    void* buffer = m_Commands.CopyRect.Alloc();
+    m_Commands.CopyRect(buffer, ReferenceBitmap(dstBitmap), ReferenceBitmap(srcBitmap), bgColor, fgColor, srcRect, dstPos, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -401,10 +384,9 @@ void PDisplayDriver::ScaleRect(
     const PIRect& dstRect,
     PDrawingMode mode)
 {
-    PDisplayScaleRectCommand* storage = AllocCommand<PDisplayScaleRectCommand>();
-    ConstructCommand(
-        storage,
-        0,
+    void* buffer = m_Commands.ScaleRect.Alloc();
+    m_Commands.ScaleRect(
+        buffer,
         ReferenceBitmap(dstBitmap),
         ReferenceBitmap(srcBitmap),
         bgColor,
@@ -428,28 +410,9 @@ void PDisplayDriver::FillCircle(
     const PColor& color,
     PDrawingMode mode)
 {
-    PDisplayFillCircleCommand* storage = AllocCommand<PDisplayFillCircleCommand>();
-    ConstructCommand(storage, 0, ReferenceBitmap(bitmap), clipRect, center, radius, color, mode);
+    void* buffer = m_Commands.FillCircle.Alloc();
+    m_Commands.FillCircle(buffer, ReferenceBitmap(bitmap), clipRect, center, radius, color, mode);
     m_FgColor = color;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t PDisplayDriver::WriteString(
-    PSrvBitmap* bitmap,
-    const PIPoint& position,
-    const char* string,
-    size_t strLength,
-    const PIRect& clipRect,
-    PColor colorBg,
-    PColor colorFg,
-    PFontID fontID)
-{
-    DrawString(bitmap, position, string, strLength, clipRect, colorBg, colorFg, fontID);
-    Flush();
-    return m_LastResult.TextPosition;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -475,20 +438,11 @@ void PDisplayDriver::DrawString(
     PColor foreground,
     PFontID fontID)
 {
-    PDisplayWriteStringCommand* storage = AllocCommand<PDisplayWriteStringCommand>(length);
-    PDisplayWriteStringCommand* command = ConstructCommand(
-        storage,
-        length,
-        ReferenceBitmap(bitmap),
-        position,
-        length,
-        clipRect,
-        background,
-        foreground,
-        fontID);
+    void* buffer = m_Commands.WriteString.Alloc(length);
     if (length != 0) {
-        std::memcpy(static_cast<void*>(command + 1), string, length);
+        std::memcpy(static_cast<uint8_t*>(buffer) + m_Commands.WriteString.GetFixedSize(), string, length);
     }
+    m_Commands.WriteString(buffer, ReferenceBitmap(bitmap), position, length, clipRect, background, foreground, fontID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -501,7 +455,7 @@ PDisplayPolygonBuffer PDisplayDriver::AllocPolygon(
     size_t pointCount,
     PDrawingMode mode)
 {
-    return AllocGeometry<PDisplayFillPolygonCommand>(bitmap, clipCount, pointCount, mode);
+    return AllocGeometry(m_Commands.FillPolygon, bitmap, clipCount, pointCount, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -514,7 +468,7 @@ PDisplayPolygonBuffer PDisplayDriver::AllocTriangleFan(
     size_t pointCount,
     PDrawingMode mode)
 {
-    return AllocGeometry<PDisplayFillTriangleFanCommand>(bitmap, clipCount, pointCount, mode);
+    return AllocGeometry(m_Commands.FillTriangleFan, bitmap, clipCount, pointCount, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -527,7 +481,7 @@ PDisplayPolygonBuffer PDisplayDriver::AllocTriangleStrip(
     size_t pointCount,
     PDrawingMode mode)
 {
-    return AllocGeometry<PDisplayFillTriangleStripCommand>(bitmap, clipCount, pointCount, mode);
+    return AllocGeometry(m_Commands.FillTriangleStrip, bitmap, clipCount, pointCount, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -542,19 +496,13 @@ void PDisplayDriver::Flush()
         const size_t size = m_UsedBufferSize;
         m_UsedBufferSize = 0;
         PScopeExit advanceSequence([this] { ++m_Sequence; });
-        try
-        {
-            m_LastResult = m_DeviceControl.Submit(m_CommandBuffer.data(), size);
-        }
-        catch (...)
+        PScopeFail restoreColors([this]
         {
             // Restore cached colors before subsequent drawing after a partially executed batch.
-            PDisplaySetFgColorCommand* foreground = AllocCommand<PDisplaySetFgColorCommand>();
-            ConstructCommand(foreground, 0, m_FgColor);
-            PDisplaySetBgColorCommand* background = AllocCommand<PDisplaySetBgColorCommand>();
-            ConstructCommand(background, 0, m_BgColor);
-            throw;
-        }
+            m_Commands.SetFgColor(m_FgColor);
+            m_Commands.SetBgColor(m_BgColor);
+        });
+        m_DeviceControl.Submit(m_CommandBuffer.data(), size);
     }
 }
 
@@ -567,6 +515,23 @@ void PDisplayDriver::FlushBitmap(const PSrvBitmap* bitmap)
     if (bitmap->m_Driver == this && bitmap->m_RenderSequence == m_Sequence) {
         Flush();
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* PDisplayDriver::AllocCommand(PDisplayCommandID commandID, size_t size)
+{
+    constexpr size_t LIMIT = std::numeric_limits<uint32_t>::max() - sizeof(PDisplayCommandHeader) - DISPLAY_COMMAND_ALIGNMENT;
+    if (size > LIMIT) {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    const size_t recordSize = sizeof(PDisplayCommandHeader) + size;
+    void* storage = AllocCommandBuffer(recordSize);
+    const uint32_t length = uint32_t((recordSize + DISPLAY_COMMAND_ALIGNMENT - 1) & ~(DISPLAY_COMMAND_ALIGNMENT - 1));
+    PDisplayCommandHeader* header = new (storage) PDisplayCommandHeader{commandID, length};
+    return header + 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

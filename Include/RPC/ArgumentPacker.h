@@ -23,6 +23,7 @@ template<typename T>
 struct PArgumentPacker
 {
     static constexpr size_t GetSize(T value) noexcept { return sizeof(T); }
+    static constexpr size_t GetFixedSize() noexcept { return sizeof(T); }
 
     static ssize_t  Write(T value, void* data, size_t length)
     {

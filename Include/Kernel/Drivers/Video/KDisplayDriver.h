@@ -65,10 +65,18 @@ public:
 
     virtual void    SetMousePos(PIPoint cNewPos) = 0;
 
-    virtual void    SetFgColor(PColor color) { m_FgColor = color; }
+    virtual void    SetFgColor(PColor color)
+    {
+        kassert(m_Mutex.IsLocked());
+        m_FgColor = color;
+    }
     PColor          GetFgColor() const noexcept { return m_FgColor; }
 
-    virtual void    SetBgColor(PColor color) { m_BgColor = color; }
+    virtual void    SetBgColor(PColor color)
+    {
+        kassert(m_Mutex.IsLocked());
+        m_BgColor = color;
+    }
     PColor          GetBgColor() const noexcept { return m_BgColor; }
 
     virtual void    WritePixel(PDisplayBitmap* bitmap, const PIPoint& pos, PColor color);
@@ -142,14 +150,87 @@ public:
 
     static PColor   GetPaletteEntry(uint8_t index);
 
+protected:
+    KMutex          m_Mutex;
+
 private:
-    // Device-control callbacks run with m_Mutex held.
+    // Device-control and batch-command callbacks run with m_Mutex held.
     PDisplayInfo HandleInitialize();
-    PDisplayBatchResult HandleSubmit(const void* buffer, size_t length);
+    void HandleSubmit(const void* buffer, size_t length);
     bool HandleGetScreenMode(size_t index, PScreenMode* outMode);
     bool HandleSetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate);
+    bool HandleSetMouseCursorBitmap(const PMouseCursorBitmap& cursor);
 
-    PDisplayBatchResult ExecuteCommands_pl(const void* buffer, size_t length);
+    void HandleWritePixel(PDisplayBitmap bitmap, PIPoint position, PColor color);
+    void HandleDrawLine(
+        PDisplayBitmap bitmap,
+        PIRect clipRect,
+        PIPoint position1,
+        PIPoint position2,
+        PColor color,
+        PDrawingMode mode);
+    void HandleFillPolygon(
+        std::span<const std::byte> payload,
+        PDisplayBitmap bitmap,
+        size_t clipCount,
+        size_t pointCount,
+        PDrawingMode mode);
+    void HandleFillTriangle(
+        PDisplayBitmap bitmap,
+        PIRect clipRect,
+        PIPoint position1,
+        PIPoint position2,
+        PIPoint position3,
+        PDrawingMode mode);
+    void HandleFillTriangleFan(
+        std::span<const std::byte> payload,
+        PDisplayBitmap bitmap,
+        size_t clipCount,
+        size_t pointCount,
+        PDrawingMode mode);
+    void HandleFillTriangleStrip(
+        std::span<const std::byte> payload,
+        PDisplayBitmap bitmap,
+        size_t clipCount,
+        size_t pointCount,
+        PDrawingMode mode);
+    void HandleFillRect(PDisplayBitmap bitmap, PIRect rect);
+    void HandleCopyRect(
+        PDisplayBitmap destination,
+        PDisplayBitmap source,
+        PColor background,
+        PColor foreground,
+        PIRect sourceRect,
+        PIPoint position,
+        PDrawingMode mode);
+    void HandleScaleRect(
+        PDisplayBitmap destination,
+        PDisplayBitmap source,
+        PColor background,
+        PColor foreground,
+        PIRect sourceOriginal,
+        PIRect destinationOriginal,
+        PRect sourceRect,
+        PIRect destinationRect,
+        PDrawingMode mode);
+    void HandleFillCircle(
+        PDisplayBitmap bitmap,
+        PIRect clipRect,
+        PIPoint center,
+        int32_t radius,
+        PColor color,
+        PDrawingMode mode);
+    void HandleWriteString(
+        std::span<const std::byte> payload,
+        PDisplayBitmap bitmap,
+        PIPoint position,
+        size_t stringLength,
+        PIRect clipRect,
+        PColor background,
+        PColor foreground,
+        PFontID fontID);
+
+    void ExecuteCommands_pl(const void* buffer, size_t length);
 
     void FillTriangleUnion(PDisplayBitmap* bitmap, const PIRect& clipRect,
                            std::span<const std::array<PPoint, 3>> triangles,
@@ -159,8 +240,8 @@ private:
     void FillBlit24(uint8_t* dst, int nMod, int W, int H, uint32_t nColor);
     void FillBlit32(uint32_t* dst, int nMod, int W, int H, uint32_t nColor);
 
-    KMutex          m_Mutex;
     PRPCDispatcher  m_DeviceControlDispatcher;
+    PRPCDispatcher  m_CommandDispatcher;
     bool            m_IsOpen = false;
     bool            m_IsInitialized = false;
 

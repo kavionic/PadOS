@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <DeviceControl/DeviceControlInvoker.h>
+#include <ApplicationServer/DisplayDriverInvoker.h>
 #include <GUI/Color.h>
 #include <GUI/Font.h>
 #include <GUI/GUIDefines.h>
@@ -45,19 +46,14 @@ enum class PDisplayRequest : int
     Initialize,
     Submit,
     GetScreenMode,
-    SetScreenMode
+    SetScreenMode,
+    SetMouseCursorBitmap
 };
 
 struct PDisplayInfo
 {
     PDisplayBitmap ScreenBitmap;
     int ModeCount = 0;
-};
-
-struct PDisplayBatchResult
-{
-    uint32_t TextPosition = 0;
-    bool CursorAccepted = false;
 };
 
 class PDisplayDeviceControl : public PDeviceControlInterface
@@ -68,6 +64,7 @@ public:
         , Submit(*this)
         , GetScreenMode(*this)
         , SetScreenMode(*this)
+        , SetMouseCursorBitmap(*this)
     {
     }
 
@@ -76,7 +73,7 @@ public:
     PDeviceControlInvoker<std::to_underlying(PDisplayRequest::Initialize), PDisplayInfo()> Initialize;
     PDeviceControlInvoker<
         std::to_underlying(PDisplayRequest::Submit),
-        PDisplayBatchResult(const void* buffer, size_t length)
+        void(const void* buffer, size_t length)
     > Submit;
     PDeviceControlInvoker<
         std::to_underlying(PDisplayRequest::GetScreenMode),
@@ -86,6 +83,10 @@ public:
         std::to_underlying(PDisplayRequest::SetScreenMode),
         bool(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate)
     > SetScreenMode;
+    PDeviceControlInvoker<
+        std::to_underlying(PDisplayRequest::SetMouseCursorBitmap),
+        bool(const PMouseCursorBitmap& cursor)
+    > SetMouseCursorBitmap;
 };
 
 static constexpr size_t DISPLAY_COMMAND_ALIGNMENT = 8;
@@ -97,7 +98,6 @@ enum class PDisplayCommandID : uint32_t
     SetBgColor,
     SetColor,
     PowerLost,
-    SetMouseCursorBitmap,
     SetMouseCursorVisible,
     SetMousePos,
     WritePixel,
@@ -110,7 +110,8 @@ enum class PDisplayCommandID : uint32_t
     CopyRect,
     ScaleRect,
     FillCircle,
-    WriteString
+    WriteString,
+    Count
 };
 
 struct PDisplayCommandHeader
@@ -119,182 +120,95 @@ struct PDisplayCommandHeader
     uint32_t Length;
 };
 
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplaySetFgColorCommand
+class PDisplayCommands
 {
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::SetFgColor;
-    PDisplayCommandHeader Header;
-    PColor Color;
-};
+public:
+    explicit PDisplayCommands(PDisplayDriver& driver)
+        : SetFgColor(driver)
+        , SetBgColor(driver)
+        , SetColor(driver)
+        , PowerLost(driver)
+        , SetMouseCursorVisible(driver)
+        , SetMousePos(driver)
+        , WritePixel(driver)
+        , DrawLine(driver)
+        , FillPolygon(driver)
+        , FillTriangle(driver)
+        , FillTriangleFan(driver)
+        , FillTriangleStrip(driver)
+        , FillRect(driver)
+        , CopyRect(driver)
+        , ScaleRect(driver)
+        , FillCircle(driver)
+        , WriteString(driver)
+    {
+    }
 
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplaySetBgColorCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::SetBgColor;
-    PDisplayCommandHeader Header;
-    PColor Color;
+    PDisplayDriverInvoker<PDisplayCommandID::SetFgColor, void(PColor color)> SetFgColor;
+    PDisplayDriverInvoker<PDisplayCommandID::SetBgColor, void(PColor color)> SetBgColor;
+    PDisplayDriverInvoker<PDisplayCommandID::SetColor, void(size_t index, PColor color)> SetColor;
+    PDisplayDriverInvoker<PDisplayCommandID::PowerLost, void(bool hasPower)> PowerLost;
+    PDisplayDriverInvoker<PDisplayCommandID::SetMouseCursorVisible, void(bool visible)> SetMouseCursorVisible;
+    PDisplayDriverInvoker<PDisplayCommandID::SetMousePos, void(PIPoint position)> SetMousePos;
+    PDisplayDriverInvoker<PDisplayCommandID::WritePixel, void(PDisplayBitmap bitmap, PIPoint position, PColor color)> WritePixel;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::DrawLine,
+        void(PDisplayBitmap bitmap, PIRect clipRect, PIPoint position1, PIPoint position2, PColor color, PDrawingMode mode)
+    > DrawLine;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::FillPolygon,
+        void(PDisplayBitmap bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+    > FillPolygon;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::FillTriangle,
+        void(PDisplayBitmap bitmap, PIRect clipRect, PIPoint position1, PIPoint position2, PIPoint position3, PDrawingMode mode)
+    > FillTriangle;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::FillTriangleFan,
+        void(PDisplayBitmap bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+    > FillTriangleFan;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::FillTriangleStrip,
+        void(PDisplayBitmap bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+    > FillTriangleStrip;
+    PDisplayDriverInvoker<PDisplayCommandID::FillRect, void(PDisplayBitmap bitmap, PIRect rect)> FillRect;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::CopyRect,
+        void(
+            PDisplayBitmap destination,
+            PDisplayBitmap source,
+            PColor background,
+            PColor foreground,
+            PIRect sourceRect,
+            PIPoint position,
+            PDrawingMode mode)
+    > CopyRect;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::ScaleRect,
+        void(
+            PDisplayBitmap destination,
+            PDisplayBitmap source,
+            PColor background,
+            PColor foreground,
+            PIRect sourceOriginal,
+            PIRect destinationOriginal,
+            PRect sourceRect,
+            PIRect destinationRect,
+            PDrawingMode mode)
+    > ScaleRect;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::FillCircle,
+        void(PDisplayBitmap bitmap, PIRect clipRect, PIPoint center, int32_t radius, PColor color, PDrawingMode mode)
+    > FillCircle;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::WriteString,
+        void(
+            PDisplayBitmap bitmap,
+            PIPoint position,
+            size_t stringLength,
+            PIRect clipRect,
+            PColor background,
+            PColor foreground,
+            PFontID fontID)
+    > WriteString;
 };
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplaySetColorCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::SetColor;
-    PDisplayCommandHeader Header;
-    size_t Index;
-    PColor Color;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayPowerLostCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::PowerLost;
-    PDisplayCommandHeader Header;
-    bool HasPower;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplaySetMouseCursorBitmapCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::SetMouseCursorBitmap;
-    PDisplayCommandHeader Header;
-    int32_t Width;
-    int32_t Height;
-    PIPoint HotSpot;
-    PColor Color1;
-    PColor Color2;
-    size_t PixelCount;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplaySetMouseCursorVisibleCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::SetMouseCursorVisible;
-    PDisplayCommandHeader Header;
-    bool Visible;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplaySetMousePosCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::SetMousePos;
-    PDisplayCommandHeader Header;
-    PIPoint Position;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayWritePixelCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::WritePixel;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    PIPoint Position;
-    PColor Color;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayDrawLineCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::DrawLine;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    PIRect ClipRect;
-    PIPoint Position1;
-    PIPoint Position2;
-    PColor Color;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayFillPolygonCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::FillPolygon;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    size_t ClipCount;
-    size_t PointCount;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayFillTriangleCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::FillTriangle;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    PIRect ClipRect;
-    PIPoint Position1;
-    PIPoint Position2;
-    PIPoint Position3;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayFillTriangleFanCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::FillTriangleFan;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    size_t ClipCount;
-    size_t PointCount;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayFillTriangleStripCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::FillTriangleStrip;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    size_t ClipCount;
-    size_t PointCount;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayFillRectCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::FillRect;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    PIRect Rect;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayCopyRectCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::CopyRect;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Destination;
-    PDisplayBitmap Source;
-    PColor Background;
-    PColor Foreground;
-    PIRect SourceRect;
-    PIPoint Position;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayScaleRectCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::ScaleRect;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Destination;
-    PDisplayBitmap Source;
-    PColor Background;
-    PColor Foreground;
-    PIRect SourceOriginal;
-    PIRect DestinationOriginal;
-    PRect SourceRect;
-    PIRect DestinationRect;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayFillCircleCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::FillCircle;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    PIRect ClipRect;
-    PIPoint Center;
-    int32_t Radius;
-    PColor Color;
-    PDrawingMode Mode;
-};
-
-struct alignas(DISPLAY_COMMAND_ALIGNMENT) PDisplayWriteStringCommand
-{
-    static constexpr PDisplayCommandID CODE = PDisplayCommandID::WriteString;
-    PDisplayCommandHeader Header;
-    PDisplayBitmap Bitmap;
-    PIPoint Position;
-    size_t StringLength;
-    PIRect ClipRect;
-    PColor Background;
-    PColor Foreground;
-    PFontID FontID;
-};
-

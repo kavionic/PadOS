@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <span>
 #include <tuple>
 #include <System/ExceptionHandling.h>
 #include <RPC/ArgumentPacker.h>
@@ -21,20 +23,31 @@ public:
     typedef std::tuple<std::decay_t<ARGS>...> ArgTuple_t;
     PArgumentDeserializer() {}
 
-    template<typename TSignature>
+    template<bool TWithPayload = false, typename TSignature>
     static ReturnType Invoke(const void* data, size_t length, TSignature&& callback)
     {
         using Indices = std::make_index_sequence<std::tuple_size<std::decay_t<ArgTuple_t>>::value>;
-        return Invoke(data, length, callback, Indices());
+        return Invoke<TWithPayload>(data, length, callback, Indices());
     }
 
 private:
-    template<typename TSignature, std::size_t... I>
+    template<bool TWithPayload, typename TSignature, std::size_t... I>
     static ReturnType Invoke(const void* data, size_t length, TSignature&& callback, std::index_sequence<I...>)
     {
         ArgTuple_t argPack;
-        UnpackArgs<0, std::decay_t<ARGS>...>(argPack, data, length);
-        return callback(std::get<I>(argPack)...);
+        const size_t consumed = UnpackArgs<0, std::decay_t<ARGS>...>(argPack, data, length);
+        if constexpr (TWithPayload)
+        {
+            const std::byte* payload = static_cast<const std::byte*>(data);
+            if (consumed != 0) {
+                payload += consumed;
+            }
+            return callback(std::span<const std::byte>(payload, length - consumed), std::get<I>(argPack)...);
+        }
+        else
+        {
+            return callback(std::get<I>(argPack)...);
+        }
     }
 
     template<int I>
@@ -47,6 +60,9 @@ private:
         if (result >= 0)
         {
             const size_t consumed = align_argument_size(result);
+            if (consumed > length) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
             data = reinterpret_cast<const uint8_t*>(data) + consumed;
             result = UnpackArgs<I + 1, REST...>(tuple, data, length - consumed);
             if (result >= 0)

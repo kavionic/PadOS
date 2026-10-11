@@ -19,6 +19,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	PSemaphore_unittest.cpp
 	PString_unittest.cpp
 	PThreadRWLock_unittest.cpp
+	RPC_unittest.cpp
 	Signal_unittest.cpp
 	STLChronoCalendar_unittest.cpp
 	STLChrono_unittest.cpp

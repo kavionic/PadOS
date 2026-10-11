@@ -37,6 +37,28 @@ KDisplayDriver::KDisplayDriver()
     m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::Submit, this, &KDisplayDriver::HandleSubmit);
     m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::GetScreenMode, this, &KDisplayDriver::HandleGetScreenMode);
     m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::SetScreenMode, this, &KDisplayDriver::HandleSetScreenMode);
+    m_DeviceControlDispatcher.AddHandler(
+        &PDisplayDeviceControl::SetMouseCursorBitmap,
+        this,
+        &KDisplayDriver::HandleSetMouseCursorBitmap);
+
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetFgColor, this, &KDisplayDriver::SetFgColor);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBgColor, this, &KDisplayDriver::SetBgColor);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetColor, this, &KDisplayDriver::SetColor);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::PowerLost, this, &KDisplayDriver::PowerLost);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetMouseCursorVisible, this, &KDisplayDriver::SetMouseCursorVisible);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetMousePos, this, &KDisplayDriver::SetMousePos);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::WritePixel, this, &KDisplayDriver::HandleWritePixel);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::DrawLine, this, &KDisplayDriver::HandleDrawLine);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillPolygon, this, &KDisplayDriver::HandleFillPolygon);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillTriangle, this, &KDisplayDriver::HandleFillTriangle);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillTriangleFan, this, &KDisplayDriver::HandleFillTriangleFan);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillTriangleStrip, this, &KDisplayDriver::HandleFillTriangleStrip);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillRect, this, &KDisplayDriver::HandleFillRect);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::CopyRect, this, &KDisplayDriver::HandleCopyRect);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::ScaleRect, this, &KDisplayDriver::HandleScaleRect);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillCircle, this, &KDisplayDriver::HandleFillCircle);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteString, this, &KDisplayDriver::HandleWriteString);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

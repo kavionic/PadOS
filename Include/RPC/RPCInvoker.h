@@ -8,58 +8,128 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
-#include <inttypes.h>
+#include <type_traits>
+#include <utility>
 
 #include <RPC/ArgumentSerializer.h>
+#include <System/ExceptionHandling.h>
 
+struct PRPCStackAllocator
+{
+};
 
+struct PRPCNoTransmission
+{
+};
 
-template<bool TIsConst, typename TReturnType, typename... TArgTypes>
-class PRPCInvoker
+template<
+    bool TIsConst,
+    typename TSignature,
+    typename TAllocator = PRPCStackAllocator,
+    typename TCallback = std::function<void(const void*, size_t, void*, size_t)>>
+class PRPCInvoker;
+
+template<bool TIsConst, typename TAllocator, typename TCallback, typename TReturnType, typename... TArgTypes>
+class PRPCInvoker<TIsConst, TReturnType(TArgTypes...), TAllocator, TCallback>
 {
 public:
-    using CallbackSignature = std::function<void(const void* inData, size_t inDataLength, void* outData, size_t outDataLength)>;
+    using CallbackSignature = TCallback;
+    using Serializer = PArgumentSerializer<TReturnType, TArgTypes...>;
 
-    PRPCInvoker(CallbackSignature callback) : m_Callback(callback) {}
+    static_assert(!std::is_same_v<TCallback, PRPCNoTransmission> || std::is_void_v<TReturnType>,
+        "An RPC without a transmission callback cannot return a value.");
 
-    template<bool TOIsConst = TIsConst>
-    std::enable_if_t<!TOIsConst, TReturnType> operator()(TArgTypes... args)
+    explicit PRPCInvoker(TCallback callback = {}, TAllocator allocator = {})
+        : m_Callback(std::move(callback))
+        , m_Allocator(std::move(allocator))
+    {
+    }
+
+    static constexpr size_t GetSize(TArgTypes... args) noexcept { return Serializer::GetSize(args...); }
+    static constexpr size_t GetFixedSize() noexcept requires Serializer::HAS_FIXED_SIZE { return Serializer::GetFixedSize(); }
+
+    TReturnType operator()(TArgTypes... args) requires (!TIsConst)
     {
         return Invoke(std::forward<TArgTypes>(args)...);
     }
 
-    template<bool TOIsConst = TIsConst>
-    std::enable_if_t<TOIsConst, TReturnType> operator()(TArgTypes... args) const
+    TReturnType operator()(TArgTypes... args) const requires TIsConst
     {
         return Invoke(std::forward<TArgTypes>(args)...);
+    }
+
+    TReturnType operator()(void* buffer, TArgTypes... args) requires (!TIsConst)
+    {
+        return Invoke(buffer, GetSize(args...), std::forward<TArgTypes>(args)...);
+    }
+
+    TReturnType operator()(void* buffer, TArgTypes... args) const requires TIsConst
+    {
+        return Invoke(buffer, GetSize(args...), std::forward<TArgTypes>(args)...);
+    }
+
+    TReturnType operator()(void* buffer, size_t bufferSize, TArgTypes... args) requires (!TIsConst)
+    {
+        return Invoke(buffer, bufferSize, std::forward<TArgTypes>(args)...);
+    }
+
+    TReturnType operator()(void* buffer, size_t bufferSize, TArgTypes... args) const requires TIsConst
+    {
+        return Invoke(buffer, bufferSize, std::forward<TArgTypes>(args)...);
+    }
+
+protected:
+    void* AllocBuffer(size_t size) const requires (!std::is_same_v<TAllocator, PRPCStackAllocator>)
+    {
+        void* buffer = m_Allocator(size);
+        if (buffer == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::NOMEM);
+        }
+        return buffer;
     }
 
 private:
     TReturnType Invoke(TArgTypes... args) const
     {
-        uint8_t argBuffer[PArgumentSerializer<TReturnType, TArgTypes...>::GetSize(args...)];
-
-        PArgumentSerializer<TReturnType, TArgTypes...>::WriteArg(argBuffer, sizeof(argBuffer), args...);
-        if constexpr (std::is_void_v<TReturnType>)
+        const size_t size = GetSize(args...);
+        if constexpr (std::is_same_v<TAllocator, PRPCStackAllocator>)
         {
-            m_Callback(argBuffer, sizeof(argBuffer), nullptr, 0);
+            alignas(std::max_align_t) uint8_t argBuffer[(size != 0) ? size : 1];
+            return Invoke(argBuffer, size, std::forward<TArgTypes>(args)...);
         }
         else
         {
-            TReturnType returnValue;
-            m_Callback(argBuffer, sizeof(argBuffer), &returnValue, sizeof(returnValue));
-            return returnValue;
+            return Invoke(AllocBuffer(size), size, std::forward<TArgTypes>(args)...);
         }
     }
 
-    CallbackSignature m_Callback;
-    int m_DeviceFD = -1;
-};
+    TReturnType Invoke(void* buffer, size_t bufferSize, TArgTypes... args) const
+    {
+        const size_t argumentSize = GetSize(args...);
+        if (argumentSize > bufferSize || (buffer == nullptr && bufferSize != 0)) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        if (Serializer::WriteArg(buffer, argumentSize, std::forward<TArgTypes>(args)...) < 0) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        if constexpr (!std::is_same_v<TCallback, PRPCNoTransmission>)
+        {
+            if constexpr (std::is_void_v<TReturnType>)
+            {
+                m_Callback(buffer, bufferSize, nullptr, 0);
+            }
+            else
+            {
+                TReturnType returnValue;
+                m_Callback(buffer, bufferSize, &returnValue, sizeof(returnValue));
+                return returnValue;
+            }
+        }
+    }
 
-template<bool TIsConst, typename TReturnType, typename... TArgTypes>
-class PRPCInvoker<TIsConst, TReturnType(TArgTypes...)> : public PRPCInvoker<TIsConst, TReturnType, TArgTypes...>
-{
-public:
-    PRPCInvoker(PRPCInvoker<TIsConst, TReturnType, TArgTypes...>::CallbackSignature&& callback) : PRPCInvoker<TIsConst, TReturnType, TArgTypes...>(callback) {}
+    [[no_unique_address]] TCallback m_Callback;
+    [[no_unique_address]] TAllocator m_Allocator;
 };

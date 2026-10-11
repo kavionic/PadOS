@@ -8,6 +8,7 @@
 target_sources(PadOS_ApplicationServer PRIVATE
 	ApplicationServer.h
 	DisplayDriver.h
+	DisplayDriverInvoker.h
 	Protocol.h
 	ServerBitmap.h
 )

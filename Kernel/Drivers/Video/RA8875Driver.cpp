@@ -104,6 +104,7 @@ void RA8875GfxDriver::Close()
 
 void RA8875GfxDriver::PowerLost(bool hasPower)
 {
+    kassert(m_Mutex.IsLocked());
     m_PinBacklightControl.Write(hasPower);
 }
 
@@ -224,6 +225,7 @@ bool RA8875GfxDriver::SetMouseCursorBitmap(const PMouseCursorBitmap& cursor)
 
 void RA8875GfxDriver::SetMouseCursorVisible(bool visible)
 {
+    kassert(m_Mutex.IsLocked());
     m_IsMouseCursorVisible = visible;
     SetGraphicCursorEnabled(visible);
 }
@@ -234,6 +236,7 @@ void RA8875GfxDriver::SetMouseCursorVisible(bool visible)
 
 void RA8875GfxDriver::SetMousePos(PIPoint position)
 {
+    kassert(m_Mutex.IsLocked());
     m_MousePos = position;
     SetGraphicCursorPosition(position);
 }

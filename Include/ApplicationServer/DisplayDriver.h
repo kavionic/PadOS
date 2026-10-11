@@ -117,20 +117,9 @@ public:
         const PColor& color,
         PDrawingMode mode);
 
-    uint32_t WriteString(
-        PSrvBitmap* bitmap,
-        const PIPoint& position,
-        const char* string,
-        size_t strLength,
-        const PIRect& clipRect,
-        PColor colorBg,
-        PColor colorFg,
-        PFontID fontID);
-
-
     static PColor   GetPaletteEntry(uint8_t index);
 
-    // This variant queues text when the caller does not need WriteString's immediate result.
+    // Queue text drawing in the current batch.
     void DrawString(
         PSrvBitmap* bitmap,
         const PIPoint& position,
@@ -158,38 +147,25 @@ public:
         PDrawingMode mode);
     void Flush();
     void FlushBitmap(const PSrvBitmap* bitmap);
+    void* AllocCommand(PDisplayCommandID commandID, size_t size);
 
 private:
-    template<typename Command>
-    Command* AllocCommand(size_t payloadSize = 0)
+    template<typename TInvoker>
+    PDisplayPolygonBuffer AllocGeometry(TInvoker& invoker, PSrvBitmap* bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
     {
-        if (payloadSize > std::numeric_limits<uint32_t>::max() - sizeof(Command) - DISPLAY_COMMAND_ALIGNMENT) {
-            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
-        }
-        const size_t size = sizeof(Command) + payloadSize;
-        // Allocate before evaluating ReferenceBitmap(), since allocation may flush and advance the sequence.
-        return static_cast<Command*>(AllocCommandBuffer(size));
-    }
-
-    template<typename Command, typename... Args>
-    static Command* ConstructCommand(Command* storage, size_t payloadSize, Args&&... args)
-    {
-        const size_t size = sizeof(Command) + payloadSize;
-        const uint32_t length = uint32_t((size + DISPLAY_COMMAND_ALIGNMENT - 1) & ~(DISPLAY_COMMAND_ALIGNMENT - 1));
-        return new (storage) Command{{Command::CODE, length}, std::forward<Args>(args)...};
-    }
-
-    template<typename Command>
-    PDisplayPolygonBuffer AllocGeometry(PSrvBitmap* bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
-    {
-        const size_t limit = std::numeric_limits<uint32_t>::max() - sizeof(Command) - DISPLAY_COMMAND_ALIGNMENT;
-        if (clipCount > limit / sizeof(PIRect) || pointCount > (limit - clipCount * sizeof(PIRect)) / sizeof(PPoint)) {
+        static_assert(alignof(PIRect) <= align_argument_size(1));
+        static_assert(alignof(PPoint) <= align_argument_size(1));
+        constexpr size_t ARGUMENT_SIZE = TInvoker::GetFixedSize();
+        constexpr size_t LIMIT =
+            std::numeric_limits<uint32_t>::max() - sizeof(PDisplayCommandHeader) - ARGUMENT_SIZE - DISPLAY_COMMAND_ALIGNMENT;
+        if (clipCount > LIMIT / sizeof(PIRect) || pointCount > (LIMIT - clipCount * sizeof(PIRect)) / sizeof(PPoint)) {
             PERROR_THROW_CODE(PErrorCode::OVERFLOW);
         }
         const size_t payloadSize = clipCount * sizeof(PIRect) + pointCount * sizeof(PPoint);
-        Command* storage = AllocCommand<Command>(payloadSize);
-        Command* command = ConstructCommand(storage, payloadSize, ReferenceBitmap(bitmap), clipCount, pointCount, mode);
-        PIRect* clips = reinterpret_cast<PIRect*>(command + 1);
+        void* buffer = invoker.Alloc(payloadSize);
+        // Allocation can flush: reference the bitmap only after the command has its final sequence.
+        invoker(buffer, ReferenceBitmap(bitmap), clipCount, pointCount, mode);
+        PIRect* clips = reinterpret_cast<PIRect*>(static_cast<uint8_t*>(buffer) + ARGUMENT_SIZE);
         PPoint* points = reinterpret_cast<PPoint*>(clips + clipCount);
         return {{clips, clipCount}, {points, pointCount}};
     }
@@ -202,9 +178,10 @@ private:
     PDisplayDeviceControl m_DeviceControl;
     std::vector<uint64_t> m_CommandBuffer;
     size_t m_UsedBufferSize = 0;
-    PDisplayBatchResult m_LastResult;
     PDisplayInfo m_Info;
     Ptr<PSrvBitmap> m_ScreenBitmap;
     PColor m_FgColor;
     PColor m_BgColor;
+
+    PDisplayCommands m_Commands;
 };

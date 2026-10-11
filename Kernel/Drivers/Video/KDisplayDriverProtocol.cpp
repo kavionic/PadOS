@@ -401,8 +401,6 @@ PDisplayBatchResult KDisplayDriver::ExecuteCommands_pl(const void* buffer, size_
                         command.Destination.Raster,
                         command.Destination.BytesPerLine * size_t(command.Destination.Size.y));
                 }
-                // Coordinate conversion in the server can round a clipped edge slightly beyond the source.
-                command.SourceRect &= PRect(command.SourceOriginal);
                 ScaleRect(
                     &command.Destination,
                     &command.Source,

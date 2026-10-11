@@ -3341,41 +3341,76 @@ void PServerView::DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect,
         return;
     }
     const PIPoint screenPos(m_ScreenPos);
+    const PIRect snappedSrcRect(srcRect.GetFloored());
+    const PIRect snappedDstRect(inDstRect.GetFloored());
+    const PIRect clippedSrcRect = snappedSrcRect & PIRect(PIPoint(0, 0), bitmap->m_Size);
 
-    const PRect snappedSrcRect = srcRect.GetFloored();
-    const PRect snappedDstRect = inDstRect.GetFloored();
+    if (!clippedSrcRect.IsValid() || !snappedDstRect.IsValid()) {
+        return;
+    }
 
-    const float scaleX = (snappedSrcRect.Width()  - 1.0f) / snappedDstRect.Width();
-    const float scaleY = (snappedSrcRect.Height() - 1.0f) / snappedDstRect.Height();
+    // Keep the original transform. Clip integer destination samples whose source lies outside the bitmap.
+    // Only partially clipped axes use this division; a one-pixel axis is either wholly inside or wholly outside.
+    auto mapSourceBoundary = [](int32_t offset, int32_t sourceSize, int32_t destinationSize)
+    {
+        return int32_t((int64_t(offset) * destinationSize + sourceSize - 2) / (sourceSize - 1));
+    };
+    PIRect clippedDstRect = snappedDstRect;
+    if (clippedSrcRect.left != snappedSrcRect.left)
+    {
+        clippedDstRect.left = snappedDstRect.left + mapSourceBoundary(
+            clippedSrcRect.left - snappedSrcRect.left,
+            snappedSrcRect.Width(),
+            snappedDstRect.Width());
+    }
+    if (clippedSrcRect.top != snappedSrcRect.top)
+    {
+        clippedDstRect.top = snappedDstRect.top + mapSourceBoundary(
+            clippedSrcRect.top - snappedSrcRect.top,
+            snappedSrcRect.Height(),
+            snappedDstRect.Height());
+    }
+    if (clippedSrcRect.right != snappedSrcRect.right)
+    {
+        clippedDstRect.right = snappedDstRect.left + mapSourceBoundary(
+            clippedSrcRect.right - snappedSrcRect.left,
+            snappedSrcRect.Width(),
+            snappedDstRect.Width());
+    }
+    if (clippedSrcRect.bottom != snappedSrcRect.bottom)
+    {
+        clippedDstRect.bottom = snappedDstRect.top + mapSourceBoundary(
+            clippedSrcRect.bottom - snappedSrcRect.top,
+            snappedSrcRect.Height(),
+            snappedDstRect.Height());
+    }
+    clippedDstRect &= PIRect(PIPoint(0, 0), m_Bitmap->m_Size) - screenPos;
 
-    const float scaleXinv = 1.0f / scaleX;
-    const float scaleYinv = 1.0f / scaleY;
-
-    const PRect clippedSrcRect = snappedSrcRect & PRect::FromSize(PPoint(bitmap->m_Size));
-
-    const PRect clippedDstRect(
-        snappedDstRect.left   + (clippedSrcRect.left   - snappedSrcRect.left)   * scaleXinv,
-        snappedDstRect.top    + (clippedSrcRect.top    - snappedSrcRect.top)    * scaleYinv,
-        snappedDstRect.right  + (clippedSrcRect.right  - snappedSrcRect.right)  * scaleXinv,
-        snappedDstRect.bottom + (clippedSrcRect.bottom - snappedSrcRect.bottom) * scaleYinv
-    );
+    const float scaleX = float(snappedSrcRect.Width() - 1) / float(snappedDstRect.Width());
+    const float scaleY = float(snappedSrcRect.Height() - 1) / float(snappedDstRect.Height());
 
     for (const PIRect& clipRect : region->m_Rects)
     {
-        const PRect rectDst = clippedDstRect & clipRect;
+        const PIRect rectDst = clippedDstRect & clipRect;
 
         if (rectDst.IsValid())
         {
             const PRect rectSrc(
-                clippedSrcRect.left +   (rectDst.left   - clippedDstRect.left)   * scaleX,
-                clippedSrcRect.top +    (rectDst.top    - clippedDstRect.top)    * scaleY,
-                clippedSrcRect.right +  (rectDst.right  - clippedDstRect.right)  * scaleX,
-                clippedSrcRect.bottom + (rectDst.bottom - clippedDstRect.bottom) * scaleY
-            );
+                float(snappedSrcRect.left) + float(rectDst.left - snappedDstRect.left) * scaleX,
+                float(snappedSrcRect.top) + float(rectDst.top - snappedDstRect.top) * scaleY,
+                float(snappedSrcRect.left) + float(rectDst.right - snappedDstRect.left) * scaleX,
+                float(snappedSrcRect.top) + float(rectDst.bottom - snappedDstRect.top) * scaleY);
 
-            const PIRect cDst((rectDst + m_ScreenPos).GetRounded());
-
-            m_Bitmap->m_Driver->ScaleRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, clippedSrcRect, clippedDstRect, rectSrc, cDst, m_DrawingMode);
+            m_Bitmap->m_Driver->ScaleRect(
+                m_Bitmap,
+                ptr_raw_pointer_cast(bitmap),
+                m_BgColor,
+                m_FgColor,
+                snappedSrcRect,
+                snappedDstRect + screenPos,
+                rectSrc,
+                rectDst + screenPos,
+                m_DrawingMode);
         }
     }
 }

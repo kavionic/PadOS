@@ -580,15 +580,16 @@ void RA8875GfxDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBi
                 {
                     return PColor::FromRGB32A(src[y * wordsPerLine + x]);
                 };
-                auto writePixel = [this, bgColor, src, wordsPerLine](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
-                    {
-                        const uint16_t pixel16 = PColor::Blend16(pixel, bgColor);
+                auto writePixel = [this, bgColor](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
+                {
+                    const uint16_t pixel16 = PColor::Blend16(pixel, bgColor);
 
-                        WaitMemory();
-                        WriteData(pixel16);
-                    };
+                    WaitMemory();
+                    WriteData(pixel16);
+                };
 
-                PBlitterUtils::ScaleBitmapBilinear(readPixel, writePixel, srcOrigRect, dstOrigRect, srcRect, dstRect);
+                const PIRect srcBounds = srcOrigRect & PIRect(PIPoint(0, 0), srcBitmap->Size);
+                PBlitterUtils::ScaleBitmapBilinear(readPixel, writePixel, srcOrigRect, dstOrigRect, srcRect, dstRect, srcBounds);
                 break;
             }
             default:

@@ -1,121 +1,210 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 1999-2026 Kurt Skauen
+// Copyright (c) 2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include <array>
+#include <memory>
+#include <limits>
+#include <System/ExceptionHandling.h>
 #include <span>
 #include <vector>
-
+#include <utility>
 #include <Ptr/PtrTarget.h>
-#include <Math/Point.h>
-#include <Math/Rect.h>
-#include <GUI/Font.h>
-#include <GUI/GUIDefines.h>
-#include <GUI/MouseCursor.h>
-#include <ApplicationServer/Font.h>
-
-
-class   Glyph;
-class   SrvSprite;
-
-struct PColor;
-
-#define RAS_OFFSET8( ptr, x, y, bpl) (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
-#define RAS_OFFSET16(ptr, x, y, bpl) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
-#define RAS_OFFSET32(ptr, x, y, bpl) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
-
+#include <Ptr/Ptr.h>
+#include <Utils/String.h>
+#include <DeviceControl/Display.h>
+#include <GUI/FontMetrics.h>
 
 class PSrvBitmap;
 
-
-struct PScreenMode
+// Payload elements are constructed directly by the caller after allocation.
+struct PDisplayPolygonBuffer
 {
-    PScreenMode() {}
-    PScreenMode(const PIPoint& resolution, int bytesPerLine, PEColorSpace colorSpace) : m_Resolution(resolution), m_BytesPerLine(bytesPerLine), m_ColorSpace(colorSpace) {}
-    PIPoint      m_Resolution;
-    size_t      m_BytesPerLine = 0;
-    PEColorSpace m_ColorSpace = PEColorSpace::NO_COLOR_SPACE;
+    std::span<PIRect> ClipRects;
+    std::span<PPoint> Points;
 };
 
-
-class PDisplayDriver : public PtrTarget
+class PDisplayDriver final : public PtrTarget, public PFontMetrics
 {
 public:
-    static constexpr int CHARACTER_SPACING = 3;
+    explicit PDisplayDriver(const PString& devicePath = "/dev/ra8875");
+    virtual ~PDisplayDriver() override;
 
-    PDisplayDriver();
-    virtual     ~PDisplayDriver();
+    bool            Open();
+    void            Close();
+    void            PowerLost(bool hasPower);
+    Ptr<PSrvBitmap>  GetScreenBitmap();
 
-    virtual bool            Open() = 0;
-    virtual void            Close() = 0;
-    virtual void            PowerLost(bool hasPower) = 0;
-    virtual Ptr<PSrvBitmap>  GetScreenBitmap() = 0;
+    int             GetScreenModeCount();
+    bool            GetScreenModeDesc(size_t index, PScreenMode& outMode);
+    bool            SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate);
 
-    virtual int             GetScreenModeCount() = 0;
-    virtual bool            GetScreenModeDesc(size_t index, PScreenMode& outMode) = 0;
-    virtual bool            SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate) = 0;
+    PIPoint         GetResolution();
+    int             GetBytesPerLine();
+    PEColorSpace    GetColorSpace();
+    void            SetColor(size_t index, PColor color);
 
-    virtual PIPoint         GetResolution() = 0;
-    virtual int             GetBytesPerLine() = 0;
-    virtual int             GetFramebufferOffset();
-    virtual PEColorSpace    GetColorSpace() = 0;
-    virtual void            SetColor(size_t index, PColor color) = 0;
+    bool    SetMouseCursorBitmap(const PMouseCursorBitmap& cursor);
+    void    SetMouseCursorVisible(bool visible);
 
-    virtual bool    SetMouseCursorBitmap(const PMouseCursorBitmap& cursor) = 0;
-    virtual void    SetMouseCursorVisible(bool visible) = 0;
+    void    SetMousePos(PIPoint cNewPos);
 
-    virtual void    SetMousePos(PIPoint cNewPos) = 0;
-//    virtual bool    IntersectWithMouse(const IRect& cRect) = 0;
-
-    virtual void    SetFgColor(PColor color) { m_FgColor = color; }
+    void    SetFgColor(PColor color);
     PColor          GetFgColor() const noexcept { return m_FgColor; }
 
-    virtual void    SetBgColor(PColor color) { m_BgColor = color; }
+    void    SetBgColor(PColor color);
     PColor          GetBgColor() const noexcept { return m_BgColor; }
 
-    virtual void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
-    virtual void    DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode);
-    virtual void    FillPolygon(PSrvBitmap* bitmap, std::span<const PIRect> clipRects, std::span<const PPoint> points, PDrawingMode mode);
-    virtual void    FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, PDrawingMode mode);
-    virtual void    FillTriangleFan(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
-    virtual void    FillTriangleStrip(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
-    virtual void    FillRect(PSrvBitmap* bitmap, const PIRect& rect);
-    virtual void    CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode);
-    virtual void    ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode);
-    //    virtual void  BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap, const Color& sHighColor, const Color& sLowColor, IRect cSrcRect, IPoint cDstPos);
+    void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
+    void    DrawLine(
+        PSrvBitmap* bitmap,
+        const PIRect& clipRect,
+        const PIPoint& pos1,
+        const PIPoint& pos2,
+        const PColor& color,
+        PDrawingMode mode);
+    void    FillPolygon(
+        PSrvBitmap* bitmap,
+        std::span<const PIRect> clipRects,
+        std::span<const PPoint> points,
+        PDrawingMode mode);
+    void    FillTriangle(
+        PSrvBitmap* bitmap,
+        const PIRect& clipRect,
+        const PIPoint& pos1,
+        const PIPoint& pos2,
+        const PIPoint& pos3,
+        PDrawingMode mode);
+    void    FillTriangleFan(
+        PSrvBitmap* bitmap,
+        const PIRect& clipRect,
+        std::span<const PPoint> points,
+        PDrawingMode mode);
+    void    FillTriangleStrip(
+        PSrvBitmap* bitmap,
+        const PIRect& clipRect,
+        std::span<const PPoint> points,
+        PDrawingMode mode);
+    void    FillRect(PSrvBitmap* bitmap, const PIRect& rect);
+    void    CopyRect(
+        PSrvBitmap* dstBitmap,
+        PSrvBitmap* srcBitmap,
+        PColor bgColor,
+        PColor fgColor,
+        const PIRect& srcRect,
+        const PIPoint& dstPos,
+        PDrawingMode mode);
+    void    ScaleRect(
+        PSrvBitmap* dstBitmap,
+        PSrvBitmap* srcBitmap,
+        PColor bgColor,
+        PColor fgColor,
+        const PIRect& srcOrigRect,
+        const PIRect& dstOrigRect,
+        const PRect& srcRect,
+        const PIRect& dstRect,
+        PDrawingMode mode);
 
-    virtual void    FillCircle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& center, int32_t radius, const PColor& color, PDrawingMode mode);
+    void    FillCircle(
+        PSrvBitmap* bitmap,
+        const PIRect& clipRect,
+        const PIPoint& center,
+        int32_t radius,
+        const PColor& color,
+        PDrawingMode mode);
 
-    virtual uint32_t WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID);
+    uint32_t WriteString(
+        PSrvBitmap* bitmap,
+        const PIPoint& position,
+        const char* string,
+        size_t strLength,
+        const PIRect& clipRect,
+        PColor colorBg,
+        PColor colorFg,
+        PFontID fontID);
 
-    //    virtual bool  RenderGlyph(SrvBitmap* pcBitmap, Glyph* pcGlyph, const IPoint& cPos, const IRect& cClipRect, uint32_t* anPalette);
-    //    virtual bool  RenderGlyph(SrvBitmap* pcBitmap, Glyph* pcGlyph, const IPoint& cPos, const IRect& cClipRect, const Color& sFgColor);
-
-    float   GetFontHeight(PFontID fontID) const;
-    float   GetStringWidth(PFontID fontID, const char* string, size_t length) const;
-    size_t  GetStringLength(PFontID fontID, const char* string, size_t length, float width, bool includeLast);
-
-    const FONT_INFO* GetFontDesc(PFontID fontID) const;
 
     static PColor   GetPaletteEntry(uint8_t index);
 
+    // This variant queues text when the caller does not need WriteString's immediate result.
+    void DrawString(
+        PSrvBitmap* bitmap,
+        const PIPoint& position,
+        const char* string,
+        size_t length,
+        const PIRect& clipRect,
+        PColor background,
+        PColor foreground,
+        PFontID fontID);
+
+    PDisplayPolygonBuffer AllocPolygon(
+        PSrvBitmap* bitmap,
+        size_t clipCount,
+        size_t pointCount,
+        PDrawingMode mode);
+    PDisplayPolygonBuffer AllocTriangleFan(
+        PSrvBitmap* bitmap,
+        size_t clipCount,
+        size_t pointCount,
+        PDrawingMode mode);
+    PDisplayPolygonBuffer AllocTriangleStrip(
+        PSrvBitmap* bitmap,
+        size_t clipCount,
+        size_t pointCount,
+        PDrawingMode mode);
+    void Flush();
+    void FlushBitmap(const PSrvBitmap* bitmap);
+
 private:
-    void    FillTriangleUnion(PSrvBitmap* bitmap, const PIRect& clipRect,
-                              std::span<const std::array<PPoint, 3>> triangles,
-                              PDrawingMode mode);
-    void    FillBlit8(uint8_t* dst, int nMod, int W, int H, uint8_t nColor);
-    void    FillBlit16(uint16_t* dst, int nMod, int W, int H, uint16_t nColor);
-    void    FillBlit24(uint8_t* dst, int nMod, int W, int H, uint32_t nColor);
-    void    FillBlit32(uint32_t* dst, int nMod, int W, int H, uint32_t nColor);
+    template<typename Command>
+    Command* AllocCommand(size_t payloadSize = 0)
+    {
+        if (payloadSize > std::numeric_limits<uint32_t>::max() - sizeof(Command) - DISPLAY_COMMAND_ALIGNMENT) {
+            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+        }
+        const size_t size = sizeof(Command) + payloadSize;
+        // Allocate before evaluating ReferenceBitmap(), since allocation may flush and advance the sequence.
+        return static_cast<Command*>(AllocCommandBuffer(size));
+    }
 
-    //    SrvBitmap*      m_pcMouseImage;
-    //    SrvSprite*          m_pcMouseSprite;
+    template<typename Command, typename... Args>
+    static Command* ConstructCommand(Command* storage, size_t payloadSize, Args&&... args)
+    {
+        const size_t size = sizeof(Command) + payloadSize;
+        const uint32_t length = uint32_t((size + DISPLAY_COMMAND_ALIGNMENT - 1) & ~(DISPLAY_COMMAND_ALIGNMENT - 1));
+        return new (storage) Command{{Command::CODE, length}, std::forward<Args>(args)...};
+    }
 
-    PColor  m_FgColor;
-    PColor  m_BgColor;
+    template<typename Command>
+    PDisplayPolygonBuffer AllocGeometry(PSrvBitmap* bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+    {
+        const size_t limit = std::numeric_limits<uint32_t>::max() - sizeof(Command) - DISPLAY_COMMAND_ALIGNMENT;
+        if (clipCount > limit / sizeof(PIRect) || pointCount > (limit - clipCount * sizeof(PIRect)) / sizeof(PPoint)) {
+            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+        }
+        const size_t payloadSize = clipCount * sizeof(PIRect) + pointCount * sizeof(PPoint);
+        Command* storage = AllocCommand<Command>(payloadSize);
+        Command* command = ConstructCommand(storage, payloadSize, ReferenceBitmap(bitmap), clipCount, pointCount, mode);
+        PIRect* clips = reinterpret_cast<PIRect*>(command + 1);
+        PPoint* points = reinterpret_cast<PPoint*>(clips + clipCount);
+        return {{clips, clipCount}, {points, pointCount}};
+    }
+
+    void* AllocCommandBuffer(size_t size);
+    PDisplayBitmap ReferenceBitmap(PSrvBitmap* bitmap);
+
+    uint64_t m_Sequence = 1;
+    PString m_DevicePath;
+    PDisplayDeviceControl m_DeviceControl;
+    std::vector<uint64_t> m_CommandBuffer;
+    size_t m_UsedBufferSize = 0;
+    PDisplayBatchResult m_LastResult;
+    PDisplayInfo m_Info;
+    Ptr<PSrvBitmap> m_ScreenBitmap;
+    PColor m_FgColor;
+    PColor m_BgColor;
 };

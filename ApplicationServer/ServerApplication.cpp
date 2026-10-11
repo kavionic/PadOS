@@ -120,6 +120,7 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
     if (m_HaveInvalidRegions) {
         UpdateRegions();
     }
+    m_Server->GetDisplayDriver()->Flush();
     return wasHandled;
 }
 
@@ -510,6 +511,7 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
 {
     auto i = m_BitmapMap.find(bitmapHandle);
     if (i != m_BitmapMap.end()) {
+        i->second->PrepareForModification();
         m_BitmapMap.erase(i);
     } else {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: invalid handle: {}", __PRETTY_FUNCTION__, bitmapHandle);
@@ -609,6 +611,14 @@ void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, ha
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+
+void ServerApplication::SlotSync(port_id replyPort)
+{
+    m_Server->GetDisplayDriver()->Flush();
+    p_post_to_remotesignal<ASSyncReply>(PMessagePort(replyPort), INVALID_HANDLE, TimeValNanos::zero);
+}
+
 
 void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
 {

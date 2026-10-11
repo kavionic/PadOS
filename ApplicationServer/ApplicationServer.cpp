@@ -21,7 +21,6 @@
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/ServerView.h>
-#include <ApplicationServer/Drivers/RA8875GfxDriver.h>
 #include <DeviceControl/InputDevice.h>
 #include <Storage/Directory.h>
 #include <Utils/Utils.h>
@@ -453,7 +452,9 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     , m_ReplyPort("appserver_reply", 100)
 {
     s_DisplayDriver = displayDriver;
-    s_DisplayDriver->Open();
+    if (!s_DisplayDriver->Open()) {
+        PERROR_THROW_CODE(PErrorCode::NODEV);
+    }
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
     m_TopView = ptr_new<PServerView>(
         ptr_raw_pointer_cast(s_ScreenBitmap),
@@ -519,6 +520,7 @@ void ApplicationServer::Idle()
         m_PointerEventQueue.pop();
     }
     RefreshPointerRoutes();
+    s_DisplayDriver->Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1838,11 +1840,8 @@ void ApplicationServer::PowerLost(bool hasPower)
 
 int appserver_main(int argc, char* argv[])
 {
-    RA8875GfxDriverParameters driverConfig;
-    if (argc > 1) {
-        Pjson::parse(argv[1]).get_to(driverConfig);
-    }
-    ApplicationServer* applicationServer = new ApplicationServer(ptr_new<RA8875GfxDriver>(driverConfig));
+    const char* devicePath = (argc > 1) ? argv[1] : "/dev/ra8875";
+    ApplicationServer* applicationServer = new ApplicationServer(ptr_new<PDisplayDriver>(devicePath));
     p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCat_General, "Application server started.");
     applicationServer->Adopt();
     return 0;

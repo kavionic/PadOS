@@ -6,33 +6,41 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 16.01.2014 22:21
 
-#include <ApplicationServer/Drivers/RA8875GfxDriver.h>
-#include <ApplicationServer/ServerBitmap.h>
-#include <ApplicationServer/BlitterUtils.h>
-
-#include <GUI/Color.h>
+#include <Kernel/Drivers/Video/RA8875Driver.h>
+#include <Kernel/Drivers/Video/BlitterUtils.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/HAL/STM32/Peripherals_STM32H7.h>
+#include <Kernel/KThread.h>
 #include <Utils/UTF8Utils.h>
-
 #include <algorithm>
 #include <array>
-#include <fcntl.h>
 #include <utility>
-#include <unistd.h>
 
+namespace kernel
+{
+
+PREGISTER_KERNEL_DRIVER(RA8875GfxDriver, KRA8875DriverParameters);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RA8875GfxDriver::RA8875GfxDriver(const RA8875GfxDriverParameters& config)
-    : m_Registers((PLCDRegisters*)config.Registers)
-    , m_PinLCDResetID(config.PinLCDReset)
-    , m_PinTouchpadResetID(config.PinTouchpadReset)
-    , m_PinBacklightControlID(config.PinBacklightControl)
+RA8875GfxDriver::RA8875GfxDriver(const KRA8875DriverParameters& parameters)
+    : m_Registers(reinterpret_cast<PLCDRegisters*>(parameters.Registers))
+    , m_PinLCDReset(parameters.PinLCDReset)
+    , m_PinBacklightControl(parameters.PinBacklightControl)
+    , m_PinLCDWait(parameters.PinLCDWait)
+    , m_PinInterrupt(parameters.PinInterrupt)
+    , m_CondVar("ra8875irq")
 {
-    m_ScreenBitmap = ptr_new<PSrvBitmap>(PIPoint(0, 0), PEColorSpace::RGB16);
-    m_ScreenBitmap->m_VideoMem = true;
-    m_ScreenBitmap->m_Driver = this;
+    m_ScreenBitmap.ColorSpace = PEColorSpace::RGB16;
+    m_ScreenBitmap.VideoMemory = true;
+    m_PinInterrupt.SetDirection(DigitalPinDirection_e::In);
+    m_PinInterrupt.DisableInterrupts();
+    m_PinInterrupt.SetInterruptMode(PinInterruptMode_e::FallingEdge);
+    m_PinInterrupt.GetAndClearInterruptStatus();
+    register_irq_handler(get_peripheral_irq(parameters.PinInterrupt), IRQCallback, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,29 +49,32 @@ RA8875GfxDriver::RA8875GfxDriver(const RA8875GfxDriverParameters& config)
 
 bool RA8875GfxDriver::Open()
 {
-    m_IRQDriver.SetDeviceFD(open("/dev/ra8875", O_RDWR));
-
-    if (m_PinLCDResetID != DigitalPinID::None)
+    if (m_PinLCDReset.GetID() != DigitalPinID::None)
     {
-        digital_pin_write(m_PinLCDResetID, true);
-        digital_pin_set_direction(m_PinLCDResetID, DigitalPinDirection_e::Out);
+        m_PinLCDReset.Write(true);
+        m_PinLCDReset.SetDirection(DigitalPinDirection_e::Out);
     }
-    digital_pin_write(m_PinBacklightControlID, true);
-    digital_pin_set_direction(m_PinBacklightControlID, DigitalPinDirection_e::Out);
+    m_PinBacklightControl.Write(true);
+    m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
+    m_PinLCDWait.SetDirection(DigitalPinDirection_e::In);
 
+    m_HardwareFgColorValid = false;
+    m_HardwareBgColorValid = false;
+    m_IsMouseCursorRasterUploaded = false;
     Reset();
 
     // Enable BTE interrupt.
     WriteCommand(RA8875_INTC1, RA8875_INTC1_BTE_bm);
 
-    m_ScreenBitmap->m_Size = GetResolution();
+    m_ScreenBitmap.Size = GetResolution();
+    m_ScreenBitmap.BytesPerLine = size_t(GetBytesPerLine());
 
     PIRect screenFrame(PIPoint(0, 0), GetResolution());
 
     SetWindow(screenFrame);
     m_IsWindowSet = false;
     SetFgColor(PColor::FromRGB32A(0));
-    FillRect(ptr_raw_pointer_cast(m_ScreenBitmap), screenFrame);
+    FillRect(&m_ScreenBitmap, screenFrame);
 
     //    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
     //    WriteCommand(RA8875_P2CR, 0x00);  // open PWM
@@ -84,12 +95,7 @@ bool RA8875GfxDriver::Open()
 
 void RA8875GfxDriver::Close()
 {
-    int fd = m_IRQDriver.GetDeviceFD();
-    if (fd != -1)
-    {
-        close(fd);
-        m_IRQDriver.SetDeviceFD(-1);
-    }
+    WaitIdle();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,16 +104,16 @@ void RA8875GfxDriver::Close()
 
 void RA8875GfxDriver::PowerLost(bool hasPower)
 {
-    digital_pin_write(m_PinBacklightControlID, hasPower);
+    m_PinBacklightControl.Write(hasPower);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PSrvBitmap> RA8875GfxDriver::GetScreenBitmap()
+PDisplayBitmap* RA8875GfxDriver::GetScreenBitmap()
 {
-    return m_ScreenBitmap;
+    return &m_ScreenBitmap;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -236,9 +242,9 @@ void RA8875GfxDriver::SetMousePos(PIPoint position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color)
+void RA8875GfxDriver::WritePixel(PDisplayBitmap* bitmap, const PIPoint& pos, PColor color)
 {
-    if (bitmap->m_VideoMem)
+    if (bitmap->VideoMemory)
     {
         WaitBlitter();
         MemoryWrite_Position(pos.x, pos.y);
@@ -246,7 +252,7 @@ void RA8875GfxDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor 
     }
     else
     {
-        PDisplayDriver::WritePixel(bitmap, pos, color);
+        KDisplayDriver::WritePixel(bitmap, pos, color);
     }
 }
 
@@ -254,9 +260,9 @@ void RA8875GfxDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode)
+void RA8875GfxDriver::DrawLine(PDisplayBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode)
 {
-    if (bitmap->m_VideoMem)
+    if (bitmap->VideoMemory)
     {
         if (pos1 == pos2)
         {
@@ -266,7 +272,7 @@ void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const
         SetWindow(clipRect);
         WaitBlitter();
 
-        SetFgColor(color.GetColor16());
+        SetHardwareFgColor(color.GetColor16());
 
         WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, uint16_t(pos1.x));
         WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, uint16_t(pos1.y));
@@ -277,7 +283,7 @@ void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const
     }
     else
     {
-        PDisplayDriver::DrawLine(bitmap, clipRect, pos1, pos2, color, mode);
+        KDisplayDriver::DrawLine(bitmap, clipRect, pos1, pos2, color, mode);
     }
 }
 
@@ -285,10 +291,11 @@ void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect)
+void RA8875GfxDriver::FillRect(PDisplayBitmap* bitmap, const PIRect& rect)
 {
-    if (bitmap->m_VideoMem)
+    if (bitmap->VideoMemory)
     {
+        SetHardwareFgColor(GetFgColor().GetColor16());
         UnsetWindow();
 
         if (rect.left != (rect.right - 1) || rect.top != (rect.bottom - 1))
@@ -309,7 +316,7 @@ void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect)
     }
     else
     {
-        PDisplayDriver::FillRect(bitmap, rect);
+        KDisplayDriver::FillRect(bitmap, rect);
     }
 }
 
@@ -317,9 +324,9 @@ void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPosIn, PDrawingMode mode)
+void RA8875GfxDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPosIn, PDrawingMode mode)
 {
-    if (dstBitmap->m_VideoMem && srcBitmap->m_VideoMem)
+    if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
         WaitBlitter();
 
@@ -350,7 +357,7 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
         WriteCommand(RA8875_BECR1, ctrl | RA8875_BTE_ROP_S);
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
     }
-    else if (dstBitmap->m_VideoMem)
+    else if (dstBitmap->VideoMemory)
     {
         WaitBlitter();
 
@@ -390,10 +397,10 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
         }
         if (colorKeyed)
         {
-            if (srcBitmap->m_ColorSpace != PEColorSpace::MONO1) {
-                SetFgColor(PTransparentColors::RGB16);
+            if (srcBitmap->ColorSpace != PEColorSpace::MONO1) {
+                SetHardwareFgColor(PTransparentColors::RGB16);
             } else {
-                SetFgColor(uint16_t(~fgColor.GetColor16()));
+                SetHardwareFgColor(uint16_t(~fgColor.GetColor16()));
             }
         }
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
@@ -404,12 +411,12 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
             WriteData(pixel16);
         };
 
-        switch (srcBitmap->m_ColorSpace)
+        switch (srcBitmap->ColorSpace)
         {
             case PEColorSpace::MONO1:
             {
-                const uint32_t  wordsPerLine = srcBitmap->m_BytesPerLine / sizeof(uint32_t);
-                const uint32_t* src = reinterpret_cast<const uint32_t*>(srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine);
+                const uint32_t  wordsPerLine = srcBitmap->BytesPerLine / sizeof(uint32_t);
+                const uint32_t* src = reinterpret_cast<const uint32_t*>(srcBitmap->Raster + srcRect.top * srcBitmap->BytesPerLine);
 
                 const uint16_t bgColor16 = (colorKeyed) ? uint16_t(~fgColor.GetColor16()) : bgColor.GetColor16();
                 const uint16_t fgColor16 = fgColor.GetColor16();
@@ -433,8 +440,8 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
             }
             case PEColorSpace::CMAP8:
             {
-                const int32_t srcModulo = srcBitmap->m_BytesPerLine - srcRect.Width();
-                const uint8_t* src = srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine;
+                const int32_t srcModulo = srcBitmap->BytesPerLine - srcRect.Width();
+                const uint8_t* src = srcBitmap->Raster + srcRect.top * srcBitmap->BytesPerLine;
 
                 auto readPixel = [this, &src]() PALWAYS_INLINE{ return GetPaletteEntry(*src++).GetColor16(); };
                 auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
@@ -445,8 +452,8 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
             }
             case PEColorSpace::RGB15:
             {
-                const int32_t srcModulo = srcBitmap->m_BytesPerLine / 2 - srcRect.Width();
-                const uint16_t* src = RAS_OFFSET16(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
+                const int32_t srcModulo = srcBitmap->BytesPerLine / 2 - srcRect.Width();
+                const uint16_t* src = RAS_OFFSET16(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
 
                 auto readPixel = [&src]() PALWAYS_INLINE { return PColor::FromRGB15(*src++).GetColor16(); };
                 auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
@@ -457,8 +464,8 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
             }
             case PEColorSpace::RGB16:
             {
-                const int32_t srcModulo = srcBitmap->m_BytesPerLine / 2 - srcRect.Width();
-                const uint16_t* src = RAS_OFFSET16(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
+                const int32_t srcModulo = srcBitmap->BytesPerLine / 2 - srcRect.Width();
+                const uint16_t* src = RAS_OFFSET16(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
 
                 auto readPixel = [&src]() PALWAYS_INLINE { return *src++; };
                 auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
@@ -470,8 +477,8 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
             case PEColorSpace::RGB32:
             case PEColorSpace::RGBA32:
             {
-                const int32_t srcModulo = srcBitmap->m_BytesPerLine / 4 - srcRect.Width();
-                const uint32_t* src = RAS_OFFSET32(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
+                const int32_t srcModulo = srcBitmap->BytesPerLine / 4 - srcRect.Width();
+                const uint32_t* src = RAS_OFFSET32(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
 
                 auto readPixelRGB = [&src]() PALWAYS_INLINE { return PColor::FromRGB32(*src++).GetColor16(); };
                 auto readPixelRGBA = [&src, bgColor]() PALWAYS_INLINE
@@ -482,7 +489,7 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
                 auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
 
                 BeginWriteData();
-                if (srcBitmap->m_ColorSpace == PEColorSpace::RGB32) {
+                if (srcBitmap->ColorSpace == PEColorSpace::RGB32) {
                     PBlitterUtils::CopyBitmap(readPixelRGB, writePixel16, nextLine, srcRect);
                 } else {
                     PBlitterUtils::CopyBitmap(readPixelRGBA, writePixel16, nextLine, srcRect);
@@ -492,11 +499,12 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
             default:
                 break;
         }
-        WriteCommand(RA8875_BECR0, 0);
+        // The BTE finishes automatically after the programmed pixel count.
+        WaitMemory();
     }
-    else if (!srcBitmap->m_VideoMem && !dstBitmap->m_VideoMem)
+    else if (!srcBitmap->VideoMemory && !dstBitmap->VideoMemory)
     {
-        PDisplayDriver::CopyRect(dstBitmap, srcBitmap, bgColor, fgColor, srcRect, dstPosIn, mode);
+        KDisplayDriver::CopyRect(dstBitmap, srcBitmap, bgColor, fgColor, srcRect, dstPosIn, mode);
     }
 }
 
@@ -504,13 +512,13 @@ void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PCo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
+void RA8875GfxDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
 {
-    if (dstBitmap->m_VideoMem && srcBitmap->m_VideoMem)
+    if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
         WaitBlitter();
     }
-    else if (dstBitmap->m_VideoMem)
+    else if (dstBitmap->VideoMemory)
     {
         WaitBlitter();
 
@@ -550,25 +558,28 @@ void RA8875GfxDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PC
         }
         if (colorKeyed)
         {
-            if (srcBitmap->m_ColorSpace != PEColorSpace::MONO1) {
-                SetFgColor(PTransparentColors::RGB16);
+            if (srcBitmap->ColorSpace != PEColorSpace::MONO1) {
+                SetHardwareFgColor(PTransparentColors::RGB16);
             }
             else {
-                SetFgColor(uint16_t(~fgColor.GetColor16()));
+                SetHardwareFgColor(uint16_t(~fgColor.GetColor16()));
             }
         }
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
-        switch (srcBitmap->m_ColorSpace)
+        switch (srcBitmap->ColorSpace)
         {
             case PEColorSpace::RGB32:
             case PEColorSpace::RGBA32:
             {
-                const uint32_t* const src = reinterpret_cast<const uint32_t*>(srcBitmap->m_Raster);
-                const uint32_t wordsPerLine = srcBitmap->m_BytesPerLine / 4;
+                const uint32_t* const src = reinterpret_cast<const uint32_t*>(srcBitmap->Raster);
+                const uint32_t wordsPerLine = srcBitmap->BytesPerLine / 4;
 
                 BeginWriteData();
 
-                auto readPixel = [src, wordsPerLine](int32_t x, int32_t y) PALWAYS_INLINE { return PColor::FromRGB32A(src[y * wordsPerLine + x]); };
+                auto readPixel = [src, wordsPerLine](int32_t x, int32_t y) PALWAYS_INLINE
+                {
+                    return PColor::FromRGB32A(src[y * wordsPerLine + x]);
+                };
                 auto writePixel = [this, bgColor, src, wordsPerLine](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
                     {
                         const uint16_t pixel16 = PColor::Blend16(pixel, bgColor);
@@ -583,6 +594,7 @@ void RA8875GfxDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PC
             default:
                 break;
         }
+        WaitMemory();
     }
 }
 
@@ -596,7 +608,7 @@ void RA8875GfxDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PC
 //
 //    WaitBlitter();
 //
-//    SetFgColor(color.GetColor16());
+//    SetHardwareFgColor(color.GetColor16());
 //
 //    WriteCommand(RA8875_DCHR0);
 //    WriteData(center.x & 0xff);
@@ -621,7 +633,7 @@ void RA8875GfxDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PC
 ///////////////////////////////////////////////////////////////////////////////
 
 PIPoint RA8875GfxDriver::RenderGlyph(const PIPoint& position, uint32_t character, const PIRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg)
-{  
+{
     if (font == nullptr || character < font->startChar || character > font->endChar) {
         return position;
     }
@@ -660,6 +672,7 @@ PIPoint RA8875GfxDriver::RenderGlyph(const PIPoint& position, uint32_t character
         for (int y = clippedBounds.top; y < clippedBounds.bottom; ++y)
         {
             int col = y - cursor.y;
+            WaitMemory();
             if (srcAddr[xOffset + (col >> 3)] & (0x80 >> (col & 0x7)))
             {
                 WriteData(colorFg);
@@ -678,9 +691,9 @@ PIPoint RA8875GfxDriver::RenderGlyph(const PIPoint& position, uint32_t character
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t RA8875GfxDriver::WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
+uint32_t RA8875GfxDriver::WriteString(PDisplayBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
 {
-    if (bitmap->m_VideoMem)
+    if (bitmap->VideoMemory)
     {
         const FONT_INFO* font = GetFontDesc(fontID);
 
@@ -721,18 +734,21 @@ uint32_t RA8875GfxDriver::WriteString(PSrvBitmap* bitmap, const PIPoint& positio
             int spaceWidth = spaceEnd - spaceStart;
             if (spaceWidth > 0)
             {
-                for (int i = 0; i < spaceWidth * bounds.Height(); ++i) {
+                for (int i = 0; i < spaceWidth * bounds.Height(); ++i)
+                {
+                    WaitMemory();
                     WriteData(colorBg16);
                 }
             }
             cursor.x += CHARACTER_SPACING;
         }
+        WaitMemory();
         SetFillDirection(prevFillDir);
         return cursor.x;
     }
     else
     {
-        return PDisplayDriver::WriteString(bitmap, position, string, strLength, clipRect, colorBg, colorFg, fontID);
+        return KDisplayDriver::WriteString(bitmap, position, string, strLength, clipRect, colorBg, colorFg, fontID);
     }
 }
 
@@ -808,15 +824,77 @@ uint32_t RA8875GfxDriver::WriteString(PSrvBitmap* bitmap, const PIPoint& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void RA8875GfxDriver::WaitIdle()
+{
+    WaitBlitter();
+    WaitMemory();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult RA8875GfxDriver::IRQCallback(IRQn_Type irq, void* userData)
+{
+    return static_cast<RA8875GfxDriver*>(userData)->HandleIRQ();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult RA8875GfxDriver::HandleIRQ()
+{
+    if (m_PinInterrupt.GetAndClearInterruptStatus())
+    {
+        m_PinInterrupt.DisableInterrupts();
+        m_CondVar.Wakeup(1);
+        return IRQResult::HANDLED;
+    }
+    return IRQResult::UNHANDLED;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::WaitBTE()
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    for (;;)
+    {
+        // Clear stale EXTI state before checking the level of the latched LCD interrupt.
+        m_PinInterrupt.GetAndClearInterruptStatus();
+        if (!m_PinInterrupt.Read()) {
+            WriteCommand(RA8875_INTC2, RA8875_INTC2_BTE_bm);
+        }
+        if ((ReadCommand() & RA8875_STATUS_BTE_BUSY_bm) == 0) {
+            break;
+        }
+
+        m_PinInterrupt.EnableInterrupts();
+        // An already asserted pin will not generate another falling edge.
+        // IRQWaitTimeout queues the waiter before enabling CPU interrupts.
+        if (m_PinInterrupt.Read()) {
+            m_CondVar.IRQWaitTimeout(TimeValNanos::FromMilliseconds(100));
+        }
+        m_PinInterrupt.DisableInterrupts();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void RA8875GfxDriver::Reset()
 {
-    if (m_PinLCDResetID != DigitalPinID::None)
+    if (m_PinLCDReset.GetID() != DigitalPinID::None)
     {
-        snooze_ms(2);
-        digital_pin_write(m_PinLCDResetID, false);
-        snooze_ms(10);
-        digital_pin_write(m_PinLCDResetID, true);
-        snooze_ms(100);
+        ksnooze_ms(2);
+        m_PinLCDReset.Write(false);
+        ksnooze_ms(10);
+        m_PinLCDReset.Write(true);
+        ksnooze_ms(100);
     }
 
     PLL_ini();
@@ -826,7 +904,7 @@ void RA8875GfxDriver::Reset()
 
     WriteCommand(RA8875_PCSR); // PCLK
     WriteData(0x81);
-    snooze_ms(2);
+    ksnooze_ms(2);
 
     //Horizontal set
     WriteCommand(RA8875_HDWR, 100 - 1); //Horizontal display width(pixels) = (HDWR + 1)*8
@@ -848,43 +926,53 @@ void RA8875GfxDriver::Reset()
 void RA8875GfxDriver::PLL_ini()
 {
     WriteCommand(RA8875_PLLC1);
-    snooze_ms(2);
+    ksnooze_ms(2);
     WriteData(0x0b);
-    snooze_ms(2);
+    ksnooze_ms(2);
     WriteCommand(RA8875_PLLC2);
-    snooze_ms(2);
+    ksnooze_ms(2);
     WriteData(0x02);
-    snooze_ms(2);
+    ksnooze_ms(2);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::SetFgColor(uint16_t color)
+void RA8875GfxDriver::SetHardwareFgColor(uint16_t color)
 {
-    WaitBlitter();
-    WriteCommand(RA8875_FGCR0);
-    WriteData((color >> 11) & 0x1f);
-    WriteCommand(RA8875_FGCR1);
-    WriteData((color >> 5) & 0x3f);
-    WriteCommand(RA8875_FGCR2);
-    WriteData(color & 0x1f);
+    if (!m_HardwareFgColorValid || m_HardwareFgColor != color)
+    {
+        WaitBlitter();
+        WriteCommand(RA8875_FGCR0);
+        WriteData((color >> 11) & 0x1f);
+        WriteCommand(RA8875_FGCR1);
+        WriteData((color >> 5) & 0x3f);
+        WriteCommand(RA8875_FGCR2);
+        WriteData(color & 0x1f);
+        m_HardwareFgColor = color;
+        m_HardwareFgColorValid = true;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::SetBgColor(uint16_t color)
+void RA8875GfxDriver::SetHardwareBgColor(uint16_t color)
 {
-    WaitBlitter();
-    WriteCommand(RA8875_BGCR0);
-    WriteData((color >> 11) & 0x1f);
-    WriteCommand(RA8875_BGCR1);
-    WriteData((color >> 5) & 0x3f);
-    WriteCommand(RA8875_BGCR2);
-    WriteData(color & 0x1f);
+    if (!m_HardwareBgColorValid || m_HardwareBgColor != color)
+    {
+        WaitBlitter();
+        WriteCommand(RA8875_BGCR0);
+        WriteData((color >> 11) & 0x1f);
+        WriteCommand(RA8875_BGCR1);
+        WriteData((color >> 5) & 0x3f);
+        WriteCommand(RA8875_BGCR2);
+        WriteData(color & 0x1f);
+        m_HardwareBgColor = color;
+        m_HardwareBgColorValid = true;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1074,3 +1162,5 @@ void RA8875GfxDriver::UnsetWindow()
         m_IsWindowSet = false;
     }
 }
+
+} // namespace kernel

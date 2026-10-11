@@ -1727,41 +1727,20 @@ void PServerView::FillPolygon(std::span<const PPoint> points, PColor fillColor)
     if (points.size() < 3) {
         return;
     }
-
     const Ptr<const PRegion> region = GetRegion();
-    if (region == nullptr) {
+    if (region == nullptr || region->m_Rects.empty()) {
         return;
     }
-
     const PIPoint screenPos(m_ScreenPos);
     const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
-    std::vector<PPoint> screenPoints;
-
-    screenPoints.reserve(points.size());
-    for (const PPoint& point : points)
-    {
-        screenPoints.push_back(point + screenOffset);
+    PDisplayDriver* driver = m_Bitmap->m_Driver;
+    driver->SetFgColor(fillColor);
+    PDisplayPolygonBuffer payload = driver->AllocPolygon(m_Bitmap, region->m_Rects.size(), points.size(), m_DrawingMode);
+    for (size_t index = 0; index < region->m_Rects.size(); ++index) {
+        std::construct_at(payload.ClipRects.data() + index, region->m_Rects[index] + screenPos);
     }
-
-    m_Bitmap->m_Driver->SetFgColor(fillColor);
-
-    if (region->m_Rects.empty()) {
-        return;
-    }
-
-    if (region->m_Rects.size() == 1)
-    {
-        const std::array<PIRect, 1> clipRects = { region->m_Rects[0] + screenPos };
-        m_Bitmap->m_Driver->FillPolygon(m_Bitmap, clipRects, screenPoints, m_DrawingMode);
-    }
-    else
-    {
-        std::vector<PIRect> clipRects;
-        clipRects.reserve(region->m_Rects.size());
-        for (const PIRect& clip : region->m_Rects) {
-            clipRects.push_back(clip + screenPos);
-        }
-        m_Bitmap->m_Driver->FillPolygon(m_Bitmap, clipRects, screenPoints, m_DrawingMode);
+    for (size_t index = 0; index < points.size(); ++index) {
+        std::construct_at(payload.Points.data() + index, points[index] + screenOffset);
     }
 }
 
@@ -1869,27 +1848,20 @@ void PServerView::FillTriangleFan(std::span<const PPoint> points)
     if (points.size() < 3) {
         return;
     }
-
     const Ptr<const PRegion> region = GetRegion();
-    if (region == nullptr) {
+    if (region == nullptr || region->m_Rects.empty()) {
         return;
     }
-
     const PIPoint screenPos(m_ScreenPos);
     const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
-    std::vector<PPoint> screenPoints;
-
-    screenPoints.reserve(points.size());
-    for (const PPoint& point : points)
-    {
-        const PPoint screenPoint = point + screenOffset;
-        screenPoints.push_back(screenPoint);
+    PDisplayDriver* driver = m_Bitmap->m_Driver;
+    driver->SetFgColor(m_FgColor);
+    PDisplayPolygonBuffer payload = driver->AllocTriangleFan(m_Bitmap, region->m_Rects.size(), points.size(), m_DrawingMode);
+    for (size_t index = 0; index < region->m_Rects.size(); ++index) {
+        std::construct_at(payload.ClipRects.data() + index, region->m_Rects[index] + screenPos);
     }
-
-    m_Bitmap->m_Driver->SetFgColor(m_FgColor);
-
-    for (const PIRect& clip : region->m_Rects) {
-        m_Bitmap->m_Driver->FillTriangleFan(m_Bitmap, clip + screenPos, screenPoints, m_DrawingMode);
+    for (size_t index = 0; index < points.size(); ++index) {
+        std::construct_at(payload.Points.data() + index, points[index] + screenOffset);
     }
 }
 
@@ -1902,27 +1874,20 @@ void PServerView::FillTriangleStrip(std::span<const PPoint> points)
     if (points.size() < 3) {
         return;
     }
-
     const Ptr<const PRegion> region = GetRegion();
-    if (region == nullptr) {
+    if (region == nullptr || region->m_Rects.empty()) {
         return;
     }
-
     const PIPoint screenPos(m_ScreenPos);
     const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
-    std::vector<PPoint> screenPoints;
-
-    screenPoints.reserve(points.size());
-    for (const PPoint& point : points)
-    {
-        const PPoint screenPoint = point + screenOffset;
-        screenPoints.push_back(screenPoint);
+    PDisplayDriver* driver = m_Bitmap->m_Driver;
+    driver->SetFgColor(m_FgColor);
+    PDisplayPolygonBuffer payload = driver->AllocTriangleStrip(m_Bitmap, region->m_Rects.size(), points.size(), m_DrawingMode);
+    for (size_t index = 0; index < region->m_Rects.size(); ++index) {
+        std::construct_at(payload.ClipRects.data() + index, region->m_Rects[index] + screenPos);
     }
-
-    m_Bitmap->m_Driver->SetFgColor(m_FgColor);
-
-    for (const PIRect& clip : region->m_Rects) {
-        m_Bitmap->m_Driver->FillTriangleStrip(m_Bitmap, clip + screenPos, screenPoints, m_DrawingMode);
+    for (size_t index = 0; index < points.size(); ++index) {
+        std::construct_at(payload.Points.data() + index, points[index] + screenOffset);
     }
 }
 
@@ -3208,7 +3173,7 @@ void PServerView::DrawString(const PString& string)
         for (const PIRect& clip : region->m_Rects)
         {
             if (clip.DoIntersect(boundingBox)) {
-                driver->WriteString(m_Bitmap, penPos, string.c_str(), string.size(), clip + screenPos, m_BgColor, m_FgColor, m_Font->Get());
+                driver->DrawString(m_Bitmap, penPos, string.c_str(), string.size(), clip + screenPos, m_BgColor, m_FgColor, m_Font->Get());
             }                
         }
         m_PenPosition.x += float(boundingBox.Width());

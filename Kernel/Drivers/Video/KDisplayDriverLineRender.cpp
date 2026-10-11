@@ -5,26 +5,27 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <ApplicationServer/ApplicationServer.h>
-#include <ApplicationServer/DisplayDriver.h>
-#include <ApplicationServer/ServerBitmap.h>
+#include <Kernel/Drivers/Video/KDisplayDriver.h>
 
 #include <GUI/Bitmap.h>
 #include <GUI/Color.h>
 #include <GUI/Region.h>
 
 
+namespace kernel
+{
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void draw_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, uint16_t nColor)
+static void draw_line16(PDisplayBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, uint16_t nColor)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
 
     uint16_t* pRaster;
-    int   nModulo = pcBitmap->m_BytesPerLine;
+    int   nModulo = pcBitmap->BytesPerLine;
 
     PIPoint clippedPos1 = pos1;
     PIPoint clippedPos2 = pos2;
@@ -56,9 +57,9 @@ static void draw_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPo
         }
         if (clippedPos1.x > clippedPos2.x) {
             nYStep = -nYStep;
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaX; ++i)
@@ -94,9 +95,9 @@ static void draw_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPo
         }
         if (clippedPos1.y > clippedPos2.y) {
             nXStep = -nXStep;
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaY; ++i)
@@ -117,12 +118,12 @@ static void draw_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void invert_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
+static void invert_line16(PDisplayBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint16_t* pRaster;
-    int   nModulo = pcBitmap->m_BytesPerLine;
+    int   nModulo = pcBitmap->BytesPerLine;
 
     PIPoint clippedPos1 = pos1;
     PIPoint clippedPos2 = pos2;
@@ -155,9 +156,9 @@ static void invert_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
         }
         if (clippedPos1.x > clippedPos2.x) {
             nYStep = -nYStep;
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaX; ++i)
@@ -195,9 +196,9 @@ static void invert_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
         }
         if (clippedPos1.y > clippedPos2.y) {
             nXStep = -nXStep;
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaY; ++i)
@@ -220,12 +221,12 @@ static void invert_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void invert_line15(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
+static void invert_line15(PDisplayBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint16_t* pRaster;
-    int   nModulo = pcBitmap->m_BytesPerLine;
+    int   nModulo = pcBitmap->BytesPerLine;
 
     PIPoint clippedPos1 = pos1;
     PIPoint clippedPos2 = pos2;
@@ -257,9 +258,9 @@ static void invert_line15(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
         }
         if (clippedPos1.x > clippedPos2.x) {
             nYStep = -nYStep;
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaX; ++i)
@@ -297,9 +298,9 @@ static void invert_line15(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
         }
         if (clippedPos1.y > clippedPos2.y) {
             nXStep = -nXStep;
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos2.x * 2 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint16_t*)(pcBitmap->m_Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
+            pRaster = (uint16_t*)(pcBitmap->Raster + clippedPos1.x * 2 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaY; ++i)
@@ -322,12 +323,12 @@ static void invert_line15(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void draw_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, uint32_t nColor)
+static void draw_line32(PDisplayBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, uint32_t nColor)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint32_t* pRaster;
-    int   nModulo = pcBitmap->m_BytesPerLine;
+    int   nModulo = pcBitmap->BytesPerLine;
 
     PIPoint clippedPos1 = pos1;
     PIPoint clippedPos2 = pos2;
@@ -359,9 +360,9 @@ static void draw_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPo
         }
         if (clippedPos1.x > clippedPos2.x) {
             nYStep = -nYStep;
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaX; ++i)
@@ -396,9 +397,9 @@ static void draw_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPo
         }
         if (clippedPos1.y > clippedPos2.y) {
             nXStep = -nXStep;
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaY; ++i)
@@ -419,12 +420,12 @@ static void draw_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void invert_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
+static void invert_line32(PDisplayBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint32_t* pRaster;
-    int   nModulo = pcBitmap->m_BytesPerLine;
+    int   nModulo = pcBitmap->BytesPerLine;
 
     PIPoint clippedPos1 = pos1;
     PIPoint clippedPos2 = pos2;
@@ -456,9 +457,9 @@ static void invert_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
         }
         if (clippedPos1.x > clippedPos2.x) {
             nYStep = -nYStep;
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaX; ++i)
@@ -495,9 +496,9 @@ static void invert_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
         }
         if (clippedPos1.y > clippedPos2.y) {
             nXStep = -nXStep;
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos2.x * 4 + nModulo * clippedPos2.y);
         } else {
-            pRaster = (uint32_t*)(pcBitmap->m_Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
+            pRaster = (uint32_t*)(pcBitmap->Raster + clippedPos1.x * 4 + nModulo * clippedPos1.y);
         }
 
         for (int i = 0; i <= nDeltaY; ++i)
@@ -520,14 +521,14 @@ static void invert_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PI
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDisplayDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& point1, const PIPoint& point2, const PColor& color, PDrawingMode mode)
+void KDisplayDriver::DrawLine(PDisplayBitmap* bitmap, const PIRect& clipRect, const PIPoint& point1, const PIPoint& point2, const PColor& color, PDrawingMode mode)
 {
     switch (mode)
     {
         case PDrawingMode::Copy:
         case PDrawingMode::Overlay:
         default:
-            switch (bitmap->m_ColorSpace)
+            switch (bitmap->ColorSpace)
             {
                 case PEColorSpace::RGB15:
                     draw_line16(bitmap, clipRect, point1, point2, color.GetColor15());
@@ -539,11 +540,11 @@ void PDisplayDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const 
                     draw_line32(bitmap, clipRect, point1, point2, color.GetColor32());
                     break;
                 default:
-                    p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "DisplayDriver::DrawLine() unknown color space {}.", int(bitmap->m_ColorSpace));
+                    p_system_log<PLogSeverity::ERROR>(LogCategoryDisplay, "DisplayDriver::DrawLine() unknown color space {}.", int(bitmap->ColorSpace));
             }
             break;
         case PDrawingMode::Invert:
-            switch (bitmap->m_ColorSpace)
+            switch (bitmap->ColorSpace)
             {
                 case PEColorSpace::RGB15:
                     invert_line15(bitmap, clipRect, point1, point2);
@@ -555,8 +556,10 @@ void PDisplayDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const 
                     invert_line32(bitmap, clipRect, point1, point2);
                     break;
                 default:
-                    p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "DisplayDriver::DrawLine() unknown color space {} can't invert.", int(bitmap->m_ColorSpace));
+                    p_system_log<PLogSeverity::ERROR>(LogCategoryDisplay, "DisplayDriver::DrawLine() unknown color space {} can't invert.", int(bitmap->ColorSpace));
             }
             break;
     }
 }
+
+} // namespace kernel

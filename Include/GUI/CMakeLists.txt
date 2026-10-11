@@ -10,6 +10,8 @@ target_sources(PadOS_GUI PRIVATE
 	Color.h
 	Desktop.h
 	Font.h
+	FontData.h
+	FontMetrics.h
 	GUIDefines.h
 	GUIEvent.h
 	KeyboardView.h
@@ -24,5 +26,6 @@ target_sources(PadOS_GUI PRIVATE
 	Window.h
 )
 
+add_subdirectory(Fonts)
 add_subdirectory(Dialogs)
 add_subdirectory(Widgets)

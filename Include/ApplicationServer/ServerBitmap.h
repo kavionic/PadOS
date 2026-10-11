@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 1999-2020 Kurt Skauen
+// Copyright (c) 1999-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
@@ -18,6 +18,7 @@ class PSrvBitmap : public PtrTarget
 public:
     PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0);
 
+    uint64_t        m_RenderSequence = 0;
     PEColorSpace     m_ColorSpace    = PEColorSpace::NO_COLOR_SPACE;
     PIPoint          m_Size;
     size_t          m_BytesPerLine  = 0;
@@ -25,6 +26,8 @@ public:
     PDisplayDriver*  m_Driver        = nullptr;
     bool            m_FreeRaster    = false;    // true if the raster memory is allocated by the constructor
     bool            m_VideoMem      = false;
+
+    void PrepareForModification();
 protected:
     ~PSrvBitmap();
 };

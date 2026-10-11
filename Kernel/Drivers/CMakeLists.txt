@@ -18,14 +18,7 @@ target_sources(PadOS_Drivers_GSLx680 PRIVATE
 )
 endif()
 
-target_sources(PadOS_Kernel PRIVATE
-	RA8875Driver.cpp
-#	BME280Driver.cpp
-#	I2CDriver.cpp
-#	INA3221Driver.cpp
-#	UART.cpp
-#	UARTDriver.cpp
-)
+add_subdirectory(Video)
 
 #add_subdirectory(ATSAM)
 if(PADOS_DRIVER_MultiMotor)

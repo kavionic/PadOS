@@ -1,11 +1,12 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 1999-2020 Kurt Skauen
+// Copyright (c) 1999-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GUI/Bitmap.h>
+#include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 
 
@@ -40,8 +41,23 @@ PSrvBitmap::PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* ra
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PSrvBitmap::PrepareForModification()
+{
+    if (m_Driver != nullptr) {
+        m_Driver->FlushBitmap(this);
+    }
+}
+
 PSrvBitmap::~PSrvBitmap()
 {
+    try
+    {
+        PrepareForModification();
+    }
+    catch (const std::exception& error)
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Completing bitmap rendering failed: {}", error.what());
+    }
     if (m_FreeRaster) {
         delete[] m_Raster;
     }

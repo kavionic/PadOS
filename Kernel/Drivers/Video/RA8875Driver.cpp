@@ -571,6 +571,36 @@ void RA8875GfxDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBi
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
         switch (srcBitmap->ColorSpace)
         {
+            case PEColorSpace::RGB16:
+            {
+                const uint16_t* const sourceRaster = reinterpret_cast<const uint16_t*>(srcBitmap->Raster);
+                const size_t pixelsPerLine = srcBitmap->BytesPerLine / sizeof(uint16_t);
+
+                BeginWriteData();
+
+                auto readPixel = [sourceRaster, pixelsPerLine](int32_t x, int32_t y) PALWAYS_INLINE
+                {
+                    return PColor::FromRGB16(sourceRaster[y * pixelsPerLine + x]);
+                };
+                auto writePixel = [this](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
+                {
+                    const uint16_t pixel16 = pixel.GetColor16();
+
+                    WaitMemory();
+                    WriteData(pixel16);
+                };
+
+                const PIRect sourceBounds = srcOrigRect & PIRect(PIPoint(0, 0), srcBitmap->Size);
+                PBlitterUtils::ScaleBitmapBilinear(
+                    readPixel,
+                    writePixel,
+                    srcOrigRect,
+                    dstOrigRect,
+                    srcRect,
+                    dstRect,
+                    sourceBounds);
+                break;
+            }
             case PEColorSpace::RGB32:
             case PEColorSpace::RGBA32:
             {

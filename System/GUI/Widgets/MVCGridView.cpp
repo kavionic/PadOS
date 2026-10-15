@@ -38,42 +38,41 @@ void PMVCGridView::OnLayoutChanged()
 {
     PMVCBaseView::OnLayoutChanged();
 
-    if (m_RowCount == 0 || m_ColumnCount == 0) {
+    UpdateWidgets();
+
+    if (m_FirstVisibleItem == INVALID_INDEX) {
         return;
     }
 
-    UpdateWidgets();
+    const size_t firstRow = size_t(m_FirstVisibleItem) / m_ColumnCount;
+    const size_t endRow = size_t(m_LastVisibleItem) / m_ColumnCount + 1;
 
-    const PRect& bounds = m_ContentView->GetBounds();
+    const float firstColumnCenter = roundf(m_GridSize.x * 0.5f + m_LeftMargin);
+    PPoint centerPosition(0.0f, roundf(float(firstRow) * m_GridSize.y + m_GridSize.y * 0.5f));
 
-    const int32_t firstColumn   = int32_t(bounds.top / m_GridSize.y);
+    size_t itemIndex = m_FirstVisibleItem;
 
-    const float column0center = roundf(m_GridSize.x * 0.5f + m_LeftMargin);
-    PPoint centerPos(0.0f, roundf(float(firstColumn) * m_GridSize.y + m_GridSize.y * 0.5f));
-
-    size_t index = firstColumn * m_ColumnCount;
-
-    for (int32_t y = 0; y < m_RowCount; ++y)
+    for (size_t row = firstRow; row < endRow; ++row)
     {
-        centerPos.x = column0center;
-        for (int32_t x = 0; x < m_ColumnCount; ++x)
+        centerPosition.x = firstColumnCenter;
+        for (size_t column = 0; column < size_t(m_ColumnCount); ++column)
         {
-            if (index >= m_Items.size()) {
+            if (itemIndex >= m_Items.size()) {
                 return;
             }
 
-            const PMVCGridViewItemNode& itemNode = m_Items[index];
+            const PMVCGridViewItemNode& itemNode = m_Items[itemIndex];
             if (itemNode.ItemWidget != nullptr)
             {
                 const PPoint preferredSize = itemNode.ItemWidget->GetPreferredSize(PPrefSizeType::Smallest);
-                itemNode.ItemWidget->SetFrame(PRect::Centered(centerPos, preferredSize));
+                itemNode.ItemWidget->SetFrame(PRect::Centered(centerPosition, preferredSize));
             }
 
-            centerPos.x += m_GridSize.x;
+            centerPosition.x += m_GridSize.x;
 
-            index++;
+            itemIndex++;
         }
-        centerPos.y += m_GridSize.y;
+        centerPosition.y += m_GridSize.y;
     }
 }
 
@@ -153,18 +152,16 @@ void PMVCGridView::OnContentViewFrameSized(const PPoint& delta)
 {
     const PRect& bounds = m_ContentView->GetBounds();
 
-    const int32_t rowCount = int32_t((bounds.Height() + m_GridSize.y - 1.0f) / m_GridSize.y);
     const int32_t columnCount = int32_t(bounds.Width() / m_GridSize.x);
     const float   leftMargin = roundf((bounds.Width() - float(columnCount) * m_GridSize.x) * 0.5f);
 
-    if (rowCount != m_RowCount || columnCount != m_ColumnCount || leftMargin != m_LeftMargin)
+    if (columnCount != m_ColumnCount || leftMargin != m_LeftMargin)
     {
-        m_RowCount = rowCount;
         m_ColumnCount = columnCount;
         m_LeftMargin = leftMargin;
         m_ContentView->ContentSizeChanged();
-        InvalidateLayout();
     }
+    InvalidateLayout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,18 +171,19 @@ void PMVCGridView::OnContentViewFrameSized(const PPoint& delta)
 void PMVCGridView::UpdateWidgets()
 {
     const PRect& bounds = m_ContentView->GetBounds();
-    if (bounds.IsValid())
+    if (bounds.IsValid() && m_ColumnCount > 0 && !m_Items.empty())
     {
-        const int32_t firstColumn = int32_t(bounds.top / m_GridSize.y);
-        const int32_t lastColumn = firstColumn + m_ColumnCount;
+        const size_t firstRow = size_t(floorf(std::max(0.0f, bounds.top) / m_GridSize.y));
+        const size_t endRow = size_t(ceilf(std::max(0.0f, bounds.bottom) / m_GridSize.y));
 
-        const ssize_t firstItemIndex = std::max<ssize_t>(0, firstColumn * m_ColumnCount);
-        const ssize_t lastItemIndex  = std::min<ssize_t>(lastColumn * m_ColumnCount, m_Items.size() - 1);
+        const size_t firstItemIndex = firstRow * m_ColumnCount;
+        const size_t endItemIndex = std::min<size_t>(endRow * m_ColumnCount, m_Items.size());
 
-        CreateWidgetsForRange(firstItemIndex, lastItemIndex);
+        if (firstItemIndex < endItemIndex)
+        {
+            CreateWidgetsForRange(firstItemIndex, endItemIndex - 1);
+            return;
+        }
     }
-    else
-    {
-        RemoveAllWidgets();
-    }
+    RemoveAllWidgets();
 }

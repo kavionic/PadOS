@@ -61,7 +61,6 @@ private:
     std::vector<PMVCGridViewItemNode>    m_Items;
 
     PPoint   m_GridSize = PPoint(100.0f, 100.0f);
-    int32_t m_RowCount = 0;
     int32_t m_ColumnCount = 0;
     float   m_LeftMargin = 0.0f;
 };

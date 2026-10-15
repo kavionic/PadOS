@@ -152,6 +152,8 @@ public:
 
 protected:
     KMutex          m_Mutex;
+    // A faulted driver must release client memory and allow Close() without waiting for stalled hardware.
+    bool            m_IsFaulted = false;
 
 private:
     // Device-control and batch-command callbacks run with m_Mutex held.

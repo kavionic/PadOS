@@ -71,6 +71,8 @@ public:
     explicit PDisplayDeviceControl(int fileHandle) : PDisplayDeviceControl() { SetDeviceFD(fileHandle); }
 
     PDeviceControlInvoker<std::to_underlying(PDisplayRequest::Initialize), PDisplayInfo()> Initialize;
+    // EIO requires closing and reopening the device, restoring all driver state, and repainting all views.
+    // A failed batch can be partially executed and must not be replayed.
     PDeviceControlInvoker<
         std::to_underlying(PDisplayRequest::Submit),
         void(const void* buffer, size_t length)

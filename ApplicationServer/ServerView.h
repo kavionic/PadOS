@@ -84,6 +84,7 @@ public:
     void        RebuildRegion();
     bool        ExcludeFromRegion(Ptr<PRegion> region, const PIPoint& offset);
     void        ClearDirtyRegFlags();
+    void        HandleDisplayDriverReset();
     void        UpdateRegions(bool requestPaint = true);
     void        FlushPendingDamage();
     void        DeleteRegions();

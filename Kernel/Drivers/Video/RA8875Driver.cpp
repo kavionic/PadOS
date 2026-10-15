@@ -12,6 +12,8 @@
 #include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/HAL/STM32/Peripherals_STM32H7.h>
 #include <Kernel/KThread.h>
+#include <Kernel/KTime.h>
+#include <Kernel/KLogging.h>
 #include <Utils/UTF8Utils.h>
 #include <algorithm>
 #include <array>
@@ -58,35 +60,9 @@ bool RA8875GfxDriver::Open()
     m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
     m_PinLCDWait.SetDirection(DigitalPinDirection_e::In);
 
-    m_HardwareFgColorValid = false;
-    m_HardwareBgColorValid = false;
-    m_IsMouseCursorRasterUploaded = false;
-    Reset();
-
-    // Enable BTE interrupt.
-    WriteCommand(RA8875_INTC1, RA8875_INTC1_BTE_bm);
-
     m_ScreenBitmap.Size = GetResolution();
     m_ScreenBitmap.BytesPerLine = size_t(GetBytesPerLine());
-
-    PIRect screenFrame(PIPoint(0, 0), GetResolution());
-
-    SetWindow(screenFrame);
-    m_IsWindowSet = false;
-    SetFgColor(PColor::FromRGB32A(0));
-    FillRect(&m_ScreenBitmap, screenFrame);
-
-    //    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
-    //    WriteCommand(RA8875_P2CR, 0x00);  // open PWM
-    /*
-        WriteCommand(RA8875_P1CR, 0x80);  // PWM setting
-    //    WriteCommand(RA8875_P2CR, 0x81);  // open PWM
-        WriteCommand(RA8875_P1DCR, 0xff); // Brightness parameter 0xff-0x00
-        WriteCommand(RA8875_P2DCR, 0xff); // Brightness parameter 0xff-0x00
-        */
-    WriteCommand(RA8875_PWRR, RA8875_PWRR_DISPLAY_ON_bm);
-
-    return true;
+    return Reset();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -860,8 +836,13 @@ uint32_t RA8875GfxDriver::WriteString(PDisplayBitmap* bitmap, const PIPoint& pos
 
 void RA8875GfxDriver::WaitIdle()
 {
-    WaitBlitter();
-    WaitMemory();
+    // All client raster access is synchronous CPU I/O. A faulted BTE cannot retain references to client memory.
+    // Allow batch unwinding and close/reopen to reach Reset() without waiting on the stalled controller again.
+    if (!m_IsFaulted)
+    {
+        WaitBlitter();
+        WaitMemory();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -894,40 +875,95 @@ IRQResult RA8875GfxDriver::HandleIRQ()
 
 void RA8875GfxDriver::WaitBTE()
 {
-    CRITICAL_SCOPE(CRITICAL_IRQ);
+    static constexpr TimeValNanos BTE_WAIT_TIMEOUT = TimeValNanos::FromMilliseconds(1000);
+    static constexpr TimeValNanos BTE_IRQ_RECHECK_INTERVAL = TimeValNanos::FromMilliseconds(100);
+    const TimeValNanos deadline = kget_monotonic_time() + BTE_WAIT_TIMEOUT;
+    uint16_t status = 0;
+
     for (;;)
     {
+        // Restore interrupts between iterations so SysTick can advance even if INT# stays asserted.
+        CRITICAL_SCOPE(CRITICAL_IRQ);
+
         // Clear stale EXTI state before checking the level of the latched LCD interrupt.
         m_PinInterrupt.GetAndClearInterruptStatus();
         if (!m_PinInterrupt.Read()) {
             WriteCommand(RA8875_INTC2, RA8875_INTC2_BTE_bm);
         }
-        if ((ReadCommand() & RA8875_STATUS_BTE_BUSY_bm) == 0) {
+        status = ReadCommand();
+        if ((status & RA8875_STATUS_BTE_BUSY_bm) == 0) {
+            return;
+        }
+
+        const TimeValNanos currentTime = kget_monotonic_time();
+        if (currentTime >= deadline) {
             break;
         }
 
         m_PinInterrupt.EnableInterrupts();
         // An already asserted pin will not generate another falling edge.
-        // IRQWaitTimeout queues the waiter before enabling CPU interrupts.
+        // IRQWaitDeadline queues the waiter before enabling CPU interrupts.
         if (m_PinInterrupt.Read()) {
-            m_CondVar.IRQWaitTimeout(TimeValNanos::FromMilliseconds(100));
+            m_CondVar.IRQWaitDeadline(std::min(deadline, currentTime + BTE_IRQ_RECHECK_INTERVAL));
         }
         m_PinInterrupt.DisableInterrupts();
     }
+    HandleBTETimeout(status);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::Reset()
+void RA8875GfxDriver::HandleBTETimeout(uint16_t status)
 {
+    // Stable function-breakpoint location, reached with CPU interrupts enabled.
+    m_PinInterrupt.DisableInterrupts();
+    m_IsFaulted = true;
+    ++m_BTETimeoutCount;
+    m_LastBTETimeoutStatus = status;
+    kernel_log<PLogSeverity::ERROR>(
+        LogCategoryDisplay,
+        "RA8875 BTE timeout #{}: status={:#04x}; close/reopen required",
+        m_BTETimeoutCount,
+        status);
+    PERROR_THROW_CODE(PErrorCode::IO);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool RA8875GfxDriver::Reset()
+{
+    m_PinInterrupt.DisableInterrupts();
+    m_IsFaulted = false;
+    m_HardwareFgColorValid = false;
+    m_HardwareBgColorValid = false;
+    m_MouseCursorRaster.clear();
+    m_MouseCursorSize = PIPoint(0);
+    m_UploadedMouseCursorRasterOffset = PIPoint(0);
+    m_CursorHotSpot = PIPoint(0);
+    m_MousePos = PIPoint(0);
+    m_Orientation = e_Landscape;
+    m_FillDirection = e_FillLeftDown;
+    m_IsWindowSet = false;
+    m_IsMouseCursorVisible = false;
+    m_IsMouseCursorRasterUploaded = false;
+
     if (m_PinLCDReset.GetID() != DigitalPinID::None)
     {
         ksnooze_ms(2);
         m_PinLCDReset.Write(false);
         ksnooze_ms(10);
         m_PinLCDReset.Write(true);
+        ksnooze_ms(100);
+    }
+    else
+    {
+        WriteCommand(RA8875_PWRR, RA8875_PWRR_SW_RESET_bm);
+        ksnooze_ms(10);
+        WriteCommand(RA8875_PWRR, 0);
         ksnooze_ms(100);
     }
 
@@ -951,6 +987,36 @@ void RA8875GfxDriver::Reset()
     WriteCommand(RA8875_VNDR0, RA8875_VNDR1, 0x20);    // Vertical Non-Display area = (VNDR + 1)
     WriteCommand(RA8875_VSTR0, RA8875_VSTR1, 0x16);    // VSYNC Start Position(PCLK) = (VSTR + 1)
     WriteCommand(RA8875_VPWR, 0x01); // VSYNC Pulse Width(PCLK) = (VPWR + 1)
+
+    m_LastResetStatus = ReadCommand();
+    const uint8_t drawingStatus = ReadRegister(RA8875_DCR);
+    if ((m_LastResetStatus & (RA8875_STATUS_BTE_BUSY_bm | RA8875_STATUS_MEMORY_BUSY_bm)) != 0
+        || (drawingStatus & (RA8875_DCR_LINE_SQR_TRI_bm | RA8875_DCR_CIRCLE_bm)) != 0)
+    {
+        m_IsFaulted = true;
+        kernel_log<PLogSeverity::ERROR>(
+            LogCategoryDisplay,
+            "RA8875 reset failed: status={:#04x}, drawing status={:#04x}",
+            m_LastResetStatus,
+            drawingStatus);
+        return false;
+    }
+
+    UpdateAddressMode();
+    const PIRect screenFrame(PIPoint(0), GetResolution());
+    SetWindow(screenFrame);
+    m_IsWindowSet = false;
+    SetFgColor(PColor(0));
+    SetBgColor(PColor(0));
+    FillRect(&m_ScreenBitmap, screenFrame);
+    WaitIdle();
+    SetGraphicCursorEnabled(false);
+
+    WriteCommand(RA8875_INTC2, RA8875_INTC2_BTE_bm);
+    m_PinInterrupt.GetAndClearInterruptStatus();
+    WriteCommand(RA8875_INTC1, RA8875_INTC1_BTE_bm);
+    WriteCommand(RA8875_PWRR, RA8875_PWRR_DISPLAY_ON_bm);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -164,8 +164,9 @@ private:
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
     IRQResult HandleIRQ();
     void WaitBTE();
+    [[noreturn, gnu::noinline]] void HandleBTETimeout(uint16_t status);
 
-    void Reset();
+    bool Reset();
     void PLL_ini();
 
     void SetHardwareFgColor(uint16_t color);
@@ -277,6 +278,10 @@ private:
     bool            m_IsWindowSet = false;
     bool            m_IsMouseCursorVisible = false;
     bool            m_IsMouseCursorRasterUploaded = false;
+
+    uint32_t m_BTETimeoutCount = 0;
+    uint16_t m_LastBTETimeoutStatus = 0;
+    uint16_t m_LastResetStatus = 0;
 };
 
 } // namespace kernel

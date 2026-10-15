@@ -101,6 +101,9 @@ void KDisplayDriver::DeviceControl(
     if (!m_IsInitialized && request != std::to_underlying(PDisplayRequest::Initialize)) {
         PERROR_THROW_CODE(PErrorCode::NODEV);
     }
+    if (m_IsInitialized && m_IsFaulted) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
     m_DeviceControlDispatcher.Dispatch(request, inData, inDataLength, outData, outDataLength);
 }
 
@@ -141,9 +144,13 @@ void KDisplayDriver::HandleSubmit(const void* buffer, size_t length)
 {
     kassert(m_Mutex.IsLocked());
     validate_user_read_pointer_trw(buffer, length);
-    // A failed batch must also release all hardware references to its raster storage.
-    PScopeExit complete([this] { WaitIdle(); });
-    ExecuteCommands_pl(buffer, length);
+    // Drain explicitly: WaitIdle() can report EIO and must not throw from a scope-guard destructor.
+    try
+    {
+        ExecuteCommands_pl(buffer, length);
+    }
+    PERROR_CATCH([this](PErrorCode) { WaitIdle(); throw; });
+    WaitIdle();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

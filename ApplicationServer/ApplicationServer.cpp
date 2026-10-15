@@ -512,15 +512,73 @@ ApplicationServer::~ApplicationServer()
 
 void ApplicationServer::Idle()
 {
-    ReadInputEvents();
-
-    while (!m_PointerEventQueue.empty())
+    try
     {
-        HandlePointerEvent(m_PointerEventQueue.front());
-        m_PointerEventQueue.pop();
+        ReadInputEvents();
+
+        while (!m_PointerEventQueue.empty())
+        {
+            HandlePointerEvent(m_PointerEventQueue.front());
+            m_PointerEventQueue.pop();
+        }
+        RefreshPointerRoutes();
+        s_DisplayDriver->Flush();
     }
-    RefreshPointerRoutes();
-    s_DisplayDriver->Flush();
+    PERROR_CATCH([this](PErrorCode error) { HandleDisplayDriverError(error); });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::HandleDisplayDriverError(PErrorCode error)
+{
+    p_system_log<PLogSeverity::ERROR>(
+        LogCategoryAppServer,
+        "Display operation failed: {} ({}).",
+        strerror(std::to_underlying(error)),
+        std::to_underlying(error));
+
+    if (error == PErrorCode::IO)
+    {
+        s_DisplayDriver->Close();
+        try
+        {
+            if (!s_DisplayDriver->Open()) {
+                PERROR_THROW_CODE(PErrorCode(get_last_error()));
+            }
+        }
+        PERROR_CATCH([](PErrorCode reopenError)
+        {
+            p_system_log<PLogSeverity::FATAL>(
+                LogCategoryAppServer,
+                "Failed to reopen display driver: {} ({}). Application server cannot continue.",
+                p_strerror(reopenError),
+                std::to_underlying(reopenError));
+            throw;
+        });
+        try
+        {
+            s_DisplayDriver->PowerLost(m_HasPower);
+            // Force the current cursor to be uploaded again, including its colors and hotspot.
+            m_CurrentMouseCursorID = PInvalidMouseCursorID;
+            UpdateMouseCursor();
+            s_DisplayDriver->SetMousePos(PIPoint(m_MousePosition));
+            m_TopView->HandleDisplayDriverReset();
+            m_TopView->UpdateRegions(false);
+            m_TopView->Invalidate(true);
+            m_TopView->FlushPendingDamage();
+            s_DisplayDriver->Flush();
+        }
+        PERROR_CATCH([](PErrorCode restoreError)
+        {
+            p_system_log<PLogSeverity::ERROR>(
+                LogCategoryAppServer,
+                "Display state restoration failed: {} ({}). Application server will continue running.",
+                strerror(std::to_underlying(restoreError)),
+                std::to_underlying(restoreError));
+        });
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1831,7 +1889,12 @@ void ApplicationServer::UpdateViewFocusMode(PServerView* view)
 
 void ApplicationServer::PowerLost(bool hasPower)
 {
-    s_DisplayDriver->PowerLost(hasPower);
+    m_HasPower = hasPower;
+    try
+    {
+        s_DisplayDriver->PowerLost(hasPower);
+    }
+    PERROR_CATCH([this](PErrorCode error) { HandleDisplayDriverError(error); });
 }
 
 ///////////////////////////////////////////////////////////////////////////////

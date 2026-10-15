@@ -1048,6 +1048,24 @@ void PServerView::ClearDirtyRegFlags()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PServerView::HandleDisplayDriverReset()
+{
+    // A flush can interrupt MoveChilds(). Old pixels and pending pixel moves are invalid after a device reset.
+    m_PrevVisibleReg = nullptr;
+    m_PrevFullReg = nullptr;
+    m_DrawReg = nullptr;
+    m_DeltaMove = PIPoint(0);
+    m_DeltaSize = PIPoint(0);
+    m_HasInvalidRegs = true;
+    for (Ptr<PServerView> child : m_ChildrenList) {
+        child->HandleDisplayDriverReset();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PServerView::UpdateRegions(bool requestPaint)
 {
     RebuildRegion();

@@ -40,14 +40,7 @@ PDisplayDriver::PDisplayDriver(const PString& devicePath)
 
 PDisplayDriver::~PDisplayDriver()
 {
-    try
-    {
-        Close();
-    }
-    catch (const std::exception& error)
-    {
-        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Closing display driver failed: {}", error.what());
-    }
+    Close();
     if (m_ScreenBitmap != nullptr) {
         m_ScreenBitmap->m_Driver = nullptr;
     }
@@ -67,25 +60,25 @@ bool PDisplayDriver::Open()
         return false;
     }
     m_DeviceControl.SetDeviceFD(deviceFD);
-    try
-    {
-        m_Info = m_DeviceControl.Initialize();
-        const PDisplayBitmap& screen = m_Info.ScreenBitmap;
-        m_ScreenBitmap = ptr_new<PSrvBitmap>(PIPoint(0, 0), screen.ColorSpace);
-        m_ScreenBitmap->m_Size = screen.Size;
-        m_ScreenBitmap->m_BytesPerLine = screen.BytesPerLine;
-        m_ScreenBitmap->m_Raster = screen.Raster;
-        m_ScreenBitmap->m_VideoMem = screen.VideoMemory;
-        m_ScreenBitmap->m_Driver = this;
-        m_FgColor = PColor(0);
-        m_BgColor = PColor(0);
-    }
-    catch (...)
+    PScopeFail closeDevice([this, deviceFD]
     {
         close(deviceFD);
         m_DeviceControl.SetDeviceFD(-1);
-        throw;
+    });
+    m_Info = m_DeviceControl.Initialize();
+    const PDisplayBitmap& screen = m_Info.ScreenBitmap;
+    // Views retain this object across a driver reset.
+    if (m_ScreenBitmap == nullptr) {
+        m_ScreenBitmap = ptr_new<PSrvBitmap>(PIPoint(0, 0), screen.ColorSpace);
     }
+    m_ScreenBitmap->m_Size = screen.Size;
+    m_ScreenBitmap->m_ColorSpace = screen.ColorSpace;
+    m_ScreenBitmap->m_BytesPerLine = screen.BytesPerLine;
+    m_ScreenBitmap->m_Raster = screen.Raster;
+    m_ScreenBitmap->m_VideoMem = screen.VideoMemory;
+    m_ScreenBitmap->m_Driver = this;
+    m_FgColor = PColor(0);
+    m_BgColor = PColor(0);
     return true;
 }
 
@@ -95,15 +88,11 @@ bool PDisplayDriver::Open()
 
 void PDisplayDriver::Close()
 {
+    m_UsedBufferSize = 0;
     if (m_DeviceControl.GetDeviceFD() >= 0)
     {
-        PScopeExit closeDevice([this]
-        {
-            m_UsedBufferSize = 0;
-            close(m_DeviceControl.GetDeviceFD());
-            m_DeviceControl.SetDeviceFD(-1);
-        });
-        Flush();
+        close(m_DeviceControl.GetDeviceFD());
+        m_DeviceControl.SetDeviceFD(-1);
     }
 }
 
@@ -492,7 +481,7 @@ void PDisplayDriver::Flush()
 {
     if (m_UsedBufferSize != 0)
     {
-        // The kernel drains started hardware operations before returning, including on errors.
+        // The kernel releases all client raster references before returning, including on errors.
         const size_t size = m_UsedBufferSize;
         m_UsedBufferSize = 0;
         PScopeExit advanceSequence([this] { ++m_Sequence; });

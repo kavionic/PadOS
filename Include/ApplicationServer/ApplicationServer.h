@@ -36,6 +36,8 @@ public:
     ~ApplicationServer();
 
     virtual void Idle() override;
+    // Log failed display operations and reopen on EIO. Only a failed reopen propagates.
+    void HandleDisplayDriverError(PErrorCode error);
 
     static PRect             GetScreenFrame();
     static PIRect            GetScreenIFrame();
@@ -170,6 +172,7 @@ private:
     PPointerCaptureID                       m_NextPointerCaptureID = PFirstPointerCaptureID;
     bool                                    m_PointerRoutesInvalid = false;
     bool                                    m_IsMouseCursorRequestedVisible = false;
+    bool                                    m_HasPower = true;
     PServerView*                            m_KeyboardFocusView = nullptr;
 
     std::vector<MouseCursorStackEntry> m_MouseCursorStack;

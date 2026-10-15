@@ -117,10 +117,14 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
             break;
         }
     }
-    if (m_HaveInvalidRegions) {
-        UpdateRegions();
+    try
+    {
+        if (m_HaveInvalidRegions) {
+            UpdateRegions();
+        }
+        m_Server->GetDisplayDriver()->Flush();
     }
-    m_Server->GetDisplayDriver()->Flush();
+    PERROR_CATCH([this](PErrorCode error) { m_Server->HandleDisplayDriverError(error); });
     return wasHandled;
 }
 
@@ -130,13 +134,24 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
 
 void ServerApplication::ProcessMessage(int32_t code, const void* data, size_t length)
 {
-    if (m_HaveInvalidRegions && !CanDeferRegionUpdate(code)) {
-        UpdateRegions();
+    if (m_HaveInvalidRegions && !CanDeferRegionUpdate(code))
+    {
+        try
+        {
+            UpdateRegions();
+        }
+        PERROR_CATCH([this](PErrorCode error) { m_Server->HandleDisplayDriverError(error); });
     }
 
     PRemoteSignalRXBase* const handler = GetSignalForMessage(code);
-    if (handler != nullptr) {
-        handler->Dispatch(data, length);
+    if (handler != nullptr)
+    {
+        try
+        {
+            handler->Dispatch(data, length);
+        }
+        // Recover per message so later EndUpdate and Sync messages in the bundle still run.
+        PERROR_CATCH([this](PErrorCode error) { m_Server->HandleDisplayDriverError(error); });
     }
 }
 
@@ -510,10 +525,14 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
 void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
 {
     auto i = m_BitmapMap.find(bitmapHandle);
-    if (i != m_BitmapMap.end()) {
+    if (i != m_BitmapMap.end())
+    {
+        // The kernel releases raster references even when the flush fails.
+        PScopeExit eraseBitmap([this, i] { m_BitmapMap.erase(i); });
         i->second->PrepareForModification();
-        m_BitmapMap.erase(i);
-    } else {
+    }
+    else
+    {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: invalid handle: {}", __PRETTY_FUNCTION__, bitmapHandle);
     }
 }
@@ -615,8 +634,12 @@ void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, ha
 
 void ServerApplication::SlotSync(port_id replyPort)
 {
+    // Failed submissions also release client raster references. Always unblock the waiting client.
+    PScopeExit sendReply([replyPort]
+    {
+        p_post_to_remotesignal<ASSyncReply>(PMessagePort(replyPort), INVALID_HANDLE, TimeValNanos::zero);
+    });
     m_Server->GetDisplayDriver()->Flush();
-    p_post_to_remotesignal<ASSyncReply>(PMessagePort(replyPort), INVALID_HANDLE, TimeValNanos::zero);
 }
 
 

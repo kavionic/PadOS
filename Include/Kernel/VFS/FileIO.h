@@ -34,6 +34,7 @@ class KFileNode;
 class KDirectoryNode;
 class KRootFilesystem;
 class Kernel;
+struct KFileAccessCredentials;
 
 enum class KLocateFlag
 {
@@ -113,6 +114,8 @@ void    ksymlink_trw(KLocateFlags locateFlags, const char* target, int baseFolde
 
 size_t  kreadlink_trw(KLocateFlags locateFlags, int dirfd, const char* path, char* buffer, size_t bufferSize);
 
+void    kfaccessat_trw(int baseFolderFD, const char* path, int mode, int flags);
+
 void    kread_stat_trw(Ptr<KInode> inode, struct stat* outStats);
 void    kread_stat_trw(int handle, struct stat* outStats);
 void    kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask);
@@ -126,9 +129,26 @@ void    kremove_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const 
 void    kget_directory_path_trw(int handle, char* buffer, size_t bufferSize);
 
 
-Ptr<KInode> klocate_inode_by_name_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* name, int nameLength);
-Ptr<KInode> klocate_inode_by_path_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength);
-Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
+Ptr<KInode> klocate_inode_by_name_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    const char* name,
+    int nameLength,
+    const KFileAccessCredentials* accessCredentials = nullptr);
+Ptr<KInode> klocate_inode_by_path_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    const char* path,
+    int pathLength,
+    const KFileAccessCredentials* accessCredentials = nullptr);
+Ptr<KInode> klocate_parent_inode_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    const char* path,
+    int pathLength,
+    const char** outName,
+    size_t* outNameLength,
+    const KFileAccessCredentials* accessCredentials = nullptr);
 void                kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize);
 int                 kallocate_filehandle_trw(KLocateFlags locateFlags);
 void                kfree_filehandle(int handle) noexcept;

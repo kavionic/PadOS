@@ -7,6 +7,7 @@
 // Created: 08.05.2018 20:01:27
 
 
+#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/uio.h>
@@ -80,6 +81,26 @@ static void RequireActiveInode(const Ptr<KInode>& inode)
     }
     if (!inode->IsActive()) {
         PERROR_THROW_CODE(PErrorCode(ENODEV));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void CheckInodeAccess(Ptr<KInode> inode, const KFileAccessCredentials& credentials, int mode)
+{
+    RequireActiveInode(inode);
+    if (mode != F_OK)
+    {
+        if ((mode & W_OK) != 0 && inode->m_Volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+            PERROR_THROW_CODE(PErrorCode::ROFS);
+        }
+        struct stat fileStats;
+        kread_stat_trw(inode, &fileStats);
+        if (!credentials.HasAccess(fileStats, mode)) {
+            PERROR_THROW_CODE(PErrorCode::ACCES);
+        }
     }
 }
 
@@ -804,6 +825,45 @@ size_t kreadlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* pat
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void kfaccessat_trw(int baseFolderFD, const char* path, int mode, int flags)
+{
+    if ((mode & ~(R_OK | W_OK | X_OK)) != 0 || (flags & ~(AT_EACCESS | AT_SYMLINK_NOFOLLOW)) != 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const size_t pathLength = strlen(path);
+    if (pathLength == 0) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    if (pathLength >= PATH_MAX) {
+        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
+    }
+
+    Ptr<KInode> baseInode;
+    if (path[0] != '/' && baseFolderFD != AT_FDCWD)
+    {
+        if (baseFolderFD < 0) {
+            PERROR_THROW_CODE(PErrorCode::BADF);
+        }
+        const Ptr<KFileTableNode> baseDirectory = kget_file_table_node_trw(baseFolderFD);
+        if (!baseDirectory->IsDirectory()) {
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
+        }
+        baseInode = baseDirectory->GetInode();
+    }
+
+    const KFileAccessCredentials credentials = kget_current_process().GetFileAccessCredentials((flags & AT_EACCESS) != 0);
+    KLocateFlags locateFlags = KLocateFlag::CrossMount;
+    if ((flags & AT_SYMLINK_NOFOLLOW) == 0) {
+        locateFlags.SetFlag(KLocateFlag::FollowSymlinks);
+    }
+    const Ptr<KInode> inode = klocate_inode_by_path_trw(locateFlags, baseInode, path, int(pathLength), &credentials);
+    CheckInodeAccess(inode, credentials, mode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void kread_stat_trw(Ptr<KInode> inode, struct stat* outStats)
 {
     RequireActiveInode(inode);
@@ -1215,7 +1275,11 @@ Ptr<KRootFilesystem> kget_rootfs() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static Ptr<KInode> kfollow_sym_link_trw(KLocateFlags locateFlags, Ptr<KInode> parent, Ptr<KInode> inode)
+static Ptr<KInode> kfollow_sym_link_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    Ptr<KInode> inode,
+    const KFileAccessCredentials* accessCredentials)
 {
     RequireActiveInode(parent);
     RequireActiveInode(inode);
@@ -1240,6 +1304,9 @@ static Ptr<KInode> kfollow_sym_link_trw(KLocateFlags locateFlags, Ptr<KInode> pa
         if (statBuf.st_size > SYMLINK_MAX) {
             PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
         }
+        if (accessCredentials != nullptr && statBuf.st_size == 0) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
+        }
         std::vector<char> linkBuffer;
         linkBuffer.resize(size_t(statBuf.st_size));
         if (inode->m_FileOps->ReadLink(inode->m_Volume, inode, linkBuffer.data(), linkBuffer.size()) != linkBuffer.size()) {
@@ -1248,11 +1315,24 @@ static Ptr<KInode> kfollow_sym_link_trw(KLocateFlags locateFlags, Ptr<KInode> pa
 
         const char* name;
         size_t nameLen;
-        parent = klocate_parent_inode_trw(locateFlags, parent, linkBuffer.data(), linkBuffer.size(), &name, &nameLen);
+        parent = klocate_parent_inode_trw(
+            locateFlags,
+            parent,
+            linkBuffer.data(),
+            linkBuffer.size(),
+            &name,
+            &nameLen,
+            accessCredentials);
 
-        if (nameLen != 0 && !PString::is_dot(name, nameLen)) {
-            inode = klocate_inode_by_name_trw(locateFlags | KLocateFlag::CrossMount, parent, name, nameLen);
-        } else {
+        if (nameLen != 0 && !PString::is_dot(name, nameLen))
+        {
+            inode = klocate_inode_by_name_trw(locateFlags | KLocateFlag::CrossMount, parent, name, nameLen, accessCredentials);
+        }
+        else
+        {
+            if (accessCredentials != nullptr && nameLen != 0) {
+                CheckInodeAccess(parent, *accessCredentials, X_OK);
+            }
             inode = parent;
         }
         inode->m_FileOps->ReadStat(inode->m_Volume, inode, &statBuf);
@@ -1264,12 +1344,20 @@ static Ptr<KInode> kfollow_sym_link_trw(KLocateFlags locateFlags, Ptr<KInode> pa
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> klocate_inode_by_name_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* name, int nameLength)
+Ptr<KInode> klocate_inode_by_name_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    const char* name,
+    int nameLength,
+    const KFileAccessCredentials* accessCredentials)
 {
     RequireActiveInode(parent);
 
     if (nameLength == 0) {
         return parent;
+    }
+    if (accessCredentials != nullptr) {
+        CheckInodeAccess(parent, *accessCredentials, X_OK);
     }
     if (PString::is_dot_dot(name, nameLength) && parent == parent->m_Volume->m_RootNode)
     {
@@ -1288,7 +1376,7 @@ Ptr<KInode> klocate_inode_by_name_trw(KLocateFlags locateFlags, Ptr<KInode> pare
     if (locateFlags.Has(KLocateFlag::CrossMount) && inode->m_MountRoot != nullptr) {
         inode = inode->m_MountRoot;
     } else if (locateFlags.Has(KLocateFlag::FollowSymlinks)) {
-        inode = kfollow_sym_link_trw(locateFlags, parent, inode);
+        inode = kfollow_sym_link_trw(locateFlags, parent, inode, accessCredentials);
     }
     RequireActiveInode(inode);
     return inode;
@@ -1298,25 +1386,37 @@ Ptr<KInode> klocate_inode_by_name_trw(KLocateFlags locateFlags, Ptr<KInode> pare
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> klocate_inode_by_path_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength)
+Ptr<KInode> klocate_inode_by_path_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    const char* path,
+    int pathLength,
+    const KFileAccessCredentials* accessCredentials)
 {
     const char* name;
     size_t      nameLength;
-    parent = klocate_parent_inode_trw(locateFlags, parent, path, pathLength, &name, &nameLength);
-    return klocate_inode_by_name_trw(KLocateFlag::CrossMount | locateFlags, parent, name, nameLength);
+    parent = klocate_parent_inode_trw(locateFlags, parent, path, pathLength, &name, &nameLength, accessCredentials);
+    return klocate_inode_by_name_trw(KLocateFlag::CrossMount | locateFlags, parent, name, nameLength, accessCredentials);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
+Ptr<KInode> klocate_parent_inode_trw(
+    KLocateFlags locateFlags,
+    Ptr<KInode> parent,
+    const char* path,
+    int pathLength,
+    const char** outName,
+    size_t* outNameLength,
+    const KFileAccessCredentials* accessCredentials)
 {
     const KIOContext& ioContext = kget_io_context(locateFlags);
     Ptr<KInode> current = parent;
 
     int i = 0;
-    if (path[0] == '/')
+    if (pathLength != 0 && path[0] == '/')
     {
         current = kg_RootVolume->m_RootNode;
         ++i;
@@ -1333,11 +1433,15 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
         PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
     int nameStart = i;
+    bool resolvedDirectory = false;
 
     for (;; ++i)
     {
         if (i == pathLength)
         {
+            if (accessCredentials != nullptr && resolvedDirectory && nameStart == pathLength) {
+                CheckInodeAccess(current, *accessCredentials, X_OK);
+            }
             *outName = path + nameStart;
             *outNameLength = pathLength - nameStart;
             return current;
@@ -1349,11 +1453,17 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
                 nameStart = i + 1;
                 continue;
             }
-            current = klocate_inode_by_name_trw({ KLocateFlag::CrossMount, KLocateFlag::FollowSymlinks }, current, path + nameStart, i - nameStart);
+            current = klocate_inode_by_name_trw(
+                { KLocateFlag::CrossMount, KLocateFlag::FollowSymlinks },
+                current,
+                path + nameStart,
+                i - nameStart,
+                accessCredentials);
             if (!current->IsDirectory()) {
                 PERROR_THROW_CODE(PErrorCode::NOTDIR);
             }
             nameStart = i + 1;
+            resolvedDirectory = true;
         }
     }
     PERROR_THROW_CODE(PErrorCode::NOENT);

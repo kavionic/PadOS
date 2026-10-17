@@ -8,7 +8,9 @@
 
 #pragma once
 
+#include <array>
 #include <functional>
+#include <sys/stat.h>
 
 #include <sys/wait.h>
 #include <sys/param.h>
@@ -44,6 +46,17 @@ enum KProcessState
     Continued,
     Terminating,
     Zombie
+};
+
+struct KFileAccessCredentials
+{
+    uid_t UserID = 0;
+    gid_t GroupID = 0;
+    size_t GroupCount = 0;
+    std::array<gid_t, NGROUPS> Groups = {};
+    bool CanOverridePermissions = false;
+
+    bool HasAccess(const struct stat& fileStats, int mode) const noexcept;
 };
 
 class KProcess : public PtrTarget
@@ -106,6 +119,10 @@ public:
     gid_t   GetSGID() const noexcept { return m_SGID; }
     void    SetEGID(gid_t egid) noexcept { m_EGID = egid; }
 
+    KFileAccessCredentials GetFileAccessCredentials(bool useEffectiveIDs) const;
+    // Captured at process creation and unchanged by later effective-ID changes.
+    bool IsSecureExecution() const noexcept { return m_SecureExecution; }
+
     bool CheckUIDMatch(uid_t uid) const noexcept;
     bool CheckUIDMatch(const KProcess& target) const noexcept;
 
@@ -125,6 +142,7 @@ private:
     KIOContext m_IOContext;
 
     KProcessState           m_State = KProcessState::Running;
+    bool                    m_SecureExecution = false;
     KConditionVariable      m_ChildrenCondition;
     KProcessThreadList      m_Threads;
 #ifdef PADOS_MODULE_POSIX_SIGNALS
@@ -135,11 +153,11 @@ private:
 
     uid_t      m_RUID = 0;  // Real User ID.
     uid_t      m_EUID = 0;  // Effective User ID.
-    uid_t      m_SUID = 0;  // Set User ID.
+    uid_t      m_SUID = 0;  // Saved User ID.
     
     gid_t      m_RGID = 0;  // Real Group ID.
     gid_t      m_EGID = 0;  // Effective Group ID.
-    gid_t      m_SGID = 0;  // Set Group ID.
+    gid_t      m_SGID = 0;  // Saved Group ID.
 
     int        m_NumGroups = 0;
     gid_t      m_Groups[NGROUPS];
@@ -172,9 +190,12 @@ pid_t      kwaitpid_trw(pid_t pid, int* status, int options);
 PErrorCode kwaitpid(pid_t pid, int* status, int options, pid_t* outPID) noexcept;
 
 uid_t      kgetuid() noexcept;
+uid_t      kgeteuid() noexcept;
 gid_t      kgetgid() noexcept;
+gid_t      kgetegid() noexcept;
 PErrorCode kseteuid(uid_t uid) noexcept;
 PErrorCode ksetegid(gid_t gid) noexcept;
+int        kissetugid() noexcept;
 
 
 } // namespace kernel

@@ -15,9 +15,14 @@ namespace kernel
 
 bool kcheck_capability(KCapability capability)
 {
-    KProcess& process = kget_current_process();
+    return kcheck_capability(capability, kget_current_process());
+}
 
-    return process.GetEUID() == 0;
+bool kcheck_capability(KCapability capability, const KProcess& process, bool useEffectiveIDs)
+{
+    // Placeholder policy until per-process capabilities are implemented.
+    const uid_t userID = useEffectiveIDs ? process.GetEUID() : process.GetRUID();
+    return userID == 0;
 }
 
 

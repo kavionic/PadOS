@@ -8,6 +8,7 @@
 target_sources(PadOS_UnitTests PRIVATE
 	Base64Codec_unittest.cpp
 	Exit_unittest.cpp
+	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp
 	Pipe_unittest.cpp
 	PosixSignal_unittest.cpp

@@ -574,6 +574,21 @@ PErrorCode sys_get_dirty_disk_cache_blocks(size_t* outBlocks)
     PERROR_CATCH_RET_CODE;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_faccessat(int dirfd, const char* path, int mode, int flags)
+{
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        kfaccessat_trw(dirfd, path, mode, flags);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
 } // extern "C"
 
 } // namespace kernel

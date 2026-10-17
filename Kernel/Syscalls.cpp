@@ -264,6 +264,10 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR_UNIMPLEMENTED(run_kernel_unit_tests),
 #endif // PADOS_MODULE_UNITTESTS
     SYS_PTR(unmount),
+    SYS_PTR(faccessat),
+    SYS_PTR(geteuid),
+    SYS_PTR(getegid),
+    SYS_PTR(issetugid),
 };
 
 #undef SYS_PTR_UNIMPLEMENTED

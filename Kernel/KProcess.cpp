@@ -8,11 +8,14 @@
 
 #include <System/Platform.h>
 
+#include <algorithm>
+#include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <sys/errno.h>
 
 #include <Kernel/Kernel.h>
+#include <Kernel/KCapabilities.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/KPIDNode.h>
@@ -33,6 +36,36 @@ namespace kernel
 {
 
 KProcess* gk_KernelProcess;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KFileAccessCredentials::HasAccess(const struct stat& fileStats, int mode) const noexcept
+{
+    if (CanOverridePermissions) {
+        return (mode & X_OK) == 0 || S_ISDIR(fileStats.st_mode) || (fileStats.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+    }
+
+    mode_t permissions = fileStats.st_mode;
+    if (UserID == fileStats.st_uid)
+    {
+        permissions >>= 6;
+    }
+    else
+    {
+        const bool groupMatches = GroupID == fileStats.st_gid
+            || std::find(Groups.begin(), Groups.begin() + GroupCount, fileStats.st_gid) != Groups.begin() + GroupCount;
+        if (groupMatches) {
+            permissions >>= 3;
+        }
+    }
+    int granted = 0;
+    if ((permissions & S_IROTH) != 0) granted |= R_OK;
+    if ((permissions & S_IWOTH) != 0) granted |= W_OK;
+    if ((permissions & S_IXOTH) != 0) granted |= X_OK;
+    return (granted & mode) == mode;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -85,12 +118,13 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
 
     m_RUID      = parentProcess->m_RUID;
     m_EUID      = resetIDs ? parentProcess->m_RUID : parentProcess->m_EUID;
-    m_SUID      = parentProcess->m_SUID;
+    m_SUID      = m_EUID;
     m_RGID      = parentProcess->m_RGID;
     m_EGID      = resetIDs ? parentProcess->m_RGID : parentProcess->m_EGID;
-    m_SGID      = parentProcess->m_SGID;
+    m_SGID      = m_EGID;
     m_NumGroups = parentProcess->m_NumGroups;
     m_Session   = parentProcess->m_Session;
+    m_SecureExecution = m_RUID != m_EUID || m_RGID != m_EGID;
 
     m_ExitInfo.si_signo = SIGCHLD;
     m_ExitInfo.si_pid   = pidNode.PID;
@@ -528,6 +562,23 @@ bool KProcess::IsGroupLeader() const noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+KFileAccessCredentials KProcess::GetFileAccessCredentials(bool useEffectiveIDs) const
+{
+    KScopedLock lock(g_PIDMapMutex);
+    KFileAccessCredentials credentials;
+    credentials.UserID = useEffectiveIDs ? m_EUID : m_RUID;
+    credentials.GroupID = useEffectiveIDs ? m_EGID : m_RGID;
+    credentials.CanOverridePermissions = kcheck_capability(KCapability::CAP_DAC_OVERRIDE, *this, useEffectiveIDs);
+    credentials.GroupCount = size_t(m_NumGroups);
+    kassert(credentials.GroupCount <= credentials.Groups.size());
+    std::copy_n(m_Groups, credentials.GroupCount, credentials.Groups.begin());
+    return credentials;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool KProcess::CheckUIDMatch(uid_t uid) const noexcept
 {
     return uid == m_RUID || uid == m_EUID;
@@ -947,6 +998,16 @@ uid_t kgetuid() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+uid_t kgeteuid() noexcept
+{
+    KScopedLock lock(g_PIDMapMutex);
+    return kget_current_process().GetEUID();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 gid_t kgetgid() noexcept
 {
     KScopedLock lock(g_PIDMapMutex);
@@ -957,11 +1018,25 @@ gid_t kgetgid() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode kseteuid(uid_t uid) noexcept
+gid_t kgetegid() noexcept
 {
     KScopedLock lock(g_PIDMapMutex);
+    return kget_current_process().GetEGID();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kseteuid(uid_t uid) noexcept
+{
+    if (uid == uid_t(-1)) {
+        return PErrorCode::INVAL;
+    }
+    KScopedLock lock(g_PIDMapMutex);
     KProcess& process = kget_current_process();
-    if (uid != process.GetRUID() && uid != process.GetEUID() && uid != process.GetSUID()) {
+    if (uid != process.GetRUID() && uid != process.GetEUID() && uid != process.GetSUID()
+        && !kcheck_capability(KCapability::CAP_SETUID)) {
         return PErrorCode::PERM;
     }
     process.SetEUID(uid);
@@ -974,13 +1049,26 @@ PErrorCode kseteuid(uid_t uid) noexcept
 
 PErrorCode ksetegid(gid_t gid) noexcept
 {
+    if (gid == gid_t(-1)) {
+        return PErrorCode::INVAL;
+    }
     KScopedLock lock(g_PIDMapMutex);
     KProcess& process = kget_current_process();
-    if (gid != process.GetRGID() && gid != process.GetEGID() && gid != process.GetSGID()) {
+    if (gid != process.GetRGID() && gid != process.GetEGID() && gid != process.GetSGID()
+        && !kcheck_capability(KCapability::CAP_SETGID)) {
         return PErrorCode::PERM;
     }
     process.SetEGID(gid);
     return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int kissetugid() noexcept
+{
+    return kget_current_process().IsSecureExecution() ? 1 : 0;
 }
 
 } // namespace kernel

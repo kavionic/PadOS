@@ -24,7 +24,7 @@ class PRect;
 enum class PViewHitMode : uint8_t;
 enum class PAlignment : uint8_t;
 enum class POrientation : uint8_t;
-enum class PKeyCodes : uint32_t;
+enum class PKeyCodes : uint16_t;
 
 
 namespace p_xml_object_parser

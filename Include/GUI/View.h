@@ -391,7 +391,7 @@ private:
     void DispatchPointerLeave(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerOver(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
     void DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointerEvent, PEventPhase phase);
-    void HandleKeyboardEvent(const PKeyEvent& keyEvent);
+    void HandleKeyboardEvent(const PKeyEvent& keyEvent, const PString& text);
     void DispatchKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
     void DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
 

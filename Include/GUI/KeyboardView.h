@@ -12,11 +12,16 @@
 
 #include <GUI/View.h>
 #include <Threads/EventTimer.h>
-#include <Utils/UTF8Utils.h>
+#include <Utils/String.h>
 #include <Ptr/NoPtr.h>
 
 class PMenu;
 class PMenuItem;
+
+namespace pugi
+{
+class xml_node;
+}
 
 
 struct PKeyboardViewStyle : public PtrTarget
@@ -38,17 +43,16 @@ struct PKeyboardViewStyle : public PtrTarget
 
 struct PKeyButton
 {
-    PKeyButton(const PPoint& relativePos, float relativeWidth, float relativeHeight, PKeyCodes normalKeyCode, PKeyCodes lowerKeyCode, PKeyCodes extraKeyCode, PKeyCodes symbolKeyCode) noexcept
-        : m_Width(relativeWidth), m_Height(relativeHeight), m_RelativePos(relativePos), m_NormalKeyCode(normalKeyCode), m_LowerKeyCode(lowerKeyCode), m_ExtraKeyCode(extraKeyCode), m_SymbolKeyCode(symbolKeyCode) {}
+    PKeyButton(const PPoint& relativePos, float relativeWidth, float relativeHeight, const pugi::xml_node& keyNode);
 
-    PRect        m_Frame;
+    PRect       m_Frame;
     float       m_Width;
     float       m_Height;
-    PPoint       m_RelativePos;
-    PKeyCodes    m_NormalKeyCode;
-    PKeyCodes    m_LowerKeyCode;
-    PKeyCodes    m_ExtraKeyCode;
-    PKeyCodes    m_SymbolKeyCode;
+    PPoint      m_RelativePos;
+    PString     NormalText;
+    PString     LowerText;
+    PString     ExtraText;
+    PKeyCodes   KeyCode = PKeyCodes::NONE;
 };
 
 enum class PKeyboardLayoutType
@@ -119,7 +123,6 @@ private:
     void    SaveConfig(const PString& selectedKeyboard);
 
     void    SetLayout(PKeyboardLayout* layout);
-    PString GetKeyText(PKeyCodes keyCode) const;
     void    DrawButton(const PKeyButton& button, bool pressed);
     void    SetPressedButton(size_t index);
     size_t  GetButtonIndex(const PPoint& position) const;

@@ -21,6 +21,7 @@ public:
     void SetIsNumerical(bool numerical);
 private:
     void SlotKeyPressed(PKeyCodes keyCode, const PString& text);
+    static PKeySymbol GetKeySymbol(PKeyCodes keyCode, const PString& text);
 
     Ptr<PKeyboardView>   m_KeyboardView;
 };

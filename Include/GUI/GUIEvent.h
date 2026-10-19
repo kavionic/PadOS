@@ -117,6 +117,7 @@ enum class PInputEventType : uint16_t
     InputEvent,
     MouseEvent,
     TouchEvent,
+    RawKeyEvent,
     KeyEvent,
     DeviceEvent
 };
@@ -199,12 +200,18 @@ struct PPointerEvent
     PPoint              ScreenPosition;
     PPoint              ViewPosition;
     PPoint              WheelDelta;
+    uint32_t            Qualifiers = 0;
+};
+
+struct PRawKeyEvent : PInputEvent
+{
+    PKeyCodes KeyCode = PKeyCodes::NONE;
 };
 
 struct PKeyEvent : PInputEvent
 {
-    static constexpr size_t MAX_TEXT_LENGTH = 11;
-
-    PKeyCodes   m_KeyCode;
-    char        m_Text[MAX_TEXT_LENGTH + 1];
+    PKeyCodes KeyCode = PKeyCodes::NONE;       // Physical key; NONE for text-only virtual input.
+    PKeySymbol KeySymbol = PKeySymbol::NONE;   // Meaning captured on press; retained for repeats and release.
+    uint32_t Qualifiers = 0;                   // Current effective modifiers and QUAL_REPEAT.
+    // UTF-8 text is generated separately; the saved symbol does not determine inserted text.
 };

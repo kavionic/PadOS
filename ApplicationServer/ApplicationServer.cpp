@@ -449,7 +449,7 @@ port_id p_get_appserver_port()
 
 ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     : PLooper("Appserver", 10, PAPPSERVER_MSG_BUFFER_SIZE)
-    , m_ReplyPort("appserver_reply", 100)
+    , m_KeyboardManager(*this)
 {
     s_DisplayDriver = displayDriver;
     if (!s_DisplayDriver->Open()) {
@@ -483,6 +483,18 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
     RegisterRemoteSignal(&m_RSRegisterApplication, &ApplicationServer::SlotRegisterApplication);
     RegisterRemoteSignal(&m_RSVirtualKeyboardEvent, &ApplicationServer::SlotVirtualKeyboardEvent);
+    RegisterRemoteSignal(&m_RSGetKeyboardLayouts, &ApplicationServer::SlotGetKeyboardLayouts);
+    RegisterRemoteSignal(&m_RSGetKeyboardConfiguration, &ApplicationServer::SlotGetKeyboardConfiguration);
+    RegisterRemoteSignal(&m_RSSetKeyboardConfiguration, &ApplicationServer::SlotSetKeyboardConfiguration);
+
+    m_KeyboardManager.SignalKeyEvent.Connect(this, &ApplicationServer::SlotVirtualKeyboardEvent);
+    try {
+        m_KeyboardManager.Initialize();
+    }
+    PERROR_CATCH([](PErrorCode error)
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "Keyboard initialization failed: {}", std::to_underlying(error));
+    });
 
     m_MousePosition = GetScreenFrame().Center();
     s_DisplayDriver->SetMousePos(PIPoint(m_MousePosition));
@@ -798,17 +810,88 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent)
+void ApplicationServer::SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent, const PString& text)
 {
     Ptr<PServerView> focusView = GetKeyboardFocus();
     if (focusView != nullptr) {
-        focusView->SendKeyboardEvent(keyEvent);
+        focusView->SendKeyboardEvent(keyEvent, text);
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotGetKeyboardLayouts(port_id replyPort, uint32_t requestID, uint32_t firstIndex)
+{
+    PErrorCode error = PErrorCode::Success;
+    uint32_t totalCount = 0;
+    std::vector<PKeyboardLayoutInfo> page;
+    try
+    {
+        const std::vector<PKeyboardLayoutInfo>& layouts = m_KeyboardManager.GetLayouts();
+        totalCount = static_cast<uint32_t>(layouts.size());
+        if (firstIndex > layouts.size()) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        const size_t end = std::min(layouts.size(), size_t(firstIndex) + KEYBOARD_LAYOUT_PAGE_SIZE);
+        for (size_t index = firstIndex; index < end; ++index)
+        {
+            page.push_back(layouts[index]);
+            if (ASKeyboardLayoutsReply::Sender::Serializer::GetSize(requestID, error, firstIndex, totalCount, page)
+                > PAPPSERVER_MSG_BUFFER_SIZE)
+            {
+                page.pop_back();
+                if (page.empty()) {
+                    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+                }
+                break;
+            }
+        }
+    }
+    PERROR_CATCH([&error](PErrorCode result) { error = result; });
+    if (!p_post_to_remotesignal<ASKeyboardLayoutsReply>(
+        replyPort, INVALID_HANDLE, TimeValNanos::zero, requestID, error, firstIndex, totalCount, page))
+    {
+        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Could not send keyboard catalog reply.");
+    }
+}
+
+void ApplicationServer::SlotGetKeyboardConfiguration(port_id replyPort, uint32_t requestID)
+{
+    SendKeyboardConfiguration(replyPort, requestID, m_KeyboardManager.IsConfigured() ? PErrorCode::Success : PErrorCode::NOENT);
+}
+
+void ApplicationServer::SlotSetKeyboardConfiguration(
+    port_id replyPort,
+    uint32_t requestID,
+    const PString& layout,
+    const PString& variant,
+    const PString& options)
+{
+    PErrorCode error = PErrorCode::Success;
+    try {
+        m_KeyboardManager.SetLayout(layout, variant, options);
+    }
+    PERROR_CATCH([&error](PErrorCode result) { error = result; });
+    SendKeyboardConfiguration(replyPort, requestID, error);
+}
+
+void ApplicationServer::SendKeyboardConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error)
+{
+    if (!p_post_to_remotesignal<ASKeyboardConfigurationReply>(
+        replyPort,
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        requestID,
+        error,
+        m_KeyboardManager.GetLayout(),
+        m_KeyboardManager.GetVariant(),
+        m_KeyboardManager.GetOptions()))
+    {
+        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Could not send keyboard configuration reply.");
+    }
+}
 
 void ApplicationServer::OpenInputDevices()
 {
@@ -870,6 +953,9 @@ void ApplicationServer::ReadRegisteredInputDevices(int inputDevice, const PStrin
         for (const PInputDeviceInfo& device : registeredDevices)
         {
             m_RegisteredInputDevices[device.SourceID] = device.ClassID;
+            if (device.ClassID == PInputClass::Keyboard) {
+                m_KeyboardManager.AddDevice(device.SourceID);
+            }
         }
     }
     catch (const std::exception& error)
@@ -959,27 +1045,21 @@ void ApplicationServer::ReadInputEvents(int inputDevice, const PString& deviceNa
                         }
                         break;
 
-                    case PInputEventType::KeyEvent:
+                    case PInputEventType::RawKeyEvent:
                         if (eventHeader->ClassID != PInputClass::Keyboard)
                         {
                             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received key event with input class {} from {}.", std::to_underlying(eventHeader->ClassID), deviceName);
                         }
-                        else if (eventHeader->EventSize < sizeof(PKeyEvent))
+                        else if (eventHeader->EventSize < sizeof(PRawKeyEvent))
                         {
                             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated key event: {}", eventHeader->EventSize);
                         }
                         else
                         {
-                            const PKeyEvent& keyEvent = *reinterpret_cast<const PKeyEvent*>(currentEventData);
-                            if (keyEvent.EventID == PInputEventID::KeyDown || keyEvent.EventID == PInputEventID::KeyUp)
-                            {
-                                Ptr<PServerView> focusView = GetKeyboardFocus();
-                                if (focusView != nullptr) {
-                                    focusView->SendKeyboardEvent(keyEvent);
-                                }
-                            }
-                            else
-                            {
+                            const PRawKeyEvent& keyEvent = *reinterpret_cast<const PRawKeyEvent*>(currentEventData);
+                            if (keyEvent.EventID == PInputEventID::KeyDown || keyEvent.EventID == PInputEventID::KeyUp) {
+                                m_KeyboardManager.HandleKeyEvent(keyEvent);
+                            } else {
                                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received invalid key event ID {} from {}.", std::to_underlying(keyEvent.EventID), deviceName);
                             }
                         }
@@ -1023,6 +1103,9 @@ void ApplicationServer::HandleInputDeviceEvent(const PInputEvent& event, const P
     {
         const auto [deviceIterator, inserted] = m_RegisteredInputDevices.emplace(event.SourceID, event.ClassID);
         deviceListChanged = inserted;
+        if (event.ClassID == PInputClass::Keyboard) {
+            m_KeyboardManager.AddDevice(event.SourceID);
+        }
 
         if (!inserted && deviceIterator->second != event.ClassID)
         {
@@ -1039,6 +1122,9 @@ void ApplicationServer::HandleInputDeviceEvent(const PInputEvent& event, const P
             if (deviceIterator->second != event.ClassID)
             {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::HandleInputDeviceEvent() source {} removal has class {} instead of {} on {}.", event.SourceID, std::to_underlying(event.ClassID), std::to_underlying(deviceIterator->second), deviceName);
+            }
+            if (deviceIterator->second == PInputClass::Keyboard) {
+                m_KeyboardManager.RemoveDevice(event.SourceID);
             }
             m_RegisteredInputDevices.erase(deviceIterator);
             deviceListChanged = true;
@@ -1102,7 +1188,8 @@ void ApplicationServer::QueuePointerEvent(const PPointerEvent& event)
     if ((isMoveEvent || isWheelEvent) && !m_PointerEventQueue.empty())
     {
         PPointerEvent& queuedEvent = m_PointerEventQueue.back();
-        if (queuedEvent.EventType == event.EventType && queuedEvent.PointerID == event.PointerID)
+        if (queuedEvent.EventType == event.EventType && queuedEvent.PointerID == event.PointerID
+            && queuedEvent.Qualifiers == event.Qualifiers)
         {
             if (isMoveEvent)
             {
@@ -1324,7 +1411,7 @@ PPointerEventType ApplicationServer::GetPointerEventType(PInputEventID eventID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position)
+PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position) const
 {
     PPointerEvent pointerEvent;
     pointerEvent.PointerID = PMousePointerID;
@@ -1340,6 +1427,7 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEven
     if (mouseEvent.EventID == PInputEventID::MouseWheel) {
         pointerEvent.WheelDelta = mouseEvent.Position;
     }
+    pointerEvent.Qualifiers = m_KeyboardManager.GetQualifiers();
     return pointerEvent;
 }
 
@@ -1347,7 +1435,7 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PMouseEvent& mouseEven
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PPointerEvent ApplicationServer::CreatePointerEvent(const PTouchEvent& touchEvent)
+PPointerEvent ApplicationServer::CreatePointerEvent(const PTouchEvent& touchEvent) const
 {
     PPointerEvent pointerEvent;
     pointerEvent.PointerID = GetTouchPointerID(touchEvent.TouchID);
@@ -1359,6 +1447,7 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PTouchEvent& touchEven
     pointerEvent.Pressure = touchEvent.Pressure;
     pointerEvent.ScreenPosition = touchEvent.Position;
     pointerEvent.ViewPosition = touchEvent.Position;
+    pointerEvent.Qualifiers = m_KeyboardManager.GetQualifiers();
     return pointerEvent;
 }
 
@@ -1853,11 +1942,15 @@ void ApplicationServer::SetKeyboardFocus(Ptr<PServerView> view, bool focus)
 {
     if (focus)
     {
+        if (m_KeyboardFocusView != ptr_raw_pointer_cast(view)) {
+            m_KeyboardManager.SetFocused(view != nullptr);
+        }
         m_KeyboardFocusView = ptr_raw_pointer_cast(view);
         UpdateVirtualKeyboard();
     }
     else if (view == m_KeyboardFocusView)
     {
+        m_KeyboardManager.SetFocused(false);
         m_KeyboardFocusView = nullptr;
         UpdateVirtualKeyboard();
     }

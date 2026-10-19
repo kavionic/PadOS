@@ -8,9 +8,12 @@
 target_sources(PadOS_ApplicationServer PRIVATE
 	ApplicationServer.cpp
 	DisplayDriver.cpp
+	KeyboardManager.cpp
 	ServerApplication.cpp
 	ServerApplication.h
 	ServerBitmap.cpp
 	ServerView.cpp
 	ServerView.h
 )
+
+target_link_libraries(PadOS_ApplicationServer PUBLIC xkbcommon::xkbcommon)

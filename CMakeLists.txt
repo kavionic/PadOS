@@ -235,6 +235,8 @@ target_sources(PadOS_Kernel PRIVATE
 )
 
 
+find_package(xkbcommon 1.13 CONFIG REQUIRED)
+
 add_subdirectory(Applications)
 add_subdirectory(ApplicationServer)
 add_subdirectory(DataTranslation)

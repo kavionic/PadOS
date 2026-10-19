@@ -17,6 +17,7 @@
 #include <GUI/Color.h>
 #include <GUI/GUIDefines.h>
 #include <GUI/MouseCursor.h>
+#include <ApplicationServer/KeyboardProtocol.h>
 
 class PString;
 
@@ -132,7 +133,12 @@ namespace PAppserverProtocol
         HANDLE_POINTER_CAPTURE_REQUEST_REPLY,
         HANDLE_POINTER_CAPTURE_LOST,
         UPDATE_POINTER_ROOT_VIEW,
-        HANDLE_KEYBOARD_EVENT
+        HANDLE_KEYBOARD_EVENT,
+        GET_KEYBOARD_LAYOUTS,
+        GET_KEYBOARD_CONFIGURATION,
+        SET_KEYBOARD_CONFIGURATION,
+        KEYBOARD_LAYOUTS_REPLY,
+        KEYBOARD_CONFIGURATION_REPLY
     };
 }
 
@@ -164,7 +170,8 @@ struct MsgCreateBitmapReply
 };
 
 using ASRegisterApplication = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const PString& name)>;
-using ASVirtualKeyboardEvent = PRemoteSignal<PAppserverProtocol::VIRTUAL_KEYBOARD_EVENT, void(const PKeyEvent& keyEvent)>;
+using ASVirtualKeyboardEvent = PRemoteSignal<PAppserverProtocol::VIRTUAL_KEYBOARD_EVENT,
+    void(const PKeyEvent& keyEvent, const PString& text)>;
 using ASSync                = PRemoteSignal<PAppserverProtocol::SYNC,                 void(port_id replyPort)>;
 
 using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
@@ -280,7 +287,14 @@ using ASHandlePointerEvent = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_EV
 using ASHandlePointerCaptureRequestReply = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_REQUEST_REPLY, void(PPointerID pointerID, PPointerCaptureRequestID requestID, handler_id rootViewHandle, PPointerCaptureID captureID, const PPointerEvent& pointerEvent)>;
 using ASHandlePointerCaptureLost = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CAPTURE_LOST, void(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason)>;
 using ASUpdatePointerRootView = PRemoteSignal<PAppserverProtocol::UPDATE_POINTER_ROOT_VIEW, void(handler_id rootViewHandle, const PPointerEvent& pointerEvent, PPointerRootViewUpdateType updateType)>;
-using ASHandleKeyboardEvent = PRemoteSignal<PAppserverProtocol::HANDLE_KEYBOARD_EVENT, void(handler_id viewHandle, const PKeyEvent& keyEvent)>;
+
+using ASHandleKeyboardEvent = PRemoteSignal<PAppserverProtocol::HANDLE_KEYBOARD_EVENT,
+    void(
+        handler_id viewHandle,
+        const PKeyEvent& keyEvent,
+        const PString& text
+        )
+>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
 using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;
@@ -290,3 +304,43 @@ using ASViewSetDashOffset    = PRemoteSignal<PAppserverProtocol::VIEW_SET_DASH_O
 using ASViewBeginPolyline    = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_POLYLINE,       void(handler_id viewHandle)>;
 using ASViewAddPolylinePoint = PRemoteSignal<PAppserverProtocol::VIEW_ADD_POLYLINE_POINT,   void(handler_id viewHandle, const PPoint& point)>;
 using ASViewEndPolyline      = PRemoteSignal<PAppserverProtocol::VIEW_END_POLYLINE,         void(handler_id viewHandle)>;
+
+// Catalog requests return one bounded page; request the next page using firstIndex + layouts.size().
+static constexpr size_t KEYBOARD_LAYOUT_PAGE_SIZE = 16;
+
+using ASGetKeyboardLayouts = PRemoteSignal<PAppserverProtocol::GET_KEYBOARD_LAYOUTS, void(port_id replyPort, uint32_t requestID, uint32_t firstIndex)>;
+
+using ASGetKeyboardConfiguration = PRemoteSignal<PAppserverProtocol::GET_KEYBOARD_CONFIGURATION,
+    void(
+        port_id replyPort,
+        uint32_t requestID
+        )
+>;
+
+using ASSetKeyboardConfiguration = PRemoteSignal<PAppserverProtocol::SET_KEYBOARD_CONFIGURATION,
+    void(
+        port_id replyPort,
+        uint32_t requestID,
+        const PString& layout,
+        const PString& variant,
+        const PString& options
+        )
+>;
+using ASKeyboardLayoutsReply = PRemoteSignal<PAppserverProtocol::KEYBOARD_LAYOUTS_REPLY,
+    void(
+        uint32_t requestID,
+        PErrorCode error,
+        uint32_t firstIndex,
+        uint32_t totalCount,
+        const std::vector<PKeyboardLayoutInfo>& layouts
+        )
+>;
+using ASKeyboardConfigurationReply = PRemoteSignal<PAppserverProtocol::KEYBOARD_CONFIGURATION_REPLY,
+    void(
+        uint32_t requestID,
+        PErrorCode error,
+        const PString& layout,
+        const PString& variant,
+        const PString& options
+        )
+>;

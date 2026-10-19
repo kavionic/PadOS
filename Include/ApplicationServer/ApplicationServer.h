@@ -17,6 +17,7 @@
 #include "Threads/Looper.h"
 #include "Signals/SignalTarget.h"
 #include "ApplicationServer/Protocol.h"
+#include "ApplicationServer/KeyboardManager.h"
 #include "Math/Rect.h"
 #include "GUI/GUIEvent.h"
 #include "Threads/EventTimer.h"
@@ -129,8 +130,8 @@ private:
     static PMouseButton GetTouchPointerButton(const PTouchEvent& touchEvent);
     static PPointerButtonMask GetTouchPointerButtons(const PTouchEvent& touchEvent);
     static PPointerEventType GetPointerEventType(PInputEventID eventID);
-    static PPointerEvent CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position);
-    static PPointerEvent CreatePointerEvent(const PTouchEvent& touchEvent);
+    PPointerEvent CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position) const;
+    PPointerEvent CreatePointerEvent(const PTouchEvent& touchEvent) const;
 
     bool ApplyMouseCursor(PMouseCursorID cursorID);
     void UpdateMouseCursor();
@@ -151,22 +152,34 @@ private:
     PPointerCaptureID AllocatePointerCaptureID();
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
-    void SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent);
+    void SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent, const PString& text);
+    void SlotGetKeyboardLayouts(port_id replyPort, uint32_t requestID, uint32_t firstIndex);
+    void SlotGetKeyboardConfiguration(port_id replyPort, uint32_t requestID);
+
+    void SlotSetKeyboardConfiguration(port_id replyPort,
+                                      uint32_t requestID,
+                                      const PString& layout,
+                                      const PString& variant,
+                                      const PString& options);
+
+    void SendKeyboardConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error);
 
     static Ptr<PDisplayDriver>   s_DisplayDriver;
     static Ptr<PSrvBitmap>       s_ScreenBitmap;
-
-    PMessagePort m_ReplyPort;
-    PEventTimer m_PollTouchDriverTimer;
 
     std::queue<PPointerEvent> m_PointerEventQueue;
 
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 
-    ASRegisterApplication    m_RSRegisterApplication;
-    ASVirtualKeyboardEvent   m_RSVirtualKeyboardEvent;
+    ASRegisterApplication       m_RSRegisterApplication;
+    ASVirtualKeyboardEvent      m_RSVirtualKeyboardEvent;
+    ASGetKeyboardLayouts        m_RSGetKeyboardLayouts;
+    ASGetKeyboardConfiguration  m_RSGetKeyboardConfiguration;
+    ASSetKeyboardConfiguration  m_RSSetKeyboardConfiguration;
     
-    Ptr<PServerView> m_TopView;
+    PKeyboardManager    m_KeyboardManager;
+   
+    Ptr<PServerView>    m_TopView;
 
     std::map<PPointerID, PointerRouteState> m_PointerRouteMap;
     PPointerCaptureID                       m_NextPointerCaptureID = PFirstPointerCaptureID;

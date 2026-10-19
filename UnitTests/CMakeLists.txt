@@ -10,6 +10,8 @@ target_sources(PadOS_UnitTests PRIVATE
 	Exit_unittest.cpp
 	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp
+	KeyboardManager_unittest.cpp
+	KeyboardView_unittest.cpp
 	Pipe_unittest.cpp
 	PosixSignal_unittest.cpp
 	PosixSpawn_unittest.cpp
@@ -27,3 +29,5 @@ target_sources(PadOS_UnitTests PRIVATE
 	STLConcurrency_unittest.cpp
 	TimeValue_unittest.cpp
 )
+
+target_link_libraries(PadOS_UnitTests PRIVATE xkbcommon::xkbcommon)

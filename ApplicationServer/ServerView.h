@@ -61,7 +61,7 @@ public:
 
     Ptr<PServerView> FindPointerEventRootView(const PPoint& position);
     bool        SendPointerEvent(const PPointerEvent& event, PPointerCaptureID captureID);
-    bool        SendKeyboardEvent(const PKeyEvent& event);
+    bool        SendKeyboardEvent(const PKeyEvent& event, const PString& text);
     bool        SendPointerRootViewUpdate(const PPointerEvent& event, PPointerRootViewUpdateType updateType);
 
     void        AddChild(Ptr<PServerView> child, size_t index);

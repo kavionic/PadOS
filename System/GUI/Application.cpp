@@ -15,6 +15,7 @@
 #include <GUI/Bitmap.h>
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
+#include <System/ExceptionHandling.h>
 
 
 PApplication* PApplication::s_DefaultApplication = nullptr;
@@ -41,13 +42,15 @@ void PApplication::SetDefaultApplication(PApplication* application)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPort("app_reply", 1000)
+PApplication::PApplication(const PString& name) : PLooper(name, 1000, PAPPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("app_reply", 1000)
 {
     RegisterRemoteSignal(&m_RSPaintView, &PApplication::HandlePaint);
     RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
     RegisterRemoteSignal(&m_RSViewScreenPositionChanged, &PApplication::HandleViewScreenPositionChanged);
     RegisterRemoteSignal(&m_RSViewFocusChanged, &PApplication::HandleViewFocusChanged);
     RegisterRemoteSignal(&m_RSHandleKeyboardEvent, &PApplication::HandleKeyboardEvent);
+    RegisterRemoteSignal(&m_RSKeyboardLayoutsReply, &PApplication::HandleKeyboardLayouts);
+    RegisterRemoteSignal(&m_RSKeyboardConfigurationReply, &PApplication::HandleKeyboardConfiguration);
     RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureRequestReply, &PApplication::HandlePointerCaptureRequestReply);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
@@ -105,9 +108,6 @@ void PApplication::Idle()
 
 bool PApplication::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
-    static_cast<void>(data);
-    static_cast<void>(length);
-
     if (targetHandler != INVALID_HANDLE
         || (code != ASPaintView::GetID() && code != ASHandlePointerEvent::GetID()))
     {
@@ -253,6 +253,89 @@ Ptr<PView> PApplication::GetKeyboardFocus() const
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+bool PApplication::RequestKeyboardLayouts(KeyboardLayoutsCallback callback, uint32_t firstIndex)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (!callback)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    const uint32_t requestID = AllocateKeyboardRequestID();
+    m_KeyboardLayoutsCallbacks.emplace(requestID, std::move(callback));
+    PScopeExit rollback([this, requestID]() { m_KeyboardLayoutsCallbacks.erase(requestID); });
+    if (!p_post_to_remotesignal<ASGetKeyboardLayouts>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        GetPortID(),
+        requestID,
+        firstIndex)) {
+        return false;
+    }
+    rollback.release();
+    return true;
+}
+
+bool PApplication::RequestKeyboardConfiguration(KeyboardConfigurationCallback callback)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (!callback)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    const uint32_t requestID = AllocateKeyboardRequestID();
+    m_KeyboardConfigurationCallbacks.emplace(requestID, std::move(callback));
+    PScopeExit rollback([this, requestID]() { m_KeyboardConfigurationCallbacks.erase(requestID); });
+    if (!p_post_to_remotesignal<ASGetKeyboardConfiguration>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        GetPortID(),
+        requestID)) {
+        return false;
+    }
+    rollback.release();
+    return true;
+}
+
+bool PApplication::SetKeyboardConfiguration(
+    KeyboardConfigurationCallback callback,
+    const PString& layout,
+    const PString& variant,
+    const PString& options)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (!callback)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    const uint32_t requestID = AllocateKeyboardRequestID();
+    if (ASSetKeyboardConfiguration::Sender::Serializer::GetSize(GetPortID(), requestID, layout, variant, options)
+        > PAPPSERVER_MSG_BUFFER_SIZE)
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    m_KeyboardConfigurationCallbacks.emplace(requestID, std::move(callback));
+    PScopeExit rollback([this, requestID]() { m_KeyboardConfigurationCallbacks.erase(requestID); });
+    if (!p_post_to_remotesignal<ASSetKeyboardConfiguration>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        GetPortID(),
+        requestID,
+        layout,
+        variant,
+        options)) {
+        return false;
+    }
+    rollback.release();
+    return true;
+}
 
 bool PApplication::CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
 {
@@ -881,17 +964,62 @@ void PApplication::HandleViewFocusChanged(handler_id viewHandle, bool hasFocus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent)
+void PApplication::HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent, const PString& text)
 {
+    m_KeyQualifiers = keyEvent.Qualifiers & ~QUAL_REPEAT;
     Ptr<PView> view = FindView(viewHandle);
     if (view != nullptr) {
-        view->HandleKeyboardEvent(keyEvent);
+        view->HandleKeyboardEvent(keyEvent, text);
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+uint32_t PApplication::AllocateKeyboardRequestID()
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    for (;;)
+    {
+        const uint32_t requestID = m_NextKeyboardRequestID++;
+        if (!m_KeyboardLayoutsCallbacks.contains(requestID) && !m_KeyboardConfigurationCallbacks.contains(requestID)) {
+            return requestID;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleKeyboardLayouts(
+    uint32_t requestID,
+    PErrorCode error,
+    uint32_t firstIndex,
+    uint32_t totalCount,
+    const std::vector<PKeyboardLayoutInfo>& layouts)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    auto pending = m_KeyboardLayoutsCallbacks.extract(requestID);
+    if (!pending.empty()) {
+        pending.mapped()(error, firstIndex, totalCount, layouts);
+    }
+}
+
+void PApplication::HandleKeyboardConfiguration(
+    uint32_t requestID,
+    PErrorCode error,
+    const PString& layout,
+    const PString& variant,
+    const PString& options)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    auto pending = m_KeyboardConfigurationCallbacks.extract(requestID);
+    if (!pending.empty()) {
+        pending.mapped()(error, layout, variant, options);
+    }
+}
 
 void PApplication::HandlePointerEvent(
     handler_id viewHandle,
@@ -914,7 +1042,8 @@ void PApplication::HandlePointerEvent(
             && pendingEvent.Event.ToolType      == pointerEvent.ToolType
             && pendingEvent.Event.SupportsHover == pointerEvent.SupportsHover
             && pendingEvent.Event.Button        == pointerEvent.Button
-            && pendingEvent.Event.Buttons       == pointerEvent.Buttons)
+            && pendingEvent.Event.Buttons       == pointerEvent.Buttons
+            && pendingEvent.Event.Qualifiers    == pointerEvent.Qualifiers)
         {
             if (isMoveEvent)
             {
@@ -973,6 +1102,7 @@ void PApplication::DispatchPointerEvent(
     PPointerCaptureID captureID)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
+    m_KeyQualifiers = pointerEvent.Qualifiers;
 
     Ptr<PView> view = FindView(viewHandle);
     if (view != nullptr)

@@ -7,7 +7,6 @@
 // Created: 04.09.2020 22:30
 
 #include <sys/fcntl.h>
-#include <cwctype>
 #include <pugixml.hpp>
 
 #include <GUI/Bitmap.h>
@@ -21,6 +20,7 @@
 #include <Storage/File.h>
 #include <Storage/Path.h>
 #include <Utils/Utils.h>
+#include <Utils/XMLObjectParser.h>
 #include <Math/Misc.h>
 
 using namespace pugi;
@@ -124,6 +124,28 @@ static constexpr PIPoint KEYS_BITMAP_SIZE(32, KEY_BM_FRAME_BACKSPACE.Height() + 
 static constexpr PPoint KEY_SPACING(5.0f, 5.0f);
 
 NoPtr<PKeyboardViewStyle> PKeyboardView::s_DefaultStyle;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PKeyButton::PKeyButton(
+    const PPoint& relativePos,
+    float relativeWidth,
+    float relativeHeight,
+    const pugi::xml_node& keyNode)
+    : m_Width(relativeWidth)
+    , m_Height(relativeHeight)
+    , m_RelativePos(relativePos)
+    , NormalText(p_xml_object_parser::parse_attribute(keyNode, "normal", PString::zero))
+    , LowerText(p_xml_object_parser::parse_attribute(keyNode, "lower", NormalText))
+    , ExtraText(p_xml_object_parser::parse_attribute(keyNode, "extra", PString::zero))
+    , KeyCode(p_xml_object_parser::parse_attribute(keyNode, "key", PKeyCodes::NONE))
+{
+    if (keyNode.attribute("lower").empty()) {
+        LowerText.lower();
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -276,14 +298,11 @@ bool PKeyboardView::LoadKeyboard(const PString& name)
                     continue;
                 }
 
-                float   width = p_xml_object_parser::parse_attribute(keyNode, "width", 1.0f) / totalWidth;
-                PKeyCodes normalKeyCode = p_xml_object_parser::parse_attribute(keyNode, "normal", PKeyCodes::NONE);
-                PKeyCodes lowerKeyCode = p_xml_object_parser::parse_attribute(keyNode, "lower", PKeyCodes(std::towlower(int(normalKeyCode))));
-                PKeyCodes extraKeyCode = p_xml_object_parser::parse_attribute(keyNode, "extra", PKeyCodes::NONE);
-                PKeyCodes symbolKeyCode = p_xml_object_parser::parse_attribute(keyNode, "symbol", PKeyCodes::NONE);
-
-                if (normalKeyCode != PKeyCodes::NONE) {
-                    layout->m_KeyButtons.emplace_back(position, width, 1.0f / totalHeight, normalKeyCode, lowerKeyCode, extraKeyCode, symbolKeyCode);
+                const float width = p_xml_object_parser::parse_attribute(keyNode, "width", 1.0f) / totalWidth;
+                PKeyButton button(position, width, 1.0f / totalHeight, keyNode);
+                if (button.KeyCode != PKeyCodes::NONE || !button.NormalText.empty()
+                    || !button.LowerText.empty() || !button.ExtraText.empty()) {
+                    layout->m_KeyButtons.push_back(std::move(button));
                 }
                 position.x += width;
             }
@@ -389,9 +408,9 @@ void PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, 
     {
         PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
 
-        if (button.m_NormalKeyCode == PKeyCodes::BACKSPACE)
+        if (button.KeyCode == PKeyCodes::BACKSPACE)
         {
-            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == PCapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+            SignalKeyPressed(button.KeyCode, PString::zero, this);
             m_RepeatTimer.Set(KEYREPEAT_DELAY, true);
             m_RepeatTimer.Start(true);
         }
@@ -413,7 +432,7 @@ void PKeyboardView::OnPointerLongPress(PPointerID pointerID, const PPoint& posit
     {
         PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
 
-        if (button.m_NormalKeyCode == PKeyCodes::SHIFT)
+        if (button.KeyCode == PKeyCodes::LEFT_SHIFT)
         {
             if (!m_SymbolsActive)
             {
@@ -425,7 +444,7 @@ void PKeyboardView::OnPointerLongPress(PPointerID pointerID, const PPoint& posit
                 cancelPress = true;
             }
         }
-        else if (button.m_NormalKeyCode == PKeyCodes::ENTER && !HasFlags(PKeyboardViewFlags::Numerical))
+        else if (button.KeyCode == PKeyCodes::ENTER && !HasFlags(PKeyboardViewFlags::Numerical))
         {
             if (!m_Keyboards.empty() && m_LayoutSelectMenu == nullptr)
             {
@@ -444,9 +463,9 @@ void PKeyboardView::OnPointerLongPress(PPointerID pointerID, const PPoint& posit
                 cancelPress = true;
             }
         }
-        else if (button.m_ExtraKeyCode != PKeyCodes::NONE)
+        else if (!button.ExtraText.empty())
         {
-            SignalKeyPressed(button.m_ExtraKeyCode, GetKeyText(button.m_ExtraKeyCode), this);
+            SignalKeyPressed(PKeyCodes::NONE, button.ExtraText, this);
             cancelPress = true;
         }
     }
@@ -476,7 +495,7 @@ void PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
         SetPressedButton(INVALID_INDEX);
 
         bool resetCapsLock = false;
-        if (button.m_NormalKeyCode == PKeyCodes::SHIFT)
+        if (button.KeyCode == PKeyCodes::LEFT_SHIFT)
         {
             if (m_SymbolsActive)
             {
@@ -501,7 +520,7 @@ void PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
             }
             Invalidate();
         }
-        else if (button.m_NormalKeyCode == PKeyCodes::SYMBOLS)
+        else if (button.KeyCode == PKeyCodes::LEFT_ALT)
         {
             m_SymbolsActive = !m_SymbolsActive;
             if (m_SymbolsActive)
@@ -518,12 +537,15 @@ void PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, co
                 SetLayout(&m_DefaultLayout);
             }
         }
-        else if (button.m_NormalKeyCode != PKeyCodes::BACKSPACE && button.m_NormalKeyCode != PKeyCodes::SPACE && button.m_NormalKeyCode != PKeyCodes::ENTER)
+        else if (button.KeyCode != PKeyCodes::BACKSPACE && button.KeyCode != PKeyCodes::SPACE
+            && button.KeyCode != PKeyCodes::ENTER)
         {
             resetCapsLock = true;
         }
-        if (!m_RepeatTimer.IsRunning()) {
-            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == PCapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+        if (!m_RepeatTimer.IsRunning() && button.KeyCode != PKeyCodes::LEFT_ALT && button.KeyCode != PKeyCodes::LEFT_SHIFT)
+        {
+            const PString& text = (m_CapsLockMode == PCapsLockMode::Off) ? button.LowerText : button.NormalText;
+            SignalKeyPressed(button.KeyCode, text, this);
         }
         if (resetCapsLock && m_CapsLockMode == PCapsLockMode::Single)
         {
@@ -554,12 +576,12 @@ void PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, 
         while (cursorPos < m_PrevCursorPos)
         {
             m_PrevCursorPos--;
-            SignalKeyPressed(PKeyCodes::CURSOR_LEFT, PString::zero, this);
+            SignalKeyPressed(PKeyCodes::LEFT_ARROW, PString::zero, this);
         }
         while (cursorPos > m_PrevCursorPos)
         {
             m_PrevCursorPos++;
-            SignalKeyPressed(PKeyCodes::CURSOR_RIGHT, PString::zero, this);
+            SignalKeyPressed(PKeyCodes::RIGHT_ARROW, PString::zero, this);
         }
     }
     else if (m_PressedButton != INVALID_INDEX)
@@ -567,7 +589,7 @@ void PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, 
         if ((position - m_HitPos).LengthSqr() > PMath::square(BEGIN_DRAG_OFFSET))
         {
             PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
-            if (button.m_NormalKeyCode == PKeyCodes::SPACE)
+            if (button.KeyCode == PKeyCodes::SPACE)
             {
                 m_IsDraggingCursor = true;
                 m_PrevCursorPos = int(std::round((position.x - m_HitPos.x) / 20.0f));
@@ -593,28 +615,6 @@ void PKeyboardView::SetLayout(PKeyboardLayout* layout)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString PKeyboardView::GetKeyText(PKeyCodes keyCode) const
-{
-    if (keyCode > PKeyCodes::LAST_SPECIAL)
-    {
-        PString text;
-
-        if (keyCode == PKeyCodes::TAB) {
-            text = "\t";
-        } else if (keyCode == PKeyCodes::ENTER) {
-            text = "\n";
-        } else {
-            text.append_utf32_char(uint32_t(keyCode));
-        }
-        return text;
-    }
-    return PString::zero;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
 {
     PColor textColor = m_Style->NormalTextColor;
@@ -623,7 +623,7 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
     {
         SetEraseColor(m_Style->PressedButtonColor);
     }
-    else if (!m_SymbolsActive && button.m_NormalKeyCode == PKeyCodes::SHIFT)
+    else if (!m_SymbolsActive && button.KeyCode == PKeyCodes::LEFT_SHIFT)
     {
         switch (m_CapsLockMode)
         {
@@ -642,27 +642,26 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
 
     PRect bitmapFrame(0.0f, 0.0f, 0.0f, 0.0f);
 
-    switch (PKeyCodes(button.m_NormalKeyCode))
+    switch (button.KeyCode)
     {
         case PKeyCodes::ENTER:           bitmapFrame = KEY_BM_FRAME_ENTER; break;
         case PKeyCodes::BACKSPACE:       bitmapFrame = KEY_BM_FRAME_BACKSPACE; break;
         case PKeyCodes::SPACE:           bitmapFrame = KEY_BM_FRAME_SPACE; break;
         case PKeyCodes::DELETE:          break;
-        case PKeyCodes::CURSOR_LEFT:     break;
-        case PKeyCodes::CURSOR_RIGHT:    break;
-        case PKeyCodes::CURSOR_UP:       break;
-        case PKeyCodes::CURSOR_DOWN:     break;
+        case PKeyCodes::LEFT_ARROW:      break;
+        case PKeyCodes::RIGHT_ARROW:     break;
+        case PKeyCodes::UP_ARROW:        break;
+        case PKeyCodes::DOWN_ARROW:      break;
         case PKeyCodes::HOME:            break;
         case PKeyCodes::END:             break;
         case PKeyCodes::TAB:             break;
-        case PKeyCodes::SHIFT:
+        case PKeyCodes::LEFT_SHIFT:
             if (!m_SymbolsActive) {
                 bitmapFrame = KEY_BM_FRAME_SHIFT;
             }
             break;
-        case PKeyCodes::CTRL:            break;
-        case PKeyCodes::ALT:             break;
-        case PKeyCodes::SYMBOLS:         break;
+        case PKeyCodes::LEFT_CONTROL:    break;
+        case PKeyCodes::LEFT_ALT:        break;
         default: break;
 
     }
@@ -677,15 +676,20 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
         SetBgColor(GetEraseColor());
 
         PString label;
-        if (button.m_NormalKeyCode == PKeyCodes::SYMBOLS) {
+        if (button.KeyCode == PKeyCodes::LEFT_ALT)
+        {
             label = m_SymbolsActive ? "ABC" : "!#1";
         }
-        else if (button.m_NormalKeyCode == PKeyCodes::SHIFT && m_SymbolsActive) {
+        else if (button.KeyCode == PKeyCodes::LEFT_SHIFT && m_SymbolsActive)
+        {
             label = PString::format_string("{}/{}", m_SymbolPage + 1, m_SymbolLayouts.size());
-        } else {
-            label = GetKeyText((m_CapsLockMode == PCapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode);
         }
-        PString smallLabel = GetKeyText(button.m_ExtraKeyCode);
+        else
+        {
+            const PString& text = (m_CapsLockMode == PCapsLockMode::Off) ? button.LowerText : button.NormalText;
+            label = text;
+        }
+        const PString& smallLabel = button.ExtraText;
 
         SetFont(m_Style->LargeFont);
         const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
@@ -757,7 +761,7 @@ void PKeyboardView::SlotRepeatTimer()
     {
         PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
 
-        if (button.m_NormalKeyCode == PKeyCodes::BACKSPACE)
+        if (button.KeyCode == PKeyCodes::BACKSPACE)
         {
             SignalKeyPressed(PKeyCodes::BACKSPACE, PString::zero, this);
 

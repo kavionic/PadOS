@@ -14,6 +14,7 @@ target_sources(PadOS_GUI PRIVATE
 	FontMetrics.h
 	GUIDefines.h
 	GUIEvent.h
+	KeyboardLayout.h
 	KeyboardView.h
 	LayoutNode.h
 	MouseCursor.h

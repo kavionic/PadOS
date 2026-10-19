@@ -9,6 +9,8 @@
 #pragma once
 
 #include <deque>
+#include <functional>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -46,6 +48,31 @@ public:
     void SetKeyboardFocus(Ptr<PView> view, bool focus, bool notifyServer);
     Ptr<PView> GetKeyboardFocus() const;
 
+    using KeyboardLayoutsCallback = std::function<void(
+        PErrorCode error,
+        uint32_t firstIndex,
+        uint32_t totalCount,
+        const std::vector<PKeyboardLayoutInfo>& layouts)>;
+    using KeyboardConfigurationCallback = std::function<void(
+        PErrorCode error,
+        const PString& layout,
+        const PString& variant,
+        const PString& options)>;
+
+    // Hold the application mutex when calling these methods.
+    // Callbacks are called once on the application looper thread.
+    // Pending callbacks are discarded on application destruction.
+    // Returning false leaves no pending callback. Empty callbacks are rejected with EINVAL.
+    // Layout requests return one page; continue at firstIndex + layouts.size().
+    // A successful SetKeyboardConfiguration reply means the new selection was saved and activated.
+    bool RequestKeyboardLayouts(KeyboardLayoutsCallback callback, uint32_t firstIndex = 0);
+    bool RequestKeyboardConfiguration(KeyboardConfigurationCallback callback);
+    bool SetKeyboardConfiguration(
+        KeyboardConfigurationCallback callback,
+        const PString& layout,
+        const PString& variant = PString(),
+        const PString& options = PString());
+
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
@@ -58,7 +85,8 @@ public:
     void Flush();
     void Sync();
 
-    uint32_t GetQualifiers() const { return 0; }
+    // Modifier snapshot for the most recently dispatched keyboard or pointer event.
+    uint32_t GetQualifiers() const { return m_KeyQualifiers; }
 private:
     friend class PView;
  
@@ -109,7 +137,22 @@ private:
     void      HandleViewFrameChanged(handler_id viewHandle, const PRect& frame);
     void      HandleViewScreenPositionChanged(handler_id viewHandle, const PPoint& screenPosition);
     void      HandleViewFocusChanged(handler_id viewHandle, bool hasFocus);
-    void      HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent);
+    void      HandleKeyboardEvent(handler_id viewHandle, const PKeyEvent& keyEvent, const PString& text);
+    
+    uint32_t AllocateKeyboardRequestID();
+    
+    void HandleKeyboardLayouts(uint32_t     requestID,
+                               PErrorCode   error,
+                               uint32_t     firstIndex,
+                               uint32_t     totalCount,
+                               const std::vector<PKeyboardLayoutInfo>& layouts);
+
+    void HandleKeyboardConfiguration(uint32_t       requestID,
+                                     PErrorCode     error,
+                                     const PString& layout,
+                                     const PString& variant,
+                                     const PString& options);
+
     void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
     void      DispatchPendingPointerEvents();
     void      DispatchPointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
@@ -132,6 +175,11 @@ private:
 
     uint8_t m_SendBuffer[PAPPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
+    uint32_t m_KeyQualifiers = 0;
+    uint32_t m_NextKeyboardRequestID = 0;
+
+    std::map<uint32_t, KeyboardLayoutsCallback> m_KeyboardLayoutsCallbacks;
+    std::map<uint32_t, KeyboardConfigurationCallback> m_KeyboardConfigurationCallbacks;
 
     std::map<PPointerID, PointerState> m_PointerStateMap;
     std::deque<PendingPointerEvent> m_PendingPointerEvents;
@@ -143,6 +191,8 @@ private:
     ASViewScreenPositionChanged m_RSViewScreenPositionChanged;
     ASViewFocusChanged       m_RSViewFocusChanged;
     ASHandleKeyboardEvent    m_RSHandleKeyboardEvent;
+    ASKeyboardLayoutsReply m_RSKeyboardLayoutsReply;
+    ASKeyboardConfigurationReply m_RSKeyboardConfigurationReply;
     ASHandlePointerEvent     m_RSHandlePointerEvent;
     ASHandlePointerCaptureRequestReply m_RSHandlePointerCaptureRequestReply;
     ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;

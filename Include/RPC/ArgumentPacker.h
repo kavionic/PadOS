@@ -8,7 +8,10 @@
 
 #pragma once
 
+#include <cstring>
 #include <string>
+#include <type_traits>
+#include <vector>
 #include <sys/types.h>
 #include <Utils/String.h>
 #include <Utils/Logging.h>
@@ -104,28 +107,92 @@ struct PArgumentPacker<PString> : public PArgumentPacker<std::string>
 template<typename T>
 struct PArgumentPacker<std::vector<T>>
 {
+    static constexpr bool USE_BULK_COPY = std::is_trivially_copyable_v<T> && !std::is_same_v<T, bool>;
+
     static size_t GetSize(const std::vector<T>& value) noexcept
     {
-        return sizeof(uint32_t) + value.size() * sizeof(T);
+        if constexpr (USE_BULK_COPY)
+        {
+            return sizeof(uint32_t) + value.size() * sizeof(T);
+        }
+        else
+        {
+            size_t size = sizeof(uint32_t);
+            for (const T& element : value) {
+                size += align_argument_size(PArgumentPacker<T>::GetSize(element));
+            }
+            return size;
+        }
     }
-    static ssize_t Write(const std::vector<T>& value, void* data, size_t length) noexcept
+
+    static ssize_t Write(const std::vector<T>& value, void* data, size_t length) noexcept(USE_BULK_COPY)
     {
-        const size_t totalSize = sizeof(uint32_t) + value.size() * sizeof(T);
-        if (length < totalSize) { return -1; }
-        *reinterpret_cast<uint32_t*>(data) = static_cast<uint32_t>(value.size());
-        data = reinterpret_cast<uint32_t*>(data) + 1;
-        memcpy(data, value.data(), value.size() * sizeof(T));
-        return static_cast<ssize_t>(totalSize);
+        const size_t totalSize = GetSize(value);
+        if (length < totalSize) {
+            return -1;
+        }
+        const uint32_t count = static_cast<uint32_t>(value.size());
+        memcpy(data, &count, sizeof(count));
+        uint8_t* destination = static_cast<uint8_t*>(data);
+        if constexpr (USE_BULK_COPY)
+        {
+            if (!value.empty()) {
+                memcpy(destination + sizeof(count), value.data(), value.size() * sizeof(T));
+            }
+            return static_cast<ssize_t>(totalSize);
+        }
+        else
+        {
+            size_t offset = sizeof(count);
+            for (const T& element : value)
+            {
+                const ssize_t size = PArgumentPacker<T>::Write(element, destination + offset, length - offset);
+                if (size <= 0 || align_argument_size(static_cast<size_t>(size)) > length - offset) {
+                    return -1;
+                }
+                offset += align_argument_size(static_cast<size_t>(size));
+            }
+            return static_cast<ssize_t>(offset);
+        }
     }
+
     static ssize_t Read(const void* data, size_t length, std::vector<T>* value)
     {
-        if (length < sizeof(uint32_t)) { return -1; }
-        const uint32_t count = *reinterpret_cast<const uint32_t*>(data);
-        const size_t totalSize = sizeof(uint32_t) + count * sizeof(T);
-        if (length < totalSize) { return -1; }
-        data = reinterpret_cast<const uint32_t*>(data) + 1;
-        value->assign(reinterpret_cast<const T*>(data),
-                      reinterpret_cast<const T*>(data) + count);
-        return static_cast<ssize_t>(totalSize);
+        if (length < sizeof(uint32_t)) {
+            return -1;
+        }
+        uint32_t count;
+        memcpy(&count, data, sizeof(count));
+        const uint8_t* source = static_cast<const uint8_t*>(data);
+        if constexpr (USE_BULK_COPY)
+        {
+            if (count > (length - sizeof(count)) / sizeof(T)) {
+                return -1;
+            }
+            const T* elements = reinterpret_cast<const T*>(source + sizeof(count));
+            value->assign(elements, elements + count);
+            return static_cast<ssize_t>(sizeof(count) + count * sizeof(T));
+        }
+        else
+        {
+            size_t offset = sizeof(count);
+            // Each element occupies at least one aligned argument slot.
+            if (count > (length - offset) / align_argument_size(1)) {
+                return -1;
+            }
+            value->clear();
+            value->reserve(count);
+            for (size_t index = 0; index < count; ++index)
+            {
+                T element;
+                const ssize_t size = PArgumentPacker<T>::Read(source + offset, length - offset, &element);
+                if (size <= 0 || align_argument_size(static_cast<size_t>(size)) > length - offset) {
+                    return -1;
+                }
+                offset += align_argument_size(static_cast<size_t>(size));
+                value->push_back(std::move(element));
+            }
+            return static_cast<ssize_t>(offset);
+        }
     }
 };

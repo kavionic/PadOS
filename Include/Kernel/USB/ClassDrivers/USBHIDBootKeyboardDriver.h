@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <array>
+#include <bitset>
 #include <stdint.h>
 
 #include <GUI/GUIEvent.h>
@@ -32,19 +32,11 @@ private:
     static constexpr size_t BOOT_REPORT_SIZE = 8;
     static constexpr size_t FIRST_KEY_INDEX = 2;
 
-    void EmitModifierChanges(uint8_t modifiers);
-    void EmitKeyChanges(const uint8_t* report, uint8_t modifiers);
-    void EmitKeyEvent(bool pressed, uint8_t usageCode, uint8_t modifiers);
+    void EmitKeyChanges(const std::bitset<KEY_CODE_LIMIT>& pressedKeys, size_t firstKeyIndex, size_t endKeyIndex);
+    void EmitKeyEvent(bool pressed, PKeyCodes keyCode);
 
-    static bool ReportContains(const uint8_t* report, uint8_t usageCode);
-    static PKeyCodes GetKeyCode(uint8_t usageCode);
-    static char GetTextCharacter(uint8_t usageCode, uint8_t modifiers);
-    static bool IsShiftPressed(uint8_t modifiers);
-    static bool IsModifierUsage(uint8_t usageCode);
-    static uint8_t GetModifierUsageCode(uint8_t modifierMask);
-
-    int32_t                 m_SourceID = -1;
-    std::array<uint8_t, 8>  m_PreviousReport = {};
+    std::bitset<KEY_CODE_LIMIT> m_PressedKeys;
+    int32_t m_SourceID = -1;
 };
 
 } // namespace kernel

@@ -2337,16 +2337,16 @@ void PView::DispatchPointerOut(PPointerID pointerID, const PPointerEvent& pointe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandleKeyboardEvent(const PKeyEvent& keyEvent)
+void PView::HandleKeyboardEvent(const PKeyEvent& keyEvent, const PString& text)
 {
     switch (keyEvent.EventID)
     {
         case PInputEventID::KeyDown:
-            DispatchKeyDown(keyEvent.m_KeyCode, keyEvent.m_Text, keyEvent);
+            DispatchKeyDown(keyEvent.KeyCode, text, keyEvent);
             break;
 
         case PInputEventID::KeyUp:
-            DispatchKeyUp(keyEvent.m_KeyCode, keyEvent.m_Text, keyEvent);
+            DispatchKeyUp(keyEvent.KeyCode, text, keyEvent);
             break;
 
         default:

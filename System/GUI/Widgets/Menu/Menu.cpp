@@ -448,16 +448,16 @@ void PMenu::Close(bool bCloseChilds, bool bCloseParent, Ptr<PMenuItem> selectedI
 
 void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
 {
-    switch (keyCode)
+    switch (event.KeySymbol)
     {
-        case PKeyCodes::CURSOR_UP:
+        case PKeySymbol::UP_ARROW:
             if (m_Layout == PMenuLayout::Horizontal) {
             } else {
                 SelectPrev();
                 StartOpenTimer(1.0);
             }
             break;
-        case PKeyCodes::CURSOR_DOWN:
+        case PKeySymbol::DOWN_ARROW:
             if (m_Layout == PMenuLayout::Horizontal) {
                 OpenSelection();
             } else {
@@ -465,7 +465,7 @@ void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& e
                 StartOpenTimer(1.0);
             }
             break;
-        case PKeyCodes::CURSOR_LEFT:
+        case PKeySymbol::LEFT_ARROW:
             if (m_Layout == PMenuLayout::Horizontal)
             {
                 SelectPrev();
@@ -485,7 +485,7 @@ void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& e
                 }
             }
             break;
-        case PKeyCodes::CURSOR_RIGHT:
+        case PKeySymbol::RIGHT_ARROW:
             if (m_Layout == PMenuLayout::Horizontal)
             {
                 SelectNext();
@@ -506,7 +506,7 @@ void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& e
                 }
             }
             break;
-        case PKeyCodes::ENTER:
+        case PKeySymbol::ENTER:
         {
             Ptr<PMenuItem> item = FindMarked();
             if (item != nullptr)
@@ -522,7 +522,7 @@ void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& e
             }
             break;
         }
-        case PKeyCodes::ESCAPE:
+        case PKeySymbol::ESCAPE:
             Close(false, false, nullptr);
             Flush();
             break;

@@ -240,15 +240,15 @@ void PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, 
 
 void PTextEditView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
 {
-    if (keyCode == PKeyCodes::CURSOR_LEFT)
+    if (event.KeySymbol == PKeySymbol::LEFT_ARROW)
     {
         MoveCursor(-1);
     }
-    else if (keyCode == PKeyCodes::CURSOR_RIGHT)
+    else if (event.KeySymbol == PKeySymbol::RIGHT_ARROW)
     {
         MoveCursor(1);
     }
-    else if (keyCode == PKeyCodes::BACKSPACE)
+    else if (event.KeySymbol == PKeySymbol::BACKSPACE)
     {
         if (m_CursorPos != 0)
         {
@@ -257,7 +257,7 @@ void PTextEditView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKey
             }
         }
     }
-    else if (keyCode == PKeyCodes::ENTER)
+    else if (event.KeySymbol == PKeySymbol::ENTER)
     {
         SetKeyboardFocus(false);
     }
@@ -313,7 +313,11 @@ void PTextEditView::InsertText(const PString& text, bool sendEvent)
 
 void PTextEditView::Delete()
 {
-    m_Text.erase(m_Text.begin() + m_CursorPos);
+    if (m_CursorPos >= m_Text.size()) {
+        return;
+    }
+    const size_t length = std::min(size_t(utf8_char_length(m_Text[m_CursorPos])), m_Text.size() - m_CursorPos);
+    m_Text.erase(m_CursorPos, length);
     PreferredSizeChanged();
     ContentSizeChanged();
     PRect damageRect = GetBounds();

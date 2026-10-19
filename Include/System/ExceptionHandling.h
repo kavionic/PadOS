@@ -22,33 +22,39 @@
 #define PERROR_SYSRET_THROW_ON_FAIL(result)     p_sysret_throw_on_fail(result)
 
 #define PERROR_CATCH(HANDLER) \
-    catch (const std::system_error& error) { HANDLER(PErrorCode(error.code().value())); } \
-    catch (const std::bad_alloc& error)    { HANDLER(PErrorCode::NOMEM); } \
-    catch (const std::exception& error)    { HANDLER(PErrorCode::INVAL); } \
+    catch (const std::system_error& PERROR_CATCH_error) { HANDLER(PErrorCode(PERROR_CATCH_error.code().value())); } \
+    catch (const std::bad_alloc& PERROR_CATCH_error)    { HANDLER(PErrorCode::NOMEM); } \
+    catch (const std::exception& PERROR_CATCH_error)    { HANDLER(PErrorCode::INVAL); } \
     ((void)0)
 
 #define PERROR_CATCH_RET(HANDLER) \
-    catch (const std::system_error& error) { return HANDLER(error, PErrorCode(error.code().value())); } \
-    catch (const std::bad_alloc& error)    { return HANDLER(error, PErrorCode::NOMEM); } \
-    catch (const std::exception& error)    { return HANDLER(error, PErrorCode::INVAL); } \
+    catch (const std::system_error& PERROR_CATCH_error) \
+    { \
+        return HANDLER(PERROR_CATCH_error, PErrorCode(PERROR_CATCH_error.code().value())); \
+    } \
+    catch (const std::bad_alloc& PERROR_CATCH_error)    { return HANDLER(PERROR_CATCH_error, PErrorCode::NOMEM); } \
+    catch (const std::exception& PERROR_CATCH_error)    { return HANDLER(PERROR_CATCH_error, PErrorCode::INVAL); } \
     ((void)0)
 
 #define PERROR_CATCH_RET_CODE \
-    catch (const std::system_error& error) { return PErrorCode(error.code().value()); } \
-    catch (const std::bad_alloc& error)    { return PErrorCode::NOMEM; } \
-    catch (const std::exception& error)    { return PErrorCode::INVAL; } \
+    catch (const std::system_error& PERROR_CATCH_error) { return PErrorCode(PERROR_CATCH_error.code().value()); } \
+    catch (const std::bad_alloc& PERROR_CATCH_error)    { return PErrorCode::NOMEM; } \
+    catch (const std::exception& PERROR_CATCH_error)    { return PErrorCode::INVAL; } \
     ((void)0)
 
 #define PERROR_CATCH_RET_SYSRET \
-    catch (const std::system_error& error) { return PMakeSysRetFail(PErrorCode(error.code().value())); } \
-    catch (const std::bad_alloc& error)    { return PMakeSysRetFail(PErrorCode::NOMEM); } \
-    catch (const std::exception& error)    { return PMakeSysRetFail(PErrorCode::INVAL); } \
+    catch (const std::system_error& PERROR_CATCH_error) \
+    { \
+        return PMakeSysRetFail(PErrorCode(PERROR_CATCH_error.code().value())); \
+    } \
+    catch (const std::bad_alloc& PERROR_CATCH_error)    { return PMakeSysRetFail(PErrorCode::NOMEM); } \
+    catch (const std::exception& PERROR_CATCH_error)    { return PMakeSysRetFail(PErrorCode::INVAL); } \
     ((void)0)
 
 #define PERROR_CATCH_SET_ERRNO(RET_VAL) \
-    catch (const std::system_error& error) { set_last_error(error.code().value()); return RET_VAL; } \
-    catch (const std::bad_alloc& error)    { set_last_error(ENOMEM); return RET_VAL; } \
-    catch (const std::exception& error)    { set_last_error(EINVAL); return RET_VAL; } \
+    catch (const std::system_error& PERROR_CATCH_error) { set_last_error(PERROR_CATCH_error.code().value()); return RET_VAL; } \
+    catch (const std::bad_alloc& PERROR_CATCH_error)    { set_last_error(ENOMEM); return RET_VAL; } \
+    catch (const std::exception& PERROR_CATCH_error)    { set_last_error(EINVAL); return RET_VAL; } \
     ((void)0)
 
 #define PRETHROW_CANCELLATION catch (const __cxxabiv1::__forced_unwind&) { throw; }

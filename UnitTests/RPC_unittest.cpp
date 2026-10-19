@@ -371,4 +371,72 @@ TEST(RPC, GeometryPayloadIsAlignedAndReservedInPlace)
     EXPECT_EQ(receiver.PointCount, 3u);
 }
 
+TEST(RPC, TrivialVectorsKeepCompactWireFormat)
+{
+    using Packer = PArgumentPacker<std::vector<uint8_t>>;
+    const std::vector<uint8_t> values{0x12, 0x34, 0x56};
+    const std::array<uint8_t, 7> expected{3, 0, 0, 0, 0x12, 0x34, 0x56};
+    alignas(uint32_t) std::array<uint8_t, 7> buffer{};
+    ASSERT_EQ(Packer::GetSize(values), buffer.size());
+    ASSERT_EQ(Packer::Write(values, buffer.data(), buffer.size()), buffer.size());
+    EXPECT_EQ(buffer, expected);
+    std::vector<uint8_t> decoded;
+    ASSERT_EQ(Packer::Read(buffer.data(), buffer.size(), &decoded), buffer.size());
+    EXPECT_EQ(decoded, values);
+    EXPECT_LT(Packer::Write(values, buffer.data(), buffer.size() - 1), 0);
+    EXPECT_LT(Packer::Read(buffer.data(), buffer.size() - 1, &decoded), 0);
+
+    const uint32_t invalidCount = std::numeric_limits<uint32_t>::max();
+    std::memcpy(buffer.data(), &invalidCount, sizeof(invalidCount));
+    EXPECT_LT(Packer::Read(buffer.data(), buffer.size(), &decoded), 0);
+}
+
+TEST(RPC, StringVectorsPreserveOwnedStringsAndAlignment)
+{
+    using Packer = PArgumentPacker<std::vector<PString>>;
+    const std::vector<PString> values{"", "a", PString("b\0c", 3), "A string longer than inline storage", "xy"};
+    std::vector<uint8_t> buffer(Packer::GetSize(values));
+    ASSERT_EQ(Packer::Write(values, buffer.data(), buffer.size()), buffer.size());
+    std::vector<PString> decoded;
+    ASSERT_EQ(Packer::Read(buffer.data(), buffer.size(), &decoded), buffer.size());
+    EXPECT_EQ(decoded, values);
+    EXPECT_LT(Packer::Write(values, buffer.data(), buffer.size() - 1), 0);
+    EXPECT_LT(Packer::Read(buffer.data(), buffer.size() - 1, &decoded), 0);
+    ASSERT_EQ(Packer::Read(buffer.data(), buffer.size(), &decoded), buffer.size());
+    std::memset(buffer.data(), 0, buffer.size());
+    EXPECT_EQ(decoded, values);
+
+    const uint32_t invalidCount = std::numeric_limits<uint32_t>::max();
+    EXPECT_LT(Packer::Read(&invalidCount, sizeof(invalidCount), &decoded), 0);
+}
+
+TEST(RPC, EmptyStringVectorClearsPreviousValues)
+{
+    using Packer = PArgumentPacker<std::vector<PString>>;
+    const std::vector<PString> values;
+    uint32_t buffer = std::numeric_limits<uint32_t>::max();
+    ASSERT_EQ(Packer::GetSize(values), sizeof(buffer));
+    ASSERT_EQ(Packer::Write(values, &buffer, sizeof(buffer)), sizeof(buffer));
+    EXPECT_EQ(buffer, 0U);
+    std::vector<PString> decoded{"previous value"};
+    ASSERT_EQ(Packer::Read(&buffer, sizeof(buffer), &decoded), sizeof(buffer));
+    EXPECT_TRUE(decoded.empty());
+}
+
+TEST(RPC, NestedVectorsPreserveAlignmentOfFollowingArguments)
+{
+    using Values = std::vector<std::vector<uint8_t>>;
+    using Serializer = PArgumentSerializer<void, const Values&, uint32_t>;
+    using Deserializer = PArgumentDeserializer<void, const Values&, uint32_t>;
+    const Values values{{}, {1}, {2, 3, 4}, {5, 6, 7, 8}};
+    std::vector<uint8_t> buffer(Serializer::GetSize(values, uint32_t(42)));
+    ASSERT_EQ(buffer.size(), 36U);
+    ASSERT_EQ(Serializer::WriteArg(buffer.data(), buffer.size(), values, uint32_t(42)), buffer.size());
+    Deserializer::Invoke(buffer.data(), buffer.size(), [&values](const Values& decoded, uint32_t followingValue)
+    {
+        EXPECT_EQ(decoded, values);
+        EXPECT_EQ(followingValue, 42U);
+    });
+}
+
 } // namespace pados_tests_rpc

@@ -593,14 +593,14 @@ void PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const
 
 void PTabView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
 {
-    switch (keyCode)
+    switch (event.KeySymbol)
     {
-        case PKeyCodes::CURSOR_LEFT:
+        case PKeySymbol::LEFT_ARROW:
             if (m_SelectedTab > 0) {
                 SetSelection(m_SelectedTab - 1);
             }
             break;
-        case PKeyCodes::CURSOR_RIGHT:
+        case PKeySymbol::RIGHT_ARROW:
             if (m_SelectedTab < m_TabList.size() - 1) {
                 SetSelection(m_SelectedTab + 1);
             }

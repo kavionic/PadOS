@@ -10,5 +10,7 @@ target_sources(PadOS_ApplicationServer PRIVATE
 	DisplayDriver.h
 	DisplayDriverInvoker.h
 	Protocol.h
+	KeyboardManager.h
+	KeyboardProtocol.h
 	ServerBitmap.h
 )

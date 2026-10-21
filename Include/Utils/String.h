@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 2018-2021 Kurt Skauen
+// Copyright (c) 2018-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
@@ -9,6 +9,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <optional>
 
@@ -37,6 +38,8 @@ template<typename... ARGS>
 using PFormatString = std::format_string<ARGS...>;
 
 #endif // PADOS_OPT_USE_FMT_FORMATTING
+
+struct UnicodeCasingPropertyRange;
 
 enum class PUnitSystem
 {
@@ -94,6 +97,7 @@ public:
     PString& strip();
     PString& lstrip();
     PString& rstrip();
+    // Full Unicode 17.0 default casing of valid UTF-8, independent of locale; the byte length may change.
     PString& lower();
     PString& upper();
 
@@ -179,6 +183,39 @@ private:
     static std::optional<int> prefix_to_exp(char prefixUpper);
     static std::optional<int> parse_suffix(const PString& suffixIn, PUnitSystem& outUnitSystem);
     static size_t find_suffix_start(const PString& text);
+
+    static bool HasUnicodeCasingProperty(
+        uint32_t character,
+        const UnicodeCasingPropertyRange* ranges,
+        size_t rangeCount) noexcept;
+
+    static uint32_t ReadPreviousCaseConvertedCharacter(
+        std::string_view written,
+        std::string_view overflow,
+        size_t& byteOffset) noexcept;
+
+    static bool IsUnicodeFinalSigma(std::string_view written, std::string_view overflow, std::string_view following) noexcept;
+
+    template<bool TO_UPPER>
+    static uint32_t ConvertASCIICharacterCase(uint32_t character) noexcept;
+
+    template<bool TO_UPPER>
+    static size_t MapUnicodeCharacterCase(uint32_t character, uint32_t* mappedCharacters) noexcept;
+
+    template<bool TO_UPPER>
+    static size_t EncodeCaseConvertedCharacter(uint32_t character, bool finalSigma, char* encodedCharacter) noexcept;
+
+    static void WriteCaseConversionOverflow(
+        PString& source,
+        size_t& writeOffset,
+        size_t readOffset,
+        const char* convertedBytes,
+        size_t convertedLength,
+        PString& overflow,
+        size_t& overflowOffset);
+
+    template<bool TO_UPPER>
+    static void ConvertStringCase(PString& source);
 
 };
 

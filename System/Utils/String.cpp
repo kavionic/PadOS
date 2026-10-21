@@ -1,11 +1,12 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 2018-2021 Kurt Skauen
+// Copyright (c) 2018-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.04.2018 16:58:13
 
+#include <algorithm>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -14,6 +15,8 @@
 #include "Utils/UnicodeCaseFolding.h"
 #include "Utils/UTF8Utils.h"
 #include "Utils/Utils.h"
+
+#include "UnicodeCaseMappingData.h"
 
 PString PString::zero;
 
@@ -32,49 +35,6 @@ PString PString::zero;
 PString::PString(const wchar16_t* utf16, size_t length)
 {
     assign_utf16(utf16, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static uint32_t DecodeUTF16Character(const wchar16_t* source, size_t length, size_t& sourceIndex) noexcept
-{
-    uint32_t character = uint32_t(source[sourceIndex++]);
-    if (is_utf16_high_surrogate(character))
-    {
-        if (sourceIndex < length && is_utf16_low_surrogate(source[sourceIndex]))
-        {
-            const uint32_t lowSurrogate = uint32_t(source[sourceIndex++]);
-            character = 0x10000 + ((character - 0xd800) << 10) + (lowSurrogate - 0xdc00);
-        }
-        else
-        {
-            character = UNICODE_REPLACEMENT_CHARACTER;
-        }
-    }
-    else if (is_utf16_low_surrogate(character))
-    {
-        character = UNICODE_REPLACEMENT_CHARACTER;
-    }
-    return character;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static size_t GetUTF8EncodedLength(uint32_t character) noexcept
-{
-    if (character < 0x80) {
-        return 1;
-    } else if (character < 0x800) {
-        return 2;
-    } else if (character < 0x10000) {
-        return 3;
-    } else {
-        return 4;
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,8 +82,8 @@ PString& PString::assign_utf16(const wchar16_t* source, size_t length)
     size_t utf8Length = 0;
     for (size_t sourceIndex = 0; sourceIndex < length;)
     {
-        const uint32_t character = DecodeUTF16Character(source, length, sourceIndex);
-        const size_t characterLength = GetUTF8EncodedLength(character);
+        const uint32_t character = decode_utf16_character(source, length, sourceIndex);
+        const size_t characterLength = get_utf8_encoded_length(character);
         if (characterLength > max_size() - utf8Length) {
             throw std::length_error("UTF-16 string is too long");
         }
@@ -135,7 +95,7 @@ PString& PString::assign_utf16(const wchar16_t* source, size_t length)
         size_t destinationIndex = 0;
         for (size_t sourceIndex = 0; sourceIndex < length;)
         {
-            const uint32_t character = DecodeUTF16Character(source, length, sourceIndex);
+            const uint32_t character = decode_utf16_character(source, length, sourceIndex);
             destinationIndex += unicode_to_utf8(destination + destinationIndex, character);
         }
         return destinationIndex;
@@ -407,27 +367,58 @@ PString& PString::rstrip()
     return *this;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief Convert this UTF-8 string to lowercase in place.
+ *
+ * Applies the full Unicode 17.0 default lowercase mappings, independently of
+ * the current locale. Mappings can produce multiple code points; for example,
+ * U+0130 becomes U+0069 followed by U+0307.
+ *
+ * Greek capital sigma (U+03A3) becomes final sigma (U+03C2) if the nearest
+ * preceding character is cased and the nearest following character is absent or
+ * uncased, after skipping characters with the Unicode Case_Ignorable property.
+ * Otherwise, it becomes small sigma (U+03C3).
+ *
+ * Processes the entire string, including text after embedded null bytes.
+ * Characters without a mapping are preserved. The UTF-8 byte length and number
+ * of code points may change. Reallocation may invalidate pointers, references,
+ * and iterators.
+ *
+ * @pre The string contains valid UTF-8.
+ * @return A reference to this string (@c *this).
+ * @see upper(), is_valid_utf8(), sanitize_utf8()
+ *
+ * \author Kurt Skauen
+ *****************************************************************************/
 
 PString& PString::lower()
 {
-    for (size_t i = 0; i < size(); ++i) {
-        (*this)[i] = char(tolower((*this)[i]));
-    }
+    ConvertStringCase<false>(*this);
     return *this;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief Convert this UTF-8 string to uppercase in place.
+ *
+ * Applies the full Unicode 17.0 default uppercase mappings, independently of
+ * the current locale. Mappings can produce multiple code points; for example,
+ * sharp s (U+00DF) becomes "SS" and the ffi ligature (U+FB03) becomes "FFI".
+ *
+ * Processes the entire string, including text after embedded null bytes.
+ * Characters without a mapping are preserved. The UTF-8 byte length and number
+ * of code points may change. Reallocation may invalidate pointers, references,
+ * and iterators.
+ *
+ * @pre The string contains valid UTF-8.
+ * @return A reference to this string (@c *this).
+ * @see lower(), is_valid_utf8(), sanitize_utf8()
+ *
+ * \author Kurt Skauen
+ *****************************************************************************/
 
 PString& PString::upper()
 {
-    for (size_t i = 0; i < size(); ++i) {
-        (*this)[i] = char(toupper((*this)[i]));
-    }
+    ConvertStringCase<true>(*this);
     return *this;
 }
 
@@ -551,9 +542,40 @@ PString PString::format_byte_size(int64_t size, int numDecimalsOrDigits, PUnitSy
     return format_string("{:.{}f}{}", value, decimals, units[unit]);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief Format a duration as a human-readable time period.
+ *
+ * Formats years, days, hours, minutes, and seconds, starting with the largest
+ * applicable unit. Uses 365-day years and 24-hour days. Smaller fields are
+ * included even when zero, unless omitted due to @p maxCharacters.
+ *
+ * Durations below one minute use seconds with one decimal place. At one
+ * minute or more, fractional seconds are discarded; hours, minutes, and
+ * seconds use two digits. Days and years are not zero-padded.
+ *
+ * With @p includeUnits enabled, appends y, d, h, m, and s to the respective
+ * fields without separators. Otherwise, separates fields with colons. For
+ * example, 90.5 seconds becomes "01m30s" or "01:30", respectively.
+ *
+ * Fields are appended from largest to smallest. If the next complete field,
+ * including its suffix or separator, would exceed @p maxCharacters, that
+ * field and all smaller fields are omitted without rounding. The years
+ * field and a seconds-only result are always emitted, even if they exceed
+ * the limit. A zero limit disables length limiting.
+ *
+ * @param timeVal Duration to format.
+ * @param includeUnits Whether to append unit suffixes instead of using
+ *                     colon separators.
+ * @param maxCharacters Preferred maximum output length, including suffixes
+ *                      or separators; zero means unlimited.
+ *
+ * @pre @p timeVal is non-negative and its whole-second value fits in
+ *      uint32_t, as required by the current field calculations.
+ * @return The formatted duration, possibly empty if the first day, hour,
+ *         or minute field does not fit within @p maxCharacters.
+ *
+ * \author Kurt Skauen
+ *****************************************************************************/
 
 PString PString::format_time_period(const TimeValNanos& timeVal, bool includeUnits, size_t maxCharacters)
 {
@@ -933,4 +955,323 @@ size_t PString::find_suffix_start(const PString& text)
         ++i;
     }
     return i;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PString::HasUnicodeCasingProperty(uint32_t character, const UnicodeCasingPropertyRange* ranges, size_t rangeCount) noexcept
+{
+    size_t rangeBegin = 0;
+    size_t rangeEnd = rangeCount;
+    while (rangeBegin < rangeEnd)
+    {
+        const size_t rangeIndex = rangeBegin + (rangeEnd - rangeBegin) / 2;
+        const UnicodeCasingPropertyRange& range = ranges[rangeIndex];
+        if (character < range.First) {
+            rangeEnd = rangeIndex;
+        } else if (character > range.Last) {
+            rangeBegin = rangeIndex + 1;
+        } else {
+            return true;
+        }
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t PString::ReadPreviousCaseConvertedCharacter(
+    std::string_view written,
+    std::string_view overflow,
+    size_t& byteOffset) noexcept
+{
+    const size_t previousEnd = byteOffset;
+    --byteOffset;
+    while (byteOffset > 0)
+    {
+        const char byte = (byteOffset < written.size()) ? written[byteOffset] : overflow[byteOffset - written.size()];
+        if (!is_utf8_continuation_byte(uint8_t(byte))) {
+            break;
+        }
+        --byteOffset;
+    }
+
+    char splitCharacter[UTF8_MAX_CHARACTER_LENGTH];
+    const char* characterData;
+    if (previousEnd <= written.size())
+    {
+        characterData = written.data() + byteOffset;
+    }
+    else if (byteOffset >= written.size())
+    {
+        characterData = overflow.data() + byteOffset - written.size();
+    }
+    else
+    {
+        const size_t writtenLength = written.size() - byteOffset;
+        memcpy(splitCharacter, written.data() + byteOffset, writtenLength);
+        memcpy(splitCharacter + writtenLength, overflow.data(), previousEnd - written.size());
+        characterData = splitCharacter;
+    }
+    size_t byteLength = 0;
+    return utf8_to_unicode(characterData, previousEnd - byteOffset, byteLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PString::IsUnicodeFinalSigma(std::string_view written, std::string_view overflow, std::string_view following) noexcept
+{
+    // The generator verifies that default lowercasing preserves sigma context in the converted prefix.
+    bool precededByCasedCharacter = false;
+    size_t previousOffset = written.size() + overflow.size();
+    while (previousOffset > 0)
+    {
+        const uint32_t character = ReadPreviousCaseConvertedCharacter(written, overflow, previousOffset);
+        if (!HasUnicodeCasingProperty(character, UNICODE_CASE_IGNORABLE_RANGES, std::size(UNICODE_CASE_IGNORABLE_RANGES)))
+        {
+            precededByCasedCharacter = HasUnicodeCasingProperty(character, UNICODE_CASED_RANGES, std::size(UNICODE_CASED_RANGES));
+            break;
+        }
+    }
+    if (!precededByCasedCharacter) {
+        return false;
+    }
+
+    size_t followingOffset = 0;
+    while (followingOffset < following.size())
+    {
+        size_t followingLength = 0;
+        const uint32_t character = utf8_to_unicode(
+            following.data() + followingOffset,
+            following.size() - followingOffset,
+            followingLength);
+        if (!HasUnicodeCasingProperty(character, UNICODE_CASE_IGNORABLE_RANGES, std::size(UNICODE_CASE_IGNORABLE_RANGES))) {
+            return !HasUnicodeCasingProperty(character, UNICODE_CASED_RANGES, std::size(UNICODE_CASED_RANGES));
+        }
+        followingOffset += followingLength;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<bool TO_UPPER>
+uint32_t PString::ConvertASCIICharacterCase(uint32_t character) noexcept
+{
+    constexpr uint32_t FIRST = TO_UPPER ? 'a' : 'A';
+    constexpr uint32_t LAST = TO_UPPER ? 'z' : 'Z';
+    constexpr int32_t DELTA = TO_UPPER ? ('A' - 'a') : ('a' - 'A');
+    return (character >= FIRST && character <= LAST) ? uint32_t(int32_t(character) + DELTA) : character;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<bool TO_UPPER>
+size_t PString::MapUnicodeCharacterCase(uint32_t character, uint32_t* mappedCharacters) noexcept
+{
+    constexpr const UnicodeCaseMappingRange* RANGES = TO_UPPER ? UNICODE_UPPER_RANGES : UNICODE_LOWER_RANGES;
+    size_t rangeBegin = 0;
+    size_t rangeEnd = TO_UPPER ? std::size(UNICODE_UPPER_RANGES) : std::size(UNICODE_LOWER_RANGES);
+    while (rangeBegin < rangeEnd)
+    {
+        const size_t rangeIndex = rangeBegin + (rangeEnd - rangeBegin) / 2;
+        const UnicodeCaseMappingRange& range = RANGES[rangeIndex];
+        const uint32_t rangeLast = range.First + uint32_t(range.Count - 1) * range.Stride;
+        if (character < range.First)
+        {
+            rangeEnd = rangeIndex;
+        }
+        else if (character > rangeLast)
+        {
+            rangeBegin = rangeIndex + 1;
+        }
+        else
+        {
+            if (range.Stride == 1 || ((character - range.First) & 1) == 0)
+            {
+                mappedCharacters[0] = uint32_t(int32_t(character) + range.Delta);
+                return 1;
+            }
+            break;
+        }
+    }
+
+    constexpr const UnicodeCaseExpansion* EXPANSIONS = TO_UPPER ? UNICODE_UPPER_EXPANSIONS : UNICODE_LOWER_EXPANSIONS;
+    constexpr const uint32_t* EXPANSION_CHARACTERS =
+        TO_UPPER ? UNICODE_UPPER_EXPANSION_CHARACTERS : UNICODE_LOWER_EXPANSION_CHARACTERS;
+    size_t expansionBegin = 0;
+    size_t expansionEnd = TO_UPPER ? std::size(UNICODE_UPPER_EXPANSIONS) : std::size(UNICODE_LOWER_EXPANSIONS);
+    while (expansionBegin < expansionEnd)
+    {
+        const size_t expansionIndex = expansionBegin + (expansionEnd - expansionBegin) / 2;
+        const UnicodeCaseExpansion& expansion = EXPANSIONS[expansionIndex];
+        if (character < expansion.Source)
+        {
+            expansionEnd = expansionIndex;
+        }
+        else if (character > expansion.Source)
+        {
+            expansionBegin = expansionIndex + 1;
+        }
+        else
+        {
+            for (size_t characterIndex = 0; characterIndex < expansion.Count; ++characterIndex) {
+                mappedCharacters[characterIndex] = EXPANSION_CHARACTERS[expansion.Offset + characterIndex];
+            }
+            return expansion.Count;
+        }
+    }
+    mappedCharacters[0] = character;
+    return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<bool TO_UPPER>
+size_t PString::EncodeCaseConvertedCharacter(uint32_t character, bool finalSigma, char* encodedCharacter) noexcept
+{
+    if (character < 0x80)
+    {
+        encodedCharacter[0] = char(ConvertASCIICharacterCase<TO_UPPER>(character));
+        return 1;
+    }
+
+    uint32_t mappedCharacters[UNICODE_CASE_MAPPING_MAX_EXPANSION_LENGTH];
+    size_t mappedCount = 1;
+    if (!TO_UPPER && finalSigma) {
+        mappedCharacters[0] = 0x03c2;
+    } else {
+        mappedCount = MapUnicodeCharacterCase<TO_UPPER>(character, mappedCharacters);
+    }
+    size_t encodedLength = 0;
+    for (size_t characterIndex = 0; characterIndex < mappedCount; ++characterIndex) {
+        encodedLength += unicode_to_utf8(encodedCharacter + encodedLength, mappedCharacters[characterIndex]);
+    }
+    return encodedLength;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PString::WriteCaseConversionOverflow(
+    PString& source,
+    size_t& writeOffset,
+    size_t readOffset,
+    const char* convertedBytes,
+    size_t convertedLength,
+    PString& overflow,
+    size_t& overflowOffset)
+{
+    const size_t pendingLength = overflow.size() - overflowOffset;
+    const size_t flushLength = std::min(pendingLength, readOffset - writeOffset);
+    if (flushLength != 0)
+    {
+        memcpy(source.data() + writeOffset, overflow.data() + overflowOffset, flushLength);
+        writeOffset += flushLength;
+        overflowOffset += flushLength;
+    }
+    if (overflowOffset == overflow.size())
+    {
+        overflow.clear();
+        overflowOffset = 0;
+    }
+
+    const size_t directLength = std::min(convertedLength, readOffset - writeOffset);
+    if (directLength != 0)
+    {
+        memcpy(source.data() + writeOffset, convertedBytes, directLength);
+        writeOffset += directLength;
+    }
+    if (directLength < convertedLength)
+    {
+        // Reclaim consumed bytes only when at least half the buffer is consumed, keeping total copying linear.
+        if (overflowOffset != 0 && overflowOffset >= overflow.size() - overflowOffset)
+        {
+            overflow.erase(0, overflowOffset);
+            overflowOffset = 0;
+        }
+        overflow.append(convertedBytes + directLength, convertedLength - directLength);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<bool TO_UPPER>
+void PString::ConvertStringCase(PString& source)
+{
+    size_t readOffset = 0;
+    while (readOffset < source.size() && uint8_t(source[readOffset]) < 0x80)
+    {
+        source[readOffset] = char(ConvertASCIICharacterCase<TO_UPPER>(uint8_t(source[readOffset])));
+        ++readOffset;
+    }
+    if (readOffset == source.size()) {
+        return;
+    }
+
+    size_t writeOffset = readOffset;
+    PString overflow;
+    size_t overflowOffset = 0;
+    while (readOffset < source.size())
+    {
+        size_t byteLength = 0;
+        const uint32_t character = utf8_to_unicode(source.data() + readOffset, source.size() - readOffset, byteLength);
+        readOffset += byteLength;
+        bool finalSigma = false;
+        if constexpr (!TO_UPPER)
+        {
+            if (character == 0x03a3)
+            {
+                finalSigma = IsUnicodeFinalSigma(
+                    std::string_view(source.data(), writeOffset),
+                    std::string_view(overflow.data() + overflowOffset, overflow.size() - overflowOffset),
+                    std::string_view(source.data() + readOffset, source.size() - readOffset));
+            }
+        }
+        char convertedBytes[UNICODE_CASE_MAPPING_MAX_EXPANSION_LENGTH * UTF8_MAX_CHARACTER_LENGTH];
+        const size_t convertedLength = EncodeCaseConvertedCharacter<TO_UPPER>(character, finalSigma, convertedBytes);
+
+        if (overflow.empty() && convertedLength <= readOffset - writeOffset)
+        {
+            memcpy(source.data() + writeOffset, convertedBytes, convertedLength);
+            writeOffset += convertedLength;
+        }
+        else
+        {
+            WriteCaseConversionOverflow(
+                source,
+                writeOffset,
+                readOffset,
+                convertedBytes,
+                convertedLength,
+                overflow,
+                overflowOffset);
+        }
+    }
+    if (overflow.empty())
+    {
+        if (writeOffset != source.size()) {
+            source.resize(writeOffset);
+        }
+    }
+    else
+    {
+        // Pending output implies all original bytes have been filled; grow the source only once, after decoding finishes.
+        source.append(overflow.data() + overflowOffset, overflow.size() - overflowOffset);
+    }
 }

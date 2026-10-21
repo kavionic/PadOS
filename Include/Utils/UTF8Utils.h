@@ -16,39 +16,74 @@ inline constexpr uint32_t UNICODE_REPLACEMENT_CHARACTER = 0xfffd;
 inline constexpr uint32_t UNICODE_MAX_CODE_POINT = 0x10ffff;
 inline constexpr size_t UTF8_MAX_CHARACTER_LENGTH = 4;
 
-inline constexpr bool is_first_utf8_byte(uint8_t byte)
+inline constexpr bool is_first_utf8_byte(uint8_t byte) noexcept
 {
     return (byte & 0xc0) != 0x80;
 }
 
-inline constexpr bool is_utf8_continuation_byte(uint8_t byte)
+inline constexpr bool is_utf8_continuation_byte(uint8_t byte) noexcept
 {
     return (byte & 0xc0) == 0x80;
 }
 
-inline constexpr bool is_utf16_high_surrogate(uint32_t character)
+inline constexpr bool is_utf16_high_surrogate(uint32_t character) noexcept
 {
     return character >= 0xd800 && character <= 0xdbff;
 }
 
-inline constexpr bool is_utf16_low_surrogate(uint32_t character)
+inline constexpr bool is_utf16_low_surrogate(uint32_t character) noexcept
 {
     return character >= 0xdc00 && character <= 0xdfff;
 }
 
-inline constexpr bool is_unicode_scalar_value(uint32_t character)
+inline constexpr bool is_unicode_scalar_value(uint32_t character) noexcept
 {
     return character <= UNICODE_MAX_CODE_POINT && !is_utf16_high_surrogate(character) && !is_utf16_low_surrogate(character);
 }
 
-inline constexpr int utf8_char_length(uint8_t firstByte)
+inline uint32_t decode_utf16_character(const wchar16_t* source, size_t length, size_t& sourceIndex) noexcept
+{
+    uint32_t character = uint32_t(source[sourceIndex++]);
+    if (is_utf16_high_surrogate(character))
+    {
+        if (sourceIndex < length && is_utf16_low_surrogate(source[sourceIndex]))
+        {
+            const uint32_t lowSurrogate = uint32_t(source[sourceIndex++]);
+            character = 0x10000 + ((character - 0xd800) << 10) + (lowSurrogate - 0xdc00);
+        }
+        else
+        {
+            character = UNICODE_REPLACEMENT_CHARACTER;
+        }
+    }
+    else if (is_utf16_low_surrogate(character))
+    {
+        character = UNICODE_REPLACEMENT_CHARACTER;
+    }
+    return character;
+}
+
+inline constexpr size_t get_utf8_encoded_length(uint32_t character) noexcept
+{
+    if (character < 0x80) {
+        return 1;
+    } else if (character < 0x800) {
+        return 2;
+    } else if (character < 0x10000) {
+        return 3;
+    } else {
+        return 4;
+    }
+}
+
+inline constexpr int utf8_char_length(uint8_t firstByte) noexcept
 {
     return int(((0xe5000000u >> ((firstByte >> 3) & 0x1e)) & 3) + 1);
 }
 
 // Preconditions: source points to a non-empty buffer and sourceLength is greater than zero.
 // This function prevents truncated reads, but assumes that complete sequences contain valid UTF-8.
-inline constexpr uint32_t utf8_to_unicode(const char* source, size_t sourceLength, size_t& outByteLength)
+inline constexpr uint32_t utf8_to_unicode(const char* source, size_t sourceLength, size_t& outByteLength) noexcept
 {
     const uint32_t firstByte = uint8_t(source[0]);
     if ((firstByte & 0x80) == 0)
@@ -94,13 +129,13 @@ inline constexpr uint32_t utf8_to_unicode(const char* source, size_t sourceLengt
     }
 }
 
-inline constexpr uint32_t utf8_to_unicode(const char* source)
+inline constexpr uint32_t utf8_to_unicode(const char* source) noexcept
 {
     size_t byteLength = 0;
     return utf8_to_unicode(source, UTF8_MAX_CHARACTER_LENGTH, byteLength);
 }
 
-inline constexpr size_t utf8_valid_sequence_length(const char* source, size_t sourceLength)
+inline constexpr size_t utf8_valid_sequence_length(const char* source, size_t sourceLength) noexcept
 {
     const uint8_t firstByte = uint8_t(source[0]);
     if (firstByte < 0x80)
@@ -134,7 +169,7 @@ inline constexpr size_t utf8_valid_sequence_length(const char* source, size_t so
 }
 
 // Preconditions: destination has room for UTF8_MAX_CHARACTER_LENGTH bytes and character is a Unicode scalar value.
-inline constexpr size_t unicode_to_utf8(char* destination, uint32_t character)
+inline constexpr size_t unicode_to_utf8(char* destination, uint32_t character) noexcept
 {
     if (character < 0x80)
     {

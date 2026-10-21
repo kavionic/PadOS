@@ -138,6 +138,253 @@ TEST(PStringUnicode, UTF16OutputDoesNotWriteHalfASurrogatePair)
     EXPECT_EQ(destination, 0);
 }
 
+TEST(PStringUnicode, CaseConversionPreservesASCIIStorageAndReturnsSelf)
+{
+    PString text("ASCII mixed Case 0123");
+    const char* storage = text.data();
+
+    EXPECT_EQ(&text.lower(), &text);
+    EXPECT_EQ(text, "ascii mixed case 0123");
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_EQ(&text.upper(), &text);
+    EXPECT_EQ(text, "ASCII MIXED CASE 0123");
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_EQ(PString().lower(), "");
+    EXPECT_EQ(PString().upper(), "");
+}
+
+TEST(PStringUnicode, CaseConversionHandlesMultipleScriptsAndSupplementaryLetters)
+{
+    const char* uppercase = "\xc3\x86\xc3\x98\xc3\x85 \xce\x91\xce\xa3\xce\x91 \xd0\x94 \xf0\x90\x90\x80";
+    const char* lowercase = "\xc3\xa6\xc3\xb8\xc3\xa5 \xce\xb1\xcf\x83\xce\xb1 \xd0\xb4 \xf0\x90\x90\xa8";
+
+    EXPECT_EQ(PString(uppercase).lower(), lowercase);
+    EXPECT_EQ(PString(lowercase).upper(), uppercase);
+    // Cherokee folds to uppercase, but lower() must produce lowercase.
+    EXPECT_EQ(PString("\xe1\x8e\xa0").lower(), "\xea\xad\xb0");
+    EXPECT_EQ(PString("\xea\xad\xb0").upper(), "\xe1\x8e\xa0");
+}
+
+TEST(PStringUnicode, FullCaseConversionExpandsCharactersAndChangesUTF8Length)
+{
+    EXPECT_EQ(PString("Stra\xc3\x9f" "e").upper(), "STRASSE");
+    EXPECT_EQ(PString("\xef\xac\x83").upper(), "FFI");
+    EXPECT_EQ(PString("\xc4\xb0").lower(), "i\xcc\x87");
+    EXPECT_EQ(PString("\xe1\xba\x9e").lower(), "\xc3\x9f");
+    EXPECT_EQ(PString("\xc4\xb1").upper(), "I");
+    EXPECT_EQ(PString("\xc8\xba").lower(), "\xe2\xb1\xa5");
+    EXPECT_EQ(PString("\xe2\xb1\xa5").upper(), "\xc8\xba");
+    EXPECT_EQ(PString("\xce\x90").upper(), "\xce\x99\xcc\x88\xcc\x81");
+}
+
+TEST(PStringUnicode, LowercaseUsesOriginalFinalSigmaContext)
+{
+    EXPECT_EQ(PString("\xce\xa3").lower(), "\xcf\x83");
+    EXPECT_EQ(PString("\xce\x9f\xce\xa3").lower(), "\xce\xbf\xcf\x82");
+    EXPECT_EQ(PString("\xce\x9f\xce\xa3\xce\x91").lower(), "\xce\xbf\xcf\x83\xce\xb1");
+    EXPECT_EQ(PString("A\xce\xa3!").lower(), "a\xcf\x82!");
+    EXPECT_EQ(PString("A'\xce\xa3'B").lower(), "a'\xcf\x83'b");
+    EXPECT_EQ(PString("A\xce\xa3\xcc\x81").lower(), "a\xcf\x82\xcc\x81");
+    EXPECT_EQ(PString("A\xce\xa3\xcc\x81" "B").lower(), "a\xcf\x83\xcc\x81" "b");
+    EXPECT_EQ(PString("\xce\x9f\xce\xa3\xce\xa3").lower(), "\xce\xbf\xcf\x83\xcf\x82");
+    // U+0345 is both cased and case-ignorable; the latter takes precedence in context scans.
+    EXPECT_EQ(PString("\xcd\x85\xce\xa3").lower(), "\xcd\x85\xcf\x83");
+    EXPECT_EQ(PString("A\xcd\x85\xce\xa3\xcd\x85").lower(), "a\xcd\x85\xcf\x82\xcd\x85");
+    EXPECT_EQ(PString("A\xce\xa3\xcd\x85" "B").lower(), "a\xcf\x83\xcd\x85" "b");
+}
+
+TEST(PStringUnicode, CaseConversionPreservesEmbeddedNullsAndUncasedCharacters)
+{
+    const PString uppercase("A\0\xc3\x98\xf0\x9f\x98\x80", 8);
+    const PString lowercase("a\0\xc3\xb8\xf0\x9f\x98\x80", 8);
+
+    EXPECT_EQ(PString(uppercase).lower(), lowercase);
+    EXPECT_EQ(PString(lowercase).upper(), uppercase);
+    EXPECT_EQ(PString("\xe4\xb8\xad\xcc\x81").lower(), "\xe4\xb8\xad\xcc\x81");
+    EXPECT_EQ(PString("\xe4\xb8\xad\xcc\x81").upper(), "\xe4\xb8\xad\xcc\x81");
+    EXPECT_EQ(PString("A\0\xce\xa3", 4).lower(), PString("a\0\xcf\x83", 4));
+}
+
+
+TEST(PStringUnicode, EqualLengthUnicodeCaseConversionPreservesStorage)
+{
+    PString text(4096, 'A');
+    text.append("\xc3\x98\xc3\x85");
+    const char* storage = text.data();
+    PString expected(4096, 'a');
+    expected.append("\xc3\xb8\xc3\xa5");
+
+    EXPECT_EQ(text.lower(), expected);
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_EQ(text.upper(), PString(4096, 'A') + "\xc3\x98\xc3\x85");
+    EXPECT_EQ(text.data(), storage);
+
+    text.assign("Stra\xc3\x9f" "e \xef\xac\x83");
+    EXPECT_EQ(text.upper(), "STRASSE FFI");
+    EXPECT_EQ(text.data(), storage);
+}
+
+TEST(PStringUnicode, CaseConversionCompactsContractionsInPlace)
+{
+    PString text("\xe2\x84\xaa\xe1\xba\x9e");
+    text.append(4096, 'A');
+    text.append("\xc3\x98");
+    const char* storage = text.data();
+    PString expected("k\xc3\x9f");
+    expected.append(4096, 'a');
+    expected.append("\xc3\xb8");
+
+    EXPECT_EQ(text.lower(), expected);
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_TRUE(text.is_valid_utf8());
+}
+
+TEST(PStringUnicode, CaseConversionCarriesOneOverflowByteUntilContraction)
+{
+    PString text("\xc8\xba");
+    text.append(4096, 'A');
+    text.append("\0\xc3\x98\xe1\xba\x9eZ", 7);
+    const char* storage = text.data();
+    PString expected("\xe2\xb1\xa5");
+    expected.append(4096, 'a');
+    expected.append("\0\xc3\xb8\xc3\x9fz", 6);
+
+    EXPECT_EQ(text.lower(), expected);
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_TRUE(text.is_valid_utf8());
+}
+
+TEST(PStringUnicode, CaseConversionGrowsCompactsDrainsAndReusesOverflow)
+{
+    PString text;
+    PString expected;
+    for (size_t i = 0; i < 64; ++i)
+    {
+        text.append("\xc8\xba");
+        expected.append("\xe2\xb1\xa5");
+    }
+    text.append(4096, 'A');
+    expected.append(4096, 'a');
+    for (size_t i = 0; i < 64; ++i)
+    {
+        text.append("\xe1\xba\x9e");
+        expected.append("\xc3\x9f");
+    }
+    text.append("\xc8\xbaZ");
+    expected.append("\xe2\xb1\xa5z");
+    text.reserve(expected.size());
+    const char* storage = text.data();
+
+    EXPECT_EQ(text.lower(), expected);
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_TRUE(text.is_valid_utf8());
+}
+
+TEST(PStringUnicode, UppercaseOverflowPreservesBytesAcrossUTF8Boundaries)
+{
+    PString text;
+    PString expected;
+    for (size_t i = 0; i < 64; ++i)
+    {
+        text.append("\xce\x90");
+        expected.append("\xce\x99\xcc\x88\xcc\x81");
+    }
+    text.append("\xc3\xb8\xf0\x9f\x98\x80\xef\xac\x83");
+    expected.append("\xc3\x98\xf0\x9f\x98\x80" "FFI");
+    for (size_t i = 0; i < 256; ++i)
+    {
+        text.append("\xc4\xb1");
+        expected.append("I");
+    }
+    text.append("\xce\x90");
+    expected.append("\xce\x99\xcc\x88\xcc\x81");
+    text.reserve(expected.size());
+    const char* storage = text.data();
+
+    EXPECT_EQ(text.upper(), expected);
+    EXPECT_EQ(text.data(), storage);
+    EXPECT_TRUE(text.is_valid_utf8());
+}
+
+TEST(PStringUnicode, InPlaceLowercasePreservesOriginalSigmaContext)
+{
+    const char* source = "\xc8\xba\xce\xa3\xcc\x81\xce\x91 \xe1\xba\x9e\xce\xa3 \xc8\xba\xce\xa3\xcd\x85\xce\xa3";
+    const char* expected = "\xe2\xb1\xa5\xcf\x83\xcc\x81\xce\xb1 \xc3\x9f\xcf\x82 \xe2\xb1\xa5\xcf\x83\xcd\x85\xcf\x82";
+
+    EXPECT_EQ(PString(source).lower(), expected);
+    EXPECT_EQ(PString("\xc8\xba\xce\xa3\0\xce\xa3", 7).lower(), PString("\xe2\xb1\xa5\xcf\x82\0\xcf\x83", 8));
+    EXPECT_EQ(PString("\xe2\x84\xaa\xce\xa3").lower(), "k\xcf\x82");
+}
+
+
+TEST(PStringUnicode, LowercaseSigmaReadsCharactersSplitAcrossOverflow)
+{
+    struct ContextCase
+    {
+        const char* Source;
+        const char* Lowercase;
+        const char* Sigma;
+    };
+    const ContextCase contexts[] =
+    {
+        {"\xc3\x98", "\xc3\xb8", "\xcf\x82"},
+        {"\xe2\xb1\xa5", "\xe2\xb1\xa5", "\xcf\x82"},
+        {"\xf0\x90\x90\x80", "\xf0\x90\x90\xa8", "\xcf\x82"},
+        {"\xf0\x9f\x98\x80", "\xf0\x9f\x98\x80", "\xcf\x83"},
+        {"\xcc\x81", "\xcc\x81", "\xcf\x82"},
+        {"\xe2\x83\x9d", "\xe2\x83\x9d", "\xcf\x82"},
+        {"\xf0\x9d\x86\x85", "\xf0\x9d\x86\x85", "\xcf\x82"},
+    };
+    for (const ContextCase& context : contexts)
+    {
+        const PString precedingCharacter(context.Source);
+        for (size_t pendingLength = 1; pendingLength < precedingCharacter.size(); ++pendingLength)
+        {
+            PString text;
+            PString expected;
+            for (size_t i = 0; i < pendingLength; ++i)
+            {
+                text.append("\xc8\xba");
+                expected.append("\xe2\xb1\xa5");
+            }
+            text.append(precedingCharacter);
+            text.append("\xce\xa3");
+            expected.append(context.Lowercase);
+            expected.append(context.Sigma);
+            text.reserve(expected.size());
+            const char* storage = text.data();
+
+            EXPECT_EQ(text.lower(), expected);
+            EXPECT_EQ(text.data(), storage);
+        }
+    }
+    // The expansion's trailing dot is split across the string and overflow and must be skipped.
+    EXPECT_EQ(PString("\xc4\xb0\xce\xa3").lower(), "i\xcc\x87\xcf\x82");
+}
+
+TEST(PStringUnicode, LowercaseSigmaScansLongIgnorableContextAcrossOverflow)
+{
+    PString marks;
+    for (size_t i = 0; i < 512; ++i) {
+        marks.append("\xcd\x85\xf0\x9d\x86\x85");
+    }
+    PString prefix;
+    PString convertedPrefix;
+    for (size_t i = 0; i < 64; ++i)
+    {
+        prefix.append("\xc8\xba");
+        convertedPrefix.append("\xe2\xb1\xa5");
+    }
+
+    EXPECT_EQ(PString(prefix + marks + "\xce\xa3" + marks).lower(), convertedPrefix + marks + "\xcf\x82" + marks);
+    EXPECT_EQ(PString(prefix + "!" + marks + "\xce\xa3").lower(), convertedPrefix + "!" + marks + "\xcf\x83");
+    EXPECT_EQ(
+        PString(prefix + marks + "\xce\xa3" + marks + "A").lower(),
+        convertedPrefix + marks + "\xcf\x83" + marks + "a");
+    EXPECT_EQ(PString(marks + "\xce\xa3").lower(), marks + "\xcf\x83");
+}
+
+
 TEST(PStringUnicode, NoCaseComparisonUsesFullUnicodeCaseFolding)
 {
     EXPECT_EQ(PString("ASCII").compare_nocase("ascii"), 0);

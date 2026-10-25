@@ -56,6 +56,16 @@ void PRadioButton::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PRadioButton::OnFontChanged(Ptr<PFont> newFont)
+{
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PRadioButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PPoint size(RB_SIZE, RB_SIZE);

@@ -39,6 +39,7 @@ private:
     void                StartScroll(PScrollDirection direction, bool select);
     void                StopScroll();
 
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void    OnFrameSized(const PPoint& delta) override;
 
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;

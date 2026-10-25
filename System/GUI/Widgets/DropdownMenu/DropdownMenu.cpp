@@ -123,6 +123,22 @@ void PDropdownMenu::DetachedFromScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PDropdownMenu::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_EditBox->SetFont(newFont);
+    if (m_MenuWindow != nullptr)
+    {
+        m_MenuWindow->SetFont(newFont);
+        LayoutMenuWindow();
+    }
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PDropdownMenu::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PPoint size = (m_StringList.empty()) ? m_EditBox->GetPreferredSize(PPrefSizeType::Smallest) : m_EditBox->GetSizeForString(m_StringList[0]);
@@ -389,6 +405,7 @@ void PDropdownMenu::SetCurrentString(const PString& cString)
 void PDropdownMenu::OpenMenu()
 {
     Ptr<DropdownMenuPopupWindow> pcMenuView = ptr_new<DropdownMenuPopupWindow>(m_StringList, m_Selection);
+    pcMenuView->SetFont(GetFont());
     m_MenuWindow = pcMenuView;
 
     pcMenuView->SignalSelectionChanged.Connect(this, &PDropdownMenu::SlotSelectionChanged);

@@ -236,6 +236,8 @@ target_sources(PadOS_Kernel PRIVATE
 
 
 find_package(xkbcommon 1.13 CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(freetype 2.15 CONFIG REQUIRED)
 
 add_subdirectory(Applications)
 add_subdirectory(ApplicationServer)

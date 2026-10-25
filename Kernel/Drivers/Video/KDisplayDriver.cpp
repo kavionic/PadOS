@@ -59,6 +59,7 @@ KDisplayDriver::KDisplayDriver()
     m_CommandDispatcher.AddHandler(&PDisplayCommands::ScaleRect, this, &KDisplayDriver::HandleScaleRect);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::FillCircle, this, &KDisplayDriver::HandleFillCircle);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteString, this, &KDisplayDriver::HandleWriteString);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteFontString, this, &KDisplayDriver::HandleWriteFontString);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1437,6 +1438,7 @@ void KDisplayDriver::FillRect(PDisplayBitmap* bitmap, const PIRect& rect)
             FillBlit24( &bitmap->Raster[ BltY * bitmap->BytesPerLine + BltX * 3 ], bitmap->BytesPerLine - BltW * 3, BltW, BltH, m_FgColor.GetColor32() );
             break;
         case PEColorSpace::RGB32:
+        case PEColorSpace::RGBA32:
             FillBlit32((uint32_t*)&bitmap->Raster[BltY * bitmap->BytesPerLine + BltX * 4], bitmap->BytesPerLine / 4 - BltW, BltW, BltH, m_FgColor.GetColor32());
             break;
         default:
@@ -1534,7 +1536,16 @@ void KDisplayDriver::FillCircle(PDisplayBitmap* bitmap, const PIRect& clipRect, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t KDisplayDriver::WriteString(PDisplayBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
+uint32_t KDisplayDriver::WriteString(
+    PDisplayBitmap* bitmap,
+    const PIPoint& position,
+    const char* string,
+    size_t strLength,
+    const PIRect& clipRect,
+    PColor colorBg,
+    PColor colorFg,
+    PFontID fontID,
+    PDrawingMode mode)
 {
     return position.x;
 }

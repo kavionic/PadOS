@@ -19,6 +19,7 @@
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/Protocol.h>
 #include <ApplicationServer/DisplayDriver.h>
+#include <ApplicationServer/Fonts/FontManager.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/ServerView.h>
 #include <DeviceControl/InputDevice.h>
@@ -486,6 +487,9 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     RegisterRemoteSignal(&m_RSGetKeyboardLayouts, &ApplicationServer::SlotGetKeyboardLayouts);
     RegisterRemoteSignal(&m_RSGetKeyboardConfiguration, &ApplicationServer::SlotGetKeyboardConfiguration);
     RegisterRemoteSignal(&m_RSSetKeyboardConfiguration, &ApplicationServer::SlotSetKeyboardConfiguration);
+    RegisterRemoteSignal(&m_RSCreateFont, &ApplicationServer::SlotCreateFont);
+    RegisterRemoteSignal(&m_RSDeleteFont, &ApplicationServer::SlotDeleteFont);
+    RegisterRemoteSignal(&m_RSMeasureFont, &ApplicationServer::SlotMeasureFont);
 
     m_KeyboardManager.SignalKeyEvent.Connect(this, &ApplicationServer::SlotVirtualKeyboardEvent);
     try {
@@ -645,6 +649,21 @@ bool ApplicationServer::RegisterView(Ptr<PServerView> view)
 Ptr<PServerView> ApplicationServer::FindView(handler_id handle) const
 {
     return ptr_static_cast<PServerView>(FindHandler(handle));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PServerFontInstance> ApplicationServer::GetFont(const PFontDescription& description)
+{
+    if (m_FontManager == nullptr)
+    {
+        Ptr<PFontManager> manager = ptr_new<PFontManager>();
+        manager->ScanFonts();
+        m_FontManager = std::move(manager);
+    }
+    return m_FontManager->GetFont(description);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -891,6 +910,79 @@ void ApplicationServer::SendKeyboardConfiguration(port_id replyPort, uint32_t re
     {
         p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Could not send keyboard configuration reply.");
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotCreateFont(port_id replyPort, const PFontDescription& description)
+{
+    MsgCreateFontReply reply;
+    try
+    {
+        if (m_NextFontHandle == 0) {
+            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+        }
+        Ptr<PServerFontInstance> font = GetFont(description);
+        const uint32_t handle = m_NextFontHandle++;
+        m_ClientFonts.emplace(handle, font);
+        reply.FontHandle = handle;
+        reply.Height = font->GetHeight();
+    }
+    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
+    if (!PMessagePort(replyPort).SendMessageTimeout(
+        INVALID_HANDLE,
+        PAppserverProtocol::CREATE_FONT_REPLY,
+        &reply,
+        sizeof(reply),
+        TimeValNanos::zero)) {
+        m_ClientFonts.erase(reply.FontHandle);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotDeleteFont(uint32_t fontHandle)
+{
+    m_ClientFonts.erase(fontHandle);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotMeasureFont(
+    port_id replyPort,
+    uint32_t fontHandle,
+    const PString& text,
+    float width,
+    bool includeLast,
+    uint32_t previousGlyph)
+{
+    MsgMeasureFontReply reply;
+    reply.PreviousGlyph = previousGlyph;
+    try
+    {
+        const auto font = m_ClientFonts.find(fontHandle);
+        if (font == m_ClientFonts.end()) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
+        }
+        reply.Metrics = font->second->MeasureTextChunk(
+            std::string_view(text.data(), text.size()),
+            width,
+            includeLast,
+            reply.PreviousGlyph);
+    }
+    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
+    PMessagePort(replyPort).SendMessageTimeout(
+        INVALID_HANDLE,
+        PAppserverProtocol::MEASURE_FONT_REPLY,
+        &reply,
+        sizeof(reply),
+        TimeValNanos::zero);
 }
 
 void ApplicationServer::OpenInputDevices()

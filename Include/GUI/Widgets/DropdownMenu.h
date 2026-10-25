@@ -52,6 +52,7 @@ public:
     // From View:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
     virtual void    DetachedFromScreen() override;
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    OnFrameSized(const PPoint& cDelta) override;
     virtual void    OnScreenFrameMoved(const PPoint& delta) override;

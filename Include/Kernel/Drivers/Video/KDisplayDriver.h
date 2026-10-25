@@ -8,11 +8,13 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <span>
 #include <vector>
 #include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/Drivers/Video/KDisplayText.h>
 #include <RPC/RPCDispatcher.h>
 #include <DeviceControl/Display.h>
 #include <GUI/FontMetrics.h>
@@ -145,12 +147,33 @@ public:
         const PIRect& clipRect,
         PColor colorBg,
         PColor colorFg,
-        PFontID fontID);
+        PFontID fontID,
+        PDrawingMode mode);
 
+
+    virtual void WriteFontString(
+        PDisplayBitmap* bitmap,
+        const PIPoint& position,
+        std::string_view text,
+        const PDisplayFontCache& font,
+        std::span<const int32_t> kernings,
+        std::span<const PIRect> clipRects,
+        PColor background,
+        PColor foreground,
+        PPoint advance,
+        PDrawingMode mode);
 
     static PColor   GetPaletteEntry(uint8_t index);
 
 protected:
+    // The optional key is a pixel value in colorSpace and replaces only zero coverage.
+    const std::array<uint32_t, 256>& PrepareFontPalette(
+        PEColorSpace colorSpace,
+        PColor background,
+        PColor foreground,
+        std::optional<uint32_t> colorKey = std::nullopt);
+    KDisplayText m_FontText;
+
     KMutex          m_Mutex;
     // A faulted driver must release client memory and allow Close() without waiting for stalled hardware.
     bool            m_IsFaulted = false;
@@ -230,7 +253,21 @@ private:
         PIRect clipRect,
         PColor background,
         PColor foreground,
-        PFontID fontID);
+        PFontID fontID,
+        PDrawingMode mode);
+
+    void HandleWriteFontString(
+        std::span<const std::byte> payload,
+        PDisplayBitmap bitmap,
+        PIPoint position,
+        const PDisplayFontCache* font,
+        size_t stringLength,
+        size_t clipCount,
+        size_t kerningCount,
+        PColor background,
+        PColor foreground,
+        PPoint advance,
+        PDrawingMode mode);
 
     void ExecuteCommands_pl(const void* buffer, size_t length);
 
@@ -249,6 +286,12 @@ private:
 
     PColor  m_FgColor;
     PColor  m_BgColor;
+    std::array<uint32_t, 256> m_FontPalette{};
+    PColor m_FontBackground;
+    PColor m_FontForeground;
+    uint32_t m_FontBackgroundPixel = 0;
+    PEColorSpace m_FontColorSpace = PEColorSpace::NO_COLOR_SPACE;
+    bool m_FontPaletteValid = false;
 };
 
 } // namespace kernel

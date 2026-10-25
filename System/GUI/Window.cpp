@@ -16,8 +16,21 @@
 PWindow::PWindow(const PString& title) : PView("Window", nullptr, PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Title(title)
 {
     PFontHeight fontHeight = GetFontHeight();
-    m_ClientBorders = PRect(8.0f, fontHeight.descender - fontHeight.ascender + 8.0f, 8.0f, 8.0f);
+    m_ClientBorders = PRect(8.0f, fontHeight.descender + fontHeight.ascender + 8.0f, 8.0f, 8.0f);
     Show(false);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PWindow::OnFontChanged(Ptr<PFont> newFont)
+{
+    const PFontHeight fontHeight = GetFontHeight();
+    m_ClientBorders.top = fontHeight.ascender + fontHeight.descender + 8.0f;
+    OnFrameSized(PPoint());
+    PreferredSizeChanged();
+    Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,7 +57,7 @@ void PWindow::OnPaint(const PRect& updateRect)
     SetFgColor(PNamedColors::black);
     SetBgColor(PStandardColorID::WindowBorderActive);
 
-    MovePenTo(10.0f, 4.0f);
+    MovePenTo(10.0f, 4.0f + GetFontHeight().ascender);
     DrawString(m_Title);
 
     SetFgColor(PStandardColorID::DefaultBackground);

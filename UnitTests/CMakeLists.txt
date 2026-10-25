@@ -6,8 +6,11 @@
 ###############################################################################
 
 target_sources(PadOS_UnitTests PRIVATE
+	FontGlyphCache_unittest.cpp
 	Base64Codec_unittest.cpp
 	Exit_unittest.cpp
+	FontProtocol_unittest.cpp
+	FontSelection_unittest.cpp
 	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp
 	KeyboardManager_unittest.cpp
@@ -22,6 +25,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	PSemaphore_unittest.cpp
 	PString_unittest.cpp
 	PThreadRWLock_unittest.cpp
+	Ptr_unittest.cpp
 	RPC_unittest.cpp
 	Signal_unittest.cpp
 	STLChronoCalendar_unittest.cpp
@@ -30,4 +34,4 @@ target_sources(PadOS_UnitTests PRIVATE
 	TimeValue_unittest.cpp
 )
 
-target_link_libraries(PadOS_UnitTests PRIVATE xkbcommon::xkbcommon)
+target_link_libraries(PadOS_UnitTests PRIVATE xkbcommon::xkbcommon freetype)

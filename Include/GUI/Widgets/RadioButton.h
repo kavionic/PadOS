@@ -27,6 +27,7 @@ public:
     ~PRadioButton();
 
       // From View:
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void OnPaint(const PRect& updateRect) override;
 

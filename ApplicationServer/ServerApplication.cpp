@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "ServerApplication.h"
+#include <ApplicationServer/Fonts/ServerFontInstance.h>
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
@@ -49,6 +50,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
     RegisterRemoteSignal(&RSViewSetFont,                &ServerApplication::SlotViewSetFont);
+    RegisterRemoteSignal(&m_RSViewSetTextFont,           &ServerApplication::SlotViewSetTextFont);
     RegisterRemoteSignal(&RSViewSetPenWidth,            &ServerApplication::SlotViewSetPenWidth);
     RegisterRemoteSignal(&RSViewSetCapStyle,            &ServerApplication::SlotViewSetCapStyle);
     RegisterRemoteSignal(&RSViewSetJointStyle,          &ServerApplication::SlotViewSetJointStyle);
@@ -665,4 +667,13 @@ void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
     {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: no view with ID {}", __PRETTY_FUNCTION__, viewHandle);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotViewSetTextFont(handler_id viewHandle, const PFontDescription& description)
+{
+    ForwardToView(viewHandle, &PServerView::SetTextFont, m_Server->GetFont(description));
 }

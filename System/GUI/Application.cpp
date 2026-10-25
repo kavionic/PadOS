@@ -575,7 +575,7 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         , view->m_MiterLimit
         , view->m_DashPattern
         , view->m_DashOffset
-        , (view->m_Font != nullptr) ? view->m_Font->Get() : PFontID::e_FontLarge
+        , (view->m_Font != nullptr && !view->m_Font->IsFreeType()) ? view->m_Font->Get() : PFontID::e_FontLarge
         , view->m_EraseColor
         , view->m_BgColor
         , view->m_FgColor
@@ -591,6 +591,9 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             if (code == PAppserverProtocol::CREATE_VIEW_REPLY)
             {
                 view->SetServerHandle(reply.m_ViewHandle);
+                if (view->m_Font != nullptr && view->m_Font->IsFreeType()) {
+                    Post<ASViewSetTextFont>(reply.m_ViewHandle, view->m_Font->GetDescription());
+                }
                 view->HandleScreenPositionChanged(reply.m_ScreenPosition);
                 InvalidatePointerPaths();
                 break;

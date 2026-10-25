@@ -62,6 +62,7 @@ public:
 
     virtual void    OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void    OnFrameSized(const PPoint& delta) override;
 
     virtual void    OnPaint(const PRect& updateRect) override;

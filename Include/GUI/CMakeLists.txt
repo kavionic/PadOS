@@ -11,6 +11,7 @@ target_sources(PadOS_GUI PRIVATE
 	Desktop.h
 	Font.h
 	FontData.h
+	FontDescription.h
 	FontMetrics.h
 	GUIDefines.h
 	GUIEvent.h

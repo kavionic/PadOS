@@ -284,6 +284,7 @@ public:
     void            FillTriangleFan(std::span<const PPoint> points);
     void            FillTriangleStrip(std::span<const PPoint> points);
     void            DrawPolyline(std::span<const PPoint> points);
+    // Uses the selected font backend. Positions are baselines; bitmap fonts retain a zero ascender.
     void            DrawString(const PString& string) { Post<ASViewDrawString>(string); }
     void            DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
 
@@ -407,7 +408,7 @@ private:
     
     PRect               m_Borders = PRect(0.0f, 0.0f, 0.0f, 0.0f);
     float               m_Wheight = 1.0f;
-    PDrawingMode        m_DrawingMode = PDrawingMode::Overlay;
+    PDrawingMode        m_DrawingMode = PDrawingMode::Copy;
     PAlignment          m_HAlign = PAlignment::Center;
     PAlignment          m_VAlign = PAlignment::Center;
     PPoint              m_LocalPrefSize[int(PPrefSizeType::Count)];

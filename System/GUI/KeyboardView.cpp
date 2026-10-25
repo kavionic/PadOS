@@ -15,6 +15,7 @@
 #include <GUI/Widgets/Menu.h>
 #include <GUI/Widgets/MenuItem.h>
 #include <GUI/Desktop.h>
+#include <Ptr/NoPtr.h>
 #include <Storage/StandardPaths.h>
 #include <Storage/Directory.h>
 #include <Storage/File.h>
@@ -123,8 +124,6 @@ static constexpr PIPoint KEYS_BITMAP_SIZE(32, KEY_BM_FRAME_BACKSPACE.Height() + 
 
 static constexpr PPoint KEY_SPACING(5.0f, 5.0f);
 
-NoPtr<PKeyboardViewStyle> PKeyboardView::s_DefaultStyle;
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -154,7 +153,7 @@ PKeyButton::PKeyButton(
 PKeyboardView::PKeyboardView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
-    m_KeyHeight = fontHeight.descender - fontHeight.ascender + 11.0f;
+    m_KeyHeight = fontHeight.descender + fontHeight.ascender + 11.0f;
 
     m_KeysBitmap = ptr_new<PBitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, PEColorSpace::MONO1, PBitmap::SHARE_FRAMEBUFFER);
 
@@ -219,6 +218,17 @@ PKeyboardView::PKeyboardView(const PString& name, Ptr<PView> parent, uint32_t fl
         }
     }
     m_RepeatTimer.SignalTrigged.Connect(this, &PKeyboardView::SlotRepeatTimer);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PKeyboardViewStyle> PKeyboardView::GetDefaultStyle()
+{
+    // Font creation needs the appserver, which is not running during global initialization.
+    static NoPtr<PKeyboardViewStyle> defaultStyle;
+    return defaultStyle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -694,7 +704,7 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
         SetFont(m_Style->LargeFont);
         const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
         const float labelWidth = GetStringWidth(label);
-        const float labelHeight = fontHeight.descender - fontHeight.ascender;
+        const float labelHeight = fontHeight.descender + fontHeight.ascender;
 
         PPoint labelPos = button.m_Frame.TopLeft() + PPoint(std::round((button.m_Frame.Width() - labelWidth) * 0.5f), ceilf((button.m_Frame.Height() - labelHeight) * 0.5f));
 
@@ -702,14 +712,15 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
             labelPos.y += 2.0f;
         }
 
+        labelPos.y += fontHeight.ascender;
         DrawString(label, labelPos);
 
         if (!smallLabel.empty())
         {
-            const float smallLabelWidth = GetStringWidth(smallLabel);
             SetFont(m_Style->SmallFont);
+            const float smallLabelWidth = GetStringWidth(smallLabel);
             SetFgColor(m_Style->ExtraTextColor);
-            DrawString(smallLabel, button.m_Frame.TopRight() + PPoint(-smallLabelWidth - 6.0f, 2.0f));
+            DrawString(smallLabel, button.m_Frame.TopRight() + PPoint(-smallLabelWidth - 6.0f, 2.0f + GetFontHeight().ascender));
         }
     }
 }

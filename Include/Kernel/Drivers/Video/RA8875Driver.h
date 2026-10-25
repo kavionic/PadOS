@@ -156,11 +156,35 @@ public:
         const PIRect& clipRect,
         PColor colorBg,
         PColor colorFg,
-        PFontID fontID) override;
+        PFontID fontID,
+        PDrawingMode mode) override;
+
+    virtual void WriteFontString(
+        PDisplayBitmap* bitmap,
+        const PIPoint& position,
+        std::string_view text,
+        const PDisplayFontCache& font,
+        std::span<const int32_t> kernings,
+        std::span<const PIRect> clipRects,
+        PColor background,
+        PColor foreground,
+        PPoint advance,
+        PDrawingMode mode) override;
 
     virtual void WaitIdle() override;
 
 private:
+    uint32_t WriteBitmapOverlay(
+        const PIPoint& position,
+        std::string_view text,
+        const PIRect& clipRect,
+        const FONT_INFO& font,
+        PColor foreground);
+    void BeginTransparentWrite(const PIRect& bounds);
+    void WriteFontSpan(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PDrawingMode mode);
+    template<typename CoverageReader>
+    void WriteFontRow(int width, const std::array<uint32_t, 256>& palette, CoverageReader readCoverage);
+
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
     IRQResult HandleIRQ();
     void WaitBTE();

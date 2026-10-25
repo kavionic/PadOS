@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ApplicationServer/DisplayDriver.h>
+#include <ApplicationServer/Fonts/ServerFontInstance.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <System/ExceptionHandling.h>
 #include <algorithm>
@@ -89,6 +90,7 @@ bool PDisplayDriver::Open()
 void PDisplayDriver::Close()
 {
     m_UsedBufferSize = 0;
+    m_FontReferences.clear();
     if (m_DeviceControl.GetDeviceFD() >= 0)
     {
         close(m_DeviceControl.GetDeviceFD());
@@ -425,13 +427,85 @@ void PDisplayDriver::DrawString(
     const PIRect& clipRect,
     PColor background,
     PColor foreground,
-    PFontID fontID)
+    PFontID fontID,
+    PDrawingMode mode)
 {
     void* buffer = m_Commands.WriteString.Alloc(length);
     if (length != 0) {
         std::memcpy(static_cast<uint8_t*>(buffer) + m_Commands.WriteString.GetFixedSize(), string, length);
     }
-    m_Commands.WriteString(buffer, ReferenceBitmap(bitmap), position, length, clipRect, background, foreground, fontID);
+    m_Commands.WriteString(buffer, ReferenceBitmap(bitmap), position, length, clipRect, background, foreground, fontID, mode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PFontTextMetrics PDisplayDriver::DrawText(
+    PSrvBitmap* bitmap,
+    const PIPoint& position,
+    std::string_view text,
+    PServerFontInstance& font,
+    std::span<const PIRect> clipRects,
+    PColor background,
+    PColor foreground,
+    PDrawingMode mode)
+{
+    if (text.empty() || clipRects.empty()) {
+        return font.MeasureText(text);
+    }
+    static_assert(alignof(PIRect) <= align_argument_size(1));
+    static_assert(alignof(int32_t) <= alignof(PIRect));
+    constexpr size_t ARGUMENT_SIZE = decltype(m_Commands.WriteFontString)::GetFixedSize();
+    constexpr size_t LIMIT = std::numeric_limits<uint32_t>::max() - ARGUMENT_SIZE - sizeof(PDisplayCommandHeader)
+        - DISPLAY_COMMAND_ALIGNMENT;
+    if (clipRects.size() > LIMIT / sizeof(PIRect) || text.size() > LIMIT - clipRects.size_bytes()) {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    const size_t kerningCount = font.GetTextKerningCount(text);
+    if (kerningCount > (LIMIT - clipRects.size_bytes() - text.size()) / sizeof(int32_t)) {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    const size_t kerningBytes = kerningCount * sizeof(int32_t);
+    PServerPreparedText prepared;
+    if constexpr (!PServerFontInstance::USE_INLINE_KERNING) {
+        prepared = font.PrepareText(text);
+    }
+    if (m_FontReferences.size() == m_FontReferences.capacity())
+    {
+        const size_t capacity = m_FontReferences.capacity();
+        const size_t growth = std::min(std::max(size_t(1), capacity), m_FontReferences.max_size() - capacity);
+        m_FontReferences.reserve(capacity + growth);
+    }
+    void* buffer = m_Commands.WriteFontString.Alloc(clipRects.size_bytes() + kerningBytes + text.size());
+    const size_t commandOffset = size_t(static_cast<uint8_t*>(buffer) - reinterpret_cast<uint8_t*>(m_CommandBuffer.data()))
+        - sizeof(PDisplayCommandHeader);
+    PScopeFail rollback([this, commandOffset] { m_UsedBufferSize = commandOffset; });
+    uint8_t* payload = static_cast<uint8_t*>(buffer) + ARGUMENT_SIZE;
+    int32_t* kernings = (kerningCount != 0) ? reinterpret_cast<int32_t*>(payload + clipRects.size_bytes()) : nullptr;
+    if constexpr (PServerFontInstance::USE_INLINE_KERNING)
+    {
+        // Preparation writes directly into the reserved command. It cannot submit or allocate display commands.
+        prepared = font.PrepareText(text, kernings);
+    }
+    m_Commands.WriteFontString(
+        buffer,
+        ReferenceBitmap(bitmap),
+        position,
+        prepared.Cache->GetDisplayCache(),
+        text.size(),
+        clipRects.size(),
+        kerningCount,
+        background,
+        foreground,
+        prepared.Metrics.Advance,
+        mode);
+    std::memcpy(payload, clipRects.data(), clipRects.size_bytes());
+    std::memcpy(payload + clipRects.size_bytes() + kerningBytes, text.data(), text.size());
+    if (std::find(m_FontReferences.begin(), m_FontReferences.end(), prepared.Cache) == m_FontReferences.end()) {
+        m_FontReferences.push_back(prepared.Cache);
+    }
+    return prepared.Metrics;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -491,6 +565,7 @@ void PDisplayDriver::Flush()
             m_Commands.SetFgColor(m_FgColor);
             m_Commands.SetBgColor(m_BgColor);
         });
+        PScopeExit releaseFonts([this] { m_FontReferences.clear(); });
         m_DeviceControl.Submit(m_CommandBuffer.data(), size);
     }
 }

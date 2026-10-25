@@ -79,6 +79,17 @@ void PTextBox::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PTextBox::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_Editor->SetFont(newFont);
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PTextBox::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PPoint size = m_Editor->GetPreferredSize(PPrefSizeType::Smallest);

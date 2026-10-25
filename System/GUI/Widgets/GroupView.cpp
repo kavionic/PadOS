@@ -45,11 +45,12 @@ void PGroupView::OnPaint(const PRect& updateRect)
     {
         PFontHeight fontHeight = GetFontHeight();
 
+        SetBgColor(GetEraseColor());
         SetFgColor(PStandardColorID::Shadow);
 		MovePenTo(30.0f, fontHeight.ascender);
 		DrawString(m_Label);
 
-        labelHeight = fontHeight.descender - fontHeight.ascender;
+        labelHeight = fontHeight.descender + fontHeight.ascender;
         labelWidth = GetStringWidth(m_Label);
     }
 

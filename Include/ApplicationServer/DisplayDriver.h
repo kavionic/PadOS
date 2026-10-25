@@ -11,6 +11,7 @@
 #include <limits>
 #include <System/ExceptionHandling.h>
 #include <span>
+#include <string_view>
 #include <vector>
 #include <utility>
 #include <Ptr/PtrTarget.h>
@@ -20,6 +21,8 @@
 #include <GUI/FontMetrics.h>
 
 class PSrvBitmap;
+class PServerFontInstance;
+class PServerFontDrawCache;
 
 // Payload elements are constructed directly by the caller after allocation.
 struct PDisplayPolygonBuffer
@@ -128,7 +131,22 @@ public:
         const PIRect& clipRect,
         PColor background,
         PColor foreground,
-        PFontID fontID);
+        PFontID fontID,
+        PDrawingMode mode);
+
+    // The new font path coexists with DrawString's original bitmap-font path.
+    // Copies UTF-8 bytes and retains a warmed cache until submission completes.
+    // Copy clears the logical text area and glyph bounds; Overlay preserves zero coverage.
+    // Antialiasing uses background; overlapping glyph coverage is combined.
+    PFontTextMetrics DrawText(
+        PSrvBitmap* bitmap,
+        const PIPoint& position,
+        std::string_view text,
+        PServerFontInstance& font,
+        std::span<const PIRect> clipRects,
+        PColor background,
+        PColor foreground,
+        PDrawingMode mode);
 
     PDisplayPolygonBuffer AllocPolygon(
         PSrvBitmap* bitmap,
@@ -178,6 +196,7 @@ private:
     PDisplayDeviceControl m_DeviceControl;
     std::vector<uint64_t> m_CommandBuffer;
     size_t m_UsedBufferSize = 0;
+    std::vector<Ptr<PServerFontDrawCache>> m_FontReferences;
     PDisplayInfo m_Info;
     Ptr<PSrvBitmap> m_ScreenBitmap;
     PColor m_FgColor;

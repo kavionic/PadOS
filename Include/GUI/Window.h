@@ -17,6 +17,7 @@ public:
     PWindow(const PString& title);
 
     // From View:
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;

@@ -18,6 +18,9 @@
 #include <System/System.h>
 
 #define PERROR_THROW_CODE(error) throw std::system_error(std::to_underlying(error), std::generic_category())
+#define PERROR_THROW_CODE_WHAT(error, what) \
+    throw std::system_error(std::to_underlying(error), std::generic_category(), (what))
+
 #define PERROR_ERRORCODE_THROW_ON_FAIL(result)  p_error_code_throw_on_fail(result)
 #define PERROR_SYSRET_THROW_ON_FAIL(result)     p_sysret_throw_on_fail(result)
 

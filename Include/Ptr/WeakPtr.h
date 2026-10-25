@@ -48,6 +48,36 @@ public:
     template <class Y> bool operator==(const SigWeakPtr<Y>& ptr) const noexcept;
     template <class Y> bool operator!=(const SigWeakPtr<Y>& ptr) const noexcept;
     template <class Y> bool operator<(const SigWeakPtr<Y>& ptr) const noexcept;
+
+    friend bool operator==(const WeakPtr& lhs, const T* rhs) noexcept
+    {
+        return lhs.Get() == rhs;
+    }
+
+    friend bool operator!=(const WeakPtr& lhs, const T* rhs) noexcept
+    {
+        return lhs.Get() != rhs;
+    }
+
+    friend bool operator<(const WeakPtr& lhs, const T* rhs) noexcept
+    {
+        return lhs.Get() < rhs;
+    }
+
+    friend bool operator==(const T* lhs, const WeakPtr& rhs) noexcept
+    {
+        return lhs == rhs.Get();
+    }
+
+    friend bool operator!=(const T* lhs, const WeakPtr& rhs) noexcept
+    {
+        return lhs != rhs.Get();
+    }
+
+    friend bool operator<(const T* lhs, const WeakPtr& rhs) noexcept
+    {
+        return lhs < rhs.Get();
+    }
   
 private:
     template<class Y> friend class Ptr;

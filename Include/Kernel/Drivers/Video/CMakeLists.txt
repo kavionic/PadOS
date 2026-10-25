@@ -9,5 +9,6 @@ target_sources(PadOS_Kernel PRIVATE
 	RA8875Driver.h
 	RA8875Registers.h
 	KDisplayDriver.h
+	KDisplayText.h
 	BlitterUtils.h
 )

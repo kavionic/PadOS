@@ -10,6 +10,7 @@
 
 #include "GUI/Widgets/TextView.h"
 #include "Utils/Utils.h"
+#include <Utils/UTF8Utils.h>
 #include "Utils/XMLObjectParser.h"
 
 
@@ -70,6 +71,18 @@ void PTextView::SetText(const PString& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PTextView::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_TextWidth = GetStringWidth(m_Text);
+    m_IsWordWrappingValid = false;
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PTextView::OnFrameSized(const PPoint& delta)
 {
     PView::OnFrameSized(delta);
@@ -96,7 +109,7 @@ void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
             {
                 const PFontHeight fontHeight = GetFontHeight();
 
-                const float textArea = m_TextWidth * (fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
+                const float textArea = m_TextWidth * (fontHeight.descender + fontHeight.ascender + fontHeight.line_gap);
 
                 minSize->x = ceilf(sqrtf(textArea) * sqrtf(m_AspectRatio));
                 maxSize->x = minSize->x;
@@ -111,7 +124,8 @@ void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
         {
             UpdateWordWrapping();
 
-            minSize->y = std::max(1.0f, float(m_LineWraps.size())) * (fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
+            minSize->y = std::max(1.0f, float(m_LineWraps.size()))
+                * (fontHeight.descender + fontHeight.ascender + fontHeight.line_gap);
             if (!HasFlags(PTextViewFlags::IncludeLineGap)) {
                 minSize->y -= fontHeight.line_gap;
             }
@@ -126,7 +140,7 @@ void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
         }
         if (includeHeight)
         {
-            size.y = fontHeight.descender - fontHeight.ascender;
+            size.y = fontHeight.descender + fontHeight.ascender;
             if (HasFlags(PTextViewFlags::IncludeLineGap)) {
                 size.y += fontHeight.line_gap;
             }
@@ -150,12 +164,12 @@ void PTextView::OnPaint(const PRect& updateRect)
     PRect bounds = GetBounds();
     EraseRect(bounds);
 
-    MovePenTo(0.0f, 0.0f);
+    const PFontHeight fontHeight = GetFontHeight();
+    MovePenTo(0.0f, fontHeight.ascender);
 
     if (!m_LineWraps.empty())
     {
-        const PFontHeight fontHeight = GetFontHeight();
-        const float lineHeight = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
+        const float lineHeight = fontHeight.descender + fontHeight.ascender + fontHeight.line_gap;
 
         const char* lineStart = m_Text.c_str();
         for (size_t nextLineStart : m_LineWraps)
@@ -209,7 +223,12 @@ bool PTextView::UpdateWordWrapping()
         for (; remainingChars != 0; ++line)
         {
             int lineLength = font->GetStringLength(currentLineStart, remainingChars, wrapWidth);
-            if (lineLength < 1) lineLength = 1;
+            if (lineLength < 1)
+            {
+                size_t characterLength = 0;
+                utf8_to_unicode(currentLineStart, remainingChars, characterLength);
+                lineLength = int(characterLength);
+            }
 
             for (size_t i = 0; i < lineLength; ++i)
             {

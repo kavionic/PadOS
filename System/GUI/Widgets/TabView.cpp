@@ -387,6 +387,27 @@ PRect PTabView::GetClientFrame() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PTabView::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_FontHeight = GetFontHeight();
+    m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
+    m_TabHeight = std::round(m_GlyphHeight * 1.2f + 6.0f);
+    m_TotalTabsWidth = 4.0f;
+    for (Tab& tab : m_TabList)
+    {
+        tab.m_Width = std::round(GetStringWidth(tab.m_Title) * 1.1f) + 4.0f;
+        m_TotalTabsWidth += tab.m_Width;
+    }
+    m_TopView->SetFont(newFont);
+    Layout(PPoint());
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PTabView::Layout(const PPoint& delta)
 {
     const PRect bounds = GetBounds();
@@ -694,6 +715,7 @@ void PTabView::TopView::OnPaint(const PRect& updateRect)
     const PFontHeight  fontHeight = m_TabView->m_FontHeight;
     const float       glyphHeight = m_TabView->m_GlyphHeight;
 
+    SetBgColor(PStandardColorID::DefaultBackground);
     FillRect(bounds, pget_standard_color(PStandardColorID::DefaultBackground));
     for (size_t i = 0; i < m_TabView->m_TabList.size(); ++i)
     {

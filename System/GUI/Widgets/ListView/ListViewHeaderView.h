@@ -23,6 +23,7 @@ public:
 
 private:
     void  DrawButton(const char* title, const PRect& frame, Ptr<PFont> font, PFontHeight* fontHeight);
+    virtual void    OnFontChanged(Ptr<PFont> newFont) override { Invalidate(); }
     virtual void    OnPaint(const PRect& updateRect) override;
 
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;

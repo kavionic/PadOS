@@ -15,6 +15,7 @@
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 #include <Utils/UTF8Utils.h>
+#include <System/ExceptionHandling.h>
 #include <algorithm>
 #include <array>
 #include <utility>
@@ -701,14 +702,32 @@ PIPoint RA8875GfxDriver::RenderGlyph(const PIPoint& position, uint32_t character
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t RA8875GfxDriver::WriteString(PDisplayBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
+uint32_t RA8875GfxDriver::WriteString(
+    PDisplayBitmap* bitmap,
+    const PIPoint& position,
+    const char* string,
+    size_t strLength,
+    const PIRect& clipRect,
+    PColor colorBg,
+    PColor colorFg,
+    PFontID fontID,
+    PDrawingMode mode)
 {
+    if (mode != PDrawingMode::Copy && mode != PDrawingMode::Overlay) {
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
+    }
     if (bitmap->VideoMemory)
     {
         const FONT_INFO* font = GetFontDesc(fontID);
 
         if (font == nullptr) {
             return position.x;
+        }
+
+        if (mode == PDrawingMode::Overlay)
+        {
+            const PIRect bitmapBounds = PIRect(PIPoint(0, 0), bitmap->Size) & PIRect(PIPoint(0, 0), GetResolution());
+            return WriteBitmapOverlay(position, std::string_view(string, strLength), clipRect & bitmapBounds, *font, colorFg);
         }
 
         PIPoint cursor = position;
@@ -758,7 +777,7 @@ uint32_t RA8875GfxDriver::WriteString(PDisplayBitmap* bitmap, const PIPoint& pos
     }
     else
     {
-        return KDisplayDriver::WriteString(bitmap, position, string, strLength, clipRect, colorBg, colorFg, fontID);
+        return KDisplayDriver::WriteString(bitmap, position, string, strLength, clipRect, colorBg, colorFg, fontID, mode);
     }
 }
 
@@ -834,6 +853,85 @@ uint32_t RA8875GfxDriver::WriteString(PDisplayBitmap* bitmap, const PIPoint& pos
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void RA8875GfxDriver::WriteFontString(
+    PDisplayBitmap* bitmap,
+    const PIPoint& position,
+    std::string_view text,
+    const PDisplayFontCache& font,
+    std::span<const int32_t> kernings,
+    std::span<const PIRect> clipRects,
+    PColor background,
+    PColor foreground,
+    PPoint advance,
+    PDrawingMode mode)
+{
+    kassert(m_Mutex.IsLocked());
+    if (mode != PDrawingMode::Copy && mode != PDrawingMode::Overlay) {
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
+    }
+    if (mode == PDrawingMode::Overlay && foreground.GetAlpha() == 0) {
+        return;
+    }
+    if (!bitmap->VideoMemory)
+    {
+        KDisplayDriver::WriteFontString(bitmap, position, text, font, kernings, clipRects, background, foreground, advance, mode);
+    }
+    else if (!text.empty() && !clipRects.empty())
+    {
+        std::optional<uint32_t> colorKey;
+        if (mode == PDrawingMode::Overlay)
+        {
+            // Pick red opposite the background's upper bit and green opposite the foreground's.
+            // No interpolation can approach both extremes closely enough to quantize to this RGB565 corner.
+            const uint32_t transparentRed = (background.GetRed() < 128) ? 0xf800 : 0;
+            const uint32_t transparentGreen = (foreground.GetGreen() < 128) ? 0x07e0 : 0;
+            colorKey = transparentRed | transparentGreen;
+        }
+        const std::array<uint32_t, 256>& palette = PrepareFontPalette(bitmap->ColorSpace, background, foreground, colorKey);
+        const PIRect bitmapBounds = PIRect(PIPoint(0, 0), bitmap->Size) & PIRect(PIPoint(0, 0), GetResolution());
+        m_FontText.Begin(font, text, position, bitmapBounds, kernings, advance, mode);
+        PScopeExit releaseText([this] { m_FontText.End(); });
+        const PColor previousColor = GetFgColor();
+        // Only spans outside every glyph raster use fills. Their pixels will not be written again.
+        KDisplayDriver::SetFgColor(PColor(background.GetRed(), background.GetGreen(), background.GetBlue()));
+        PScopeExit restoreColor([this, previousColor] { KDisplayDriver::SetFgColor(previousColor); });
+        if (mode == PDrawingMode::Overlay) {
+            SetHardwareFgColor(uint16_t(palette[0]));
+        }
+        WaitBlitter();
+        const FillDirection_e previousDirection = m_FillDirection;
+        SetFillDirection(e_FillLeftDown);
+        PScopeExit restoreDirection([this, previousDirection]
+        {
+            if (!m_IsFaulted)
+            {
+                WaitMemory();
+                SetFillDirection(previousDirection);
+            }
+        });
+        while (m_FontText.NextSpan())
+        {
+            for (const PIRect& clip : clipRects)
+            {
+                const PIRect bounds = m_FontText.GetSpan().Bounds & clip & bitmapBounds;
+                if (bounds.IsValid())
+                {
+                    if (m_FontText.GetSpan().HasGlyphs) {
+                        WriteFontSpan(bounds, palette, mode);
+                    } else {
+                        FillRect(bitmap, bounds);
+                    }
+                }
+            }
+        }
+        WaitBlitter();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void RA8875GfxDriver::WaitIdle()
 {
     // All client raster access is synchronous CPU I/O. A faulted BTE cannot retain references to client memory.
@@ -842,6 +940,150 @@ void RA8875GfxDriver::WaitIdle()
     {
         WaitBlitter();
         WaitMemory();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t RA8875GfxDriver::WriteBitmapOverlay(
+    const PIPoint& position,
+    std::string_view text,
+    const PIRect& clipRect,
+    const FONT_INFO& font,
+    PColor foreground)
+{
+    if (!clipRect.IsValid()) {
+        return position.x;
+    }
+    const uint16_t foreground16 = foreground.GetColor16();
+    const uint16_t transparent16 = uint16_t(~foreground16);
+    const size_t bytesPerColumn = (size_t(font.heightPages) + 7) / 8;
+    PIPoint cursor = position;
+    WaitBlitter();
+    SetHardwareFgColor(transparent16);
+    const FillDirection_e previousDirection = m_FillDirection;
+    SetFillDirection(e_FillLeftDown);
+    PScopeExit restoreDirection([this, previousDirection]
+    {
+        if (!m_IsFaulted)
+        {
+            WaitMemory();
+            SetFillDirection(previousDirection);
+        }
+    });
+    while (!text.empty() && cursor.x < clipRect.right)
+    {
+        size_t byteCount = 0;
+        const uint32_t character = utf8_to_unicode(text.data(), text.size(), byteCount);
+        text.remove_prefix(byteCount);
+        if (character >= font.startChar && character <= font.endChar)
+        {
+            const FONT_CHAR_INFO& characterInfo = font.charInfo[character - font.startChar];
+            const PIRect bounds(cursor.x, cursor.y, cursor.x + characterInfo.widthBits, cursor.y + font.heightPages);
+            const PIRect clipped = bounds & clipRect;
+            if (clipped.IsValid() && foreground.GetAlpha() != 0)
+            {
+                const uint8_t* raster = font.data + characterInfo.offset;
+                BeginTransparentWrite(clipped);
+                for (int y = clipped.top; y < clipped.bottom; ++y)
+                {
+                    const size_t row = size_t(y - cursor.y);
+                    const uint8_t mask = uint8_t(0x80 >> (row % 8));
+                    const uint8_t* source = raster + size_t(clipped.left - cursor.x) * bytesPerColumn + row / 8;
+                    for (int x = clipped.left; x < clipped.right; ++x)
+                    {
+                        const uint16_t color = ((*source & mask) != 0) ? foreground16 : transparent16;
+                        source += bytesPerColumn;
+                        WaitMemory();
+                        WriteData(color);
+                    }
+                }
+            }
+            cursor.x += characterInfo.widthBits;
+        }
+        cursor.x += CHARACTER_SPACING;
+    }
+    WaitBlitter();
+    return cursor.x;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::BeginTransparentWrite(const PIRect& bounds)
+{
+    WaitBlitter();
+    WriteCommand(RA8875_HDBE0, RA8875_HDBE1, uint16_t(bounds.left));
+    WriteCommand(RA8875_VDBE0, RA8875_VDBE1, uint16_t(bounds.top));
+    WriteCommand(RA8875_BEWR0, RA8875_BEWR1, uint16_t(bounds.Width()));
+    WriteCommand(RA8875_BEHR0, RA8875_BEHR1, uint16_t(bounds.Height()));
+    WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_TRAN | RA8875_BTE_ROP_S);
+    WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
+    BeginWriteData();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::WriteFontSpan(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PDrawingMode mode)
+{
+    if (mode == PDrawingMode::Overlay)
+    {
+        BeginTransparentWrite(bounds);
+    }
+    else
+    {
+        SetWindow(bounds);
+        MemoryWrite_Position(bounds.left, bounds.top);
+    }
+    const KDisplayTextGlyph* singleGlyph = m_FontText.GetSpan().SingleGlyph;
+    if (singleGlyph != nullptr)
+    {
+        const size_t stride = size_t(singleGlyph->Bounds.Width());
+        const size_t column = size_t(bounds.left - singleGlyph->Bounds.left);
+        const uint8_t* sourceRow = singleGlyph->Glyph->Raster + size_t(bounds.top - singleGlyph->Bounds.top) * stride;
+        for (int y = bounds.top; y < bounds.bottom; ++y)
+        {
+            const uint8_t* source = sourceRow + column;
+            WriteFontRow(bounds.Width(), palette, [source]() mutable { return *source++; });
+            sourceRow += stride;
+        }
+    }
+    else
+    {
+        for (int y = bounds.top; y < bounds.bottom; ++y)
+        {
+            const std::span<const uint8_t*> sources = m_FontText.GetRowSources(bounds.left, y);
+            if (sources.size() == 1)
+            {
+                const uint8_t* source = sources[0];
+                WriteFontRow(bounds.Width(), palette, [source]() mutable { return *source++; });
+            }
+            else
+            {
+                WriteFontRow(bounds.Width(), palette, [sources] { return KDisplayText::ReadCoverage(sources); });
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename CoverageReader>
+void RA8875GfxDriver::WriteFontRow(int width, const std::array<uint32_t, 256>& palette, CoverageReader readCoverage)
+{
+    for (int x = 0; x < width; ++x)
+    {
+        const uint16_t color = uint16_t(palette[readCoverage()]);
+        // Prepare the final pixel colour while the preceding LCD write completes.
+        WaitMemory();
+        WriteData(color);
     }
 }
 

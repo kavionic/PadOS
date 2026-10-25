@@ -8,6 +8,8 @@
 target_sources(PadOS_Kernel PRIVATE
 	RA8875Driver.cpp
 	KDisplayDriver.cpp
+	KDisplayDriverFontRender.cpp
+	KDisplayText.cpp
 	KDisplayDriverLineRender.cpp
 	KDisplayDriverProtocol.cpp
 )

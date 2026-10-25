@@ -10,6 +10,7 @@ target_sources(PadOS_Kernel PRIVATE
 	HID.h
 	InputDevice.h
 	Display.h
+	DisplayFont.h
 	I2C.h
 	INA3221.h
 	SDCARD.h

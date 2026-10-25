@@ -76,6 +76,21 @@ public:
     bool operator!=(const T* obj) const noexcept;
     bool operator< (const T* obj) const noexcept;
 
+    friend bool operator==(const T* lhs, const Ptr& rhs) noexcept
+    {
+        return lhs == rhs.m_Object;
+    }
+
+    friend bool operator!=(const T* lhs, const Ptr& rhs) noexcept
+    {
+        return lhs != rhs.m_Object;
+    }
+
+    friend bool operator<(const T* lhs, const Ptr& rhs) noexcept
+    {
+        return lhs < rhs.m_Object;
+    }
+
 private:
     template <class Y> inline Ptr(const WeakPtr<Y>& ptr) noexcept;
 

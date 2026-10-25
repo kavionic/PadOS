@@ -32,6 +32,17 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& ite
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void DropdownMenuPopupWindow::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_ContentView->SetFont(newFont);
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void DropdownMenuPopupWindow::OnPaint(const PRect& updateRect)
 {
     SetEraseColor(255, 255, 255);
@@ -86,21 +97,21 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemLis
     m_CurSelection = selection;
     m_OldSelection = m_CurSelection;
 
-    m_FontHeight = GetFontHeight();
-    m_GlyphHeight = std::round(m_FontHeight.descender + m_FontHeight.ascender + m_FontHeight.line_gap);
-
-    m_ContentSize.y = float(m_ItemList.size()) * m_GlyphHeight;
-
-    for (size_t i = 0; i < m_ItemList.size(); ++i)
-    {
-        const float width = GetStringWidth(m_ItemList[i]);
-        if (width > m_ContentSize.x) {
-            m_ContentSize.x = width;
-        }
-    }
-    m_ContentSize.x += 4.0f;
+    UpdateFontMetrics();
 
     PreferredSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenuPopupView::OnFontChanged(Ptr<PFont> newFont)
+{
+    UpdateFontMetrics();
+    ContentSizeChanged();
+    PreferredSizeChanged();
+    Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,7 +157,7 @@ void DropdownMenuPopupView::OnPaint(const PRect& updateRect)
         DrawString(m_ItemList[i]);
         y += m_GlyphHeight;
 
-        if (i == m_CurSelection)
+        if (i == m_CurSelection || i == m_HitItem)
         {
             SetFgColor(0, 0, 0);
             SetBgColor(255, 255, 255);
@@ -339,6 +350,28 @@ void DropdownMenuPopupView::MakeSelectionVisible()
         const float offset = std::round((bounds.Height() + itemTop - itemBottom) * 0.5f - itemTop);
         ScrollTo(0.0f, std::clamp(offset, maxScroll, 0.0f));
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenuPopupView::UpdateFontMetrics()
+{
+    m_ContentSize = PPoint();
+    m_FontHeight = GetFontHeight();
+    m_GlyphHeight = std::round(m_FontHeight.descender + m_FontHeight.ascender + m_FontHeight.line_gap);
+
+    m_ContentSize.y = float(m_ItemList.size()) * m_GlyphHeight;
+
+    for (size_t i = 0; i < m_ItemList.size(); ++i)
+    {
+        const float width = GetStringWidth(m_ItemList[i]);
+        if (width > m_ContentSize.x) {
+            m_ContentSize.x = width;
+        }
+    }
+    m_ContentSize.x += 4.0f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

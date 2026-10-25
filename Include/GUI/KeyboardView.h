@@ -13,7 +13,6 @@
 #include <GUI/View.h>
 #include <Threads/EventTimer.h>
 #include <Utils/String.h>
-#include <Ptr/NoPtr.h>
 
 class PMenu;
 class PMenuItem;
@@ -99,7 +98,7 @@ class PKeyboardView : public PView
 public:
     PKeyboardView(const PString& name, Ptr<PView> parent = nullptr, uint32_t flags = 0);
 
-    static Ptr<PKeyboardViewStyle> GetDefaultStyle() { return s_DefaultStyle; }
+    static Ptr<PKeyboardViewStyle> GetDefaultStyle();
 
     // From ViewBase:
     virtual void OnFlagsChanged(uint32_t changedFlags) override;
@@ -129,8 +128,7 @@ private:
     void    SlotRepeatTimer();
     void    SlotLayoutSelected(Ptr<PMenuItem> item);
 
-    static NoPtr<PKeyboardViewStyle> s_DefaultStyle;
-    Ptr<PKeyboardViewStyle>          m_Style = s_DefaultStyle;
+    Ptr<PKeyboardViewStyle>          m_Style = GetDefaultStyle();
 
     Ptr<PBitmap>                 m_KeysBitmap;
     PEventTimer                  m_RepeatTimer;

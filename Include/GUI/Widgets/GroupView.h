@@ -18,6 +18,7 @@ public:
     PGroupView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
     // From View:
+    virtual void OnFontChanged(Ptr<PFont> newFont) override { Invalidate(); }
     virtual void OnPaint(const PRect& updateRect) override;
 
 private:

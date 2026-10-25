@@ -9,26 +9,25 @@
 
 #include <string>
 
-#include <Ptr/PtrTarget.h>
+#include <GUI/FontDescription.h>
+#include <Ptr/Ptr.h>
 
-
-enum class PFontID : uint8_t { e_FontSmall, e_FontNormal, e_FontLarge, e_Font7Seg, e_FontCount };
-
-struct PFontHeight
-{
-    float ascender;   // Pixels from baseline to top of glyph (positive)
-    float descender;  // Pixels from baseline to bottom of glyph (negative)
-    float line_gap;   // Space between lines (positive)    
-};
 
 class PFont : public PtrTarget
 {
 public:
-    PFont(PFontID font) : m_Font(font) {}
+    // Standard font IDs select the closest bundled TrueType equivalent, also when passed to Set().
+    explicit PFont(PFontID font);
+    explicit PFont(const PFontDescription& description);
+    ~PFont();
 
-    void Set(PFontID font) { m_Font = font; }
-    PFontID Get() const { return m_Font; }
-    PFontHeight GetHeight() const;        
+    // After modifying a font, call SetFont again on views using it.
+    void Set(PFontID font);
+    void Set(const PFontDescription& description);
+    PFontID Get() const { return m_Font; } // e_FontCount for a FreeType font.
+    bool IsFreeType() const { return m_FreeType != nullptr; }
+    const PFontDescription& GetDescription() const;
+    PFontHeight GetHeight() const;
 
     int		GetStringLength(const char* pzString, float vWidth, bool bIncludeLast = false) const;
     int		GetStringLength(const char* pzString, int nLength, float vWidth, bool bIncludeLast = false) const;
@@ -38,5 +37,9 @@ public:
     float GetStringWidth(const char* string, size_t length) const;
     
 private:
+    static PFontDescription GetDefaultDescription(PFontID font);
+
+    class FreeTypeState;
+    Ptr<FreeTypeState> m_FreeType;
     PFontID m_Font;
 };

@@ -54,8 +54,6 @@ PSlider::PSlider(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xm
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PSliderFlags::FlagMap, "flags", PSliderFlags::TicksBelow | PSliderFlags::KnobPointDown) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
 
-    SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
-
     m_Orientation   = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
     m_NumTicks      = context.GetAttribute(xmlData, "num_ticks", 10);
 
@@ -74,6 +72,7 @@ PSlider::PSlider(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xm
     m_SliderColor2  = m_SliderColor1;
 
     SetValueStringFormat(context.GetAttribute(xmlData, "value_format", PString::zero), context.GetAttribute(xmlData, "value_scale", 1.0f));
+    SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,6 +96,20 @@ PSlider::~PSlider()
 void PSlider::AttachedToScreen()
 {
     SetEraseColor(GetParent()->GetEraseColor());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PSlider::OnFontChanged(Ptr<PFont> newFont)
+{
+    if (m_ValueView != nullptr) {
+        m_ValueView->SetFont(newFont);
+    }
+    LayoutValueView();
+    PreferredSizeChanged();
+    Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -590,6 +603,7 @@ void PSlider::OnLabelChanged(const PString& label)
         if (m_ValueView == nullptr)
         {
             m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this));
+            m_ValueView->SetFont(GetFont());
             m_ValueView->SetHitMode(PViewHitMode::IgnoreThis);
             m_ValueView->SignalPreferredSizeChanged.Connect(this, &PSlider::LayoutValueView);
         }

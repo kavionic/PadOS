@@ -29,6 +29,8 @@ PDEFINE_LOG_CATEGORY(LogCategoryAppServer, "APPSERV", PLogSeverity::INFO_HIGH_VO
 class PServerView;
 class PDisplayDriver;
 class ServerApplication;
+class PFontManager;
+class PServerFontInstance;
 
 class ApplicationServer : public PLooper, public SignalTarget
 {
@@ -49,6 +51,9 @@ public:
     
     bool            RegisterView(Ptr<PServerView> view);
     Ptr<PServerView> FindView(handler_id handle) const;
+
+    // Appserver-looper only. The font catalog is loaded on first use.
+    Ptr<PServerFontInstance> GetFont(const PFontDescription& description);
 
     void ViewDetached(PServerView* view);
     void ServerApplicationDestructed(ServerApplication* application);
@@ -164,6 +169,16 @@ private:
 
     void SendKeyboardConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error);
 
+    void SlotCreateFont(port_id replyPort, const PFontDescription& description);
+    void SlotDeleteFont(uint32_t fontHandle);
+    void SlotMeasureFont(
+        port_id replyPort,
+        uint32_t fontHandle,
+        const PString& text,
+        float width,
+        bool includeLast,
+        uint32_t previousGlyph);
+
     static Ptr<PDisplayDriver>   s_DisplayDriver;
     static Ptr<PSrvBitmap>       s_ScreenBitmap;
 
@@ -178,6 +193,12 @@ private:
     ASSetKeyboardConfiguration  m_RSSetKeyboardConfiguration;
     
     PKeyboardManager    m_KeyboardManager;
+    Ptr<PFontManager>   m_FontManager;
+    std::map<uint32_t, Ptr<PServerFontInstance>> m_ClientFonts;
+    uint32_t m_NextFontHandle = 1;
+    ASCreateFont m_RSCreateFont;
+    ASDeleteFont m_RSDeleteFont;
+    ASMeasureFont m_RSMeasureFont;
    
     Ptr<PServerView>    m_TopView;
 

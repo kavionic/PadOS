@@ -20,6 +20,7 @@ class DropdownMenuPopupWindow : public PView, public PViewScroller
 public:
     DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection);
     // From View:
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
@@ -38,6 +39,7 @@ public:
     DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged);
 
     // From View:
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void    OnPaint(const PRect& updateRect) override;
 
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
@@ -53,6 +55,7 @@ public:
 
     Signal<void, size_t, bool>& SignalSelectionChanged;
 private:
+    void UpdateFontMetrics();
     size_t PositionToIndex(const PPoint& position);
 
     PPoint                   m_ContentSize;

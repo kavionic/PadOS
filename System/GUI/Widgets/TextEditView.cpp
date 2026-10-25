@@ -81,6 +81,18 @@ void PTextEditView::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PTextEditView::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_CursorViewPos.x = GetStringWidth(m_Text.data(), m_CursorPos);
+    ContentSizeChanged();
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PTextEditView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PPoint size = GetSizeForString(m_Text, includeWidth, includeHeight);
@@ -127,7 +139,7 @@ void PTextEditView::OnPaint(const PRect& updateRect)
     PRect bounds = GetBounds();
     EraseRect(bounds);
 
-    MovePenTo(0.0f, 0.0f);
+    MovePenTo(0.0f, GetFontHeight().ascender);
     DrawString(m_Text);
 
     if (m_CursorVisible) {
@@ -441,7 +453,7 @@ PPoint PTextEditView::GetSizeForString(const PString& text, bool includeWidth, b
     if (includeHeight)
     {
         PFontHeight fontHeight = GetFontHeight();
-        size.y = fontHeight.descender - fontHeight.ascender;
+        size.y = fontHeight.descender + fontHeight.ascender;
         if (HasFlags(PTextBoxFlags::IncludeLineGap)) {
             size.y += fontHeight.line_gap;
         }
@@ -479,7 +491,7 @@ void PTextEditView::SetStyle(Ptr<const PTextBoxStyle> style)
 PRect PTextEditView::GetCursorFrame()
 {
     PFontHeight fontHeight = GetFontHeight();
-    const float height = fontHeight.descender - fontHeight.ascender;
+    const float height = fontHeight.descender + fontHeight.ascender;
     return PRect(m_CursorViewPos.x, m_CursorViewPos.y + 2.0f, m_CursorViewPos.x + 2.0f, m_CursorViewPos.y + height - 4.0f);
 }
 

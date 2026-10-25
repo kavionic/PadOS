@@ -9,8 +9,11 @@ target_sources(PadOS_ApplicationServer PRIVATE
 	ApplicationServer.h
 	DisplayDriver.h
 	DisplayDriverInvoker.h
+	FontProtocol.h
 	Protocol.h
 	KeyboardManager.h
 	KeyboardProtocol.h
 	ServerBitmap.h
 )
+
+add_subdirectory(Fonts)

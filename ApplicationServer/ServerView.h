@@ -16,6 +16,7 @@
 
 class PSrvBitmap;
 class ServerApplication;
+class PServerFontInstance;
 
 class PServerView : public PViewBase<PServerView>
 {
@@ -108,7 +109,8 @@ public:
     void        SetBgColor(PColor color)    { m_BgColor = color; }
     void        SetFgColor(PColor color)    { m_FgColor = color; }
 
-    void        SetFont(int fontHandle) { m_Font->Set(PFontID(fontHandle)); }
+    void        SetFont(int fontHandle);
+    void        SetTextFont(Ptr<PServerFontInstance> font);
     void        SetPenWidth(float width) { m_PenWidth = width; }
     void        SetCapStyle(PCapStyle style)                       { m_CapStyle = style; }
     void        SetJointStyle(PJointStyle style)                   { m_JointStyle = style; }
@@ -138,6 +140,7 @@ public:
     void        AddPolylinePoint(const PPoint& point);
     void        EndPolyline();
     void        DrawString(const PString& string);
+    void        DrawText(const PString& string);
     void        CopyRect(const PRect& srcRect, const PPoint& dstPos);
     void        DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos);
     void        DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PRect& dstRect);
@@ -244,7 +247,9 @@ private:
     PFocusKeyboardMode  m_FocusKeyboardMode = PFocusKeyboardMode::None;
     PDrawingMode        m_DrawingMode  = PDrawingMode::Copy;
     
-    Ptr<PFont>   m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
+    PFontID m_FontID = PFontID::e_FontLarge;
+    Ptr<PServerFontInstance> m_TextFont;
+    std::vector<PIRect> m_TextClipRects;
     
     PIPoint      m_DeltaMove;             // Relative movement since last region update
     PIPoint      m_DeltaSize;             // Relative sizing since last region update

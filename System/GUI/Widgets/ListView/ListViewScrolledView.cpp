@@ -437,6 +437,35 @@ size_t PListViewScrolledView::GetRowIndex(Ptr<const PListViewRow> row) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PListViewScrolledView::OnFontChanged(Ptr<PFont> newFont)
+{
+    for (Ptr<PListViewColumnView> column : m_ColumnViews)
+    {
+        column->SetFont(newFont);
+        column->m_ContentWidth = 0.0f;
+    }
+    m_ContentHeight = 0.0f;
+    for (Ptr<PListViewRow> row : m_Rows)
+    {
+        for (size_t i = 0; i < m_ColumnViews.size(); ++i)
+        {
+            Ptr<PListViewColumnView> column = m_ColumnViews[i];
+            row->AttachToView(column, int(i));
+            column->m_ContentWidth = std::max(column->m_ContentWidth, row->GetWidth(column, i));
+        }
+        row->m_YPos = m_ContentHeight;
+        row->m_Height = row->GetHeight(ptr_tmp_cast(this));
+        m_ContentHeight += row->m_Height + m_VSpacing;
+    }
+    LayoutColumns();
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PListViewScrolledView::OnFrameSized(const PPoint& delta)
 {
     LayoutColumns();
@@ -701,6 +730,7 @@ size_t PListViewScrolledView::InsertColumn(const char* title, float width, size_
     try
     {
         Ptr<PListViewColumnView> columnView = ptr_new<PListViewColumnView>(ptr_tmp_cast(this), title);
+        columnView->SetFont(GetFont());
         columnView->SetFrame(PRect(0.0f, 0.0f, width, COORD_MAX));
 
         if (index == INVALID_INDEX) {

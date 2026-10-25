@@ -419,6 +419,20 @@ void PListView::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PListView::OnFontChanged(Ptr<PFont> newFont)
+{
+    m_ScrolledContainerView->SetFont(newFont);
+    m_HeaderView->SetFont(newFont);
+    m_HeaderView->Layout();
+    Layout();
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PListView::OnFrameSized(const PPoint& delta)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty() == false)

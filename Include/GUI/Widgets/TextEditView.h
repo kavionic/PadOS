@@ -24,6 +24,7 @@ public:
     // From View:
     virtual void    OnKeyboardFocusChanged(bool hasFocus) override;
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual PPoint   CalculateContentSize() const override;
     virtual void    OnPaint(const PRect& updateRect) override;

@@ -34,12 +34,8 @@ target_sources(PadOS_Kernel PRIVATE
 	KMutex.cpp
 	KNamedObject.cpp
 	KObjectWaitGroup.cpp
-	KPIDNode.cpp
 	KPowerManager.cpp
 	KProcess.cpp
-	KProcessGroup.cpp
-	KProcessGroups.cpp
-	KProcessSession.cpp
 	KSemaphore.cpp
 	KThread.cpp
 	KThreadCB.cpp
@@ -56,6 +52,10 @@ target_sources(PadOS_Kernel_Unconditional PRIVATE KDebugger.cpp)
 target_link_options(PadOS_Kernel_Unconditional INTERFACE "LINKER:--undefined=_kernel_debugger_info")
 
 target_sources(PadOS_KernelExt PRIVATE
+	KPIDNode.cpp
+	KProcessGroup.cpp
+	KProcessGroups.cpp
+	KProcessSession.cpp
 	KThreadExitTrampoline.cpp
 )
 

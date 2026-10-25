@@ -131,7 +131,18 @@ uint32_t PView::GetInstanceCount()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags) : PViewBase(name, PRect(), PPoint(), flags, PViewHitMode::HitTest, 0, 1.0f, pget_standard_color(PStandardColorID::DefaultBackground), pget_standard_color(PStandardColorID::DefaultBackground), PColor(0))
+PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags)
+    : PViewBase(
+        name,
+        PRect(),
+        PPoint(),
+        flags,
+        PViewHitMode::HitTest,
+        0,
+        1.0f,
+        pget_standard_color(PStandardColorID::DefaultBackground),
+        pget_standard_color(PStandardColorID::DefaultBackground),
+        PColor(0, 0, 0))
 {
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
@@ -167,7 +178,7 @@ PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_no
                1.0f,
                pget_standard_color(PStandardColorID::DefaultBackground),
                pget_standard_color(PStandardColorID::DefaultBackground),
-               PColor(0))
+               PColor(0, 0, 0))
 {
     SetHAlignment(context.GetAttribute(xmlData, "h_alignment", PAlignment::Center));
     SetVAlignment(context.GetAttribute(xmlData, "v_alignment", PAlignment::Center));
@@ -1295,8 +1306,16 @@ PDrawingMode PView::GetDrawingMode() const
 
 void PView::SetFont(Ptr<PFont> font)
 {
+    if (font == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
     m_Font = font;
-    Post<ASViewSetFont>(int(font->Get()));
+    if (font->IsFreeType()) {
+        Post<ASViewSetTextFont>(font->GetDescription());
+    } else {
+        Post<ASViewSetFont>(int(std::to_underlying(font->Get())));
+    }
+    OnFontChanged(font);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

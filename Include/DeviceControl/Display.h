@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <DeviceControl/DeviceControlInvoker.h>
+#include <DeviceControl/DisplayFont.h>
 #include <ApplicationServer/DisplayDriverInvoker.h>
 #include <GUI/Color.h>
 #include <GUI/Font.h>
@@ -113,6 +114,7 @@ enum class PDisplayCommandID : uint32_t
     ScaleRect,
     FillCircle,
     WriteString,
+    WriteFontString,
     Count
 };
 
@@ -143,6 +145,7 @@ public:
         , ScaleRect(driver)
         , FillCircle(driver)
         , WriteString(driver)
+        , WriteFontString(driver)
     {
     }
 
@@ -211,6 +214,24 @@ public:
             PIRect clipRect,
             PColor background,
             PColor foreground,
-            PFontID fontID)
+            PFontID fontID,
+            PDrawingMode mode)
     > WriteString;
+    // Payload: clips, optional int32_t kerning adjustments, UTF-8.
+    // One signed 26.6 adjustment per decoded character, applied before its glyph.
+    // A zero count selects the font's shared pair cache instead.
+    PDisplayDriverInvoker<
+        PDisplayCommandID::WriteFontString,
+        void(
+            PDisplayBitmap bitmap,
+            PIPoint position,
+            const PDisplayFontCache* font,
+            size_t stringLength,
+            size_t clipCount,
+            size_t kerningCount,
+            PColor background,
+            PColor foreground,
+            PPoint advance,
+            PDrawingMode mode)
+    > WriteFontString;
 };

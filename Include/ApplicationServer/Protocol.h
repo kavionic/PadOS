@@ -18,6 +18,7 @@
 #include <GUI/GUIDefines.h>
 #include <GUI/MouseCursor.h>
 #include <ApplicationServer/KeyboardProtocol.h>
+#include <ApplicationServer/FontProtocol.h>
 
 class PString;
 
@@ -55,6 +56,12 @@ namespace PAppserverProtocol
         MESSAGE_BUNDLE,
         REGISTER_APPLICATION,
         VIRTUAL_KEYBOARD_EVENT,
+        CREATE_FONT,
+        DELETE_FONT,
+        MEASURE_FONT,
+        CREATE_FONT_REPLY,
+        MEASURE_FONT_REPLY,
+
         // Application messages:
         SYNC,
         CREATE_VIEW,
@@ -85,6 +92,7 @@ namespace PAppserverProtocol
         VIEW_SET_BG_COLOR,
         VIEW_SET_ERASE_COLOR,
         VIEW_SET_FONT,
+        VIEW_SET_TEXT_FONT,
         VIEW_MOVE_PEN_TO,
         VIEW_SET_PEN_WIDTH,
         VIEW_DRAW_LINE1,
@@ -344,3 +352,11 @@ using ASKeyboardConfigurationReply = PRemoteSignal<PAppserverProtocol::KEYBOARD_
         const PString& options
         )
 >;
+
+using ASViewSetTextFont = PRemoteSignal<PAppserverProtocol::VIEW_SET_TEXT_FONT,
+    void(handler_id viewHandle, const PFontDescription& description)>;
+using ASCreateFont = PRemoteSignal<PAppserverProtocol::CREATE_FONT,
+    void(port_id replyPort, const PFontDescription& description)>;
+using ASDeleteFont = PRemoteSignal<PAppserverProtocol::DELETE_FONT, void(uint32_t fontHandle)>;
+using ASMeasureFont = PRemoteSignal<PAppserverProtocol::MEASURE_FONT,
+    void(port_id replyPort, uint32_t fontHandle, const PString& text, float width, bool includeLast, uint32_t previousGlyph)>;

@@ -42,6 +42,17 @@ PButton::~PButton()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PButton::OnFontChanged(Ptr<PFont> newFont)
+{
+    UpdateLabelSize();
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PPoint size(m_LabelSize.x + 16.0f, m_LabelSize.y + 8.0f);
@@ -72,6 +83,7 @@ void PButton::OnPaint(const PRect& updateRect)
         labelPos += PPoint(1.0f, 1.0f);
     }
 
+    labelPos.y += GetFontHeight().ascender;
     MovePenTo(labelPos);
     SetFgColor(IsEnabled() ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
     SetBgColor(backgroundColor);
@@ -98,5 +110,5 @@ void PButton::UpdateLabelSize()
 {
 	m_LabelSize.x = GetStringWidth(GetLabel());
 	PFontHeight fontHeight = GetFontHeight();
-	m_LabelSize.y = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
+	m_LabelSize.y = fontHeight.descender + fontHeight.ascender + fontHeight.line_gap;
 }

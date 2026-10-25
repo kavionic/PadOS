@@ -16,6 +16,7 @@
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
+#include <ApplicationServer/Fonts/ServerFontInstance.h>
 #include <Math/Misc.h>
 #include <Utils/Utils.h>
 
@@ -362,7 +363,7 @@ PServerView::PServerView(
     , m_FocusKeyboardMode(focusKeyboardMode)
     , m_DrawingMode(drawingMode)
 {
-    m_Font->Set(fontID);
+    m_FontID = fontID;
     g_ServerViewCount++;
 }
 
@@ -1388,6 +1389,25 @@ void PServerView::SetHitMode(PViewHitMode mode)
             server->InvalidatePointerRoutes();
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::SetFont(int fontHandle)
+{
+    m_FontID = PFontID(fontHandle);
+    m_TextFont.Reset();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::SetTextFont(Ptr<PServerFontInstance> font)
+{
+    m_TextFont = std::move(font);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3176,6 +3196,11 @@ void PServerView::AppendPolylineRoundJointTriangles(std::vector<PPoint>& triangl
 
 void PServerView::DrawString(const PString& string)
 {
+    if (m_TextFont != nullptr)
+    {
+        DrawText(string);
+        return;
+    }
     const Ptr<const PRegion> region = GetRegion();
     if (region != nullptr)
     {
@@ -3184,18 +3209,64 @@ void PServerView::DrawString(const PString& string)
         
         PDisplayDriver* const driver = m_Bitmap->m_Driver;
 
-        const PIRect boundingBox(penPos.x, penPos.y, penPos.x + int(driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size())), penPos.y + int(driver->GetFontHeight(m_Font->Get())));
+        const PIRect boundingBox(
+            penPos.x,
+            penPos.y,
+            penPos.x + int(driver->GetStringWidth(m_FontID, string.c_str(), string.size())),
+            penPos.y + int(driver->GetFontHeight(m_FontID)));
 
         penPos += screenPos;
         
         for (const PIRect& clip : region->m_Rects)
         {
-            if (clip.DoIntersect(boundingBox)) {
-                driver->DrawString(m_Bitmap, penPos, string.c_str(), string.size(), clip + screenPos, m_BgColor, m_FgColor, m_Font->Get());
+            if (clip.DoIntersect(boundingBox))
+            {
+                driver->DrawString(
+                    m_Bitmap,
+                    penPos,
+                    string.c_str(),
+                    string.size(),
+                    clip + screenPos,
+                    m_BgColor,
+                    m_FgColor,
+                    m_FontID,
+                    m_DrawingMode);
             }                
         }
         m_PenPosition.x += float(boundingBox.Width());
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::DrawText(const PString& string)
+{
+    if (m_TextFont == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const Ptr<const PRegion> region = GetRegion();
+    if (region != nullptr)
+    {
+        const PIPoint screenPosition(m_ScreenPos);
+        const PIPoint baseline = PIPoint(m_PenPosition + m_ScrollOffset) + screenPosition;
+        m_TextClipRects.clear();
+        m_TextClipRects.reserve(region->m_Rects.size());
+        for (const PIRect& clip : region->m_Rects) {
+            m_TextClipRects.push_back(clip + screenPosition);
+        }
+        const PFontTextMetrics metrics = m_Bitmap->m_Driver->DrawText(
+            m_Bitmap,
+            baseline,
+            std::string_view(string.data(), string.size()),
+            *m_TextFont,
+            m_TextClipRects,
+            m_BgColor,
+            m_FgColor,
+            m_DrawingMode);
+        m_PenPosition += metrics.Advance;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

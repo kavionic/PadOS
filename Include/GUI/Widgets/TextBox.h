@@ -43,6 +43,7 @@ public:
 
     // From View:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void OnFontChanged(Ptr<PFont> newFont) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    OnFrameSized(const PPoint& delta) override;
     virtual void    OnPaint(const PRect& updateRect) override;

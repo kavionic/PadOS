@@ -86,6 +86,7 @@ private:
     void SlotViewSetFocusKeyboardMode(handler_id viewHandle, PFocusKeyboardMode mode)        { ForwardToView(viewHandle, &PServerView::SetFocusKeyboardMode, mode); }
     void SlotViewSetDrawingMode(handler_id viewHandle, PDrawingMode mode)                    { ForwardToView(viewHandle, &PServerView::SetDrawingMode, mode); }
     void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &PServerView::SetFont, fontHandle); }
+    void SlotViewSetTextFont(handler_id viewHandle, const PFontDescription& description);
     void SlotViewSetPenWidth(handler_id viewHandle, float width)                            { ForwardToView(viewHandle, &PServerView::SetPenWidth, width); }
     void SlotViewSetCapStyle(handler_id viewHandle, PCapStyle style)                        { ForwardToView(viewHandle, &PServerView::SetCapStyle, style); }
     void SlotViewSetJointStyle(handler_id viewHandle, PJointStyle style)                    { ForwardToView(viewHandle, &PServerView::SetJointStyle, style); }
@@ -157,6 +158,7 @@ private:
     ASViewSetFocusKeyboardMode  RSViewSetFocusKeyboardMode;
     ASViewSetDrawingMode        RSViewSetDrawingMode;
     ASViewSetFont               RSViewSetFont;
+    ASViewSetTextFont           m_RSViewSetTextFont;
     ASViewSetPenWidth           RSViewSetPenWidth;
     ASViewSetCapStyle           RSViewSetCapStyle;
     ASViewSetJointStyle         RSViewSetJointStyle;

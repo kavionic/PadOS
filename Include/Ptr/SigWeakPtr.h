@@ -168,6 +168,21 @@ public:
     bool operator!=(const T* ptr) const;
     bool operator<(const T* ptr) const;
 
+    friend bool operator==(const T* lhs, const SigWeakPtr& rhs) noexcept
+    {
+        return lhs == rhs.m_Object;
+    }
+
+    friend bool operator!=(const T* lhs, const SigWeakPtr& rhs) noexcept
+    {
+        return lhs != rhs.m_Object;
+    }
+
+    friend bool operator<(const T* lhs, const SigWeakPtr& rhs) noexcept
+    {
+        return lhs < rhs.m_Object;
+    }
+
     // From PointerTargetMonitor:
     virtual void ObjectDied();
   

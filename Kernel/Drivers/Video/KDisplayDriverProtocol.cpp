@@ -10,6 +10,8 @@
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <System/ExceptionHandling.h>
+#include <GUI/Bitmap.h>
+#include <limits>
 
 namespace kernel
 {
@@ -389,13 +391,72 @@ void KDisplayDriver::HandleWriteString(
     PIRect clipRect,
     PColor background,
     PColor foreground,
-    PFontID fontID)
+    PFontID fontID,
+    PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
     ValidateDisplayWriteBitmap(bitmap);
     const std::span<const char> string = ReadDisplayArray<char>(payload, stringLength);
     ValidateDisplayPayloadEnd(payload);
-    WriteString(&bitmap, position, string.data(), string.size(), clipRect, background, foreground, fontID);
+    WriteString(&bitmap, position, string.data(), string.size(), clipRect, background, foreground, fontID, mode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDisplayDriver::HandleWriteFontString(
+    std::span<const std::byte> payload,
+    PDisplayBitmap bitmap,
+    PIPoint position,
+    const PDisplayFontCache* font,
+    size_t stringLength,
+    size_t clipCount,
+    size_t kerningCount,
+    PColor background,
+    PColor foreground,
+    PPoint advance,
+    PDrawingMode mode)
+{
+    kassert(m_Mutex.IsLocked());
+    const std::span<const PIRect> clips = ReadDisplayArray<PIRect>(payload, clipCount);
+    const std::span<const int32_t> kernings = ReadDisplayArray<int32_t>(payload, kerningCount);
+    const std::span<const char> string = ReadDisplayArray<char>(payload, stringLength);
+    ValidateDisplayPayloadEnd(payload);
+    validate_user_read_pointer_trw(font);
+    if (font->GetCharacterBucketCount() > std::numeric_limits<size_t>::max() / sizeof(*font->GetCharacters())
+        || font->GetKerningCount() > std::numeric_limits<size_t>::max() / sizeof(*font->GetKernings())) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    validate_user_read_pointer_trw(font->GetCharacters(), font->GetCharacterBucketCount() * sizeof(*font->GetCharacters()));
+    validate_user_read_pointer_trw(font->GetKernings(), font->GetKerningCount() * sizeof(*font->GetKernings()));
+    const size_t bytesPerPixel = size_t(BitsPerPixel(bitmap.ColorSpace)) / 8;
+    if (bitmap.Size.x < 0 || bitmap.Size.y < 0 || bytesPerPixel == 0
+        || size_t(bitmap.Size.x) > std::numeric_limits<size_t>::max() / bytesPerPixel
+        || bitmap.BytesPerLine < size_t(bitmap.Size.x) * bytesPerPixel
+        || (bitmap.Size.y != 0 && bitmap.BytesPerLine > std::numeric_limits<size_t>::max() / size_t(bitmap.Size.y))) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (bitmap.VideoMemory && bitmap.ColorSpace != GetColorSpace()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (!bitmap.VideoMemory && (bitmap.ColorSpace == PEColorSpace::RGB15 || bitmap.ColorSpace == PEColorSpace::RGB16
+        || bitmap.ColorSpace == PEColorSpace::RGB32 || bitmap.ColorSpace == PEColorSpace::RGBA32)
+        && (uintptr_t(bitmap.Raster) % bytesPerPixel != 0 || bitmap.BytesPerLine % bytesPerPixel != 0)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    ValidateDisplayWriteBitmap(bitmap);
+    WriteFontString(
+        &bitmap,
+        position,
+        std::string_view(string.data(), string.size()),
+        *font,
+        kernings,
+        clips,
+        background,
+        foreground,
+        advance,
+        mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

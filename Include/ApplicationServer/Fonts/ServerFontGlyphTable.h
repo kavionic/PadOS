@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <span>
 #include <vector>
 
 #include <ApplicationServer/Fonts/ServerFontGlyph.h>
@@ -45,12 +44,6 @@ public:
     {
         m_KerningScaleX = scaleX;
         m_KerningScaleY = scaleY;
-    }
-
-    void SetKernings(std::span<const PDisplayFontKerning> kernings) noexcept
-    {
-        m_Kernings = kernings.data();
-        m_KerningCount = kernings.size();
     }
 
 private:

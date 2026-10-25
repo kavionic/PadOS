@@ -64,18 +64,10 @@ struct PDisplayFontGlyph
     size_t CharacterCount = 0;
 };
 
-struct PDisplayFontKerning
-{
-    uint32_t PreviousGlyph = 0;
-    uint32_t GlyphIndex = 0;
-    PPoint Advance;
-    float Width = 0.0f;
-};
-
 // The appserver owns this view. Pending submissions retain the font and pin
 // every raster used by their strings. Tables may grow between submissions;
 // the view and all referenced data remain unchanged during synchronous Submit.
-// Non-ASCII buckets hold glyph chains; kerning pairs remain sorted.
+// Non-ASCII buckets hold glyph chains.
 // Glyph records and rasters are shared directly with the appserver's cache.
 class PDisplayFontCache
 {
@@ -86,8 +78,6 @@ public:
     const PDisplayFontGlyph* GetMissingGlyph() const noexcept { return m_MissingGlyph; }
     const PDisplayFontGlyph* const* GetCharacters() const noexcept { return m_Characters; }
     size_t GetCharacterBucketCount() const noexcept { return m_CharacterBucketCount; }
-    const PDisplayFontKerning* GetKernings() const noexcept { return m_Kernings; }
-    size_t GetKerningCount() const noexcept { return m_KerningCount; }
     PPoint GetAscenderOffset() const noexcept { return m_AscenderOffset; }
     PPoint GetDescenderOffset() const noexcept { return m_DescenderOffset; }
     PDisplayFontDirection GetDirection() const noexcept { return m_Direction; }
@@ -141,27 +131,6 @@ public:
         return nullptr;
     }
 
-    const PDisplayFontKerning* FindKerning(uint32_t previousGlyph, uint32_t glyphIndex) const noexcept
-    {
-        size_t first = 0;
-        size_t last = m_KerningCount;
-        while (first < last)
-        {
-            const size_t middle = first + (last - first) / 2;
-            const PDisplayFontKerning& pair = m_Kernings[middle];
-            if (pair.PreviousGlyph < previousGlyph || (pair.PreviousGlyph == previousGlyph && pair.GlyphIndex < glyphIndex)) {
-                first = middle + 1;
-            } else {
-                last = middle;
-            }
-        }
-        if (first < m_KerningCount && m_Kernings[first].PreviousGlyph == previousGlyph
-            && m_Kernings[first].GlyphIndex == glyphIndex) {
-            return &m_Kernings[first];
-        }
-        return nullptr;
-    }
-
     // Input is signed 26.6 pixels; the baseline coefficients are signed 16.16.
     // Match FreeType's rounding, including negative half-way values.
     PPoint TransformKerning(int32_t advance) const noexcept
@@ -184,9 +153,7 @@ protected:
     std::array<const PDisplayFontGlyph*, ASCII_COUNT> m_AsciiGlyphs{};
     const PDisplayFontGlyph* m_MissingGlyph = nullptr;
     const PDisplayFontGlyph* const* m_Characters = nullptr;
-    const PDisplayFontKerning* m_Kernings = nullptr;
     size_t m_CharacterBucketCount = 0;
-    size_t m_KerningCount = 0;
     PPoint m_AscenderOffset;
     PPoint m_DescenderOffset;
     int32_t m_KerningScaleX = 65536;

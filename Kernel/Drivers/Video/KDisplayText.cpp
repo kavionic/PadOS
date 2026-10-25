@@ -104,8 +104,7 @@ bool KDisplayText::LayoutGlyphs(
     std::span<const int32_t> kernings)
 {
     PPoint pen(position);
-    uint32_t previousGlyph = 0;
-    const bool inlineKernings = !kernings.empty();
+    const bool hasKerning = font.HasKerning();
     bool sorted = true;
     while (!text.empty())
     {
@@ -120,7 +119,7 @@ bool KDisplayText::LayoutGlyphs(
                 PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         }
-        if (inlineKernings)
+        if (hasKerning)
         {
             if (kernings.empty()) {
                 PERROR_THROW_CODE(PErrorCode::INVAL);
@@ -128,19 +127,10 @@ bool KDisplayText::LayoutGlyphs(
             pen += font.TransformKerning(kernings.front());
             kernings = kernings.subspan(1);
         }
-        else if (font.HasKerning() && previousGlyph != 0 && glyph->GlyphIndex != 0)
-        {
-            const PDisplayFontKerning* pair = font.FindKerning(previousGlyph, glyph->GlyphIndex);
-            if (pair == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::INVAL);
-            }
-            pen += pair->Advance;
-        }
         if (!AppendGlyph(*glyph, pen)) {
             sorted = false;
         }
         pen += glyph->Advance;
-        previousGlyph = glyph->GlyphIndex;
     }
     if (!kernings.empty()) {
         PERROR_THROW_CODE(PErrorCode::INVAL);

@@ -85,24 +85,20 @@ PFontTextMetrics PServerFontInstance::MeasureTextChunk(
     bool includeLast,
     uint32_t& previousGlyph)
 {
-    TrimKerningCache();
     return WalkText(text, width, includeLast, nullptr, previousGlyph);
 }
 
 size_t PServerFontInstance::GetTextKerningCount(std::string_view text) const noexcept
 {
     size_t count = 0;
-    if constexpr (USE_INLINE_KERNING)
+    if (m_Glyphs.HasKerning())
     {
-        if (m_Glyphs.HasKerning())
+        while (!text.empty())
         {
-            while (!text.empty())
-            {
-                size_t byteLength = 0;
-                utf8_to_unicode(text.data(), text.size(), byteLength);
-                text.remove_prefix(byteLength);
-                ++count;
-            }
+            size_t byteLength = 0;
+            utf8_to_unicode(text.data(), text.size(), byteLength);
+            text.remove_prefix(byteLength);
+            ++count;
         }
     }
     return count;
@@ -113,7 +109,6 @@ PServerPreparedText PServerFontInstance::PrepareText(std::string_view text, int3
     Ptr<PServerFontDrawCache> cache = ptr_tmp_cast(m_ActiveDrawCache);
     if (cache == nullptr)
     {
-        TrimKerningCache();
         cache = ptr_new<PServerFontDrawCache>(ptr_tmp_cast(this), ptr_tmp_cast(&m_Glyphs.GetCache()));
         m_ActiveDrawCache = ptr_raw_pointer_cast(cache);
     }
@@ -202,31 +197,6 @@ PServerFontGlyph& PServerFontInstance::GetGlyph(FT_UInt glyphIndex)
     return *result;
 }
 
-const PDisplayFontKerning* PServerFontInstance::GetKerning(FT_UInt previousGlyph, FT_UInt glyphIndex)
-{
-    if (previousGlyph == 0 || glyphIndex == 0 || !m_Glyphs.HasKerning()) {
-        return nullptr;
-    }
-    const PDisplayFontKerning* cached = m_Glyphs.FindKerning(previousGlyph, glyphIndex);
-    if (cached != nullptr) {
-        return cached;
-    }
-    const float width = float(QueryKerning(previousGlyph, glyphIndex)) * FONT_F26DOT6_TO_FLOAT;
-    const PDisplayFontKerning pair{previousGlyph, glyphIndex, TransformAdvance(width), width};
-    const auto position = std::lower_bound(
-        m_Kernings.begin(),
-        m_Kernings.end(),
-        pair,
-        [](const PDisplayFontKerning& lhs, const PDisplayFontKerning& rhs)
-        {
-            return lhs.PreviousGlyph < rhs.PreviousGlyph
-                || (lhs.PreviousGlyph == rhs.PreviousGlyph && lhs.GlyphIndex < rhs.GlyphIndex);
-        });
-    const auto inserted = m_Kernings.insert(position, pair);
-    m_Glyphs.SetKernings(m_Kernings);
-    return &*inserted;
-}
-
 FT_Pos PServerFontInstance::QueryKerning(FT_UInt previousGlyph, FT_UInt glyphIndex)
 {
     if (previousGlyph == 0 || glyphIndex == 0 || !m_Glyphs.HasKerning()) {
@@ -257,22 +227,6 @@ PServerFontGlyph& PServerFontInstance::GetCharacter(uint32_t character)
     return glyph;
 }
 
-void PServerFontInstance::TrimKerningCache()
-{
-    if (m_Kernings.size() > MAX_CACHED_KERNING_PAIRS && m_ActiveDrawCache == nullptr)
-    {
-        m_Kernings.clear();
-        m_Glyphs.SetKernings({});
-    }
-}
-
-PPoint PServerFontInstance::TransformAdvance(float advance) const
-{
-    FT_Vector vector{FT_Pos(std::round(advance * FONT_FLOAT_TO_F26DOT6)), 0};
-    FT_Vector_Transform(&vector, &m_Transform);
-    return PPoint(float(vector.x) * FONT_F26DOT6_TO_FLOAT, float(-vector.y) * FONT_F26DOT6_TO_FLOAT);
-}
-
 PFontTextMetrics PServerFontInstance::WalkText(
     std::string_view text,
     float width,
@@ -291,33 +245,11 @@ PFontTextMetrics PServerFontInstance::WalkText(
         size_t byteLength = 0;
         const uint32_t character = utf8_to_unicode(text.data() + result.ByteCount, text.size() - result.ByteCount, byteLength);
         PServerFontGlyph& entry = GetCharacter(character);
-        PPoint kerningAdvance;
-        float kerningWidth = 0.0f;
-        if constexpr (USE_DIRECT_KERNING)
-        {
-            const FT_Pos adjustment = QueryKerning(previousGlyph, entry.GlyphIndex);
-            kerningWidth = float(adjustment) * FONT_F26DOT6_TO_FLOAT;
-            kerningAdvance = m_Glyphs.TransformKerning(int32_t(adjustment));
-            if (kernings != nullptr) {
-                *kernings++ = int32_t(adjustment);
-            }
-        }
-        else
-        {
-            const PDisplayFontKerning* kerning = GetKerning(previousGlyph, entry.GlyphIndex);
-            if (kerning != nullptr)
-            {
-                kerningWidth = kerning->Width;
-                kerningAdvance = kerning->Advance;
-            }
-            if constexpr (USE_INLINE_KERNING)
-            {
-                if (kernings != nullptr)
-                {
-                    // Cached widths are binary fractions of a pixel in FreeType's 26.6 units.
-                    *kernings++ = int32_t(kerningWidth * FONT_FLOAT_TO_F26DOT6);
-                }
-            }
+        const FT_Pos adjustment = QueryKerning(previousGlyph, entry.GlyphIndex);
+        const float kerningWidth = float(adjustment) * FONT_F26DOT6_TO_FLOAT;
+        const PPoint kerningAdvance = m_Glyphs.TransformKerning(int32_t(adjustment));
+        if (kernings != nullptr) {
+            *kernings++ = int32_t(adjustment);
         }
         const float nextWidth = result.Width + kerningWidth + entry.Width;
         const bool exceedsWidth = nextWidth > width;

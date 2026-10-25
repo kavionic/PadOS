@@ -424,12 +424,10 @@ void KDisplayDriver::HandleWriteFontString(
     const std::span<const char> string = ReadDisplayArray<char>(payload, stringLength);
     ValidateDisplayPayloadEnd(payload);
     validate_user_read_pointer_trw(font);
-    if (font->GetCharacterBucketCount() > std::numeric_limits<size_t>::max() / sizeof(*font->GetCharacters())
-        || font->GetKerningCount() > std::numeric_limits<size_t>::max() / sizeof(*font->GetKernings())) {
+    if (font->GetCharacterBucketCount() > std::numeric_limits<size_t>::max() / sizeof(*font->GetCharacters())) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     validate_user_read_pointer_trw(font->GetCharacters(), font->GetCharacterBucketCount() * sizeof(*font->GetCharacters()));
-    validate_user_read_pointer_trw(font->GetKernings(), font->GetKerningCount() * sizeof(*font->GetKernings()));
     const size_t bytesPerPixel = size_t(BitsPerPixel(bitmap.ColorSpace)) / 8;
     if (bitmap.Size.x < 0 || bitmap.Size.y < 0 || bytesPerPixel == 0
         || size_t(bitmap.Size.x) > std::numeric_limits<size_t>::max() / bytesPerPixel

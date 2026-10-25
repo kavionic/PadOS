@@ -9,7 +9,6 @@
 
 #include <limits>
 #include <string_view>
-#include <vector>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -26,18 +25,6 @@ class PServerFontFace;
 class PServerFontInstance : public PtrTarget
 {
 public:
-    enum class KerningMode
-    {
-        CachedPairs,  // Appserver and kernel look up cached pairs.
-        DirectInline, // FreeType queries populate the inline adjustment array.
-        CachedInline  // Cached pairs populate the same inline adjustment array.
-    };
-
-    // Select the mode here; both measurement and drawing use this selection.
-    static constexpr KerningMode KERNING_MODE = KerningMode::DirectInline;
-    static constexpr bool USE_DIRECT_KERNING = KERNING_MODE == KerningMode::DirectInline;
-    static constexpr bool USE_INLINE_KERNING = KERNING_MODE != KerningMode::CachedPairs;
-
     PServerFontInstance(Ptr<PServerFontFace> face, Ptr<PFontGlyphCache> cache, const PFontDescription& description);
     ~PServerFontInstance();
 
@@ -60,11 +47,8 @@ private:
     void InitializeSize();
     void InitializeTransform();
     PServerFontGlyph& GetGlyph(FT_UInt glyphIndex);
-    const PDisplayFontKerning* GetKerning(FT_UInt previousGlyph, FT_UInt glyphIndex);
     FT_Pos QueryKerning(FT_UInt previousGlyph, FT_UInt glyphIndex);
     PServerFontGlyph& GetCharacter(uint32_t character);
-    void TrimKerningCache();
-    PPoint TransformAdvance(float advance) const;
     PFontTextMetrics WalkText(
         std::string_view text,
         float width,
@@ -73,10 +57,7 @@ private:
         uint32_t& previousGlyph,
         int32_t* kernings = nullptr);
 
-    static constexpr size_t MAX_CACHED_KERNING_PAIRS = 16384;
-
     PServerFontGlyphTable m_Glyphs;
-    std::vector<PDisplayFontKerning> m_Kernings;
     PServerFontDrawCache* m_ActiveDrawCache = nullptr;
     Ptr<PServerFontFace> m_Face;
     PFontDescription m_Description;

@@ -219,7 +219,7 @@ public:
     > WriteString;
     // Payload: clips, optional int32_t kerning adjustments, UTF-8.
     // One signed 26.6 adjustment per decoded character, applied before its glyph.
-    // A zero count selects the font's shared pair cache instead.
+    // Fonts without kerning omit the adjustment array and use a zero count.
     PDisplayDriverInvoker<
         PDisplayCommandID::WriteFontString,
         void(

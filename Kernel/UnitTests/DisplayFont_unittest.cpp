@@ -21,9 +21,7 @@ public:
     using PDisplayFontCache::m_AsciiGlyphs;
     using PDisplayFontCache::m_MissingGlyph;
     using PDisplayFontCache::m_Characters;
-    using PDisplayFontCache::m_Kernings;
     using PDisplayFontCache::m_CharacterBucketCount;
-    using PDisplayFontCache::m_KerningCount;
     using PDisplayFontCache::m_AscenderOffset;
     using PDisplayFontCache::m_DescenderOffset;
     using PDisplayFontCache::m_KerningScaleX;
@@ -135,6 +133,7 @@ protected:
     std::array<uint8_t, 32 * 32> m_WriteCounts;
     std::array<uint8_t, 36> m_Raster;
     std::array<PDisplayFontGlyph, 3> m_Glyphs;
+    PDisplayFontGlyph m_MissingGlyph;
     DisplayFontTestCache m_Font;
     KDisplayText m_Text;
 };
@@ -151,19 +150,17 @@ TEST_F(DisplayFontTextTest, SpacesAdvanceWithoutEmittingDrawableGlyphs)
     EXPECT_EQ(m_Text.GetGlyphs()[1].Bounds.left, 6);
 }
 
-TEST_F(DisplayFontTextTest, Utf8CharactersUseTheWarmedKerningPair)
+TEST_F(DisplayFontTextTest, Utf8CharactersUseInlineKerning)
 {
     std::array<const PDisplayFontGlyph*, 4> characters{};
     m_Glyphs[1].Characters.Inline[0] = {0x03b2, nullptr};
     m_Glyphs[1].CharacterCount = 1;
     characters[PDisplayFontCache::GetBucketIndex(0x03b2, characters.size())] = &m_Glyphs[1];
-    const PDisplayFontKerning kernings[] = {{1, 2, PPoint(-1.0f, 0.0f), -1.0f}};
+    const int32_t kernings[] = {0, -64};
     m_Font.m_Characters = characters.data();
     m_Font.m_CharacterBucketCount = characters.size();
-    m_Font.m_Kernings = kernings;
-    m_Font.m_KerningCount = std::size(kernings);
     m_Font.m_HasKerning = true;
-    m_Text.Begin(m_Font, "A\xce\xb2", PIPoint(0, 0), PIRect(0, 0, 100, 100));
+    m_Text.Begin(m_Font, "A\xce\xb2", PIPoint(0, 0), PIRect(0, 0, 100, 100), kernings);
     ASSERT_EQ(m_Text.GetGlyphs().size(), 2);
     EXPECT_EQ(m_Text.GetGlyphs()[1].Bounds.left, 3);
     CaptureSpans();
@@ -215,21 +212,20 @@ TEST_F(DisplayFontTextTest, FindsOverlapsAlongEachBaselineDirection)
 
 TEST_F(DisplayFontTextTest, MissingGlyphFallbackPreservesAdvanceAndCoverage)
 {
-    PDisplayFontGlyph missing;
-    missing.Bounds = PIRect(0, 0, 2, 2);
-    missing.Advance = PPoint(3.0f, 0.0f);
-    missing.Raster = m_Raster.data();
-    m_Font.m_MissingGlyph = &missing;
-    m_Font.m_HasKerning = true;
+    m_MissingGlyph.Bounds = PIRect(0, 0, 2, 2);
+    m_MissingGlyph.Advance = PPoint(3.0f, 0.0f);
+    m_MissingGlyph.Raster = m_Raster.data();
+    m_Font.m_MissingGlyph = &m_MissingGlyph;
     const int32_t kernings[] = {0, 0, 0, 0};
-    for (bool inlineKernings : {false, true})
+    for (bool hasKerning : {false, true})
     {
-        const std::span<const int32_t> adjustments = inlineKernings ? kernings : std::span<const int32_t>();
+        m_Font.m_HasKerning = hasKerning;
+        const std::span<const int32_t> adjustments = hasKerning ? kernings : std::span<const int32_t>();
         m_Text.Begin(m_Font, "A\xef\xb7\x90\x7f" "B", PIPoint(0, 0), PIRect(0, 0, 32, 32), adjustments);
         ASSERT_EQ(m_Text.GetGlyphs().size(), 4);
         EXPECT_EQ(m_Text.GetGlyphs()[0].Glyph, &m_Glyphs[0]);
-        EXPECT_EQ(m_Text.GetGlyphs()[1].Glyph, &missing);
-        EXPECT_EQ(m_Text.GetGlyphs()[2].Glyph, &missing);
+        EXPECT_EQ(m_Text.GetGlyphs()[1].Glyph, &m_MissingGlyph);
+        EXPECT_EQ(m_Text.GetGlyphs()[2].Glyph, &m_MissingGlyph);
         EXPECT_EQ(m_Text.GetGlyphs()[3].Glyph, &m_Glyphs[1]);
         EXPECT_EQ(m_Text.GetGlyphs()[1].Bounds.left, 4);
         EXPECT_EQ(m_Text.GetGlyphs()[2].Bounds.left, 7);
@@ -241,11 +237,9 @@ TEST_F(DisplayFontTextTest, MissingGlyphFallbackPreservesAdvanceAndCoverage)
     }
 }
 
-TEST_F(DisplayFontTextTest, RejectsMissingWarmCacheEntries)
+TEST_F(DisplayFontTextTest, RejectsMissingGlyphs)
 {
     EXPECT_THROW(m_Text.Begin(m_Font, "D", PIPoint(0, 0), PIRect(0, 0, 100, 100)), std::system_error);
-    m_Font.m_HasKerning = true;
-    EXPECT_THROW(m_Text.Begin(m_Font, "AB", PIPoint(0, 0), PIRect(0, 0, 100, 100)), std::system_error);
     EXPECT_TRUE(m_Text.GetGlyphs().empty());
     EXPECT_FALSE(m_Text.NextSpan());
 }
@@ -271,42 +265,31 @@ TEST_F(DisplayFontTextTest, InlineKerningsFollowDecodedCharactersIncludingSpaces
     EXPECT_EQ(m_Text.GetGlyphs()[2].Bounds.left, 11);
 }
 
-TEST_F(DisplayFontTextTest, InlineKerningsMatchCachedPlacementForRotatedText)
+TEST_F(DisplayFontTextTest, InlineKerningsRotateWithFreeTypeRounding)
 {
     m_Font.m_KerningScaleX = 56756;
     m_Font.m_KerningScaleY = -32768;
     m_Font.m_HasKerning = true;
-    // -1/64 pixel at 30 degrees rounds to (-1/64, +1/64).
-    const PDisplayFontKerning pairs[] =
-    {
-        {1, 2, PPoint(-1.0f / 64.0f, 1.0f / 64.0f), 0.0f},
-        {2, 3, PPoint(-1.734375f, 1.0f), -2.0f}
-    };
-    m_Font.m_Kernings = pairs;
-    m_Font.m_KerningCount = std::size(pairs);
     for (PDisplayFontGlyph& glyph : m_Glyphs) {
         glyph.Advance = PPoint(3.46875f, -2.0f);
     }
-    std::array<PIRect, 3> expected;
-    m_Text.Begin(m_Font, "ABC", PIPoint(20, 20), PIRect(0, 0, 100, 100));
-    ASSERT_EQ(m_Text.GetGlyphs().size(), expected.size());
-    for (size_t index = 0; index < expected.size(); ++index) {
-        expected[index] = m_Text.GetGlyphs()[index].Bounds;
-    }
-    m_Font.m_Kernings = nullptr;
-    m_Font.m_KerningCount = 0;
+    const std::array<PIRect, 3> expected = {PIRect(20, 20, 26, 26), PIRect(23, 18, 29, 24), PIRect(25, 17, 31, 23)};
     const int32_t kernings[] = {0, -1, -128};
     m_Text.Begin(m_Font, "ABC", PIPoint(20, 20), PIRect(0, 0, 100, 100), kernings);
     ASSERT_EQ(m_Text.GetGlyphs().size(), expected.size());
     for (size_t index = 0; index < expected.size(); ++index) {
         EXPECT_EQ(m_Text.GetGlyphs()[index].Bounds, expected[index]);
     }
-    EXPECT_EQ(m_Font.TransformKerning(-1), PPoint(-1.0f / 64.0f, 1.0f / 64.0f));
-    EXPECT_EQ(m_Font.TransformKerning(1), PPoint(1.0f / 64.0f, -1.0f / 64.0f));
+    // A 1/64-pixel adjustment at 30 degrees rounds to one fixed-point unit on each axis.
+    EXPECT_EQ(m_Font.TransformKerning(-1), PPoint(-FONT_F26DOT6_TO_FLOAT, FONT_F26DOT6_TO_FLOAT));
+    EXPECT_EQ(m_Font.TransformKerning(1), PPoint(FONT_F26DOT6_TO_FLOAT, -FONT_F26DOT6_TO_FLOAT));
+    EXPECT_EQ(m_Font.TransformKerning(-128), PPoint(-1.734375f, 1.0f));
 }
 
 TEST_F(DisplayFontTextTest, RejectsInlineKerningCountMismatch)
 {
+    m_Font.m_HasKerning = true;
+    EXPECT_THROW(m_Text.Begin(m_Font, "AB", PIPoint(0, 0), PIRect(0, 0, 100, 100)), std::system_error);
     const int32_t shortKernings[] = {0};
     EXPECT_THROW(m_Text.Begin(m_Font, "AB", PIPoint(0, 0), PIRect(0, 0, 100, 100), shortKernings), std::system_error);
     const int32_t longKernings[] = {0, 0};

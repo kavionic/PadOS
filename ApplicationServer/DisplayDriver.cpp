@@ -467,10 +467,6 @@ PFontTextMetrics PDisplayDriver::DrawText(
         PERROR_THROW_CODE(PErrorCode::OVERFLOW);
     }
     const size_t kerningBytes = kerningCount * sizeof(int32_t);
-    PServerPreparedText prepared;
-    if constexpr (!PServerFontInstance::USE_INLINE_KERNING) {
-        prepared = font.PrepareText(text);
-    }
     if (m_FontReferences.size() == m_FontReferences.capacity())
     {
         const size_t capacity = m_FontReferences.capacity();
@@ -483,11 +479,8 @@ PFontTextMetrics PDisplayDriver::DrawText(
     PScopeFail rollback([this, commandOffset] { m_UsedBufferSize = commandOffset; });
     uint8_t* payload = static_cast<uint8_t*>(buffer) + ARGUMENT_SIZE;
     int32_t* kernings = (kerningCount != 0) ? reinterpret_cast<int32_t*>(payload + clipRects.size_bytes()) : nullptr;
-    if constexpr (PServerFontInstance::USE_INLINE_KERNING)
-    {
-        // Preparation writes directly into the reserved command. It cannot submit or allocate display commands.
-        prepared = font.PrepareText(text, kernings);
-    }
+    // Preparation writes directly into the reserved command. It cannot submit or allocate display commands.
+    const PServerPreparedText prepared = font.PrepareText(text, kernings);
     m_Commands.WriteFontString(
         buffer,
         ReferenceBitmap(bitmap),

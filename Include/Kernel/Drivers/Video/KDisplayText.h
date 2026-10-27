@@ -8,6 +8,7 @@
 #pragma once
 
 #include <array>
+#include <limits>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -43,7 +44,8 @@ public:
         const PIRect& bitmapBounds,
         std::span<const int32_t> kernings = {},
         PPoint advance = PPoint(),
-        PDrawingMode mode = PDrawingMode::Overlay);
+        PDrawingMode mode = PDrawingMode::Overlay,
+        float width = std::numeric_limits<float>::infinity());
     void End() noexcept;
     bool NextSpan();
     const KDisplayTextSpan& GetSpan() const noexcept { return m_Span; }
@@ -80,6 +82,11 @@ private:
         float Slope = 0.0f;
     };
 
+    void InitializeWidthClip(const PDisplayFontCache& font, const PIPoint& position, float width);
+    bool NextUnclippedSpan();
+    bool NextClippedSpan();
+    PIRect ClipRow(int row) const noexcept;
+    static void ClipInterval(float edge, bool fromStart, int& start, int& end) noexcept;
     bool LayoutGlyphs(
         const PDisplayFontCache& font,
         std::string_view text,
@@ -111,6 +118,10 @@ private:
     PIRect m_BitmapBounds;
     PIRect m_LogicalBounds;
     KDisplayTextSpan m_Span;
+    KDisplayTextSpan m_UnclippedSpan;
+    float m_ClipOrigin = 0.0f;
+    float m_ClipSlope = 0.0f;
+    int m_ClipRow = 0;
     size_t m_NextGlyph = 0;
     size_t m_IntervalIndex = 0;
     size_t m_BackgroundIntervalIndex = 0;
@@ -123,6 +134,8 @@ private:
     bool m_Copy = false;
     bool m_LogicalAxisAligned = true;
     bool m_HasStrip = false;
+    bool m_ObliqueClip = false;
+    bool m_ClipFromStart = false;
 };
 
 } // namespace kernel

@@ -147,7 +147,6 @@ PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags)
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
     }
-//    SetFont(ptr_new<Font>(GfxDriver::e_Font7Seg));
     ++s_InstanceCount;
 }
 
@@ -775,7 +774,7 @@ void PView::OnViewScrolled(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::OnFontChanged(Ptr<PFont> newFont)
+void PView::OnFontChanged(Ptr<const PFont> newFont)
 {
 }
 
@@ -1304,17 +1303,22 @@ PDrawingMode PView::GetDrawingMode() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::SetFont(Ptr<PFont> font)
+void PView::SetFont(Ptr<const PFont> font)
 {
     if (font == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    m_Font = font;
-    if (font->IsFreeType()) {
-        Post<ASViewSetTextFont>(font->GetDescription());
-    } else {
-        Post<ASViewSetFont>(int(std::to_underlying(font->Get())));
+    PApplication* application = GetApplication();
+    if (application != nullptr)
+    {
+        if (font->GetApplication() != application) {
+            PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Font belongs to another application");
+        }
+        if (m_ServerHandle != INVALID_HANDLE) {
+            application->Post<ASViewSetFont>(m_ServerHandle, font->GetHandle());
+        }
     }
+    m_Font = font;
     OnFontChanged(font);
 }
 
@@ -1322,7 +1326,7 @@ void PView::SetFont(Ptr<PFont> font)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-Ptr<PFont> PView::GetFont() const
+Ptr<const PFont> PView::GetFont() const
 {
     return m_Font;
 }
@@ -1427,6 +1431,54 @@ void PView::DrawPolyline(std::span<const PPoint> points)
         Post<ASViewAddPolylinePoint>(point);
     }
     Post<ASViewEndPolyline>();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter)
+{
+    const PIRect frame = PIRect(background + m_ScrollOffset) & PIRect(GetNormalizedBounds());
+    if (!frame.IsValid()) {
+        return;
+    }
+
+    if (m_Font == nullptr || GetDrawingMode() != PDrawingMode::Copy
+        || m_Font->GetDescription().Rotation != 0.0f || m_Font->GetDescription().Shear != 90.0f)
+    {
+        FillRect(background, GetBgColor());
+        DrawString(string, pos);
+        return;
+    }
+
+    const PFontHeight height = m_Font->GetHeight();
+    const PIPoint baseline(pos + m_ScrollOffset);
+    // Match the server's integer baseline and the renderer's pixel-center coverage.
+    const int top = std::clamp(baseline.y + int(ceilf(-height.ascender - 0.5f)), frame.top, frame.bottom);
+    const int bottom = std::clamp(baseline.y + int(ceilf(height.descender - 0.5f)), frame.top, frame.bottom);
+    const int left = std::clamp(baseline.x, frame.left, frame.right);
+    // FillRect truncates its scrolled coordinates. Encode nonnegative pixel edges
+    // inside their integer bins so floating-point roundoff cannot shift an edge.
+    const PPoint fillOffset = PPoint(0.5f, 0.5f) - m_ScrollOffset;
+
+    if (top >= bottom || left >= frame.right)
+    {
+        FillRect(background, GetBgColor());
+    }
+    else
+    {
+        if (top > frame.top) {
+            FillRect(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset, GetBgColor());
+        }
+        if (left > frame.left) {
+            FillRect(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset, GetBgColor());
+        }
+        if (bottom < frame.bottom) {
+            FillRect(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset, GetBgColor());
+        }
+    }
+    DrawString(string, pos, float(frame.right - baseline.x), allowPartialCharacter);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

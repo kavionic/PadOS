@@ -81,7 +81,7 @@ void PTextEditView::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextEditView::OnFontChanged(Ptr<PFont> newFont)
+void PTextEditView::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_CursorViewPos.x = GetStringWidth(m_Text.data(), m_CursorPos);
     ContentSizeChanged();
@@ -136,11 +136,7 @@ void PTextEditView::OnPaint(const PRect& updateRect)
     }
 
     SetEraseColor(GetBgColor());
-    PRect bounds = GetBounds();
-    EraseRect(bounds);
-
-    MovePenTo(0.0f, GetFontHeight().ascender);
-    DrawString(m_Text);
+    DrawString(m_Text, PPoint(0.0f, GetFontHeight().ascender), GetBounds());
 
     if (m_CursorVisible) {
         FillRect(GetCursorFrame());
@@ -431,9 +427,8 @@ bool PTextEditView::SetCursorPos(size_t position)
 
 size_t PTextEditView::ViewPosToCursorPos(const PPoint& position) const
 {
-    Ptr<PFont> font = GetFont();
-    if (font != nullptr)
-    {
+    Ptr<const PFont> font = GetFont();
+    if (font != nullptr) {
         return font->GetStringLength(m_Text, position.x, false);
     }
     return 0;

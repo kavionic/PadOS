@@ -419,7 +419,7 @@ void PListView::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PListView::OnFontChanged(Ptr<PFont> newFont)
+void PListView::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_ScrolledContainerView->SetFont(newFont);
     m_HeaderView->SetFont(newFont);

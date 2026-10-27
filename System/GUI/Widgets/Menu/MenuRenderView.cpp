@@ -24,13 +24,37 @@ PPoint PMenuRenderView::CalculateContentSize() const
 
 void PMenuRenderView::OnPaint(const PRect& updateRect)
 {
-    SetFgColor(PStandardColorID::MenuBackground);
-    FillRect(GetBounds());
-
+    const PColor background = pget_standard_color(PStandardColorID::MenuBackground);
+    PRect remaining = GetBounds();
+    const bool horizontal = m_Menu->GetLayout() == PMenuLayout::Horizontal;
     Ptr<PView> self = ptr_tmp_cast(this);
-    for (Ptr<PMenuItem> item : m_Menu->m_Items) {
+    const auto fillBackground = [this, background](const PRect& frame)
+    {
+        if (frame.IsValid()) {
+            FillRect(frame, background);
+        }
+    };
+
+    for (const Ptr<PMenuItem>& item : m_Menu->m_Items)
+    {
+        const PRect frame = item->GetFrame() & GetBounds();
+        if (horizontal)
+        {
+            fillBackground(PRect(remaining.left, remaining.top, frame.left, remaining.bottom));
+            fillBackground(PRect(frame.left, remaining.top, frame.right, frame.top));
+            fillBackground(PRect(frame.left, frame.bottom, frame.right, remaining.bottom));
+            remaining.left = std::max(remaining.left, frame.right);
+        }
+        else
+        {
+            fillBackground(PRect(remaining.left, remaining.top, remaining.right, frame.top));
+            fillBackground(PRect(remaining.left, frame.top, frame.left, frame.bottom));
+            fillBackground(PRect(frame.right, frame.top, remaining.right, frame.bottom));
+            remaining.top = std::max(remaining.top, frame.bottom);
+        }
         item->Draw(self);
     }
+    fillBackground(remaining);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

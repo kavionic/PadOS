@@ -129,7 +129,7 @@ public:
     virtual void    OnFrameSized(const PPoint& delta);
     virtual void    OnScreenFrameMoved(const PPoint& delta);
     virtual void    OnViewScrolled(const PPoint& delta);
-    virtual void    OnFontChanged(Ptr<PFont> newFont);
+    virtual void    OnFontChanged(Ptr<const PFont> newFont);
     
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight);
     virtual PPoint  CalculateContentSize() const;
@@ -203,8 +203,8 @@ public:
 
     void                SetDrawingMode(PDrawingMode mode);
     PDrawingMode        GetDrawingMode() const;
-    void                SetFont(Ptr<PFont> font);
-    Ptr<PFont>          GetFont() const;
+    void                SetFont(Ptr<const PFont> font);
+    Ptr<const PFont>    GetFont() const;
 
     void            HandlePointerEvent(const PPointerEvent& pointerEvent);
     
@@ -284,9 +284,26 @@ public:
     void            FillTriangleFan(std::span<const PPoint> points);
     void            FillTriangleStrip(std::span<const PPoint> points);
     void            DrawPolyline(std::span<const PPoint> points);
-    // Uses the selected font backend. Positions are baselines; bitmap fonts retain a zero ascender.
+    // Text positions are baselines.
     void            DrawString(const PString& string) { Post<ASViewDrawString>(string); }
     void            DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
+    // Width is measured along the font's baseline. Copy fills the ascender-to-descender band to that width.
+    // Clipping applies at the far edge; leading glyph overhangs remain visible. Nonpositive widths draw nothing.
+    // The pen advances by the included text, including the full advance of an allowed partial character.
+    void DrawString(const PString& string, float width, bool allowPartialCharacter = true)
+    {
+        Post<ASViewDrawStringWidth>(string, width, allowPartialCharacter);
+    }
+    void DrawString(const PString& string, const PPoint& pos, float width, bool allowPartialCharacter = true)
+    {
+        MovePenTo(pos);
+        Post<ASViewDrawStringWidth>(string, width, allowPartialCharacter);
+    }
+
+    // Paint the background rectangle with GetBgColor() and draw at the supplied baseline.
+    // Upright Copy text fills its own band; only the surrounding padding is cleared separately.
+    // Upright Copy text clips at the right edge. Other modes/transforms clear first and draw normally.
+    void DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
 
     virtual void    ScrollBy(const PPoint& offset);
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(PPoint(vDeltaX, vDeltaY)); }
@@ -436,5 +453,5 @@ private:
     PScrollBar*         m_HScrollBar = nullptr;
     PScrollBar*         m_VScrollBar = nullptr;
 
-    Ptr<PFont>          m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
+    Ptr<const PFont>    m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
 };

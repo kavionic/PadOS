@@ -8,6 +8,7 @@
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/Fonts/ServerFontInstance.h>
 #include <ApplicationServer/ServerBitmap.h>
+#include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
 #include <algorithm>
 #include <cstring>
@@ -419,29 +420,7 @@ PColor PDisplayDriver::GetPaletteEntry(uint8_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDisplayDriver::DrawString(
-    PSrvBitmap* bitmap,
-    const PIPoint& position,
-    const char* string,
-    size_t length,
-    const PIRect& clipRect,
-    PColor background,
-    PColor foreground,
-    PFontID fontID,
-    PDrawingMode mode)
-{
-    void* buffer = m_Commands.WriteString.Alloc(length);
-    if (length != 0) {
-        std::memcpy(static_cast<uint8_t*>(buffer) + m_Commands.WriteString.GetFixedSize(), string, length);
-    }
-    m_Commands.WriteString(buffer, ReferenceBitmap(bitmap), position, length, clipRect, background, foreground, fontID, mode);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PFontTextMetrics PDisplayDriver::DrawText(
+PFontTextMetrics PDisplayDriver::DrawString(
     PSrvBitmap* bitmap,
     const PIPoint& position,
     std::string_view text,
@@ -449,15 +428,25 @@ PFontTextMetrics PDisplayDriver::DrawText(
     std::span<const PIRect> clipRects,
     PColor background,
     PColor foreground,
-    PDrawingMode mode)
+    PDrawingMode mode,
+    float width,
+    bool allowPartialCharacter)
 {
-    if (text.empty() || clipRects.empty()) {
+    if (PMath::is_nan(width)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (width <= 0.0f) {
+        return {};
+    }
+    const bool bounded = PMath::is_finite(width);
+    if (!bounded && (text.empty() || clipRects.empty())) {
         return font.MeasureText(text);
     }
     static_assert(alignof(PIRect) <= align_argument_size(1));
     static_assert(alignof(int32_t) <= alignof(PIRect));
-    constexpr size_t ARGUMENT_SIZE = decltype(m_Commands.WriteFontString)::GetFixedSize();
-    constexpr size_t LIMIT = std::numeric_limits<uint32_t>::max() - ARGUMENT_SIZE - sizeof(PDisplayCommandHeader)
+    const size_t argumentSize = bounded
+        ? decltype(m_Commands.WriteStringWidth)::GetFixedSize() : decltype(m_Commands.WriteString)::GetFixedSize();
+    const size_t LIMIT = std::numeric_limits<uint32_t>::max() - argumentSize - sizeof(PDisplayCommandHeader)
         - DISPLAY_COMMAND_ALIGNMENT;
     if (clipRects.size() > LIMIT / sizeof(PIRect) || text.size() > LIMIT - clipRects.size_bytes()) {
         PERROR_THROW_CODE(PErrorCode::OVERFLOW);
@@ -473,28 +462,61 @@ PFontTextMetrics PDisplayDriver::DrawText(
         const size_t growth = std::min(std::max(size_t(1), capacity), m_FontReferences.max_size() - capacity);
         m_FontReferences.reserve(capacity + growth);
     }
-    void* buffer = m_Commands.WriteFontString.Alloc(clipRects.size_bytes() + kerningBytes + text.size());
+    const size_t payloadSize = clipRects.size_bytes() + kerningBytes + text.size();
+    void* buffer = bounded ? m_Commands.WriteStringWidth.Alloc(payloadSize) : m_Commands.WriteString.Alloc(payloadSize);
     const size_t commandOffset = size_t(static_cast<uint8_t*>(buffer) - reinterpret_cast<uint8_t*>(m_CommandBuffer.data()))
         - sizeof(PDisplayCommandHeader);
     PScopeFail rollback([this, commandOffset] { m_UsedBufferSize = commandOffset; });
-    uint8_t* payload = static_cast<uint8_t*>(buffer) + ARGUMENT_SIZE;
+    uint8_t* payload = static_cast<uint8_t*>(buffer) + argumentSize;
     int32_t* kernings = (kerningCount != 0) ? reinterpret_cast<int32_t*>(payload + clipRects.size_bytes()) : nullptr;
     // Preparation writes directly into the reserved command. It cannot submit or allocate display commands.
-    const PServerPreparedText prepared = font.PrepareText(text, kernings);
-    m_Commands.WriteFontString(
-        buffer,
-        ReferenceBitmap(bitmap),
-        position,
-        prepared.Cache->GetDisplayCache(),
-        text.size(),
-        clipRects.size(),
-        kerningCount,
-        background,
-        foreground,
-        prepared.Metrics.Advance,
-        mode);
-    std::memcpy(payload, clipRects.data(), clipRects.size_bytes());
-    std::memcpy(payload + clipRects.size_bytes() + kerningBytes, text.data(), text.size());
+    const PServerPreparedText prepared = font.PrepareText(text, kernings, width, allowPartialCharacter, position);
+    text = text.substr(0, prepared.Metrics.ByteCount);
+    const size_t usedKerningBytes = prepared.KerningCount * sizeof(int32_t);
+    if (bounded)
+    {
+        m_Commands.WriteStringWidth(
+            buffer,
+            ReferenceBitmap(bitmap),
+            position,
+            prepared.Cache->GetDisplayCache(),
+            text.size(),
+            clipRects.size(),
+            prepared.KerningCount,
+            background,
+            foreground,
+            prepared.Metrics.Advance,
+            mode,
+            width);
+        // Preparation may stop early. Reclaim the unused suffix before reserving the next command.
+        const size_t recordSize = sizeof(PDisplayCommandHeader) + argumentSize + clipRects.size_bytes()
+            + usedKerningBytes + text.size();
+        const size_t length = (recordSize + DISPLAY_COMMAND_ALIGNMENT - 1) & ~(DISPLAY_COMMAND_ALIGNMENT - 1);
+        PDisplayCommandHeader* header = static_cast<PDisplayCommandHeader*>(buffer) - 1;
+        header->Length = uint32_t(length);
+        m_UsedBufferSize = commandOffset + length;
+    }
+    else
+    {
+        m_Commands.WriteString(
+            buffer,
+            ReferenceBitmap(bitmap),
+            position,
+            prepared.Cache->GetDisplayCache(),
+            text.size(),
+            clipRects.size(),
+            prepared.KerningCount,
+            background,
+            foreground,
+            prepared.Metrics.Advance,
+            mode);
+    }
+    if (!clipRects.empty()) {
+        std::memcpy(payload, clipRects.data(), clipRects.size_bytes());
+    }
+    if (!text.empty()) {
+        std::memcpy(payload + clipRects.size_bytes() + usedKerningBytes, text.data(), text.size());
+    }
     if (std::find(m_FontReferences.begin(), m_FontReferences.end(), prepared.Cache) == m_FontReferences.end()) {
         m_FontReferences.push_back(prepared.Cache);
     }

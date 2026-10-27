@@ -37,8 +37,6 @@ static constexpr int    ARROW_WIDTH = 19;
 static constexpr int    ARROW_HEIGHT = 10;
 static constexpr float  ARROW_BUTTON_ASPECT_RATIO = 0.9f;
 
-static Ptr<PBitmap> g_ArrowBitmap;
-
 const std::map<PString, uint32_t> PDropdownMenuFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(PDropdownMenuFlags, ReadOnly)
@@ -79,10 +77,7 @@ void PDropdownMenu::Initialize()
 
     m_EditBox->SignalTextChanged.Connect(this, &PDropdownMenu::SlotTextChanged);
 
-    if (g_ArrowBitmap == nullptr)
-    {
-        g_ArrowBitmap = ptr_new<PBitmap>(ARROW_WIDTH, ARROW_HEIGHT, PEColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
-    }
+    m_ArrowBitmap = ptr_new<PBitmap>(ARROW_WIDTH, ARROW_HEIGHT, PEColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,7 +118,7 @@ void PDropdownMenu::DetachedFromScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDropdownMenu::OnFontChanged(Ptr<PFont> newFont)
+void PDropdownMenu::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_EditBox->SetFont(newFont);
     if (m_MenuWindow != nullptr)
@@ -227,14 +222,14 @@ void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
     SetFgColor(0, 0, 0);
     if (m_EditBox->IsEnabled())
     {
-        DrawBitmap(g_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 4.0f));
+        DrawBitmap(m_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 4.0f));
     }
     else
     {
         SetFgColor(255, 255, 255);
-        DrawBitmap(g_ArrowBitmap, arrowFrame, center - PPoint(8.0f, 4.0f));
+        DrawBitmap(m_ArrowBitmap, arrowFrame, center - PPoint(8.0f, 4.0f));
         SetFgColor(110, 110, 110);
-        DrawBitmap(g_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 5.0f));
+        DrawBitmap(m_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 5.0f));
     }
     SetDrawingMode(PDrawingMode::Copy);
 }
@@ -447,7 +442,7 @@ void PDropdownMenu::LayoutMenuWindow()
 {
     if (m_MenuWindow != nullptr)
     {
-        PRect screenFrame(100.0f, 0.0f, 800.0f, 480.0f); // FIXME: Query this data from the application server.
+        PRect screenFrame = PApplication::GetScreenFrame();
 
         screenFrame.Resize(5.0f, 20.0f, -5.0f, -20.0f);
 

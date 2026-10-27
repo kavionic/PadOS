@@ -77,6 +77,12 @@ public:
     bool ProcessEvents();
     bool Tick();
 
+protected:
+    // The message port and timer condition occupy the first wait-group slots.
+    static constexpr size_t FIRST_USER_WAIT_OBJECT_INDEX = 2;
+
+    virtual void WaitForEvents(TimeValNanos deadline);
+
 private:
     void ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength);
     void RunTimers();

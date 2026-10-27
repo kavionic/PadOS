@@ -23,6 +23,8 @@ public:
     WindowManager();
     ~WindowManager();
 
+    virtual void ThreadStarted() override;
+
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
 
 private:
@@ -38,6 +40,7 @@ private:
     ASWindowManagerDisableVKeyboard::Receiver   RSWindowManagerDisableVKeyboard;
 
     Ptr<PView> m_TopView;
+    Ptr<PView> m_DesktopView;
     Ptr<PView> m_SidebarView;
     Ptr<PView> m_ClientsView;
 

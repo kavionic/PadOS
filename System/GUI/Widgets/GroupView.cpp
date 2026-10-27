@@ -36,9 +36,7 @@ PGroupView::PGroupView(PViewFactoryContext& context, Ptr<PView> parent, const pu
 
 void PGroupView::OnPaint(const PRect& updateRect)
 {
-    EraseRect(updateRect);
-
-	float labelHeight = 0.0f;
+    float labelHeight = 0.0f;
 	float labelWidth = 0.0f;
 
     if (!m_Label.empty())
@@ -47,11 +45,14 @@ void PGroupView::OnPaint(const PRect& updateRect)
 
         SetBgColor(GetEraseColor());
         SetFgColor(PStandardColorID::Shadow);
-		MovePenTo(30.0f, fontHeight.ascender);
-		DrawString(m_Label);
+        DrawString(m_Label, PPoint(30.0f, fontHeight.ascender), GetBounds());
 
         labelHeight = fontHeight.descender + fontHeight.ascender;
         labelWidth = GetStringWidth(m_Label);
+    }
+    else
+    {
+        EraseRect(updateRect);
     }
 
     PRect bound = GetNormalizedBounds();

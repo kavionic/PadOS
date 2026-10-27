@@ -37,7 +37,7 @@ public:
 
     PRect GetClientFrame() const;
 
-    virtual void OnFontChanged(Ptr<PFont> newFont) override;
+    virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void    Layout(const PPoint& delta);
     virtual void    OnFrameSized(const PPoint& delta) override;
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
@@ -68,7 +68,7 @@ private:
             m_TabView = parent;
         }
     
-        virtual void OnFontChanged(Ptr<PFont> newFont) override { Invalidate(); }
+        virtual void OnFontChanged(Ptr<const PFont> newFont) override { Invalidate(); }
         virtual void OnPaint(const PRect& updateRect) override;
     private:
         PTabView* m_TabView;

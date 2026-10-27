@@ -32,7 +32,7 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& ite
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::OnFontChanged(Ptr<PFont> newFont)
+void DropdownMenuPopupWindow::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_ContentView->SetFont(newFont);
     PreferredSizeChanged();
@@ -106,7 +106,7 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemLis
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupView::OnFontChanged(Ptr<PFont> newFont)
+void DropdownMenuPopupView::OnFontChanged(Ptr<const PFont> newFont)
 {
     UpdateFontMetrics();
     ContentSizeChanged();
@@ -121,47 +121,34 @@ void DropdownMenuPopupView::OnFontChanged(Ptr<PFont> newFont)
 void DropdownMenuPopupView::OnPaint(const PRect& updateRect)
 {
     SetEraseColor(255, 255, 255);
-    EraseRect(GetBounds());
+    const PRect bounds = GetBounds();
+    const float contentBottom = float(m_ItemList.size()) * m_GlyphHeight;
+    if (bounds.top < 0.0f) {
+        EraseRect(PRect(bounds.left, bounds.top, bounds.right, std::min(bounds.bottom, 0.0f)));
+    }
+    if (bounds.bottom > contentBottom) {
+        EraseRect(PRect(bounds.left, std::max(bounds.top, contentBottom), bounds.right, bounds.bottom));
+    }
 
-    SetFgColor(0, 0, 0);
-    SetBgColor(255, 255, 255);
-
-    const size_t firstVisible = size_t(updateRect.top / m_GlyphHeight);
-    const size_t lastVisible = std::min(size_t((updateRect.bottom + m_GlyphHeight - 1.0f) / m_GlyphHeight), m_ItemList.size() - 1);
-
-    float y = float(firstVisible) * m_GlyphHeight;
-    for (size_t i = firstVisible; i <= lastVisible; ++i)
+    const size_t firstVisible = size_t(std::max(0.0f, floorf(updateRect.top / m_GlyphHeight)));
+    const size_t endVisible = std::min(size_t(std::max(0.0f, ceilf(updateRect.bottom / m_GlyphHeight))), m_ItemList.size());
+    for (size_t i = firstVisible; i < endVisible; ++i)
     {
         if (i == m_CurSelection || i == m_HitItem)
         {
-            PRect itemFrame = GetBounds();
-
-            if (i == m_CurSelection) {
-                SetFgColor(0, 0, 0);
-            } else {
-                SetFgColor(0, 0, 200);
-            }
-
-            itemFrame.top = y;
-            itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-            FillRect(itemFrame);
-
             SetFgColor(255, 255, 255);
-            if (i == m_CurSelection) {
-                SetBgColor(0, 0, 0);
-            } else {
-                SetBgColor(0, 0, 200);
-            }
+            SetBgColor((i == m_CurSelection) ? PColor(0, 0, 0) : PColor(0, 0, 200));
         }
-        MovePenTo(2.0f, std::round(y + m_FontHeight.ascender + m_FontHeight.line_gap * 0.5f));
-        DrawString(m_ItemList[i]);
-        y += m_GlyphHeight;
-
-        if (i == m_CurSelection || i == m_HitItem)
+        else
         {
             SetFgColor(0, 0, 0);
             SetBgColor(255, 255, 255);
         }
+
+        const float top = float(i) * m_GlyphHeight;
+        const PRect itemFrame(bounds.left, top, bounds.right, float(i + 1) * m_GlyphHeight);
+        const PPoint baseline(2.0f, std::round(top + m_FontHeight.ascender + m_FontHeight.line_gap * 0.5f));
+        DrawString(m_ItemList[i], baseline, itemFrame);
     }
 }
 

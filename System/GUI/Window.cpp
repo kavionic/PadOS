@@ -24,7 +24,7 @@ PWindow::PWindow(const PString& title) : PView("Window", nullptr, PViewFlags::Wi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PWindow::OnFontChanged(Ptr<PFont> newFont)
+void PWindow::OnFontChanged(Ptr<const PFont> newFont)
 {
     const PFontHeight fontHeight = GetFontHeight();
     m_ClientBorders.top = fontHeight.ascender + fontHeight.descender + 8.0f;
@@ -52,13 +52,14 @@ void PWindow::OnPaint(const PRect& updateRect)
     FillRect(PRect(outerFrame.left + 2.0f, innerFrame.top, innerFrame.left, innerFrame.bottom));                     // Left edge.
     FillRect(PRect(innerFrame.right, innerFrame.top, outerFrame.right - 2.0f, innerFrame.bottom));                   // Right edge.
     FillRect(PRect(outerFrame.left + 2.0f, innerFrame.bottom, outerFrame.right - 2.0f, outerFrame.bottom - 2.0f));   // Bottom edge.
-    FillRect(PRect(outerFrame.left + 2.0f, outerFrame.top + 2.0f, outerFrame.right - 2.0f, innerFrame.top));         // Top edge.
 
     SetFgColor(PNamedColors::black);
     SetBgColor(PStandardColorID::WindowBorderActive);
 
-    MovePenTo(10.0f, 4.0f + GetFontHeight().ascender);
-    DrawString(m_Title);
+    DrawString(
+        m_Title,
+        PPoint(10.0f, 4.0f + GetFontHeight().ascender),
+        PRect(outerFrame.left + 2.0f, outerFrame.top + 2.0f, outerFrame.right - 2.0f, innerFrame.top));
 
     SetFgColor(PStandardColorID::DefaultBackground);
 

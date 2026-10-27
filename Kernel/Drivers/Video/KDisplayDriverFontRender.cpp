@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <Kernel/Drivers/Video/KDisplayDriver.h>
+#include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
 
 namespace kernel
@@ -89,7 +90,7 @@ static void WriteFontBitmapSpan(
     }
 }
 
-void KDisplayDriver::WriteFontString(
+void KDisplayDriver::WriteString(
     PDisplayBitmap* bitmap,
     const PIPoint& position,
     std::string_view text,
@@ -99,7 +100,8 @@ void KDisplayDriver::WriteFontString(
     PColor background,
     PColor foreground,
     PPoint advance,
-    PDrawingMode mode)
+    PDrawingMode mode,
+    float width)
 {
     kassert(m_Mutex.IsLocked());
     if (mode != PDrawingMode::Copy && mode != PDrawingMode::Overlay) {
@@ -108,7 +110,7 @@ void KDisplayDriver::WriteFontString(
     if (bitmap->VideoMemory) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    if (text.empty() || clipRects.empty()) {
+    if ((text.empty() && !PMath::is_finite(width)) || clipRects.empty()) {
         return;
     }
     if (mode == PDrawingMode::Overlay && foreground.GetAlpha() == 0) {
@@ -116,7 +118,7 @@ void KDisplayDriver::WriteFontString(
     }
     const std::array<uint32_t, 256>& palette = PrepareFontPalette(bitmap->ColorSpace, background, foreground);
     const PIRect bitmapBounds(PIPoint(0, 0), bitmap->Size);
-    m_FontText.Begin(font, text, position, bitmapBounds, kernings, advance, mode);
+    m_FontText.Begin(font, text, position, bitmapBounds, kernings, advance, mode, width);
     PScopeExit releaseText([this] { m_FontText.End(); });
     while (m_FontText.NextSpan())
     {

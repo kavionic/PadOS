@@ -379,7 +379,7 @@ public:
         PDrawingMode mode)
     {
         CRITICAL_SCOPE(m_Mutex);
-        WriteFontString(&bitmap, position, text, font, {}, clips, background, foreground, advance, mode);
+        WriteString(&bitmap, position, text, font, {}, clips, background, foreground, advance, mode);
     }
 
     void CheckPaletteEndpoints(PColor background, PColor foreground)

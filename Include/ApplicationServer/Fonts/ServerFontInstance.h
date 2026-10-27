@@ -38,7 +38,12 @@ public:
     PFontTextMetrics MeasureTextChunk(std::string_view text, float width, bool includeLast, uint32_t& previousGlyph);
     size_t GetTextKerningCount(std::string_view text) const noexcept;
     // A non-null output must have GetTextKerningCount(text) entries.
-    PServerPreparedText PrepareText(std::string_view text, int32_t* kernings = nullptr);
+    PServerPreparedText PrepareText(
+        std::string_view text,
+        int32_t* kernings = nullptr,
+        float width = std::numeric_limits<float>::infinity(),
+        bool allowPartialCharacter = true,
+        const PIPoint& position = PIPoint());
     const PDisplayFontCache& GetDisplayCache() const noexcept { return m_Glyphs; }
     void ReleaseDrawCache(const PServerFontDrawCache& cache) noexcept;
 
@@ -55,7 +60,8 @@ private:
         bool includeLast,
         PServerFontDrawCache* drawCache,
         uint32_t& previousGlyph,
-        int32_t* kernings = nullptr);
+        int32_t*& kernings,
+        const PIPoint& position = PIPoint());
 
     PServerFontGlyphTable m_Glyphs;
     PServerFontDrawCache* m_ActiveDrawCache = nullptr;

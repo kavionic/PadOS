@@ -474,7 +474,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
         4.0f,   // Miter limit
         std::vector<float>{},     // Dash pattern
         0.0f,   // Dash offset
-        PFontID::e_FontLarge,
+        nullptr,
         PColor(0xffffffff),
         PColor(0xffffffff),
         PColor(0)
@@ -487,9 +487,6 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     RegisterRemoteSignal(&m_RSGetKeyboardLayouts, &ApplicationServer::SlotGetKeyboardLayouts);
     RegisterRemoteSignal(&m_RSGetKeyboardConfiguration, &ApplicationServer::SlotGetKeyboardConfiguration);
     RegisterRemoteSignal(&m_RSSetKeyboardConfiguration, &ApplicationServer::SlotSetKeyboardConfiguration);
-    RegisterRemoteSignal(&m_RSCreateFont, &ApplicationServer::SlotCreateFont);
-    RegisterRemoteSignal(&m_RSDeleteFont, &ApplicationServer::SlotDeleteFont);
-    RegisterRemoteSignal(&m_RSMeasureFont, &ApplicationServer::SlotMeasureFont);
 
     m_KeyboardManager.SignalKeyEvent.Connect(this, &ApplicationServer::SlotVirtualKeyboardEvent);
     try {
@@ -916,74 +913,14 @@ void ApplicationServer::SendKeyboardConfiguration(port_id replyPort, uint32_t re
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SlotCreateFont(port_id replyPort, const PFontDescription& description)
+void ApplicationServer::WaitForEvents(TimeValNanos deadline)
 {
-    MsgCreateFontReply reply;
-    try
-    {
-        if (m_NextFontHandle == 0) {
-            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
-        }
-        Ptr<PServerFontInstance> font = GetFont(description);
-        const uint32_t handle = m_NextFontHandle++;
-        m_ClientFonts.emplace(handle, font);
-        reply.FontHandle = handle;
-        reply.Height = font->GetHeight();
-    }
-    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
-    if (!PMessagePort(replyPort).SendMessageTimeout(
-        INVALID_HANDLE,
-        PAppserverProtocol::CREATE_FONT_REPLY,
-        &reply,
-        sizeof(reply),
-        TimeValNanos::zero)) {
-        m_ClientFonts.erase(reply.FontHandle);
-    }
+    GetWaitGroup().WaitDeadline(GetMutex(), deadline, m_InputReadyFlags.data(), m_InputReadyFlags.size());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
-
-void ApplicationServer::SlotDeleteFont(uint32_t fontHandle)
-{
-    m_ClientFonts.erase(fontHandle);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ApplicationServer::SlotMeasureFont(
-    port_id replyPort,
-    uint32_t fontHandle,
-    const PString& text,
-    float width,
-    bool includeLast,
-    uint32_t previousGlyph)
-{
-    MsgMeasureFontReply reply;
-    reply.PreviousGlyph = previousGlyph;
-    try
-    {
-        const auto font = m_ClientFonts.find(fontHandle);
-        if (font == m_ClientFonts.end()) {
-            PERROR_THROW_CODE(PErrorCode::NOENT);
-        }
-        reply.Metrics = font->second->MeasureTextChunk(
-            std::string_view(text.data(), text.size()),
-            width,
-            includeLast,
-            reply.PreviousGlyph);
-    }
-    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
-    PMessagePort(replyPort).SendMessageTimeout(
-        INVALID_HANDLE,
-        PAppserverProtocol::MEASURE_FONT_REPLY,
-        &reply,
-        sizeof(reply),
-        TimeValNanos::zero);
-}
 
 void ApplicationServer::OpenInputDevices()
 {
@@ -1018,6 +955,7 @@ void ApplicationServer::OpenInputDevices()
         m_InputDevices.push_back(InputDevice{deviceName, inputDevice});
         ReadRegisteredInputDevices(inputDevice, deviceName);
     }
+    m_InputReadyFlags.resize((FIRST_USER_WAIT_OBJECT_INDEX + m_InputDevices.size() + 7) / 8);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1062,8 +1000,14 @@ void ApplicationServer::ReadRegisteredInputDevices(int inputDevice, const PStrin
 
 void ApplicationServer::ReadInputEvents()
 {
-    for (const InputDevice& inputDevice : m_InputDevices) {
-        ReadInputEvents(inputDevice.FileDescriptor, inputDevice.Name);
+    for (size_t i = 0; i < m_InputDevices.size(); ++i)
+    {
+        const size_t waitIndex = FIRST_USER_WAIT_OBJECT_INDEX + i;
+        if ((m_InputReadyFlags[waitIndex / 8] & (1U << (waitIndex % 8))) != 0)
+        {
+            const InputDevice& inputDevice = m_InputDevices[i];
+            ReadInputEvents(inputDevice.FileDescriptor, inputDevice.Name);
+        }
     }
 }
 
@@ -1257,9 +1201,17 @@ bool ApplicationServer::HasInputDevice(PInputClass classID) const
 
 void ApplicationServer::UpdateVirtualKeyboard()
 {
-    if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView->GetFocusKeyboardMode() != PFocusKeyboardMode::None && !HasInputDevice(PInputClass::Keyboard)) {
-        p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(INVALID_HANDLE, m_KeyboardFocusView->ConvertToScreen(m_KeyboardFocusView->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
-    } else {
+    if (m_KeyboardFocusView != nullptr
+        && m_KeyboardFocusView->GetFocusKeyboardMode() != PFocusKeyboardMode::None
+        && !HasInputDevice(PInputClass::Keyboard))
+    {
+        p_post_to_window_manager<ASWindowManagerEnableVKeyboard>(
+            INVALID_HANDLE,
+            m_KeyboardFocusView->ConvertToScreen(m_KeyboardFocusView->GetBounds()),
+            m_KeyboardFocusView->GetFocusKeyboardMode() == PFocusKeyboardMode::Numeric);
+    }
+    else
+    {
         p_post_to_window_manager<ASWindowManagerDisableVKeyboard>(INVALID_HANDLE);
     }
 }

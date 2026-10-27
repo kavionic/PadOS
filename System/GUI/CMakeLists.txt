@@ -19,8 +19,5 @@ target_sources(PadOS_GUI PRIVATE
 	Window.cpp
 )
 
-target_sources(PadOS_System PRIVATE FontMetrics.cpp)
-
-add_subdirectory(Fonts)
 add_subdirectory(Dialogs)
 add_subdirectory(Widgets)

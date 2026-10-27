@@ -17,6 +17,7 @@
 #include <ApplicationServer/Fonts/ServerFontFace.h>
 #include <ApplicationServer/Fonts/ServerFontGlyph.h>
 #include <ApplicationServer/Fonts/ServerFontLibrary.h>
+#include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/UTF8Utils.h>
 
@@ -85,7 +86,8 @@ PFontTextMetrics PServerFontInstance::MeasureTextChunk(
     bool includeLast,
     uint32_t& previousGlyph)
 {
-    return WalkText(text, width, includeLast, nullptr, previousGlyph);
+    int32_t* kernings = nullptr;
+    return WalkText(text, width, includeLast, nullptr, previousGlyph, kernings);
 }
 
 size_t PServerFontInstance::GetTextKerningCount(std::string_view text) const noexcept
@@ -104,7 +106,12 @@ size_t PServerFontInstance::GetTextKerningCount(std::string_view text) const noe
     return count;
 }
 
-PServerPreparedText PServerFontInstance::PrepareText(std::string_view text, int32_t* kernings)
+PServerPreparedText PServerFontInstance::PrepareText(
+    std::string_view text,
+    int32_t* kernings,
+    float width,
+    bool allowPartialCharacter,
+    const PIPoint& position)
 {
     Ptr<PServerFontDrawCache> cache = ptr_tmp_cast(m_ActiveDrawCache);
     if (cache == nullptr)
@@ -113,14 +120,16 @@ PServerPreparedText PServerFontInstance::PrepareText(std::string_view text, int3
         m_ActiveDrawCache = ptr_raw_pointer_cast(cache);
     }
     uint32_t previousGlyph = 0;
+    const int32_t* kerningStart = kernings;
     const PFontTextMetrics metrics = WalkText(
         text,
-        std::numeric_limits<float>::infinity(),
-        false,
+        width,
+        allowPartialCharacter,
         ptr_raw_pointer_cast(cache),
         previousGlyph,
-        kernings);
-    return {std::move(cache), metrics};
+        kernings,
+        position);
+    return {std::move(cache), metrics, (kernings != nullptr) ? size_t(kernings - kerningStart) : 0};
 }
 
 void PServerFontInstance::ReleaseDrawCache(const PServerFontDrawCache& cache) noexcept
@@ -233,13 +242,16 @@ PFontTextMetrics PServerFontInstance::WalkText(
     bool includeLast,
     PServerFontDrawCache* drawCache,
     uint32_t& previousGlyph,
-    int32_t* kernings)
+    int32_t*& kernings,
+    const PIPoint& position)
 {
     PScopeExit trimCache([this] { m_Glyphs.GetCache().Trim(); });
     PFontTextMetrics result;
-    if (std::isnan(width) || width < 0.0f) {
+    if (PMath::is_nan(width) || width < 0.0f || (width == 0.0f && drawCache != nullptr)) {
         return result;
     }
+    const bool checkGlyphBounds = drawCache != nullptr && !includeLast && PMath::is_finite(width);
+    const PPoint projection = checkGlyphBounds ? m_Glyphs.GetWidthProjection() : PPoint();
     while (result.ByteCount < text.size())
     {
         size_t byteLength = 0;
@@ -248,13 +260,22 @@ PFontTextMetrics PServerFontInstance::WalkText(
         const FT_Pos adjustment = QueryKerning(previousGlyph, entry.GlyphIndex);
         const float kerningWidth = float(adjustment) * FONT_F26DOT6_TO_FLOAT;
         const PPoint kerningAdvance = m_Glyphs.TransformKerning(int32_t(adjustment));
-        if (kernings != nullptr) {
-            *kernings++ = int32_t(adjustment);
-        }
         const float nextWidth = result.Width + kerningWidth + entry.Width;
         const bool exceedsWidth = nextWidth > width;
-        if (exceedsWidth && !includeLast) {
+        if (exceedsWidth && (!includeLast || (drawCache != nullptr && result.Width + kerningWidth >= width))) {
             break;
+        }
+        if (checkGlyphBounds && entry.Bounds.IsValid())
+        {
+            const PPoint rasterPosition = (PPoint(position) + result.Advance + kerningAdvance).GetRounded() - PPoint(position);
+            const float farX = rasterPosition.x + float((projection.x < 0.0f) ? entry.Bounds.left : entry.Bounds.right);
+            const float farY = rasterPosition.y + float((projection.y < 0.0f) ? entry.Bounds.top : entry.Bounds.bottom);
+            if (farX * projection.x + farY * projection.y > width) {
+                break;
+            }
+        }
+        if (kernings != nullptr) {
+            *kernings++ = int32_t(adjustment);
         }
         result.Advance += kerningAdvance;
         if (drawCache != nullptr) {

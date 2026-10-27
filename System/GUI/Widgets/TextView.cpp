@@ -71,7 +71,7 @@ void PTextView::SetText(const PString& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextView::OnFontChanged(Ptr<PFont> newFont)
+void PTextView::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_TextWidth = GetStringWidth(m_Text);
     m_IsWordWrappingValid = false;
@@ -161,29 +161,48 @@ void PTextView::OnPaint(const PRect& updateRect)
     }
 
     SetEraseColor(GetBgColor());
-    PRect bounds = GetBounds();
-    EraseRect(bounds);
-
+    const PRect bounds = GetBounds();
     const PFontHeight fontHeight = GetFontHeight();
-    MovePenTo(0.0f, fontHeight.ascender);
+    PPoint baseline(0.0f, fontHeight.ascender);
 
     if (!m_LineWraps.empty())
     {
         const float lineHeight = fontHeight.descender + fontHeight.ascender + fontHeight.line_gap;
+        const Ptr<const PFont> font = GetFont();
+        const bool fillTextBand = font != nullptr && GetDrawingMode() == PDrawingMode::Copy
+            && font->GetDescription().Rotation == 0.0f && font->GetDescription().Shear == 90.0f;
+        if (!fillTextBand) {
+            EraseRect(bounds);
+        }
 
+        PRect lineFrame = bounds;
         const char* lineStart = m_Text.c_str();
-        for (size_t nextLineStart : m_LineWraps)
+        for (size_t i = 0; i < m_LineWraps.size(); ++i)
         {
-            const char* nextLine = m_Text.c_str() + nextLineStart;
-            size_t lineLength = nextLine - lineStart;
-            DrawString(PString(lineStart, lineLength));
+            const char* nextLine = m_Text.c_str() + m_LineWraps[i];
+            const size_t lineLength = nextLine - lineStart;
+            if (fillTextBand)
+            {
+                // Keep line spacing uniform across zero when scrolling.
+                const float pixelBaseline = floorf(baseline.y + GetScrollOffset().y);
+                const float baselineCenter = pixelBaseline + ((pixelBaseline < 0.0f) ? -0.5f : 0.5f);
+                const PPoint position(baseline.x, baselineCenter - GetScrollOffset().y);
+                const float nextTop = pixelBaseline + lineHeight - fontHeight.ascender + 0.5f - GetScrollOffset().y;
+                lineFrame.bottom = (i + 1 == m_LineWraps.size()) ? bounds.bottom : std::min(bounds.bottom, nextTop);
+                DrawString(PString(lineStart, lineLength), position, lineFrame);
+                lineFrame.top = std::max(bounds.top, lineFrame.bottom);
+            }
+            else
+            {
+                DrawString(PString(lineStart, lineLength), baseline);
+            }
             lineStart = nextLine;
-            MovePenBy(0.0f, lineHeight);
+            baseline.y += lineHeight;
         }
     }
     else
     {
-        DrawString(m_Text);
+        DrawString(m_Text, baseline, bounds);
     }
 }
 
@@ -203,7 +222,7 @@ bool PTextView::UpdateWordWrapping()
         m_LineWraps.clear();
         return !wasEmpty;
     }
-    Ptr<PFont> font = GetFont();
+    Ptr<const PFont> font = GetFont();
 
     if (font == nullptr)
     {

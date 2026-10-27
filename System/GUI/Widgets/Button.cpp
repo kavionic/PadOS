@@ -42,7 +42,7 @@ PButton::~PButton()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PButton::OnFontChanged(Ptr<PFont> newFont)
+void PButton::OnFontChanged(Ptr<const PFont> newFont)
 {
     UpdateLabelSize();
     PreferredSizeChanged();
@@ -73,9 +73,9 @@ void PButton::OnPaint(const PRect& updateRect)
     SetEraseColor(backgroundColor);
 
     if (isEnabled) {
-        DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
+        DrawFrame(bounds, (isPressed ? FRAME_RECESSED : FRAME_RAISED) | FRAME_TRANSPARENT);
     } else {
-        DrawFrame(bounds, FRAME_DISABLED);
+        DrawFrame(bounds, FRAME_DISABLED | FRAME_TRANSPARENT);
     }
     PPoint labelPos(std::round((bounds.Width() - m_LabelSize.x) * 0.5f), std::round((bounds.Height() - m_LabelSize.y) * 0.5f));
     
@@ -84,10 +84,9 @@ void PButton::OnPaint(const PRect& updateRect)
     }
 
     labelPos.y += GetFontHeight().ascender;
-    MovePenTo(labelPos);
-    SetFgColor(IsEnabled() ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
+    SetFgColor(isEnabled ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
     SetBgColor(backgroundColor);
-    DrawString(GetLabel());
+    DrawString(GetLabel(), labelPos, bounds.GetFloored().GetResized(2.0f, 2.0f, -2.0f, -2.0f));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

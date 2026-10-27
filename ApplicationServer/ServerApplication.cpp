@@ -8,7 +8,9 @@
 
 #include "System/Platform.h"
 
+#include <limits>
 #include <string.h>
+#include <string_view>
 
 #include "ServerApplication.h"
 #include <ApplicationServer/Fonts/ServerFontInstance.h>
@@ -16,7 +18,10 @@
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/Protocol.h>
+#include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
+
+handle_id ServerApplication::s_NextFontHandle = 1;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -33,6 +38,9 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
+    RegisterRemoteSignal(&m_RSCreateFont,       &ServerApplication::SlotCreateFont);
+    RegisterRemoteSignal(&m_RSDeleteFont,       &ServerApplication::SlotDeleteFont);
+    RegisterRemoteSignal(&m_RSMeasureFont,      &ServerApplication::SlotMeasureFont);
     RegisterRemoteSignal(&RSPushMouseCursor,    &ServerApplication::SlotPushMouseCursor);
     RegisterRemoteSignal(&RSPopMouseCursor,     &ServerApplication::SlotPopMouseCursor);
     RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
@@ -49,8 +57,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewSetEraseColor,          &ServerApplication::SlotViewSetEraseColor);
     RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
-    RegisterRemoteSignal(&RSViewSetFont,                &ServerApplication::SlotViewSetFont);
-    RegisterRemoteSignal(&m_RSViewSetTextFont,           &ServerApplication::SlotViewSetTextFont);
+    RegisterRemoteSignal(&m_RSViewSetFont,              &ServerApplication::SlotViewSetFont);
     RegisterRemoteSignal(&RSViewSetPenWidth,            &ServerApplication::SlotViewSetPenWidth);
     RegisterRemoteSignal(&RSViewSetCapStyle,            &ServerApplication::SlotViewSetCapStyle);
     RegisterRemoteSignal(&RSViewSetJointStyle,          &ServerApplication::SlotViewSetJointStyle);
@@ -72,6 +79,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewAddTriangle,            &ServerApplication::SlotViewAddTriangle);
     RegisterRemoteSignal(&RSViewEndTriangles,           &ServerApplication::SlotViewEndTriangles);
     RegisterRemoteSignal(&RSViewDrawString,             &ServerApplication::SlotViewDrawString);
+    RegisterRemoteSignal(&m_RSViewDrawStringWidth,       &ServerApplication::SlotViewDrawStringWidth);
     RegisterRemoteSignal(&RSViewScrollBy,               &ServerApplication::SlotViewScrollBy);
     RegisterRemoteSignal(&RSViewCopyRect,               &ServerApplication::SlotViewCopyRect);
     RegisterRemoteSignal(&RSViewDrawBitmap,             &ServerApplication::SlotViewDrawBitmap);
@@ -118,6 +126,8 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
             wasHandled = true;
             break;
         }
+        default:
+            return PEventHandler::HandleMessage(code, data, length);
     }
     try
     {
@@ -128,6 +138,24 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
     }
     PERROR_CATCH([this](PErrorCode error) { m_Server->HandleDisplayDriverError(error); });
     return wasHandled;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+handle_id ServerApplication::AllocateFontHandle()
+{
+    const handle_id firstHandle = s_NextFontHandle;
+    do
+    {
+        const handle_id handle = s_NextFontHandle;
+        s_NextFontHandle = (handle == std::numeric_limits<handle_id>::max()) ? 1 : handle + 1;
+        if (!m_FontMap.contains(handle)) {
+            return handle;
+        }
+    } while (s_NextFontHandle != firstHandle);
+    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -166,6 +194,7 @@ bool ServerApplication::CanDeferRegionUpdate(int32_t messageCode) const
     switch (messageCode)
     {
         case PAppserverProtocol::CREATE_VIEW:
+        case PAppserverProtocol::DELETE_FONT:
         case PAppserverProtocol::VIEW_SET_FRAME:
         case PAppserverProtocol::VIEW_INVALIDATE:
         case PAppserverProtocol::VIEW_ADD_CHILD:
@@ -190,6 +219,16 @@ Ptr<PSrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
     } else {
         return nullptr;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PServerFontInstance> ServerApplication::GetFont(handle_id fontHandle) const
+{
+    const auto font = m_FontMap.find(fontHandle);
+    return (font != m_FontMap.end()) ? font->second : nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -350,33 +389,62 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
                                        float                 miterLimit,
                                        const std::vector<float>& dashPattern,
                                        float                 dashOffset,
-                                       PFontID               fontID,
+                                       handle_id             fontHandle,
                                        PColor                eraseColor,
                                        PColor                bgColor,
                                        PColor                fgColor)
 {
+    Ptr<PServerFontInstance> font = GetFont(fontHandle);
     Ptr<PServerView> parent;
-    
-    if (dockType == PViewDockType::RootLevelView)
-    {
+
+    if (dockType == PViewDockType::RootLevelView) {
         parent = m_Server->GetTopView();
-    }
-    else if (dockType == PViewDockType::ChildView)
-    {
+    } else if (dockType == PViewDockType::ChildView) {
         parent = m_Server->FindView(parentHandle);
-        if (parent == nullptr)
-        {
-            MsgCreateViewReply reply;
-            reply.m_ViewHandle = -1;
-            const PErrorCode result = message_port_send_timeout_ns(replyPort, -1, PAppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
-            if (result != PErrorCode::Success) {
-                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
-            }
-            return;
-        }
     }
-    
-    Ptr<PServerView> view = ptr_new<PServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hitMode, hideCount, focusKeyboardMode, drawingMode, penWidth, capStyle, jointStyle, miterLimit, dashPattern, dashOffset, fontID, eraseColor, bgColor, fgColor);
+    if (font == nullptr || (dockType == PViewDockType::ChildView && parent == nullptr))
+    {
+        MsgCreateViewReply reply{};
+        reply.m_ViewHandle = INVALID_HANDLE;
+        const PErrorCode result = message_port_send_timeout_ns(
+            replyPort,
+            INVALID_HANDLE,
+            PAppserverProtocol::CREATE_VIEW_REPLY,
+            &reply,
+            sizeof(reply),
+            0);
+        if (result != PErrorCode::Success)
+        {
+            p_system_log<PLogSeverity::ERROR>(
+                LogCategoryAppServer,
+                "{}: failed to send message: {}",
+                __PRETTY_FUNCTION__,
+                strerror(std::to_underlying(result)));
+        }
+        return;
+    }
+
+    Ptr<PServerView> view = ptr_new<PServerView>(
+        ApplicationServer::GetScreenBitmap(),
+        name,
+        frame,
+        scrollOffset,
+        dockType,
+        flags,
+        hitMode,
+        hideCount,
+        focusKeyboardMode,
+        drawingMode,
+        penWidth,
+        capStyle,
+        jointStyle,
+        miterLimit,
+        dashPattern,
+        dashOffset,
+        std::move(font),
+        eraseColor,
+        bgColor,
+        fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view, index);
@@ -421,10 +489,14 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
         if (view->IsWindowManagerControlled()) {
             p_post_to_window_manager<ASWindowManagerUnregisterView>(INVALID_HANDLE, view->GetHandle());
         }
-        view->RemoveThis(true);
-        
-        opacParent->MarkModified(modifiedFrame);
-        UpdateLowestInvalidView(opacParent);
+        view->RemoveThis();
+        m_Server->RemoveHandler(view);
+
+        if (opacParent != nullptr)
+        {
+            opacParent->MarkModified(modifiedFrame);
+            UpdateLowestInvalidView(opacParent);
+        }
     }
     else
     {
@@ -537,6 +609,76 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
     {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: invalid handle: {}", __PRETTY_FUNCTION__, bitmapHandle);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotCreateFont(port_id replyPort, const PFontDescription& description)
+{
+    MsgCreateFontReply reply;
+    try
+    {
+        Ptr<PServerFontInstance> font = m_Server->GetFont(description);
+        const handle_id handle = AllocateFontHandle();
+        m_FontMap.emplace(handle, font);
+        reply.FontHandle = handle;
+        reply.Height = font->GetHeight();
+    }
+    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
+    if (!PMessagePort(replyPort).SendMessageTimeout(
+        INVALID_HANDLE,
+        PAppserverProtocol::CREATE_FONT_REPLY,
+        &reply,
+        sizeof(reply),
+        TimeValNanos::zero)) {
+        m_FontMap.erase(reply.FontHandle);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotDeleteFont(handle_id fontHandle)
+{
+    m_FontMap.erase(fontHandle);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotMeasureFont(
+    port_id replyPort,
+    handle_id fontHandle,
+    const PString& text,
+    float width,
+    bool includeLast,
+    uint32_t previousGlyph)
+{
+    MsgMeasureFontReply reply;
+    reply.PreviousGlyph = previousGlyph;
+    try
+    {
+        const auto font = m_FontMap.find(fontHandle);
+        if (font == m_FontMap.end()) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
+        }
+        reply.Metrics = font->second->MeasureTextChunk(
+            std::string_view(text.data(), text.size()),
+            width,
+            includeLast,
+            reply.PreviousGlyph);
+    }
+    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
+    PMessagePort(replyPort).SendMessageTimeout(
+        INVALID_HANDLE,
+        PAppserverProtocol::MEASURE_FONT_REPLY,
+        &reply,
+        sizeof(reply),
+        TimeValNanos::zero);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -673,7 +815,11 @@ void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotViewSetTextFont(handler_id viewHandle, const PFontDescription& description)
+void ServerApplication::SlotViewSetFont(handler_id viewHandle, handle_id fontHandle)
 {
-    ForwardToView(viewHandle, &PServerView::SetTextFont, m_Server->GetFont(description));
+    Ptr<PServerFontInstance> font = GetFont(fontHandle);
+    if (font == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    ForwardToView(viewHandle, &PServerView::SetFont, std::move(font));
 }

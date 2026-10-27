@@ -129,20 +129,9 @@ void PMenuItem::Draw(Ptr<PView> targetView)
     if (menu == nullptr) {
         return;
     }
-    if (m_Label.empty()) {
-        return;
-    }
     PRect frame = GetFrame();
 
     PFontHeight fontHeight = targetView->GetFontHeight();
-
-    if (m_IsHighlighted) {
-        targetView->SetFgColor(PStandardColorID::MenuBackgroundSelected);
-    } else {
-        targetView->SetFgColor(PStandardColorID::MenuBackground);
-    }
-
-    targetView->FillRect(GetFrame());
 
     if (m_IsHighlighted) {
         targetView->SetFgColor(PStandardColorID::MenuTextSelected);
@@ -155,7 +144,13 @@ void PMenuItem::Draw(Ptr<PView> targetView)
     float vCharHeight = fontHeight.ascender + fontHeight.descender + fontHeight.line_gap;
     float y = std::round(frame.top + (frame.Height() - vCharHeight) * 0.5f + fontHeight.ascender /*+ fontHeight.line_gap * 0.5f*/);
 
-    targetView->DrawString(m_Label, PPoint(frame.left + 2.0f, y));
+    PRect labelFrame = frame;
+    if (m_SubMenu != nullptr)
+    {
+        labelFrame.right -= float(menu->GetArrowRightBitmap()->GetBounds().Width()) + 5.0f;
+        targetView->FillRect(PRect(labelFrame.right, frame.top, frame.right, frame.bottom), targetView->GetBgColor());
+    }
+    targetView->DrawString(m_Label, PPoint(frame.left + 2.0f, y), labelFrame);
 
     if (m_SubMenu != nullptr)
     {

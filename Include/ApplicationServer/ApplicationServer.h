@@ -52,7 +52,8 @@ public:
     bool            RegisterView(Ptr<PServerView> view);
     Ptr<PServerView> FindView(handler_id handle) const;
 
-    // Appserver-looper only. The font catalog is loaded on first use.
+    // Appserver-looper only.
+    // The font catalog is loaded on first use.
     Ptr<PServerFontInstance> GetFont(const PFontDescription& description);
 
     void ViewDetached(PServerView* view);
@@ -114,6 +115,7 @@ private:
         PointerGestureState Gesture;
     };
 
+    void WaitForEvents(TimeValNanos deadline) override;
     void OpenInputDevices();
     void ReadRegisteredInputDevices(int inputDevice, const PString& deviceName);
     void ReadInputEvents();
@@ -169,16 +171,6 @@ private:
 
     void SendKeyboardConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error);
 
-    void SlotCreateFont(port_id replyPort, const PFontDescription& description);
-    void SlotDeleteFont(uint32_t fontHandle);
-    void SlotMeasureFont(
-        port_id replyPort,
-        uint32_t fontHandle,
-        const PString& text,
-        float width,
-        bool includeLast,
-        uint32_t previousGlyph);
-
     static Ptr<PDisplayDriver>   s_DisplayDriver;
     static Ptr<PSrvBitmap>       s_ScreenBitmap;
 
@@ -194,11 +186,6 @@ private:
     
     PKeyboardManager    m_KeyboardManager;
     Ptr<PFontManager>   m_FontManager;
-    std::map<uint32_t, Ptr<PServerFontInstance>> m_ClientFonts;
-    uint32_t m_NextFontHandle = 1;
-    ASCreateFont m_RSCreateFont;
-    ASDeleteFont m_RSDeleteFont;
-    ASMeasureFont m_RSMeasureFont;
    
     Ptr<PServerView>    m_TopView;
 
@@ -214,6 +201,7 @@ private:
 
     PPoint                         m_MousePosition;
     std::vector<InputDevice>       m_InputDevices;
+    std::vector<uint8_t>           m_InputReadyFlags;
     std::map<int32_t, PInputClass> m_RegisteredInputDevices;
 
     ApplicationServer(const ApplicationServer&) = delete;

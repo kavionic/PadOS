@@ -17,7 +17,6 @@
 #include <Kernel/Drivers/Video/KDisplayText.h>
 #include <RPC/RPCDispatcher.h>
 #include <DeviceControl/Display.h>
-#include <GUI/FontMetrics.h>
 
 #define RAS_OFFSET8( ptr, x, y, bpl) (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
 #define RAS_OFFSET16(ptr, x, y, bpl) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
@@ -30,7 +29,7 @@ PDEFINE_LOG_CATEGORY(LogCategoryDisplay, "DISPLAY", PLogSeverity::WARNING);
 namespace kernel
 {
 
-class KDisplayDriver : public KInode, public KFilesystemFileOps, public PFontMetrics
+class KDisplayDriver : public KInode, public KFilesystemFileOps
 {
 public:
     KDisplayDriver();
@@ -139,19 +138,7 @@ public:
         const PColor& color,
         PDrawingMode mode);
 
-    virtual uint32_t WriteString(
-        PDisplayBitmap* bitmap,
-        const PIPoint& position,
-        const char* string,
-        size_t strLength,
-        const PIRect& clipRect,
-        PColor colorBg,
-        PColor colorFg,
-        PFontID fontID,
-        PDrawingMode mode);
-
-
-    virtual void WriteFontString(
+    virtual void WriteString(
         PDisplayBitmap* bitmap,
         const PIPoint& position,
         std::string_view text,
@@ -161,7 +148,8 @@ public:
         PColor background,
         PColor foreground,
         PPoint advance,
-        PDrawingMode mode);
+        PDrawingMode mode,
+        float width = std::numeric_limits<float>::infinity());
 
     static PColor   GetPaletteEntry(uint8_t index);
 
@@ -249,14 +237,15 @@ private:
         std::span<const std::byte> payload,
         PDisplayBitmap bitmap,
         PIPoint position,
+        const PDisplayFontCache* font,
         size_t stringLength,
-        PIRect clipRect,
+        size_t clipCount,
+        size_t kerningCount,
         PColor background,
         PColor foreground,
-        PFontID fontID,
+        PPoint advance,
         PDrawingMode mode);
-
-    void HandleWriteFontString(
+    void HandleWriteStringWidth(
         std::span<const std::byte> payload,
         PDisplayBitmap bitmap,
         PIPoint position,
@@ -267,7 +256,8 @@ private:
         PColor background,
         PColor foreground,
         PPoint advance,
-        PDrawingMode mode);
+        PDrawingMode mode,
+        float width);
 
     void ExecuteCommands_pl(const void* buffer, size_t length);
 

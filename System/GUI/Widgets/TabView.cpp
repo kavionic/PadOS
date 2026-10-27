@@ -387,7 +387,7 @@ PRect PTabView::GetClientFrame() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTabView::OnFontChanged(Ptr<PFont> newFont)
+void PTabView::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_FontHeight = GetFontHeight();
     m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
@@ -716,7 +716,26 @@ void PTabView::TopView::OnPaint(const PRect& updateRect)
     const float       glyphHeight = m_TabView->m_GlyphHeight;
 
     SetBgColor(PStandardColorID::DefaultBackground);
-    FillRect(bounds, pget_standard_color(PStandardColorID::DefaultBackground));
+    SetFgColor(0, 0, 0);
+    const float firstTabX = x;
+    float backgroundLeft = bounds.left;
+    for (size_t i = 0; i < m_TabView->m_TabList.size(); ++i)
+    {
+        const float width = m_TabView->m_TabList[i].m_Width;
+        const float top = (i == m_TabView->m_SelectedTab) ? 0.0f : 2.0f;
+        const PPoint baseline(
+            std::round(x + (width - 4.0f) * 0.05f + 4.0f),
+            std::round(top + tabHeight * 0.5f + fontHeight.ascender - fontHeight.line_gap * 0.5f - glyphHeight * 0.5f + 2.0f));
+        const float right = std::clamp(x + width, bounds.left, bounds.right);
+        DrawString(m_TabView->m_TabList[i].m_Title, baseline, PRect(backgroundLeft, bounds.top, right, bounds.bottom));
+        backgroundLeft = right;
+        x += width;
+    }
+    if (backgroundLeft < bounds.right) {
+        FillRect(PRect(backgroundLeft, bounds.top, bounds.right, bounds.bottom), GetBgColor());
+    }
+
+    x = firstTabX;
     for (size_t i = 0; i < m_TabView->m_TabList.size(); ++i)
     {
         float width = m_TabView->m_TabList[i].m_Width;
@@ -761,11 +780,6 @@ void PTabView::TopView::OnPaint(const PRect& updateRect)
             SetFgColor(bgColor);
             DrawLine(PPoint(tabFrame.right - 2.0f, tabFrame.top + 2.0f), PPoint(tabFrame.right - 2.0f, tabFrame.bottom - 2.0f));
         }
-        SetFgColor(0, 0, 0);
-
-        MovePenTo(std::round(x + (width - 4.0f) * 5.0f / 100.0f + 4.0f), std::round(tabFrame.top + tabHeight * 0.5f + fontHeight.ascender - fontHeight.line_gap * 0.5f - glyphHeight * 0.5f + 2.0f));
-
-        DrawString(m_TabView->m_TabList[i].m_Title.c_str());
         x += width;
     }
 }

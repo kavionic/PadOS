@@ -647,7 +647,8 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
         SetEraseColor(m_Style->NormalButtonColor);
     }
 
-    DrawFrame(button.m_Frame, FRAME_RAISED);
+    DrawFrame(button.m_Frame, FRAME_RAISED | FRAME_TRANSPARENT);
+    const PRect background = button.m_Frame.GetFloored().GetResized(2.0f, 2.0f, -2.0f, -2.0f);
     SetFgColor(textColor);
 
     PRect bitmapFrame(0.0f, 0.0f, 0.0f, 0.0f);
@@ -677,6 +678,7 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
     }
     if (bitmapFrame.Width() > 0.0f)
     {
+        EraseRect(background);
         SetDrawingMode(PDrawingMode::Overlay);
         DrawBitmap(m_KeysBitmap, bitmapFrame, button.m_Frame.TopLeft() + PPoint(std::round((button.m_Frame.Width() - bitmapFrame.Width()) * 0.5f), std::round((button.m_Frame.Height() - bitmapFrame.Height()) * 0.5f)));
         SetDrawingMode(PDrawingMode::Copy);
@@ -713,14 +715,47 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
         }
 
         labelPos.y += fontHeight.ascender;
-        DrawString(label, labelPos);
-
-        if (!smallLabel.empty())
+        if (smallLabel.empty())
         {
+            DrawString(label, labelPos, background);
+        }
+        else
+        {
+            const PFontHeight smallHeight = m_Style->SmallFont->GetHeight();
+            const float smallWidth = m_Style->SmallFont->GetStringWidth(smallLabel.data(), smallLabel.size());
+            const PPoint smallPosition = button.m_Frame.TopRight() + PPoint(-smallWidth - 6.0f, 2.0f + smallHeight.ascender);
+            PRect labelBackground = background;
+            PRect smallBackground = background;
+            const bool separateColumns = labelPos.x + labelWidth <= smallPosition.x;
+            const bool separateRows = smallPosition.y + smallHeight.descender <= labelPos.y - fontHeight.ascender;
+            if (separateColumns)
+            {
+                labelBackground.right = std::clamp(smallPosition.x, background.left, background.right);
+                smallBackground.left = labelBackground.right;
+            }
+            else if (separateRows)
+            {
+                smallBackground.bottom = std::clamp(labelPos.y - fontHeight.ascender, background.top, background.bottom);
+                labelBackground.top = smallBackground.bottom;
+            }
+
+            if (separateColumns || separateRows)
+            {
+                DrawString(label, labelPos, labelBackground);
+            }
+            else
+            {
+                // Overlapping labels need a common background before either is drawn.
+                EraseRect(background);
+                DrawString(label, labelPos);
+            }
             SetFont(m_Style->SmallFont);
-            const float smallLabelWidth = GetStringWidth(smallLabel);
             SetFgColor(m_Style->ExtraTextColor);
-            DrawString(smallLabel, button.m_Frame.TopRight() + PPoint(-smallLabelWidth - 6.0f, 2.0f + GetFontHeight().ascender));
+            if (separateColumns || separateRows) {
+                DrawString(smallLabel, smallPosition, smallBackground);
+            } else {
+                DrawString(smallLabel, smallPosition);
+            }
         }
     }
 }

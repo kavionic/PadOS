@@ -658,3 +658,90 @@ TEST(ServerFontStorage, MeasurementRendersGlyphsAndDrawingKeepsTheirAddresses)
     EXPECT_EQ(next.Metrics.Advance, expected.Advance);
     EXPECT_FLOAT_EQ(next.Metrics.Width, expected.Width);
 }
+
+TEST(ServerFontStorage, BoundedPreparationKeepsTheIncludedAdvanceAndUtf8Prefix)
+{
+    PFontManager manager;
+    manager.ScanFonts();
+    Ptr<PServerFontInstance> font = manager.GetFont(PFontDescription());
+    ASSERT_TRUE(font->GetDisplayCache().HasKerning());
+    const std::string_view text = "A\xc3\x85V";
+    const PFontTextMetrics first = font->MeasureText(text.substr(0, 1));
+    const PFontTextMetrics second = font->MeasureText(text.substr(0, 3));
+    const float width = (first.Width + second.Width) * 0.5f;
+    std::array<int32_t, 4> kernings;
+    kernings.fill(0x123456);
+    const PServerPreparedText partial = font->PrepareText(text, kernings.data(), width, true);
+    EXPECT_EQ(partial.Metrics.ByteCount, 3);
+    EXPECT_EQ(partial.Metrics.Advance, second.Advance);
+    EXPECT_FLOAT_EQ(partial.Metrics.Width, second.Width);
+    EXPECT_EQ(partial.KerningCount, 2);
+    EXPECT_EQ(kernings[2], 0x123456);
+    kernings.fill(0x123456);
+    const PServerPreparedText complete = font->PrepareText(text, kernings.data(), width, false);
+    EXPECT_EQ(complete.Metrics.ByteCount, 1);
+    EXPECT_EQ(complete.Metrics.Advance, first.Advance);
+    EXPECT_FLOAT_EQ(complete.Metrics.Width, first.Width);
+    EXPECT_EQ(complete.KerningCount, 1);
+    EXPECT_EQ(kernings[1], 0x123456);
+}
+
+TEST(ServerFontStorage, BoundedPreparationPreservesKerningAndMissingGlyphs)
+{
+    PFontManager manager;
+    manager.ScanFonts();
+    Ptr<PServerFontInstance> font = manager.GetFont(PFontDescription());
+    const std::string_view text = "AV\xef\xb7\x90";
+    std::array<int32_t, 3> expectedKernings{};
+    const PServerPreparedText expected = font->PrepareText(text, expectedKernings.data());
+    std::array<int32_t, 3> kernings{};
+    const PServerPreparedText actual = font->PrepareText(text, kernings.data(), 100.0f, true);
+    EXPECT_EQ(actual.Metrics.ByteCount, text.size());
+    EXPECT_EQ(actual.Metrics.Advance, expected.Metrics.Advance);
+    EXPECT_EQ(actual.KerningCount, 3);
+    EXPECT_EQ(kernings, expectedKernings);
+    EXPECT_LT(kernings[1], 0);
+    ASSERT_NE(actual.Cache->GetDisplayCache()->GetMissingGlyph(), nullptr);
+}
+
+TEST(ServerFontStorage, EmptyTextAndPaddingDoNotAddToThePenAdvance)
+{
+    PFontManager manager;
+    manager.ScanFonts();
+    Ptr<PServerFontInstance> font = manager.GetFont(PFontDescription());
+    const PFontTextMetrics space = font->MeasureText(" ");
+    const PServerPreparedText padded = font->PrepareText(" ", nullptr, 100.0f, true);
+    EXPECT_EQ(padded.Metrics.Advance, space.Advance);
+    const PServerPreparedText exact = font->PrepareText("  ", nullptr, space.Width, true);
+    EXPECT_EQ(exact.Metrics.ByteCount, 1);
+    EXPECT_EQ(exact.Metrics.Advance, space.Advance);
+    const PServerPreparedText empty = font->PrepareText("", nullptr, 100.0f, true);
+    EXPECT_EQ(empty.Metrics.Advance, PPoint());
+    EXPECT_EQ(empty.Metrics.ByteCount, 0);
+    EXPECT_EQ(empty.KerningCount, 0);
+    const PServerPreparedText zeroWidth = font->PrepareText("A", nullptr, 0.0f, true);
+    EXPECT_EQ(zeroWidth.Metrics.ByteCount, 0);
+    EXPECT_EQ(zeroWidth.Metrics.Advance, PPoint());
+}
+
+TEST(ServerFontStorage, WholeCharactersRequireTheirOverhangToFit)
+{
+    PFontManager manager;
+    manager.ScanFonts();
+    PFontDescription description;
+    description.Style = "Oblique";
+    Ptr<PServerFontInstance> font = manager.GetFont(description);
+    const PFontTextMetrics metrics = font->MeasureText("f");
+    const PDisplayFontGlyph* glyph = font->GetDisplayCache().FindGlyph('f');
+    ASSERT_NE(glyph, nullptr);
+    ASSERT_GT(float(glyph->Bounds.right), metrics.Width);
+    const PServerPreparedText omitted = font->PrepareText("f", nullptr, metrics.Width, false);
+    EXPECT_EQ(omitted.Metrics.ByteCount, 0);
+    EXPECT_EQ(omitted.Metrics.Advance, PPoint());
+    const PServerPreparedText partial = font->PrepareText("f", nullptr, metrics.Width, true);
+    EXPECT_EQ(partial.Metrics.ByteCount, 1);
+    EXPECT_EQ(partial.Metrics.Advance, metrics.Advance);
+    const PServerPreparedText fits = font->PrepareText("f", nullptr, float(glyph->Bounds.right), false);
+    EXPECT_EQ(fits.Metrics.ByteCount, 1);
+    EXPECT_EQ(fits.Metrics.Advance, metrics.Advance);
+}

@@ -12,7 +12,6 @@
 #include "VirtualKeyboardView.h"
 
 #include <GUI/View.h>
-#include <GUI/LayoutNode.h>
 #include <GUI/Widgets/Button.h>
 #include <GUI/ViewFactory.h>
 #include <ApplicationServer/ApplicationServer.h>
@@ -42,22 +41,6 @@ WindowManager::WindowManager() : PApplication("window_manager"), m_KeyboardAnima
     RSWindowManagerEnableVKeyboard.Connect(this, &WindowManager::SlotEnableVKeyboard);
     RSWindowManagerDisableVKeyboard.Connect(this, &WindowManager::SlotDisableVKeyboard);
 
-    m_TopView = PViewFactory::Get().LoadView(nullptr, PStandardPaths::GetPath(PStandardPath::System, "WindowManagerLayout.xml"));
-    if (m_TopView != nullptr)
-    {
-        m_TopView->SetFrame(ApplicationServer::GetScreenFrame());
-        m_TopView->SetLayoutNode(ptr_new<PHLayoutNode>());
-
-        m_SidebarView = m_TopView->FindChild("SideBar");
-        m_ClientsView = m_TopView->FindChild("ClientView");
-
-        if (m_SidebarView != nullptr)
-        {
-            m_SidebarView->SetEraseColor(100, 100, 100);
-        }
-        AddView(m_TopView, PViewDockType::RootLevelView);
-    }
-
     m_KeyboardAnimator.SetPeriod(0.3);
     m_TargetAnimator.SetPeriod(0.25);
 
@@ -71,6 +54,31 @@ WindowManager::WindowManager() : PApplication("window_manager"), m_KeyboardAnima
 
 WindowManager::~WindowManager()
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void WindowManager::ThreadStarted()
+{
+    m_TopView = PViewFactory::Get().LoadView(nullptr, PStandardPaths::GetPath(PStandardPath::System, "WindowManagerLayout.xml"));
+    if (m_TopView != nullptr)
+    {
+        m_TopView->SetFrame(ApplicationServer::GetScreenFrame());
+
+        m_DesktopView = m_TopView->FindChild("DesktopView");
+        m_SidebarView = m_TopView->FindChild("SideBar");
+        m_ClientsView = m_TopView->FindChild("ClientView");
+
+        if (m_DesktopView != nullptr) {
+            m_DesktopView->SetFrame(m_TopView->GetBounds());
+        }
+        if (m_SidebarView != nullptr) {
+            m_SidebarView->SetEraseColor(100, 100, 100);
+        }
+        AddView(m_TopView, PViewDockType::RootLevelView);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,24 +114,20 @@ bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const 
 
 void WindowManager::SlotRegisterView(handler_id viewHandle, PViewDockType dockType, const PString& name, const PRect& frame)
 {
-    if (dockType == PViewDockType::DockedWindow)
-    {
-        if (m_ClientsView != nullptr)
-        {
-            Ptr<PView> view = ptr_new<PView>(m_ClientsView, viewHandle, name, frame);
-
-            Post<ASViewAddChild>(INVALID_INDEX, m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
-            view->SetFrame(m_ClientsView->GetBounds());
-        }
+    Ptr<PView> parent;
+    if (dockType == PViewDockType::DockedWindow) {
+        parent = m_ClientsView;
+    } else if (dockType == PViewDockType::StatusBarIcon) {
+        parent = m_SidebarView;
+    } else if (dockType == PViewDockType::PopupWindow) {
+        parent = m_TopView;
     }
-    else if (dockType == PViewDockType::StatusBarIcon)
+    if (parent != nullptr)
     {
-        if (m_SidebarView != nullptr)
-        {
-            Ptr<PView> view = ptr_new<PView>(m_SidebarView, viewHandle, name, frame);
-
-            Post<ASViewAddChild>(INVALID_INDEX, m_SidebarView->GetServerHandle(), viewHandle, view->GetHandle());
-            view->SetFrame(m_SidebarView->GetBounds());
+        const Ptr<PView> view = ptr_new<PView>(parent, viewHandle, name, frame);
+        Post<ASViewAddChild>(INVALID_INDEX, parent->GetServerHandle(), viewHandle, view->GetHandle());
+        if (dockType != PViewDockType::PopupWindow) {
+            view->SetFrame(parent->GetBounds());
         }
     }
 }
@@ -134,13 +138,14 @@ void WindowManager::SlotRegisterView(handler_id viewHandle, PViewDockType dockTy
 
 void WindowManager::SlotUnregisterView(handler_id viewHandle)
 {
-    for (auto i = m_ClientsView->begin(); i != m_ClientsView->end(); ++i)
+    if (m_TopView != nullptr)
     {
-        Ptr<PView> view = *i;
-        if (view->GetHandle() == viewHandle)
+        const Ptr<PView> view = m_TopView->FindChildIf(
+            [viewHandle](Ptr<PView> child) { return child->GetServerHandle() == viewHandle; });
+        if (view != nullptr)
         {
-            m_ClientsView->RemoveChild(i);
-            break;
+            view->RemoveThis();
+            RemoveView(view);
         }
     }
 }
@@ -164,19 +169,20 @@ void WindowManager::SlotEnableVKeyboard(const PRect& focusViewEditArea, bool num
         keyboardFrame.bottom = keyboardFrame.top + m_KeyboardView->GetPreferredSize(PPrefSizeType::Smallest).y;
         m_KeyboardView->SetFrame(keyboardFrame);
 
-        AddView(m_KeyboardView, PViewDockType::RootLevelView);
+        m_TopView->AddChild(m_KeyboardView);
     }
     else
     {
         m_KeyboardView->SetIsNumerical(numerical);
         keyboardFrame = m_KeyboardView->GetFrame();
         keyboardFrame.bottom = keyboardFrame.top + m_KeyboardView->GetPreferredSize(PPrefSizeType::Smallest).y;
+        m_KeyboardView->SetFrame(keyboardFrame);
     }
 
     const PRect screenFrame = m_TopView->GetBounds();
     const float finalKeyboardTop = screenFrame.bottom - keyboardFrame.Height();
 
-    const float currentScrollOffset = m_TopView->GetScrollOffset().y;
+    const float currentScrollOffset = m_DesktopView->GetScrollOffset().y;
     float targetScrollOffset = 0.0f;
     if (focusViewEditArea.bottom - currentScrollOffset >= finalKeyboardTop) {
         targetScrollOffset = (finalKeyboardTop - focusViewEditArea.Height()) * 0.5f - focusViewEditArea.top + currentScrollOffset;
@@ -213,7 +219,7 @@ void WindowManager::SlotDisableVKeyboard()
         float animTime = 0.2f;
         animTime *= fabsf(keyboardFrame.top - finalKeyboardTop) / keyboardFrame.Height();
 
-        m_TargetAnimator.SetRange(m_TopView->GetScrollOffset().y, 0.0f);
+        m_TargetAnimator.SetRange(m_DesktopView->GetScrollOffset().y, 0.0f);
         m_KeyboardAnimator.SetRange(keyboardFrame.top, screenFrame.bottom);
 
         m_TargetAnimator.SetPeriod(animTime * 0.95f);
@@ -234,15 +240,15 @@ void WindowManager::SlotKeyboardAnimTimer()
     PRect frame = m_KeyboardView->GetBounds() + PPoint(0.0f, std::round(m_KeyboardAnimator.GetValue()));
     m_KeyboardView->SetFrame(frame);
 
-    m_TopView->ScrollTo(PPoint(0.0f, std::round(m_TargetAnimator.GetValue())));
+    m_DesktopView->ScrollTo(PPoint(0.0f, std::round(m_TargetAnimator.GetValue())));
 
-    if (!m_KeyboardAnimator.IsRunning())
+    if (!m_KeyboardAnimator.IsRunning() && !m_TargetAnimator.IsRunning())
     {
         m_KeyboardAnimTimer.Stop();
         if (!m_IsKeyboardActive)
         {
-            RemoveView(m_KeyboardView);
-            m_TopView->ScrollTo(PPoint(0.0f, 0.0f));
+            m_KeyboardView->RemoveThis();
+            m_DesktopView->ScrollTo(PPoint(0.0f, 0.0f));
             m_KeyboardView = nullptr;
         }
     }

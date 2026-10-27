@@ -9,6 +9,7 @@
 #pragma once
 
 
+#include <limits>
 #include "Threads/EventHandler.h"
 #include "Utils/MessagePort.h"
 #include "Math/Rect.h"
@@ -28,12 +29,15 @@ public:
     port_id         GetClientPort() const { return m_ClientPort; }
 
     Ptr<PSrvBitmap> GetBitmap(handle_id bitmapHandle) const;
+    Ptr<PServerFontInstance> GetFont(handle_id fontHandle) const;
     void SetPointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
     void ReleasePointerCapture(PPointerID pointerID, PPointerCaptureID captureID);
     void HandlePointerCaptureRequestReply(PPointerID pointerID, PPointerCaptureRequestID requestID, Ptr<PServerView> rootView, PPointerCaptureID captureID, const PPointerEvent& pointerEvent);
     void HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
 
 private:
+    handle_id AllocateFontHandle();
+
     void ProcessMessage(int32_t code, const void* data, size_t length);
     bool CanDeferRegionUpdate(int32_t messageCode) const;
     void UpdateRegions();
@@ -59,7 +63,7 @@ private:
                         float        miterLimit,
                         const std::vector<float>& dashPattern,
                         float        dashOffset,
-                        PFontID      fontID,
+                        handle_id    fontHandle,
                         PColor eraseColor,
                         PColor bgColor,
                         PColor fgColor);
@@ -69,6 +73,15 @@ private:
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
+    void SlotCreateFont(port_id replyPort, const PFontDescription& description);
+    void SlotDeleteFont(handle_id fontHandle);
+    void SlotMeasureFont(
+        port_id replyPort,
+        handle_id fontHandle,
+        const PString& text,
+        float width,
+        bool includeLast,
+        uint32_t previousGlyph);
     void SlotPushMouseCursor(PMouseCursorToken token, PMouseCursorID cursorID);
     void SlotPopMouseCursor(PMouseCursorToken token);
     void SlotViewSetFrame(handler_id clientHandle, const PRect& frame, handler_id requestingClient);
@@ -85,8 +98,7 @@ private:
     void SlotViewSetEraseColor(handler_id viewHandle, PColor color)                          { ForwardToView(viewHandle, &PServerView::SetEraseColor, color); }
     void SlotViewSetFocusKeyboardMode(handler_id viewHandle, PFocusKeyboardMode mode)        { ForwardToView(viewHandle, &PServerView::SetFocusKeyboardMode, mode); }
     void SlotViewSetDrawingMode(handler_id viewHandle, PDrawingMode mode)                    { ForwardToView(viewHandle, &PServerView::SetDrawingMode, mode); }
-    void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &PServerView::SetFont, fontHandle); }
-    void SlotViewSetTextFont(handler_id viewHandle, const PFontDescription& description);
+    void SlotViewSetFont(handler_id viewHandle, handle_id fontHandle);
     void SlotViewSetPenWidth(handler_id viewHandle, float width)                            { ForwardToView(viewHandle, &PServerView::SetPenWidth, width); }
     void SlotViewSetCapStyle(handler_id viewHandle, PCapStyle style)                        { ForwardToView(viewHandle, &PServerView::SetCapStyle, style); }
     void SlotViewSetJointStyle(handler_id viewHandle, PJointStyle style)                    { ForwardToView(viewHandle, &PServerView::SetJointStyle, style); }
@@ -107,7 +119,14 @@ private:
     void SlotViewBeginTriangles(handler_id viewHandle, PTriangleMode mode, size_t countHint)  { ForwardToView(viewHandle, &PServerView::BeginTriangles, mode, countHint); }
     void SlotViewAddTriangle(handler_id viewHandle, const PPoint& position)                   { ForwardToView(viewHandle, &PServerView::AddTriangle, position); }
     void SlotViewEndTriangles(handler_id viewHandle)                                          { ForwardToView(viewHandle, &PServerView::EndTriangles); }
-    void SlotViewDrawString(handler_id viewHandle, const PString& string)                   { ForwardToView(viewHandle, &PServerView::DrawString, string); }
+    void SlotViewDrawString(handler_id viewHandle, const PString& string)
+    {
+        ForwardToView(viewHandle, &PServerView::DrawString, string, std::numeric_limits<float>::infinity(), true);
+    }
+    void SlotViewDrawStringWidth(handler_id viewHandle, const PString& string, float width, bool allowPartialCharacter)
+    {
+        ForwardToView(viewHandle, &PServerView::DrawString, string, width, allowPartialCharacter);
+    }
     void SlotViewScrollBy(handler_id viewHandle, const PPoint& delta)                        { ForwardToView(viewHandle, &PServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)  { ForwardToView(viewHandle, &PServerView::CopyRect, srcRect, dstPos); }
     void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PPoint& dstPos)        { ForwardToView(viewHandle, &PServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }
@@ -133,6 +152,10 @@ private:
 
     handle_id                           m_NextBitmapHandle = 1;
     std::map<handle_id, Ptr<PSrvBitmap>> m_BitmapMap;
+    std::map<handle_id, Ptr<PServerFontInstance>> m_FontMap;
+
+    // Accessed only by the application-server looper.
+    static handle_id s_NextFontHandle;
 
     ASSync                      RSSync;
     ASCreateView                RSCreateView;
@@ -142,6 +165,9 @@ private:
     ASSetKeyboardFocus          RSSetKeyboardFocus;
     ASCreateBitmap              RSCreateBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
+    ASCreateFont                m_RSCreateFont;
+    ASDeleteFont                m_RSDeleteFont;
+    ASMeasureFont               m_RSMeasureFont;
     ASPushMouseCursor           RSPushMouseCursor;
     ASPopMouseCursor            RSPopMouseCursor;
     ASViewSetFrame              RSViewSetFrame;
@@ -157,8 +183,7 @@ private:
     ASViewSetEraseColor         RSViewSetEraseColor;
     ASViewSetFocusKeyboardMode  RSViewSetFocusKeyboardMode;
     ASViewSetDrawingMode        RSViewSetDrawingMode;
-    ASViewSetFont               RSViewSetFont;
-    ASViewSetTextFont           m_RSViewSetTextFont;
+    ASViewSetFont               m_RSViewSetFont;
     ASViewSetPenWidth           RSViewSetPenWidth;
     ASViewSetCapStyle           RSViewSetCapStyle;
     ASViewSetJointStyle         RSViewSetJointStyle;
@@ -180,6 +205,7 @@ private:
     ASViewAddTriangle           RSViewAddTriangle;
     ASViewEndTriangles          RSViewEndTriangles;
     ASViewDrawString            RSViewDrawString;
+    ASViewDrawStringWidth       m_RSViewDrawStringWidth;
     ASViewScrollBy              RSViewScrollBy;
     ASViewCopyRect              RSViewCopyRect;
     ASViewDrawBitmap            RSViewDrawBitmap;

@@ -8,11 +8,29 @@
 
 #pragma once
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 namespace PMath
 {
+
+static_assert(sizeof(float) == sizeof(uint32_t) && std::numeric_limits<float>::is_iec559);
+
+inline constexpr uint32_t FLOAT_MAGNITUDE_MASK = 0x7fffffffu;
+inline constexpr uint32_t FLOAT_INFINITY_BITS = 0x7f800000u;
+
+// Inspect the representation so -ffast-math cannot assume finite operands.
+constexpr bool is_finite(float value) noexcept
+{
+    return (std::bit_cast<uint32_t>(value) & FLOAT_MAGNITUDE_MASK) < FLOAT_INFINITY_BITS;
+}
+
+constexpr bool is_nan(float value) noexcept
+{
+    return (std::bit_cast<uint32_t>(value) & FLOAT_MAGNITUDE_MASK) > FLOAT_INFINITY_BITS;
+}
 
 template<typename T> constexpr T square(T value) { return value * value; }
 

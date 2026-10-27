@@ -7,6 +7,7 @@
 
 #include <Kernel/Drivers/Video/KDisplayText.h>
 #include <Kernel/KAddressValidation.h>
+#include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/UTF8Utils.h>
 #include <algorithm>
@@ -23,7 +24,8 @@ void KDisplayText::Begin(
     const PIRect& bitmapBounds,
     std::span<const int32_t> kernings,
     PPoint advance,
-    PDrawingMode mode)
+    PDrawingMode mode,
+    float width)
 {
     End();
     PScopeFail rollback([this] { End(); });
@@ -31,7 +33,20 @@ void KDisplayText::Begin(
     m_Vertical = font.GetDirection() == PDisplayFontDirection::Up || font.GetDirection() == PDisplayFontDirection::Down;
     m_Copy = mode == PDrawingMode::Copy;
     m_LogicalAxisAligned = true;
-    m_StripEnd = GetStart(bitmapBounds);
+    if (PMath::is_nan(width)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const bool bounded = PMath::is_finite(width);
+    if (width <= 0.0f)
+    {
+        m_BitmapBounds = PIRect();
+        m_StripEnd = GetEnd(m_BitmapBounds);
+        return;
+    }
+    if (bounded) {
+        InitializeWidthClip(font, position, width);
+    }
+    m_StripEnd = GetStart(m_BitmapBounds);
     if (!LayoutGlyphs(font, text, position, kernings))
     {
         std::sort(m_GlyphOrder.begin(), m_GlyphOrder.end(), [this](size_t lhs, size_t rhs)
@@ -39,8 +54,8 @@ void KDisplayText::Begin(
             return GetStart(m_Glyphs[lhs].Bounds) < GetStart(m_Glyphs[rhs].Bounds);
         });
     }
-    if (m_Copy && !text.empty()) {
-        InitializeLogicalArea(font, position, advance);
+    if (m_Copy && (bounded || !text.empty())) {
+        InitializeLogicalArea(font, position, bounded ? font.GetBaselineVector() * width : advance);
     }
 }
 
@@ -57,9 +72,67 @@ void KDisplayText::End() noexcept
     m_LogicalBounds = PIRect();
     m_NextGlyph = 0;
     m_HasStrip = false;
+    m_ObliqueClip = false;
+    m_UnclippedSpan = KDisplayTextSpan();
+    m_ClipRow = 0;
 }
 
 bool KDisplayText::NextSpan()
+{
+    if (!m_ObliqueClip) {
+        return NextUnclippedSpan();
+    }
+    for (;;)
+    {
+        if (NextClippedSpan()) {
+            return true;
+        }
+        if (!NextUnclippedSpan()) {
+            return false;
+        }
+        m_UnclippedSpan = m_Span;
+        m_ClipRow = m_UnclippedSpan.Bounds.top;
+    }
+}
+
+std::span<const uint8_t*> KDisplayText::GetRowSources(int x, int y)
+{
+    m_RowSources.clear();
+    for (size_t index : m_ActiveGlyphs)
+    {
+        const KDisplayTextGlyph& glyph = m_Glyphs[index];
+        if (glyph.Bounds.DoIntersect(PIPoint(x, y)))
+        {
+            const size_t offset = size_t(y - glyph.Bounds.top) * size_t(glyph.Bounds.Width()) + size_t(x - glyph.Bounds.left);
+            m_RowSources.push_back(glyph.Glyph->Raster + offset);
+        }
+    }
+    return m_RowSources;
+}
+
+void KDisplayText::InitializeWidthClip(const PDisplayFontCache& font, const PIPoint& position, float width)
+{
+    const PPoint projection = font.GetWidthProjection();
+    const float limit = width + projection.x * float(position.x) + projection.y * float(position.y);
+    if (projection.y == 0.0f)
+    {
+        ClipInterval(limit / projection.x, projection.x < 0.0f, m_BitmapBounds.left, m_BitmapBounds.right);
+    }
+    else if (projection.x == 0.0f)
+    {
+        ClipInterval(limit / projection.y, projection.y < 0.0f, m_BitmapBounds.top, m_BitmapBounds.bottom);
+    }
+    else
+    {
+        const float inverse = 1.0f / projection.x;
+        m_ClipOrigin = limit * inverse;
+        m_ClipSlope = -projection.y * inverse;
+        m_ClipFromStart = projection.x < 0.0f;
+        m_ObliqueClip = true;
+    }
+}
+
+bool KDisplayText::NextUnclippedSpan()
 {
     for (;;)
     {
@@ -82,19 +155,47 @@ bool KDisplayText::NextSpan()
     }
 }
 
-std::span<const uint8_t*> KDisplayText::GetRowSources(int x, int y)
+bool KDisplayText::NextClippedSpan()
 {
-    m_RowSources.clear();
-    for (size_t index : m_ActiveGlyphs)
+    while (m_ClipRow < m_UnclippedSpan.Bounds.bottom)
     {
-        const KDisplayTextGlyph& glyph = m_Glyphs[index];
-        if (glyph.Bounds.DoIntersect(PIPoint(x, y)))
-        {
-            const size_t offset = size_t(y - glyph.Bounds.top) * size_t(glyph.Bounds.Width()) + size_t(x - glyph.Bounds.left);
-            m_RowSources.push_back(glyph.Glyph->Raster + offset);
+        PIRect bounds = ClipRow(m_ClipRow++);
+        if (!bounds.IsValid()) {
+            continue;
         }
+        while (m_ClipRow < m_UnclippedSpan.Bounds.bottom)
+        {
+            const PIRect next = ClipRow(m_ClipRow);
+            if (next.left != bounds.left || next.right != bounds.right) {
+                break;
+            }
+            bounds.bottom = ++m_ClipRow;
+        }
+        m_Span = m_UnclippedSpan;
+        m_Span.Bounds = bounds;
+        return true;
     }
-    return m_RowSources;
+    return false;
+}
+
+PIRect KDisplayText::ClipRow(int row) const noexcept
+{
+    PIRect bounds = m_UnclippedSpan.Bounds;
+    bounds.top = row;
+    bounds.bottom = row + 1;
+    ClipInterval(m_ClipOrigin + m_ClipSlope * (float(row) + 0.5f), m_ClipFromStart, bounds.left, bounds.right);
+    return bounds;
+}
+
+void KDisplayText::ClipInterval(float edge, bool fromStart, int& start, int& end) noexcept
+{
+    // Sample pixel centres. Clamp before converting to keep distant boundaries in range.
+    edge = std::clamp(edge, float(start), float(end));
+    if (fromStart) {
+        start = int(std::floor(edge - 0.5f)) + 1;
+    } else {
+        end = int(std::ceil(edge - 0.5f));
+    }
 }
 
 bool KDisplayText::LayoutGlyphs(

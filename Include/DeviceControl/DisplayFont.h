@@ -82,6 +82,24 @@ public:
     PPoint GetDescenderOffset() const noexcept { return m_DescenderOffset; }
     PDisplayFontDirection GetDirection() const noexcept { return m_Direction; }
     bool HasKerning() const noexcept { return m_HasKerning; }
+    PPoint GetBaselineVector() const noexcept
+    {
+        return PPoint(float(m_KerningScaleX), float(m_KerningScaleY)) * (1.0f / 65536.0f);
+    }
+    // Dot a screen displacement with this vector to obtain its untransformed baseline coordinate.
+    PPoint GetWidthProjection() const noexcept
+    {
+        const PPoint height = m_DescenderOffset - m_AscenderOffset;
+        if (m_KerningScaleX == 65536 && m_KerningScaleY == 0 && height.x == 0.0f) {
+            return PPoint(1.0f, 0.0f);
+        }
+        const PPoint baseline = GetBaselineVector();
+        const float determinant = baseline.x * height.y - baseline.y * height.x;
+        if (determinant == 0.0f) {
+            return baseline;
+        }
+        return PPoint(height.y, -height.x) * (1.0f / determinant);
+    }
 
     static size_t GetBucketIndex(uint32_t key, size_t bucketCount) noexcept
     {

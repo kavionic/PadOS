@@ -93,7 +93,7 @@ PMenuLayout PMenu::GetLayout() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMenu::OnFontChanged(Ptr<PFont> newFont)
+void PMenu::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_ContentView->SetFont(newFont);
     InvalidateLayout();

@@ -141,25 +141,7 @@ public:
         const PIRect& dstRect,
         PDrawingMode mode) override;
 
-    PIPoint                  RenderGlyph(
-        const PIPoint& position,
-        uint32_t character,
-        const PIRect& clipRect,
-        const FONT_INFO* font,
-        uint16_t colorBg,
-        uint16_t colorFg);
-    virtual uint32_t        WriteString(
-        PDisplayBitmap* bitmap,
-        const PIPoint& position,
-        const char* string,
-        size_t strLength,
-        const PIRect& clipRect,
-        PColor colorBg,
-        PColor colorFg,
-        PFontID fontID,
-        PDrawingMode mode) override;
-
-    virtual void WriteFontString(
+    virtual void WriteString(
         PDisplayBitmap* bitmap,
         const PIPoint& position,
         std::string_view text,
@@ -169,17 +151,12 @@ public:
         PColor background,
         PColor foreground,
         PPoint advance,
-        PDrawingMode mode) override;
+        PDrawingMode mode,
+        float width = std::numeric_limits<float>::infinity()) override;
 
     virtual void WaitIdle() override;
 
 private:
-    uint32_t WriteBitmapOverlay(
-        const PIPoint& position,
-        std::string_view text,
-        const PIRect& clipRect,
-        const FONT_INFO& font,
-        PColor foreground);
     void BeginTransparentWrite(const PIRect& bounds);
     void WriteFontSpan(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PDrawingMode mode);
     template<typename CoverageReader>

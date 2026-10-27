@@ -56,7 +56,7 @@ void PCheckBox::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PCheckBox::OnFontChanged(Ptr<PFont> newFont)
+void PCheckBox::OnFontChanged(Ptr<const PFont> newFont)
 {
     PreferredSizeChanged();
     Invalidate();
@@ -93,19 +93,11 @@ void PCheckBox::OnPaint(const PRect& cUpdateRect)
     const PStandardColorID buttonBackgroundColor = (IsEnabled() && IsPointerOver()) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::DefaultBackground;
     PRect bounds = GetBounds();
 
-    SetFgColor(PStandardColorID::DefaultBackground);
-    FillRect(cUpdateRect);
-
-    const PString& label = GetLabel();
-    if (!label.empty())
-    {
-        PFontHeight fontHeight = GetFontHeight();
-        MovePenTo(CB_SIZE + CB_LABEL_SPACING, bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender);
-
-        SetFgColor(0, 0, 0);
-        SetBgColor(PStandardColorID::DefaultBackground);
-        DrawString(label);
-    }
+    const PFontHeight fontHeight = GetFontHeight();
+    const float baseline = bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender;
+    SetFgColor(0, 0, 0);
+    SetBgColor(PStandardColorID::DefaultBackground);
+    DrawString(GetLabel(), PPoint(CB_SIZE + CB_LABEL_SPACING, baseline), bounds);
 
     SetEraseColor(buttonBackgroundColor);
 

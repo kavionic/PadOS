@@ -12,9 +12,11 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <string_view>
 #include <vector>
 
 #include <Math/Rect.h>
+#include <Ptr/Ptr.h>
 #include <Threads/Looper.h>
 #include <Threads/EventTimer.h>
 #include <ApplicationServer/Protocol.h>
@@ -22,7 +24,7 @@
 class PView;
 
 
-class PApplication : public PLooper, public SignalTarget
+class PApplication : public PLooper, public SignalTarget, public PtrTarget
 {
 public:
     PApplication(const PString& name);
@@ -76,6 +78,11 @@ public:
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
+    // Font handles belong to this application. Hold its mutex while calling these methods.
+    handle_id CreateFont(const PFontDescription& description, PFontHeight& outHeight);
+    void DeleteFont(handle_id fontHandle);
+    PFontTextMetrics MeasureFont(handle_id fontHandle, std::string_view text, float width, bool includeLast);
+
     PMouseCursorToken PushMouseCursor(PStandardMouseCursor cursor);
     void PopMouseCursor(PMouseCursorToken token);
 
@@ -118,6 +125,13 @@ private:
     void RemoveViewFromPointerState(Ptr<PView> view);
     
     void* AllocMessageBuffer(int32_t messageID, size_t size);
+    void ReceiveReply(int32_t expectedCode, void* reply, size_t replySize);
+    PFontTextMetrics MeasureFontChunk(
+        handle_id fontHandle,
+        std::string_view text,
+        float width,
+        bool includeLast,
+        uint32_t& previousGlyph);
 
     bool CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index);
     void RegisterViewForLayout(Ptr<PView> view, bool recursive = false);

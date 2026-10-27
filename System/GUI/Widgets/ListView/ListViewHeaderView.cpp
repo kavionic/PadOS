@@ -39,18 +39,19 @@ bool PListViewHeaderView::HasPointerCapture(PPointerID pointerID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PListViewHeaderView::DrawButton(const char* title, const PRect& frame, Ptr<PFont> font, PFontHeight* fontHeight)
+void PListViewHeaderView::DrawButton(const PString& title, const PRect& frame, const PFontHeight& fontHeight)
 {
     SetEraseColor(PStandardColorID::ListViewTab);
-    DrawFrame(frame, FRAME_RAISED);
+    DrawFrame(frame, FRAME_RAISED | FRAME_TRANSPARENT);
 
     SetFgColor(PStandardColorID::ListViewTabText);
     SetBgColor(PStandardColorID::ListViewTab);
 
-    float vFontHeight = fontHeight->ascender + fontHeight->descender;
-
-    int nStrLen = font->GetStringLength(title, frame.Width() - 9.0f);
-    DrawString(PString(title, title + nStrLen), frame.TopLeft() + PPoint(5, (frame.Height() + 1.0f) / 2 - vFontHeight / 2 + fontHeight->ascender));
+    const float textHeight = fontHeight.ascender + fontHeight.descender;
+    const PPoint baseline = frame.TopLeft() + PPoint(5.0f, (frame.Height() + 1.0f - textHeight) * 0.5f + fontHeight.ascender);
+    const PRect background = frame.GetFloored().GetResized(2.0f, 2.0f, -4.0f, -2.0f);
+    FillRect(PRect(background.right, background.top, background.right + 2.0f, background.bottom), GetBgColor());
+    DrawString(title, baseline, background, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,30 +60,25 @@ void PListViewHeaderView::DrawButton(const char* title, const PRect& frame, Ptr<
 
 void PListViewHeaderView::OnPaint(const PRect& cUpdateRect)
 {
-    Ptr<PFont> pcFont = GetFont();
-    if (pcFont == nullptr) {
+    Ptr<const PFont> font = GetFont();
+    if (font == nullptr) {
         return;
     }
 
-    PFontHeight sHeight = pcFont->GetHeight();
+    PFontHeight fontHeight = font->GetHeight();
 
-    PRect cFrame;
+    PRect frame;
     for (size_t i = 0; i < m_ScrolledContainerView->m_ColumnMap.size(); ++i)
     {
-        Ptr<PListViewColumnView> pcCol = m_ScrolledContainerView->GetColumn(i);
-        cFrame = pcCol->GetFrame();
-        cFrame.top = 0;
-        cFrame.bottom = sHeight.ascender + sHeight.descender + 6 - 1;
+        Ptr<PListViewColumnView> column = m_ScrolledContainerView->GetColumn(i);
+        frame = column->GetFrame();
+        frame.top = 0;
+        frame.bottom = fontHeight.ascender + fontHeight.descender + 6 - 1;
         if (i == m_ScrolledContainerView->m_ColumnMap.size() - 1) {
-            cFrame.right = COORD_MAX;
+            frame.right = COORD_MAX;
         }
-        DrawButton(pcCol->m_Title.c_str(), cFrame, pcFont, &sHeight);
-    }/*
-    cFrame.left = cFrame.right + 1;
-    cFrame.right = GetBounds().right;
-    if ( cFrame.IsValid() ) {
-    DrawButton( "", cFrame, pcFont, &sHeight );
-    }*/
+        DrawButton(column->m_Title, frame, fontHeight);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

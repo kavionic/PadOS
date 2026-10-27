@@ -295,7 +295,7 @@ bool PLooper::Tick()
     if (m_DoRun)
     {
         assert(m_Mutex.IsLocked());
-        m_WaitGroup.WaitDeadline(m_Mutex, m_NextEventTime);
+        WaitForEvents(m_NextEventTime);
         RunTimers();
         for (;;)
         {
@@ -315,6 +315,15 @@ bool PLooper::Tick()
         }
     }
     return m_DoRun;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PLooper::WaitForEvents(TimeValNanos deadline)
+{
+    m_WaitGroup.WaitDeadline(m_Mutex, deadline);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

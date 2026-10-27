@@ -187,11 +187,11 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
 
     m_WaitNodes.resize(m_Objects.size());
 
-    size_t maxFlagIndex = (readyFlagsBuffer != nullptr) ? std::min(m_WaitNodes.size(), readyFlagsSize * 8) : 0;
-
-    memset(readyFlagsBuffer, 0, (maxFlagIndex + 7) & ~7);
-
-    uint32_t* readyFlags = reinterpret_cast<uint32_t*>(readyFlagsBuffer);
+    const size_t maxFlagIndex = (readyFlagsBuffer != nullptr) ? std::min(m_WaitNodes.size(), readyFlagsSize * 8) : 0;
+    uint8_t* readyFlags = static_cast<uint8_t*>(readyFlagsBuffer);
+    if (readyFlags != nullptr) {
+        memset(readyFlags, 0, (maxFlagIndex + 7) / 8);
+    }
 
     bool isReady = false;
     for (int i = 0; i < m_Objects.size(); ++i)
@@ -202,7 +202,7 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
             isReady = true;
             if (i < maxFlagIndex)
             {
-                readyFlags[i / 32] |= 1 << (i % 32);
+                readyFlags[i / 8] |= uint8_t(1U << (i % 8));
             }
             else
             {
@@ -274,7 +274,7 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
             {
                 isReady = true;
                 if (i < maxFlagIndex) {
-                    readyFlags[i / 32] |= 1 << (i % 32);
+                    readyFlags[i / 8] |= uint8_t(1U << (i % 8));
                 }
             }
         }

@@ -352,7 +352,7 @@ PServerView::PServerView(
     float                       miterLimit,
     const std::vector<float>&   dashPattern,
     float                       dashOffset,
-    PFontID                     fontID,
+    Ptr<PServerFontInstance>    font,
     PColor                      eraseColor,
     PColor                      bgColor,
     PColor                      fgColor
@@ -362,8 +362,8 @@ PServerView::PServerView(
     , m_DockType(dockType)
     , m_FocusKeyboardMode(focusKeyboardMode)
     , m_DrawingMode(drawingMode)
+    , m_Font(std::move(font))
 {
-    m_FontID = fontID;
     g_ServerViewCount++;
 }
 
@@ -375,8 +375,14 @@ PServerView::~PServerView()
 {
     g_ServerViewCount--;
 
-    while (!m_ChildrenList.empty()) {
-        RemoveChild(m_ChildrenList[m_ChildrenList.size() - 1], true);
+    while (!m_ChildrenList.empty())
+    {
+        const Ptr<PServerView> child = m_ChildrenList.back();
+        RemoveChild(child);
+        PLooper* const looper = child->GetLooper();
+        if (looper != nullptr) {
+            looper->RemoveHandler(child);
+        }
     }
 }
 
@@ -532,29 +538,20 @@ void PServerView::AddChild(Ptr<PServerView> child, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::RemoveChild(Ptr<PServerView> child, bool removeAsHandler)
+void PServerView::RemoveChild(Ptr<PServerView> child)
 {
     UnlinkChild(child);
-
-    if (removeAsHandler)
-    {
-        PLooper* const looper = child->GetLooper();
-        if (looper != nullptr) {
-            looper->RemoveHandler(child);
-        }
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::RemoveThis(bool removeAsHandler)
+void PServerView::RemoveThis()
 {
     const Ptr<PServerView> parent = m_Parent.Lock();
-    if (parent != nullptr)
-    {
-        parent->RemoveChild(ptr_tmp_cast(this), removeAsHandler);
+    if (parent != nullptr) {
+        parent->RemoveChild(ptr_tmp_cast(this));
     }
 }
 
@@ -1180,12 +1177,12 @@ void PServerView::ToggleDepth()
     {
         if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
         {
-            parent->RemoveChild(self, false);
+            parent->RemoveChild(self);
             parent->AddChild(self, 0);
         }
         else
         {
-            parent->RemoveChild(self, false);
+            parent->RemoveChild(self);
             parent->AddChild(self, INVALID_INDEX);
         }
 
@@ -1395,19 +1392,9 @@ void PServerView::SetHitMode(PViewHitMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::SetFont(int fontHandle)
+void PServerView::SetFont(Ptr<PServerFontInstance> font)
 {
-    m_FontID = PFontID(fontHandle);
-    m_TextFont.Reset();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PServerView::SetTextFont(Ptr<PServerFontInstance> font)
-{
-    m_TextFont = std::move(font);
+    m_Font = std::move(font);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3194,56 +3181,9 @@ void PServerView::AppendPolylineRoundJointTriangles(std::vector<PPoint>& triangl
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::DrawString(const PString& string)
+void PServerView::DrawString(const PString& string, float width, bool allowPartialCharacter)
 {
-    if (m_TextFont != nullptr)
-    {
-        DrawText(string);
-        return;
-    }
-    const Ptr<const PRegion> region = GetRegion();
-    if (region != nullptr)
-    {
-        const PIPoint screenPos(m_ScreenPos);
-        PIPoint penPos = PIPoint(m_PenPosition + m_ScrollOffset);
-        
-        PDisplayDriver* const driver = m_Bitmap->m_Driver;
-
-        const PIRect boundingBox(
-            penPos.x,
-            penPos.y,
-            penPos.x + int(driver->GetStringWidth(m_FontID, string.c_str(), string.size())),
-            penPos.y + int(driver->GetFontHeight(m_FontID)));
-
-        penPos += screenPos;
-        
-        for (const PIRect& clip : region->m_Rects)
-        {
-            if (clip.DoIntersect(boundingBox))
-            {
-                driver->DrawString(
-                    m_Bitmap,
-                    penPos,
-                    string.c_str(),
-                    string.size(),
-                    clip + screenPos,
-                    m_BgColor,
-                    m_FgColor,
-                    m_FontID,
-                    m_DrawingMode);
-            }                
-        }
-        m_PenPosition.x += float(boundingBox.Width());
-    }        
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PServerView::DrawText(const PString& string)
-{
-    if (m_TextFont == nullptr) {
+    if (m_Font == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     const Ptr<const PRegion> region = GetRegion();
@@ -3256,15 +3196,17 @@ void PServerView::DrawText(const PString& string)
         for (const PIRect& clip : region->m_Rects) {
             m_TextClipRects.push_back(clip + screenPosition);
         }
-        const PFontTextMetrics metrics = m_Bitmap->m_Driver->DrawText(
+        const PFontTextMetrics metrics = m_Bitmap->m_Driver->DrawString(
             m_Bitmap,
             baseline,
             std::string_view(string.data(), string.size()),
-            *m_TextFont,
+            *m_Font,
             m_TextClipRects,
             m_BgColor,
             m_FgColor,
-            m_DrawingMode);
+            m_DrawingMode,
+            width,
+            allowPartialCharacter);
         m_PenPosition += metrics.Advance;
     }
 }

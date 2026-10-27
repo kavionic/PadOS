@@ -9,6 +9,7 @@
 
 #include <GUI/FontDescription.h>
 #include <RPC/ArgumentSerializer.h>
+#include <System/Types.h>
 #include <sys/pados_error_codes.h>
 
 template<>
@@ -69,7 +70,7 @@ inline constexpr size_t FONT_MEASUREMENT_CHUNK_BYTES = 4096;
 struct MsgCreateFontReply
 {
     PErrorCode Error = PErrorCode::Success;
-    uint32_t FontHandle = 0;
+    handle_id FontHandle = INVALID_HANDLE;
     PFontHeight Height{};
 };
 

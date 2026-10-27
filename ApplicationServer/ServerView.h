@@ -38,7 +38,7 @@ public:
         float                miterLimit,
         const std::vector<float>& dashPattern,
         float                dashOffset,
-        PFontID              fontID,
+        Ptr<PServerFontInstance> font,
         PColor               eraseColor,
         PColor               bgColor,
         PColor               fgColor
@@ -66,8 +66,9 @@ public:
     bool        SendPointerRootViewUpdate(const PPointerEvent& event, PPointerRootViewUpdateType updateType);
 
     void        AddChild(Ptr<PServerView> child, size_t index);
-    void        RemoveChild(Ptr<PServerView> child, bool removeAsHandler);
-    void        RemoveThis(bool removeAsHandler);
+    // Detach from the view hierarchy without changing handler registration.
+    void        RemoveChild(Ptr<PServerView> child);
+    void        RemoveThis();
 
     void        Show(bool show = true);
     bool        IsVisible() const;
@@ -109,8 +110,7 @@ public:
     void        SetBgColor(PColor color)    { m_BgColor = color; }
     void        SetFgColor(PColor color)    { m_FgColor = color; }
 
-    void        SetFont(int fontHandle);
-    void        SetTextFont(Ptr<PServerFontInstance> font);
+    void        SetFont(Ptr<PServerFontInstance> font);
     void        SetPenWidth(float width) { m_PenWidth = width; }
     void        SetCapStyle(PCapStyle style)                       { m_CapStyle = style; }
     void        SetJointStyle(PJointStyle style)                   { m_JointStyle = style; }
@@ -139,8 +139,7 @@ public:
     void        BeginPolyline();
     void        AddPolylinePoint(const PPoint& point);
     void        EndPolyline();
-    void        DrawString(const PString& string);
-    void        DrawText(const PString& string);
+    void        DrawString(const PString& string, float width, bool allowPartialCharacter);
     void        CopyRect(const PRect& srcRect, const PPoint& dstPos);
     void        DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos);
     void        DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PRect& dstRect);
@@ -247,8 +246,7 @@ private:
     PFocusKeyboardMode  m_FocusKeyboardMode = PFocusKeyboardMode::None;
     PDrawingMode        m_DrawingMode  = PDrawingMode::Copy;
     
-    PFontID m_FontID = PFontID::e_FontLarge;
-    Ptr<PServerFontInstance> m_TextFont;
+    Ptr<PServerFontInstance> m_Font;
     std::vector<PIRect> m_TextClipRects;
     
     PIPoint      m_DeltaMove;             // Relative movement since last region update

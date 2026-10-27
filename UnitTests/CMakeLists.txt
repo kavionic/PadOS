@@ -21,6 +21,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	POSIXTokenizer_unittest.cpp
 	CircularBuffer_unittest.cpp
 	NamedColors_unittest.cpp
+	ObjectWaitGroup_unittest.cpp
 	PEnumBitmask_unittest.cpp
 	PSemaphore_unittest.cpp
 	PString_unittest.cpp

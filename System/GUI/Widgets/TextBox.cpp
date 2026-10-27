@@ -79,7 +79,7 @@ void PTextBox::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextBox::OnFontChanged(Ptr<PFont> newFont)
+void PTextBox::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_Editor->SetFont(newFont);
     PreferredSizeChanged();

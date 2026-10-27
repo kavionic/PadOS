@@ -10,6 +10,7 @@ target_sources(PadOS_Kernel_Unconditional PRIVATE
 	MemoryProtection_unittest.cpp
 	FileAccess_unittest.cpp
 	DisplayFont_unittest.cpp
+	../../UnitTests/DisplayTextWidth_unittest.cpp
 )
 
 if(PADOS_DRIVER_USB)

@@ -18,7 +18,6 @@
 #include <GUI/Bitmap.h>
 #include <GUI/Color.h>
 #include <Utils/Utils.h>
-#include <Utils/UTF8Utils.h>
 
 
 
@@ -59,7 +58,7 @@ KDisplayDriver::KDisplayDriver()
     m_CommandDispatcher.AddHandler(&PDisplayCommands::ScaleRect, this, &KDisplayDriver::HandleScaleRect);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::FillCircle, this, &KDisplayDriver::HandleFillCircle);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteString, this, &KDisplayDriver::HandleWriteString);
-    m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteFontString, this, &KDisplayDriver::HandleWriteFontString);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteStringWidth, this, &KDisplayDriver::HandleWriteStringWidth);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1530,24 +1529,6 @@ void KDisplayDriver::FillCircle(PDisplayBitmap* bitmap, const PIRect& clipRect, 
     if (midRect.IsValid()) {
         FillRect(bitmap, midRect);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t KDisplayDriver::WriteString(
-    PDisplayBitmap* bitmap,
-    const PIPoint& position,
-    const char* string,
-    size_t strLength,
-    const PIRect& clipRect,
-    PColor colorBg,
-    PColor colorFg,
-    PFontID fontID,
-    PDrawingMode mode)
-{
-    return position.x;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

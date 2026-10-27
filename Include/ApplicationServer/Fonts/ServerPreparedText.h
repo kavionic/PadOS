@@ -15,4 +15,5 @@ struct PServerPreparedText
 {
     Ptr<PServerFontDrawCache> Cache;
     PFontTextMetrics Metrics;
+    size_t KerningCount = 0;
 };

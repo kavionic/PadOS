@@ -28,8 +28,6 @@ enum class PViewDockType : int32_t;
 enum class PViewHitMode : uint8_t;
 enum class PFocusKeyboardMode : uint8_t;
 
-enum class PFontID : uint8_t;
-
 enum class PPointerRootViewUpdateType : uint8_t
 {
     Reevaluate,
@@ -56,11 +54,6 @@ namespace PAppserverProtocol
         MESSAGE_BUNDLE,
         REGISTER_APPLICATION,
         VIRTUAL_KEYBOARD_EVENT,
-        CREATE_FONT,
-        DELETE_FONT,
-        MEASURE_FONT,
-        CREATE_FONT_REPLY,
-        MEASURE_FONT_REPLY,
 
         // Application messages:
         SYNC,
@@ -71,6 +64,9 @@ namespace PAppserverProtocol
         SET_KEYBOARD_FOCUS,
         CREATE_BITMAP,
         DELETE_BITMAP,
+        CREATE_FONT,
+        DELETE_FONT,
+        MEASURE_FONT,
         PUSH_MOUSE_CURSOR,
         POP_MOUSE_CURSOR,
 
@@ -92,7 +88,6 @@ namespace PAppserverProtocol
         VIEW_SET_BG_COLOR,
         VIEW_SET_ERASE_COLOR,
         VIEW_SET_FONT,
-        VIEW_SET_TEXT_FONT,
         VIEW_MOVE_PEN_TO,
         VIEW_SET_PEN_WIDTH,
         VIEW_DRAW_LINE1,
@@ -106,6 +101,7 @@ namespace PAppserverProtocol
         VIEW_ADD_TRIANGLE,
         VIEW_END_TRIANGLES,
         VIEW_DRAW_STRING,
+        VIEW_DRAW_STRING_WIDTH,
         VIEW_SCROLL_BY,
         VIEW_COPY_RECT,
         VIEW_DRAW_BITMAP,
@@ -137,6 +133,8 @@ namespace PAppserverProtocol
         
         // Appserver -> application messages:
         SYNC_REPLY,
+        CREATE_FONT_REPLY,
+        MEASURE_FONT_REPLY,
         HANDLE_POINTER_EVENT,
         HANDLE_POINTER_CAPTURE_REQUEST_REPLY,
         HANDLE_POINTER_CAPTURE_LOST,
@@ -203,7 +201,7 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         float              miterLimit,
         const std::vector<float>& dashPattern,
         float              dashOffset,
-        PFontID            fontID,
+        handle_id          fontHandle,
         PColor             eraseColor,
         PColor             bgColor,
         PColor             fgColor
@@ -258,7 +256,7 @@ using ASViewSetDrawingMode  = PRemoteSignal<PAppserverProtocol::VIEW_SET_DRAWING
 using ASViewSetFgColor      = PRemoteSignal<PAppserverProtocol::VIEW_SET_FG_COLOR,        void(handler_id viewHandle, PColor color)>;
 using ASViewSetBgColor      = PRemoteSignal<PAppserverProtocol::VIEW_SET_BG_COLOR,        void(handler_id viewHandle, PColor color)>;
 using ASViewSetEraseColor   = PRemoteSignal<PAppserverProtocol::VIEW_SET_ERASE_COLOR,     void(handler_id viewHandle, PColor color)>;
-using ASViewSetFont         = PRemoteSignal<PAppserverProtocol::VIEW_SET_FONT,            void(handler_id viewHandle, int fontHandle)>;
+using ASViewSetFont         = PRemoteSignal<PAppserverProtocol::VIEW_SET_FONT, void(handler_id viewHandle, handle_id fontHandle)>;
 using ASViewMovePenTo       = PRemoteSignal<PAppserverProtocol::VIEW_MOVE_PEN_TO,         void(handler_id viewHandle, const PPoint pos)>;
 using ASViewSetPenWidth     = PRemoteSignal<PAppserverProtocol::VIEW_SET_PEN_WIDTH,       void(handler_id viewHandle, float width)>;
 
@@ -273,6 +271,8 @@ using ASViewBeginTriangles  = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_TRIAN
 using ASViewAddTriangle     = PRemoteSignal<PAppserverProtocol::VIEW_ADD_TRIANGLE,        void(handler_id viewHandle, const PPoint& position)>;
 using ASViewEndTriangles    = PRemoteSignal<PAppserverProtocol::VIEW_END_TRIANGLES,       void(handler_id viewHandle)>;
 using ASViewDrawString      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING,         void(handler_id viewHandle, const PString& string)>;
+using ASViewDrawStringWidth = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING_WIDTH,
+    void(handler_id viewHandle, const PString& string, float width, bool allowPartialCharacter)>;
 using ASViewScrollBy        = PRemoteSignal<PAppserverProtocol::VIEW_SCROLL_BY,           void(handler_id viewHandle, const PPoint& delta)>;
 using ASViewCopyRect        = PRemoteSignal<PAppserverProtocol::VIEW_COPY_RECT,           void(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)>;
 using ASViewDrawBitmap      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_BITMAP,         void(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PPoint& dstPos)>;
@@ -353,10 +353,8 @@ using ASKeyboardConfigurationReply = PRemoteSignal<PAppserverProtocol::KEYBOARD_
         )
 >;
 
-using ASViewSetTextFont = PRemoteSignal<PAppserverProtocol::VIEW_SET_TEXT_FONT,
-    void(handler_id viewHandle, const PFontDescription& description)>;
 using ASCreateFont = PRemoteSignal<PAppserverProtocol::CREATE_FONT,
     void(port_id replyPort, const PFontDescription& description)>;
-using ASDeleteFont = PRemoteSignal<PAppserverProtocol::DELETE_FONT, void(uint32_t fontHandle)>;
+using ASDeleteFont = PRemoteSignal<PAppserverProtocol::DELETE_FONT, void(handle_id fontHandle)>;
 using ASMeasureFont = PRemoteSignal<PAppserverProtocol::MEASURE_FONT,
-    void(port_id replyPort, uint32_t fontHandle, const PString& text, float width, bool includeLast, uint32_t previousGlyph)>;
+    void(port_id replyPort, handle_id fontHandle, const PString& text, float width, bool includeLast, uint32_t previousGlyph)>;

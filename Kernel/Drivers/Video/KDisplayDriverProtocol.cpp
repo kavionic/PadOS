@@ -387,25 +387,31 @@ void KDisplayDriver::HandleWriteString(
     std::span<const std::byte> payload,
     PDisplayBitmap bitmap,
     PIPoint position,
+    const PDisplayFontCache* font,
     size_t stringLength,
-    PIRect clipRect,
+    size_t clipCount,
+    size_t kerningCount,
     PColor background,
     PColor foreground,
-    PFontID fontID,
+    PPoint advance,
     PDrawingMode mode)
 {
-    kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
-    const std::span<const char> string = ReadDisplayArray<char>(payload, stringLength);
-    ValidateDisplayPayloadEnd(payload);
-    WriteString(&bitmap, position, string.data(), string.size(), clipRect, background, foreground, fontID, mode);
+    HandleWriteStringWidth(
+        payload,
+        bitmap,
+        position,
+        font,
+        stringLength,
+        clipCount,
+        kerningCount,
+        background,
+        foreground,
+        advance,
+        mode,
+        std::numeric_limits<float>::infinity());
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KDisplayDriver::HandleWriteFontString(
+void KDisplayDriver::HandleWriteStringWidth(
     std::span<const std::byte> payload,
     PDisplayBitmap bitmap,
     PIPoint position,
@@ -416,7 +422,8 @@ void KDisplayDriver::HandleWriteFontString(
     PColor background,
     PColor foreground,
     PPoint advance,
-    PDrawingMode mode)
+    PDrawingMode mode,
+    float width)
 {
     kassert(m_Mutex.IsLocked());
     const std::span<const PIRect> clips = ReadDisplayArray<PIRect>(payload, clipCount);
@@ -444,7 +451,7 @@ void KDisplayDriver::HandleWriteFontString(
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     ValidateDisplayWriteBitmap(bitmap);
-    WriteFontString(
+    WriteString(
         &bitmap,
         position,
         std::string_view(string.data(), string.size()),
@@ -454,7 +461,8 @@ void KDisplayDriver::HandleWriteFontString(
         background,
         foreground,
         advance,
-        mode);
+        mode,
+        width);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

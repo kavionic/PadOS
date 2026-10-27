@@ -56,7 +56,7 @@ void PRadioButton::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PRadioButton::OnFontChanged(Ptr<PFont> newFont)
+void PRadioButton::OnFontChanged(Ptr<const PFont> newFont)
 {
     PreferredSizeChanged();
     Invalidate();
@@ -105,9 +105,6 @@ void PRadioButton::OnPaint(const PRect& updateRect)
     const PStandardColorID buttonBackgroundColor = (IsEnabled() && IsPointerOver()) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::DefaultBackground;
     PRect bounds = GetBounds();
     PRect buttonFrame = bounds;
-    SetFgColor(PStandardColorID::DefaultBackground);
-    FillRect(updateRect);
-
     const PString& label = GetLabel();
     if (!label.empty())
     {
@@ -136,7 +133,11 @@ void PRadioButton::OnPaint(const PRect& updateRect)
         }
 		SetFgColor(0, 0, 0);
 		SetBgColor(PStandardColorID::DefaultBackground);
-		DrawString(label);
+        DrawString(label, GetPenPosition(), bounds);
+    }
+    else
+    {
+        FillRect(bounds, pget_standard_color(PStandardColorID::DefaultBackground));
     }
 
     SetEraseColor(PStandardColorID::DefaultBackground);

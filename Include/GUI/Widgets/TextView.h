@@ -28,7 +28,7 @@ public:
     void SetText(const PString& text);
     const PString& GetText() const { return m_Text; }
 
-    virtual void OnFontChanged(Ptr<PFont> newFont) override;
+    virtual void OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 

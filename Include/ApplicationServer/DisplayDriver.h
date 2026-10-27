@@ -18,7 +18,7 @@
 #include <Ptr/Ptr.h>
 #include <Utils/String.h>
 #include <DeviceControl/Display.h>
-#include <GUI/FontMetrics.h>
+#include <GUI/FontDescription.h>
 
 class PSrvBitmap;
 class PServerFontInstance;
@@ -31,7 +31,7 @@ struct PDisplayPolygonBuffer
     std::span<PPoint> Points;
 };
 
-class PDisplayDriver final : public PtrTarget, public PFontMetrics
+class PDisplayDriver final : public PtrTarget
 {
 public:
     explicit PDisplayDriver(const PString& devicePath = "/dev/ra8875");
@@ -122,23 +122,10 @@ public:
 
     static PColor   GetPaletteEntry(uint8_t index);
 
-    // Queue text drawing in the current batch.
-    void DrawString(
-        PSrvBitmap* bitmap,
-        const PIPoint& position,
-        const char* string,
-        size_t length,
-        const PIRect& clipRect,
-        PColor background,
-        PColor foreground,
-        PFontID fontID,
-        PDrawingMode mode);
-
-    // The new font path coexists with DrawString's original bitmap-font path.
     // Copies UTF-8 bytes and retains a warmed cache until submission completes.
     // Copy clears the logical text area and glyph bounds; Overlay preserves zero coverage.
     // Antialiasing uses background; overlapping glyph coverage is combined.
-    PFontTextMetrics DrawText(
+    PFontTextMetrics DrawString(
         PSrvBitmap* bitmap,
         const PIPoint& position,
         std::string_view text,
@@ -146,7 +133,9 @@ public:
         std::span<const PIRect> clipRects,
         PColor background,
         PColor foreground,
-        PDrawingMode mode);
+        PDrawingMode mode,
+        float width = std::numeric_limits<float>::infinity(),
+        bool allowPartialCharacter = true);
 
     PDisplayPolygonBuffer AllocPolygon(
         PSrvBitmap* bitmap,

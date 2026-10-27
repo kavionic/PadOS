@@ -14,7 +14,7 @@
 #include <Kernel/KThread.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
-#include <Utils/UTF8Utils.h>
+#include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
 #include <algorithm>
 #include <array>
@@ -643,217 +643,7 @@ void RA8875GfxDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PIPoint RA8875GfxDriver::RenderGlyph(const PIPoint& position, uint32_t character, const PIRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg)
-{
-    if (font == nullptr || character < font->startChar || character > font->endChar) {
-        return position;
-    }
-
-    PIPoint cursor = position;
-
-    const FONT_CHAR_INFO& charInfo = font->charInfo[character - font->startChar];
-
-    uint8_t        charWidth = charInfo.widthBits;
-    const uint8_t* srcAddr = font->data + charInfo.offset;
-
-    PIRect bounds(cursor.x, cursor.y, cursor.x + charWidth, cursor.y + font->heightPages);
-    PIRect clippedBounds = bounds & clipRect;
-
-    if (clippedBounds.Height() <= 0) {
-        cursor.x += charWidth;
-        return cursor;
-    }
-
-    if (!clippedBounds.IsValid())
-    {
-        cursor.x += charWidth;
-        return cursor;
-    }
-
-    int m_FontHeightFullBytes = font->heightPages >> 3;
-    int m_FontHeightRemainingBits = font->heightPages & 7;
-
-    int charHeightBytes = m_FontHeightFullBytes;
-    if (m_FontHeightRemainingBits != 0) charHeightBytes++;
-
-
-    int xOffset = (clippedBounds.left - cursor.x) * charHeightBytes;
-    for (int x = clippedBounds.left; x < clippedBounds.right; ++x)
-    {
-        for (int y = clippedBounds.top; y < clippedBounds.bottom; ++y)
-        {
-            int col = y - cursor.y;
-            WaitMemory();
-            if (srcAddr[xOffset + (col >> 3)] & (0x80 >> (col & 0x7)))
-            {
-                WriteData(colorFg);
-            } else {
-                WriteData(colorBg);
-            }
-        }
-        xOffset += charHeightBytes;
-    }
-    cursor.x += charWidth;
-
-    return cursor;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t RA8875GfxDriver::WriteString(
-    PDisplayBitmap* bitmap,
-    const PIPoint& position,
-    const char* string,
-    size_t strLength,
-    const PIRect& clipRect,
-    PColor colorBg,
-    PColor colorFg,
-    PFontID fontID,
-    PDrawingMode mode)
-{
-    if (mode != PDrawingMode::Copy && mode != PDrawingMode::Overlay) {
-        PERROR_THROW_CODE(PErrorCode::NOSYS);
-    }
-    if (bitmap->VideoMemory)
-    {
-        const FONT_INFO* font = GetFontDesc(fontID);
-
-        if (font == nullptr) {
-            return position.x;
-        }
-
-        if (mode == PDrawingMode::Overlay)
-        {
-            const PIRect bitmapBounds = PIRect(PIPoint(0, 0), bitmap->Size) & PIRect(PIPoint(0, 0), GetResolution());
-            return WriteBitmapOverlay(position, std::string_view(string, strLength), clipRect & bitmapBounds, *font, colorFg);
-        }
-
-        PIPoint cursor = position;
-
-        PIRect bounds(cursor.x, cursor.y, GetResolution().x, cursor.y + font->heightPages);
-        bounds &= clipRect;
-
-        if (!bounds.IsValid()) return cursor.x;
-
-        WaitBlitter();
-
-        FillDirection_e prevFillDir = m_FillDirection;
-        SetFillDirection(e_FillDownLeft);
-
-        SetWindow(bounds);
-        MemoryWrite_Position(bounds.left, bounds.top);
-
-        uint16_t colorBg16 = colorBg.GetColor16();
-        uint16_t colorFg16 = colorFg.GetColor16();
-
-        while (strLength > 0 && cursor.x < bounds.right)
-        {
-            int charLen = utf8_char_length(*string);
-            if (charLen > strLength) {
-                break;
-            }
-            uint32_t character = utf8_to_unicode(string);
-            string    += charLen;
-            strLength -= charLen;
-            cursor = RenderGlyph(cursor, character, clipRect, font, colorBg16, colorFg16);
-            int spaceStart = std::max(cursor.x, clipRect.left);
-            int spaceEnd = std::min(cursor.x + CHARACTER_SPACING, clipRect.right);
-            int spaceWidth = spaceEnd - spaceStart;
-            if (spaceWidth > 0)
-            {
-                for (int i = 0; i < spaceWidth * bounds.Height(); ++i)
-                {
-                    WaitMemory();
-                    WriteData(colorBg16);
-                }
-            }
-            cursor.x += CHARACTER_SPACING;
-        }
-        WaitMemory();
-        SetFillDirection(prevFillDir);
-        return cursor.x;
-    }
-    else
-    {
-        return KDisplayDriver::WriteString(bitmap, position, string, strLength, clipRect, colorBg, colorFg, fontID, mode);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-//uint8_t RA8875Driver::WriteStringTransparent(SrvBitmap* bitmap, const char* string, uint8_t strLength, int16_t maxWidth, Font_e fontID)
-//{
-//    maxWidth += cursor.x;
-//    if (maxWidth > GetResolution().x) maxWidth = GetResolution().x;
-//
-//    uint8_t spacing = m_FontCharSpacing;
-//
-//    uint8_t wholeBytes = font->heightPages >> 3;
-//    uint8_t remainingBits = font->heightPages & 7;
-//
-//    while (strLength--)
-//    {
-//        uint8_t character = *(string++);
-//        if (character < m_FontFirstChar) character = m_FontFirstChar;
-//        const FONT_CHAR_INFO* charInfo = m_FontCharInfo + character;
-//
-//        uint8_t        charWidth = charInfo->widthBits;
-//        const uint8_t* srcAddr = m_FontGlyphData + charInfo->offset;
-//        //    printf_P(PSTR("Width of '%c' is %d (%d/%d)\n"), origChar, charWidth, font->heightPages, m_FontHeightBytes);
-//
-//        if (cursor.x + charWidth > maxWidth) {
-//            charWidth = maxWidth - cursor.x;
-//        }
-//        for (uint8_t x = charWidth; x; --x)
-//        {
-//            int16_t curY = cursor.y;
-//            for (uint8_t y = wholeBytes; y; --y)
-//            {
-//                uint8_t line = *(srcAddr++);
-//                for (int8_t i = 8; i; --i)
-//                {
-//                    if (line & 0x80) {
-//                        WritePixel(cursor.x, curY);
-//                    }
-//                    curY++;
-//                    line <<= 1;
-//                }
-//            }
-//            uint8_t line = *(srcAddr++);
-//
-//            for (uint8_t i = remainingBits; i; --i)
-//            {
-//                if (line & 0x80) {
-//                    WritePixel(cursor.x, curY);
-//                }
-//                curY++;
-//                line <<= 1;
-//            }
-//            cursor.x++;
-//        }
-//
-//        if (cursor.x + spacing < maxWidth)
-//        {
-//            cursor.x += spacing;
-//        } else
-//        {
-//            spacing = maxWidth - cursor.x;
-//            cursor.x += spacing;
-//            break;
-//        }
-//    }
-//    return 0;
-//}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void RA8875GfxDriver::WriteFontString(
+void RA8875GfxDriver::WriteString(
     PDisplayBitmap* bitmap,
     const PIPoint& position,
     std::string_view text,
@@ -863,7 +653,8 @@ void RA8875GfxDriver::WriteFontString(
     PColor background,
     PColor foreground,
     PPoint advance,
-    PDrawingMode mode)
+    PDrawingMode mode,
+    float width)
 {
     kassert(m_Mutex.IsLocked());
     if (mode != PDrawingMode::Copy && mode != PDrawingMode::Overlay) {
@@ -874,9 +665,20 @@ void RA8875GfxDriver::WriteFontString(
     }
     if (!bitmap->VideoMemory)
     {
-        KDisplayDriver::WriteFontString(bitmap, position, text, font, kernings, clipRects, background, foreground, advance, mode);
+        KDisplayDriver::WriteString(
+            bitmap,
+            position,
+            text,
+            font,
+            kernings,
+            clipRects,
+            background,
+            foreground,
+            advance,
+            mode,
+            width);
     }
-    else if (!text.empty() && !clipRects.empty())
+    else if ((!text.empty() || PMath::is_finite(width)) && !clipRects.empty())
     {
         std::optional<uint32_t> colorKey;
         if (mode == PDrawingMode::Overlay)
@@ -889,7 +691,7 @@ void RA8875GfxDriver::WriteFontString(
         }
         const std::array<uint32_t, 256>& palette = PrepareFontPalette(bitmap->ColorSpace, background, foreground, colorKey);
         const PIRect bitmapBounds = PIRect(PIPoint(0, 0), bitmap->Size) & PIRect(PIPoint(0, 0), GetResolution());
-        m_FontText.Begin(font, text, position, bitmapBounds, kernings, advance, mode);
+        m_FontText.Begin(font, text, position, bitmapBounds, kernings, advance, mode, width);
         PScopeExit releaseText([this] { m_FontText.End(); });
         const PColor previousColor = GetFgColor();
         // Only spans outside every glyph raster use fills. Their pixels will not be written again.
@@ -941,72 +743,6 @@ void RA8875GfxDriver::WaitIdle()
         WaitBlitter();
         WaitMemory();
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t RA8875GfxDriver::WriteBitmapOverlay(
-    const PIPoint& position,
-    std::string_view text,
-    const PIRect& clipRect,
-    const FONT_INFO& font,
-    PColor foreground)
-{
-    if (!clipRect.IsValid()) {
-        return position.x;
-    }
-    const uint16_t foreground16 = foreground.GetColor16();
-    const uint16_t transparent16 = uint16_t(~foreground16);
-    const size_t bytesPerColumn = (size_t(font.heightPages) + 7) / 8;
-    PIPoint cursor = position;
-    WaitBlitter();
-    SetHardwareFgColor(transparent16);
-    const FillDirection_e previousDirection = m_FillDirection;
-    SetFillDirection(e_FillLeftDown);
-    PScopeExit restoreDirection([this, previousDirection]
-    {
-        if (!m_IsFaulted)
-        {
-            WaitMemory();
-            SetFillDirection(previousDirection);
-        }
-    });
-    while (!text.empty() && cursor.x < clipRect.right)
-    {
-        size_t byteCount = 0;
-        const uint32_t character = utf8_to_unicode(text.data(), text.size(), byteCount);
-        text.remove_prefix(byteCount);
-        if (character >= font.startChar && character <= font.endChar)
-        {
-            const FONT_CHAR_INFO& characterInfo = font.charInfo[character - font.startChar];
-            const PIRect bounds(cursor.x, cursor.y, cursor.x + characterInfo.widthBits, cursor.y + font.heightPages);
-            const PIRect clipped = bounds & clipRect;
-            if (clipped.IsValid() && foreground.GetAlpha() != 0)
-            {
-                const uint8_t* raster = font.data + characterInfo.offset;
-                BeginTransparentWrite(clipped);
-                for (int y = clipped.top; y < clipped.bottom; ++y)
-                {
-                    const size_t row = size_t(y - cursor.y);
-                    const uint8_t mask = uint8_t(0x80 >> (row % 8));
-                    const uint8_t* source = raster + size_t(clipped.left - cursor.x) * bytesPerColumn + row / 8;
-                    for (int x = clipped.left; x < clipped.right; ++x)
-                    {
-                        const uint16_t color = ((*source & mask) != 0) ? foreground16 : transparent16;
-                        source += bytesPerColumn;
-                        WaitMemory();
-                        WriteData(color);
-                    }
-                }
-            }
-            cursor.x += characterInfo.widthBits;
-        }
-        cursor.x += CHARACTER_SPACING;
-    }
-    WaitBlitter();
-    return cursor.x;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

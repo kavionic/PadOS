@@ -8,6 +8,8 @@
 
 #include <System/Platform.h>
 
+#include <algorithm>
+#include <optional>
 #include <string.h>
 
 #include <App/Application.h>
@@ -16,6 +18,7 @@
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/UTF8Utils.h>
 
 
 PApplication* PApplication::s_DefaultApplication = nullptr;
@@ -88,6 +91,11 @@ PApplication::PApplication(const PString& name) : PLooper(name, 1000, PAPPSERVER
 
 PApplication::~PApplication()
 {
+    std::optional<MutexObjGuard> mutexGuard;
+    if (IsRunning() && !GetMutex().IsLocked()) {
+        mutexGuard.emplace(GetMutex());
+    }
+    Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -183,7 +191,7 @@ bool PApplication::RemoveView(Ptr<PView> view)
 
     const handle_id serverHandle = view->m_ServerHandle;
     DetachView(view, serverHandle != INVALID_HANDLE);
-    if (serverHandle != INVALID_HANDLE) {
+    if (serverHandle != INVALID_HANDLE && !view->HasFlags(PViewFlags::Eavesdropper)) {
         Post<ASDeleteView>(serverHandle);
     }
     view->HandleDetachedFromScreen();
@@ -388,6 +396,88 @@ void PApplication::DeleteBitmap(handle_id bitmapHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+handle_id PApplication::CreateFont(const PFontDescription& description, PFontHeight& outHeight)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    if (m_ServerHandle == INVALID_HANDLE) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    if (ASCreateFont::Sender::Serializer::GetSize(m_ReplyPort.GetHandle(), description) > PAPPSERVER_MSG_BUFFER_SIZE) {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    if (!p_post_to_remotesignal<ASCreateFont>(
+        p_get_appserver_port(),
+        m_ServerHandle,
+        TimeValNanos::infinit,
+        m_ReplyPort.GetHandle(),
+        description)) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+    MsgCreateFontReply reply;
+    ReceiveReply(PAppserverProtocol::CREATE_FONT_REPLY, &reply, sizeof(reply));
+    PERROR_ERRORCODE_THROW_ON_FAIL(reply.Error);
+    outHeight = reply.Height;
+    return reply.FontHandle;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::DeleteFont(handle_id fontHandle)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    Post<ASDeleteFont>(fontHandle);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PFontTextMetrics PApplication::MeasureFont(handle_id fontHandle, std::string_view text, float width, bool includeLast)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    if (m_ServerHandle == INVALID_HANDLE) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    PFontTextMetrics result;
+    uint32_t previousGlyph = 0;
+    while (result.ByteCount < text.size())
+    {
+        const size_t remaining = text.size() - result.ByteCount;
+        size_t chunkLength = std::min(remaining, FONT_MEASUREMENT_CHUNK_BYTES);
+        if (chunkLength < remaining)
+        {
+            while (chunkLength != 0 && is_utf8_continuation_byte(uint8_t(text[result.ByteCount + chunkLength]))) {
+                --chunkLength;
+            }
+            if (chunkLength == 0) {
+                chunkLength = std::min(remaining, FONT_MEASUREMENT_CHUNK_BYTES);
+            }
+        }
+        const PFontTextMetrics metrics = MeasureFontChunk(
+            fontHandle,
+            text.substr(result.ByteCount, chunkLength),
+            width - result.Width,
+            includeLast,
+            previousGlyph);
+        result.Advance += metrics.Advance;
+        result.Width += metrics.Width;
+        result.ByteCount += metrics.ByteCount;
+        if (metrics.ByteCount < chunkLength || result.Width > width) {
+            break;
+        }
+    }
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PMouseCursorToken PApplication::PushMouseCursor(PStandardMouseCursor cursor)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
@@ -424,10 +514,11 @@ void PApplication::Flush()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    if (m_UsedSendBufferSize > 0) {
+    if (m_UsedSendBufferSize > 0)
+    {
         message_port_send(p_get_appserver_port(), m_ServerHandle, PAppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
         m_UsedSendBufferSize = 0;
-    }    
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -552,10 +643,67 @@ void* PApplication::AllocMessageBuffer(int32_t messageID, size_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PApplication::ReceiveReply(int32_t expectedCode, void* reply, size_t replySize)
+{
+    for (;;)
+    {
+        int32_t code = 0;
+        const ssize_t length = m_ReplyPort.ReceiveMessage(nullptr, &code, reply, replySize);
+        if (length >= 0)
+        {
+            if (code != expectedCode || size_t(length) != replySize) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            return;
+        }
+        if (get_last_error() != EINTR) {
+            PERROR_THROW_CODE(PErrorCode(get_last_error()));
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PFontTextMetrics PApplication::MeasureFontChunk(
+    handle_id fontHandle,
+    std::string_view text,
+    float width,
+    bool includeLast,
+    uint32_t& previousGlyph)
+{
+    const PString chunk(text.data(), text.size());
+    if (!p_post_to_remotesignal<ASMeasureFont>(
+        p_get_appserver_port(),
+        m_ServerHandle,
+        TimeValNanos::infinit,
+        m_ReplyPort.GetHandle(),
+        fontHandle,
+        chunk,
+        width,
+        includeLast,
+        previousGlyph)) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+    MsgMeasureFontReply reply;
+    ReceiveReply(PAppserverProtocol::MEASURE_FONT_REPLY, &reply, sizeof(reply));
+    PERROR_ERRORCODE_THROW_ON_FAIL(reply.Error);
+    previousGlyph = reply.PreviousGlyph;
+    return reply.Metrics;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
+    if (view->m_Font->GetApplication() != this) {
+        PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Font belongs to another application");
+    }
     Post<ASCreateView>(m_ReplyPort.GetHandle()
         , view->GetHandle()
         , parentHandle
@@ -575,7 +723,7 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         , view->m_MiterLimit
         , view->m_DashPattern
         , view->m_DashOffset
-        , (view->m_Font != nullptr && !view->m_Font->IsFreeType()) ? view->m_Font->Get() : PFontID::e_FontLarge
+        , view->m_Font->GetHandle()
         , view->m_EraseColor
         , view->m_BgColor
         , view->m_FgColor
@@ -591,9 +739,6 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             if (code == PAppserverProtocol::CREATE_VIEW_REPLY)
             {
                 view->SetServerHandle(reply.m_ViewHandle);
-                if (view->m_Font != nullptr && view->m_Font->IsFreeType()) {
-                    Post<ASViewSetTextFont>(reply.m_ViewHandle, view->m_Font->GetDescription());
-                }
                 view->HandleScreenPositionChanged(reply.m_ScreenPosition);
                 InvalidatePointerPaths();
                 break;

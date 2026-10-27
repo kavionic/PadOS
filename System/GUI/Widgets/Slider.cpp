@@ -102,7 +102,7 @@ void PSlider::AttachedToScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PSlider::OnFontChanged(Ptr<PFont> newFont)
+void PSlider::OnFontChanged(Ptr<const PFont> newFont)
 {
     if (m_ValueView != nullptr) {
         m_ValueView->SetFont(newFont);
@@ -638,6 +638,24 @@ void PSlider::RenderSlider()
     PRegion clearRegion(bounds);
     clearRegion.Exclude(sliderFrame);
     clearRegion.Exclude(knobFrame);
+    if (m_Orientation == POrientation::Horizontal)
+    {
+        if (!m_MinLabel.empty() && !m_MaxLabel.empty())
+        {
+            const float top = sliderFrame.bottom + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING;
+            clearRegion.Exclude(PRect(bounds.left, top, bounds.right, bounds.bottom));
+        }
+    }
+    else
+    {
+        const float offset = std::ceil(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame).Height() * 0.5f) + VLABEL_SPACING;
+        if (!m_MaxLabel.empty()) {
+            clearRegion.Exclude(PRect(bounds.left, bounds.top, bounds.right, sliderFrame.top - offset));
+        }
+        if (!m_MinLabel.empty()) {
+            clearRegion.Exclude(PRect(bounds.left, sliderFrame.bottom + offset, bounds.right, bounds.bottom));
+        }
+    }
     clearRegion.Optimize();
     for (const PIRect& rect : clearRegion.m_Rects) {
         EraseRect(rect);
@@ -881,11 +899,14 @@ void PSlider::RenderLabels()
     {
         if (!m_MinLabel.empty() && !m_MaxLabel.empty())
         {
-            MovePenTo(0.0f, sliderFrame.bottom + fontHeight.ascender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING);
-            DrawString(m_MinLabel);
-            MovePenTo(bounds.right - GetStringWidth(m_MaxLabel.c_str()),
-                sliderFrame.bottom + fontHeight.ascender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING);
-            DrawString(m_MaxLabel);
+            const float top = sliderFrame.bottom + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING;
+            const float rightLabelX = bounds.right - GetStringWidth(m_MaxLabel);
+            const float split = std::clamp(rightLabelX, bounds.left, bounds.right);
+            DrawString(m_MinLabel, PPoint(0.0f, top + fontHeight.ascender), PRect(bounds.left, top, split, bounds.bottom));
+            DrawString(
+                m_MaxLabel,
+                PPoint(rightLabelX, top + fontHeight.ascender),
+                PRect(split, top, bounds.right, bounds.bottom));
         }
     }
     else
@@ -893,12 +914,17 @@ void PSlider::RenderLabels()
         const float offset = std::ceil(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame).Height() * 0.5f) + VLABEL_SPACING;
         if (!m_MaxLabel.empty())
         {
-            MovePenTo(center.x - GetStringWidth(m_MaxLabel) * 0.5f, sliderFrame.top - fontHeight.descender - offset);
-            DrawString(m_MaxLabel);
+            DrawString(
+                m_MaxLabel,
+                PPoint(center.x - GetStringWidth(m_MaxLabel) * 0.5f, sliderFrame.top - fontHeight.descender - offset),
+                PRect(bounds.left, bounds.top, bounds.right, sliderFrame.top - offset));
         }
-        if (!m_MinLabel.empty()) {
-            MovePenTo(center.x - GetStringWidth(m_MinLabel) * 0.5f, sliderFrame.bottom + fontHeight.ascender + offset);
-            DrawString(m_MinLabel);
+        if (!m_MinLabel.empty())
+        {
+            DrawString(
+                m_MinLabel,
+                PPoint(center.x - GetStringWidth(m_MinLabel) * 0.5f, sliderFrame.bottom + fontHeight.ascender + offset),
+                PRect(bounds.left, sliderFrame.bottom + offset, bounds.right, bounds.bottom));
         }
     }
 }

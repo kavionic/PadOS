@@ -437,7 +437,7 @@ size_t PListViewScrolledView::GetRowIndex(Ptr<const PListViewRow> row) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PListViewScrolledView::OnFontChanged(Ptr<PFont> newFont)
+void PListViewScrolledView::OnFontChanged(Ptr<const PFont> newFont)
 {
     for (Ptr<PListViewColumnView> column : m_ColumnViews)
     {

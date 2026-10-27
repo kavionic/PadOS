@@ -31,6 +31,8 @@ public:
 
     void Clear() { object_wait_group_clear(m_Handle); }
 
+    // Readiness uses one bit per member in insertion order, least significant bit first in each byte.
+    // readyFlagsSize is in bytes; only bits that fit in the buffer are reported.
     bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)                                  { return ParseResult(object_wait_group_wait(m_Handle, INVALID_HANDLE, readyFlagsBuffer, readyFlagsSize)); }
     bool WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)     { return ParseResult(object_wait_group_wait_timeout_ns(m_Handle, INVALID_HANDLE, timeout.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize)); }
     bool WaitDeadline(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)   { return ParseResult(object_wait_group_wait_deadline_ns(m_Handle, INVALID_HANDLE, deadline.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize)); }

@@ -11,21 +11,26 @@
 
 #include <GUI/FontDescription.h>
 #include <Ptr/Ptr.h>
+#include <Ptr/WeakPtr.h>
+#include <System/Types.h>
 
+
+class PApplication;
 
 class PFont : public PtrTarget
 {
 public:
-    // Standard font IDs select the closest bundled TrueType equivalent, also when passed to Set().
-    explicit PFont(PFontID font);
-    explicit PFont(const PFontDescription& description);
+    // Standard font IDs select bundled TrueType presets, also when passed to Set().
+    // Defaults to the current application. Hold its mutex while using or releasing the font.
+    explicit PFont(PFontID font, PApplication* application = nullptr);
+    explicit PFont(const PFontDescription& description, PApplication* application = nullptr);
     ~PFont();
 
     // After modifying a font, call SetFont again on views using it.
     void Set(PFontID font);
     void Set(const PFontDescription& description);
-    PFontID Get() const { return m_Font; } // e_FontCount for a FreeType font.
-    bool IsFreeType() const { return m_FreeType != nullptr; }
+    PApplication* GetApplication() const;
+    handle_id GetHandle() const;
     const PFontDescription& GetDescription() const;
     PFontHeight GetHeight() const;
 
@@ -38,8 +43,10 @@ public:
     
 private:
     static PFontDescription GetDefaultDescription(PFontID font);
+    PApplication& RequireApplication() const;
 
-    class FreeTypeState;
-    Ptr<FreeTypeState> m_FreeType;
-    PFontID m_Font;
+    PFontDescription m_Description;
+    WeakPtr<PApplication> m_Application;
+    PFontHeight m_Height{};
+    handle_id m_Handle = INVALID_HANDLE;
 };

@@ -104,7 +104,7 @@ public:
     size_t              GetFirstSelected() const;
     size_t              GetLastSelected() const;
     virtual void        OnPaint(const PRect& updateRect) override;
-    virtual void OnFontChanged(Ptr<PFont> newFont) override;
+    virtual void        OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void        OnFrameSized(const PPoint& delta) override;
     //    virtual void      KeyDown( const char* pzString, const char* pzRawString, uint32_t nQualifiers );
     //    virtual void      AllAttachedToScreen() override;

@@ -159,6 +159,7 @@ private:
     PPointerCaptureID AllocatePointerCaptureID();
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
+    void SlotUnregisterApplication(handler_id applicationHandle);
     void SlotVirtualKeyboardEvent(const PKeyEvent& keyEvent, const PString& text);
     void SlotGetKeyboardLayouts(port_id replyPort, uint32_t requestID, uint32_t firstIndex);
     void SlotGetKeyboardConfiguration(port_id replyPort, uint32_t requestID);
@@ -179,6 +180,7 @@ private:
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 
     ASRegisterApplication       m_RSRegisterApplication;
+    ASUnregisterApplication     m_RSUnregisterApplication;
     ASVirtualKeyboardEvent      m_RSVirtualKeyboardEvent;
     ASGetKeyboardLayouts        m_RSGetKeyboardLayouts;
     ASGetKeyboardConfiguration  m_RSGetKeyboardConfiguration;

@@ -483,6 +483,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     AddHandler(m_TopView);
 
     RegisterRemoteSignal(&m_RSRegisterApplication, &ApplicationServer::SlotRegisterApplication);
+    RegisterRemoteSignal(&m_RSUnregisterApplication, &ApplicationServer::SlotUnregisterApplication);
     RegisterRemoteSignal(&m_RSVirtualKeyboardEvent, &ApplicationServer::SlotVirtualKeyboardEvent);
     RegisterRemoteSignal(&m_RSGetKeyboardLayouts, &ApplicationServer::SlotGetKeyboardLayouts);
     RegisterRemoteSignal(&m_RSGetKeyboardConfiguration, &ApplicationServer::SlotGetKeyboardConfiguration);
@@ -819,6 +820,18 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
     const PErrorCode result = message_port_send_timeout_ns(replyPort, -1, PAppserverProtocol::REGISTER_APPLICATION_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::SlotRegisterApplication() failed to send message: {}", strerror(std::to_underlying(result)));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotUnregisterApplication(handler_id applicationHandle)
+{
+    Ptr<ServerApplication> application = ptr_dynamic_cast<ServerApplication>(FindHandler(applicationHandle));
+    if (application != nullptr) {
+        RemoveHandler(application);
     }
 }
 

@@ -96,6 +96,20 @@ PApplication::~PApplication()
         mutexGuard.emplace(GetMutex());
     }
     Flush();
+    if (m_ServerHandle != INVALID_HANDLE)
+    {
+        if (!p_post_to_remotesignal<ASUnregisterApplication>(
+            p_get_appserver_port(),
+            INVALID_HANDLE,
+            TimeValNanos::infinit,
+            m_ServerHandle))
+        {
+            p_system_log<PLogSeverity::ERROR>(
+                LogCategoryGUITK,
+                "Application::~Application() failed to unregister application: {}",
+                strerror(get_last_error()));
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

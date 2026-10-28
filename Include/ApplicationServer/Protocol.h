@@ -53,6 +53,7 @@ namespace PAppserverProtocol
         // Appserver messages:
         MESSAGE_BUNDLE,
         REGISTER_APPLICATION,
+        UNREGISTER_APPLICATION,
         VIRTUAL_KEYBOARD_EVENT,
 
         // Application messages:
@@ -176,6 +177,7 @@ struct MsgCreateBitmapReply
 };
 
 using ASRegisterApplication = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const PString& name)>;
+using ASUnregisterApplication = PRemoteSignal<PAppserverProtocol::UNREGISTER_APPLICATION, void(handler_id applicationHandle)>;
 using ASVirtualKeyboardEvent = PRemoteSignal<PAppserverProtocol::VIRTUAL_KEYBOARD_EVENT,
     void(const PKeyEvent& keyEvent, const PString& text)>;
 using ASSync                = PRemoteSignal<PAppserverProtocol::SYNC,                 void(port_id replyPort)>;

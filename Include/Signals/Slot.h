@@ -72,7 +72,7 @@ public:
 
     template<typename TFunctionArgs, std::size_t... I>
     TReturnType DoInvoke(TFunctionArgs&& args, std::index_sequence<I...>) const {
-        return m_Callback(std::forward<std::decay_t<decltype(std::get<I>(args))>>(std::get<I>(args))...);
+        return m_Callback(std::get<I>(std::forward<TFunctionArgs>(args))...);
     }
 
     virtual SlotBase* Clone(SignalBase* owningSignal) override

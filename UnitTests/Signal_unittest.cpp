@@ -42,3 +42,36 @@ TEST(SignalsTest, SignalTarget)
 
 
 } //namespace
+
+TEST(SignalsTest, LambdaPreservesConstReferenceArguments)
+{
+    const int value = 42;
+    const int* received = nullptr;
+    Signal<void, const int&> signal;
+    signal.Connect([&received](const int& argument) { received = &argument; });
+
+    signal(value);
+    EXPECT_EQ(received, &value);
+}
+
+TEST(SignalsTest, LambdaPreservesMutableReferenceArguments)
+{
+    int value = 41;
+    Signal<void, int&> signal;
+    signal.Connect([](int& argument) { ++argument; });
+
+    signal(value);
+    EXPECT_EQ(value, 42);
+}
+
+TEST(SignalsTest, LambdaForwardsValueArgumentsAsRvalues)
+{
+    int value = 41;
+    int received = 0;
+    Signal<void, int> signal;
+    signal.Connect([&received](int&& argument) { received = ++argument; });
+
+    signal(value);
+    EXPECT_EQ(received, 42);
+    EXPECT_EQ(value, 41);
+}

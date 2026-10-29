@@ -304,7 +304,14 @@ void RA8875GfxDriver::FillRect(PDisplayBitmap* bitmap, const PIRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPosIn, PDrawingMode mode)
+void RA8875GfxDriver::CopyRect(
+    PDisplayBitmap* dstBitmap,
+    PDisplayBitmap* srcBitmap,
+    PColor bgColor,
+    PColor fgColor,
+    const PIRect& srcRect,
+    const PIPoint& dstPosIn,
+    PDrawingMode mode)
 {
     if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
@@ -339,42 +346,7 @@ void RA8875GfxDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBit
     }
     else if (dstBitmap->VideoMemory)
     {
-        WaitBlitter();
-
-        WriteCommand(RA8875_HDBE0, RA8875_HDBE1, uint16_t(dstPosIn.x));
-        WriteCommand(RA8875_VDBE0, RA8875_VDBE1, uint16_t(dstPosIn.y));
-        WriteCommand(RA8875_BEWR0, RA8875_BEWR1, uint16_t(srcRect.Width()));
-        WriteCommand(RA8875_BEHR0, RA8875_BEHR1, uint16_t(srcRect.Height()));
-
-        bool colorKeyed = false;
-        switch (mode)
-        {
-            case PDrawingMode::Copy:
-                WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_ROP | RA8875_BTE_ROP_S);
-                break;
-            case PDrawingMode::Overlay:
-                WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_TRAN | RA8875_BTE_ROP_S);
-                colorKeyed = true;
-                break;
-            case PDrawingMode::Invert:
-                break;
-            case PDrawingMode::Erase:
-                break;
-            case PDrawingMode::Blend:
-                break;
-            case PDrawingMode::Add:
-                break;
-            case PDrawingMode::Subtract:
-                break;
-            case PDrawingMode::Min:
-                break;
-            case PDrawingMode::Max:
-                break;
-            case PDrawingMode::Select:
-                break;
-            default:
-                break;
-        }
+        const bool colorKeyed = mode == PDrawingMode::Overlay;
         if (colorKeyed)
         {
             if (srcBitmap->ColorSpace != PEColorSpace::MONO1) {
@@ -383,104 +355,12 @@ void RA8875GfxDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBit
                 SetHardwareFgColor(uint16_t(~fgColor.GetColor16()));
             }
         }
-        WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
-
-        auto writePixel16 = [this](uint16_t pixel16) PALWAYS_INLINE
+        const PIRect bounds(dstPosIn, dstPosIn + PIPoint(srcRect.Width(), srcRect.Height()));
+        auto producePixels = [this, srcBitmap, bgColor, fgColor, &srcRect, colorKeyed](auto writePixel)
         {
-            WaitMemory();
-            WriteData(pixel16);
+            CopyBitmapPixels(srcBitmap, bgColor, fgColor, srcRect, colorKeyed, writePixel);
         };
-
-        switch (srcBitmap->ColorSpace)
-        {
-            case PEColorSpace::MONO1:
-            {
-                const uint32_t  wordsPerLine = srcBitmap->BytesPerLine / sizeof(uint32_t);
-                const uint32_t* src = reinterpret_cast<const uint32_t*>(srcBitmap->Raster + srcRect.top * srcBitmap->BytesPerLine);
-
-                const uint16_t bgColor16 = (colorKeyed) ? uint16_t(~fgColor.GetColor16()) : bgColor.GetColor16();
-                const uint16_t fgColor16 = fgColor.GetColor16();
-
-                int32_t x = srcRect.left;
-                auto readPixel = [&x, &src]() PALWAYS_INLINE{ int32_t curX = x++; return (src[curX / 32] & (1 << (31 - (curX & 31)))) != 0; };
-                auto writePixel = [this, bgColor16, fgColor16](bool pixel) PALWAYS_INLINE
-                    {
-                        WaitMemory();
-                        if (pixel) {
-                            WriteData(fgColor16);
-                        } else {
-                            WriteData(bgColor16);
-                        }
-                    };
-                auto nextLine = [&x, &src, left = srcRect.left, wordsPerLine]() PALWAYS_INLINE { src += wordsPerLine; x = left; };
-                BeginWriteData();
-
-                PBlitterUtils::CopyBitmap(readPixel, writePixel, nextLine, srcRect);
-                break;
-            }
-            case PEColorSpace::CMAP8:
-            {
-                const int32_t srcModulo = srcBitmap->BytesPerLine - srcRect.Width();
-                const uint8_t* src = srcBitmap->Raster + srcRect.top * srcBitmap->BytesPerLine;
-
-                auto readPixel = [this, &src]() PALWAYS_INLINE{ return GetPaletteEntry(*src++).GetColor16(); };
-                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
-
-                BeginWriteData();
-                PBlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
-                break;
-            }
-            case PEColorSpace::RGB15:
-            {
-                const int32_t srcModulo = srcBitmap->BytesPerLine / 2 - srcRect.Width();
-                const uint16_t* src = RAS_OFFSET16(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
-
-                auto readPixel = [&src]() PALWAYS_INLINE { return PColor::FromRGB15(*src++).GetColor16(); };
-                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
-
-                BeginWriteData();
-                PBlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
-                break;
-            }
-            case PEColorSpace::RGB16:
-            {
-                const int32_t srcModulo = srcBitmap->BytesPerLine / 2 - srcRect.Width();
-                const uint16_t* src = RAS_OFFSET16(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
-
-                auto readPixel = [&src]() PALWAYS_INLINE { return *src++; };
-                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
-
-                BeginWriteData();
-                PBlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
-                break;
-            }
-            case PEColorSpace::RGB32:
-            case PEColorSpace::RGBA32:
-            {
-                const int32_t srcModulo = srcBitmap->BytesPerLine / 4 - srcRect.Width();
-                const uint32_t* src = RAS_OFFSET32(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
-
-                auto readPixelRGB = [&src]() PALWAYS_INLINE { return PColor::FromRGB32(*src++).GetColor16(); };
-                auto readPixelRGBA = [&src, bgColor]() PALWAYS_INLINE
-                    {
-                        const PColor pixel32 = PColor::FromRGB32A(*src++);
-                        return PColor::Blend16(pixel32, bgColor);
-                    };
-                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
-
-                BeginWriteData();
-                if (srcBitmap->ColorSpace == PEColorSpace::RGB32) {
-                    PBlitterUtils::CopyBitmap(readPixelRGB, writePixel16, nextLine, srcRect);
-                } else {
-                    PBlitterUtils::CopyBitmap(readPixelRGBA, writePixel16, nextLine, srcRect);
-                }
-                break;
-            }
-            default:
-                break;
-        }
-        // The BTE finishes automatically after the programmed pixel count.
-        WaitMemory();
+        WritePixelBlock(bounds, colorKeyed, producePixels);
     }
     else if (!srcBitmap->VideoMemory && !dstBitmap->VideoMemory)
     {
@@ -492,7 +372,16 @@ void RA8875GfxDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBit
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
+void RA8875GfxDriver::ScaleRect(
+    PDisplayBitmap* dstBitmap,
+    PDisplayBitmap* srcBitmap,
+    PColor bgColor,
+    PColor fgColor,
+    const PIRect& srcOrigRect,
+    const PIRect& dstOrigRect,
+    const PRect& srcRect,
+    const PIRect& dstRect,
+    PDrawingMode mode)
 {
     if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
@@ -500,112 +389,20 @@ void RA8875GfxDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBi
     }
     else if (dstBitmap->VideoMemory)
     {
-        WaitBlitter();
-
-        WriteCommand(RA8875_HDBE0, RA8875_HDBE1, uint16_t(dstRect.left));
-        WriteCommand(RA8875_VDBE0, RA8875_VDBE1, uint16_t(dstRect.top));
-        WriteCommand(RA8875_BEWR0, RA8875_BEWR1, uint16_t(dstRect.Width()));
-        WriteCommand(RA8875_BEHR0, RA8875_BEHR1, uint16_t(dstRect.Height()));
-
-        bool colorKeyed = false;
-        switch (mode)
-        {
-            case PDrawingMode::Copy:
-                WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_ROP | RA8875_BTE_ROP_S);
-                break;
-            case PDrawingMode::Overlay:
-                WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_TRAN | RA8875_BTE_ROP_S);
-                colorKeyed = true;
-                break;
-            case PDrawingMode::Invert:
-                break;
-            case PDrawingMode::Erase:
-                break;
-            case PDrawingMode::Blend:
-                break;
-            case PDrawingMode::Add:
-                break;
-            case PDrawingMode::Subtract:
-                break;
-            case PDrawingMode::Min:
-                break;
-            case PDrawingMode::Max:
-                break;
-            case PDrawingMode::Select:
-                break;
-            default:
-                break;
-        }
+        const bool colorKeyed = mode == PDrawingMode::Overlay;
         if (colorKeyed)
         {
             if (srcBitmap->ColorSpace != PEColorSpace::MONO1) {
                 SetHardwareFgColor(PTransparentColors::RGB16);
-            }
-            else {
+            } else {
                 SetHardwareFgColor(uint16_t(~fgColor.GetColor16()));
             }
         }
-        WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
-        switch (srcBitmap->ColorSpace)
+        auto producePixels = [this, srcBitmap, bgColor, &srcOrigRect, &dstOrigRect, &srcRect, &dstRect](auto writePixel)
         {
-            case PEColorSpace::RGB16:
-            {
-                const uint16_t* const sourceRaster = reinterpret_cast<const uint16_t*>(srcBitmap->Raster);
-                const size_t pixelsPerLine = srcBitmap->BytesPerLine / sizeof(uint16_t);
-
-                BeginWriteData();
-
-                auto readPixel = [sourceRaster, pixelsPerLine](int32_t x, int32_t y) PALWAYS_INLINE
-                {
-                    return PColor::FromRGB16(sourceRaster[y * pixelsPerLine + x]);
-                };
-                auto writePixel = [this](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
-                {
-                    const uint16_t pixel16 = pixel.GetColor16();
-
-                    WaitMemory();
-                    WriteData(pixel16);
-                };
-
-                const PIRect sourceBounds = srcOrigRect & PIRect(PIPoint(0, 0), srcBitmap->Size);
-                PBlitterUtils::ScaleBitmapBilinear(
-                    readPixel,
-                    writePixel,
-                    srcOrigRect,
-                    dstOrigRect,
-                    srcRect,
-                    dstRect,
-                    sourceBounds);
-                break;
-            }
-            case PEColorSpace::RGB32:
-            case PEColorSpace::RGBA32:
-            {
-                const uint32_t* const src = reinterpret_cast<const uint32_t*>(srcBitmap->Raster);
-                const uint32_t wordsPerLine = srcBitmap->BytesPerLine / 4;
-
-                BeginWriteData();
-
-                auto readPixel = [src, wordsPerLine](int32_t x, int32_t y) PALWAYS_INLINE
-                {
-                    return PColor::FromRGB32A(src[y * wordsPerLine + x]);
-                };
-                auto writePixel = [this, bgColor](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
-                {
-                    const uint16_t pixel16 = PColor::Blend16(pixel, bgColor);
-
-                    WaitMemory();
-                    WriteData(pixel16);
-                };
-
-                const PIRect srcBounds = srcOrigRect & PIRect(PIPoint(0, 0), srcBitmap->Size);
-                PBlitterUtils::ScaleBitmapBilinear(readPixel, writePixel, srcOrigRect, dstOrigRect, srcRect, dstRect, srcBounds);
-                break;
-            }
-            default:
-                break;
-        }
-        WaitMemory();
+            ScaleBitmapPixels(srcBitmap, bgColor, srcOrigRect, dstOrigRect, srcRect, dstRect, writePixel);
+        };
+        WritePixelBlock(dstRect, colorKeyed, producePixels);
     }
 }
 
@@ -701,14 +498,11 @@ void RA8875GfxDriver::WriteString(
             SetHardwareFgColor(uint16_t(palette[0]));
         }
         WaitBlitter();
-        const FillDirection_e previousDirection = m_FillDirection;
-        SetFillDirection(e_FillLeftDown);
-        PScopeExit restoreDirection([this, previousDirection]
+        PScopeExit finishWrite([this]
         {
-            if (!m_IsFaulted)
-            {
+            // A BTE timeout faults the controller, so skip the final memory wait.
+            if (!m_IsFaulted) {
                 WaitMemory();
-                SetFillDirection(previousDirection);
             }
         });
         while (m_FontText.NextSpan())
@@ -765,17 +559,202 @@ void RA8875GfxDriver::BeginTransparentWrite(const PIRect& bounds)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::WriteFontSpan(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PDrawingMode mode)
+template<typename PixelProducer>
+void RA8875GfxDriver::WritePixelBlock(const PIRect& bounds, bool useBTE, PixelProducer producePixels)
 {
-    if (mode == PDrawingMode::Overlay)
+    PScopeExit finishWrite([this]
+    {
+        // A BTE timeout faults the controller, so skip the final memory wait.
+        if (!m_IsFaulted) {
+            WaitMemory();
+        }
+    });
+    if (useBTE)
     {
         BeginTransparentWrite(bounds);
+        auto writePixel = [this](uint16_t pixel) PALWAYS_INLINE { WaitMemory(); WriteData(pixel); };
+        producePixels(writePixel);
     }
     else
     {
         SetWindow(bounds);
         MemoryWrite_Position(bounds.left, bounds.top);
+        auto writePixel = [this](uint16_t pixel) PALWAYS_INLINE { WriteData(pixel); __DSB(); };
+        producePixels(writePixel);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename PixelWriter>
+void RA8875GfxDriver::CopyBitmapPixels(
+    PDisplayBitmap* srcBitmap,
+    PColor bgColor,
+    PColor fgColor,
+    const PIRect& srcRect,
+    bool colorKeyed,
+    PixelWriter writePixel16)
+{
+    switch (srcBitmap->ColorSpace)
+    {
+        case PEColorSpace::MONO1:
+        {
+            const uint32_t  wordsPerLine = srcBitmap->BytesPerLine / sizeof(uint32_t);
+            const uint32_t* src = reinterpret_cast<const uint32_t*>(srcBitmap->Raster + srcRect.top * srcBitmap->BytesPerLine);
+
+            const uint16_t bgColor16 = (colorKeyed) ? uint16_t(~fgColor.GetColor16()) : bgColor.GetColor16();
+            const uint16_t fgColor16 = fgColor.GetColor16();
+
+            int32_t x = srcRect.left;
+            auto readPixel = [&x, &src]() PALWAYS_INLINE
+            {
+                const int32_t column = x++;
+                return (src[column / 32] & (1 << (31 - (column & 31)))) != 0;
+            };
+            auto writePixel = [&writePixel16, bgColor16, fgColor16](bool pixel) PALWAYS_INLINE
+            {
+                writePixel16(pixel ? fgColor16 : bgColor16);
+            };
+            auto nextLine = [&x, &src, left = srcRect.left, wordsPerLine]() PALWAYS_INLINE { src += wordsPerLine; x = left; };
+            PBlitterUtils::CopyBitmap(readPixel, writePixel, nextLine, srcRect);
+            break;
+        }
+        case PEColorSpace::CMAP8:
+        {
+            const int32_t srcModulo = srcBitmap->BytesPerLine - srcRect.Width();
+            const uint8_t* src = srcBitmap->Raster + srcRect.top * srcBitmap->BytesPerLine;
+
+            auto readPixel = [this, &src]() PALWAYS_INLINE { return GetPaletteEntry(*src++).GetColor16(); };
+            auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
+
+            PBlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
+            break;
+        }
+        case PEColorSpace::RGB15:
+        {
+            const int32_t srcModulo = srcBitmap->BytesPerLine / 2 - srcRect.Width();
+            const uint16_t* src = RAS_OFFSET16(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
+
+            auto readPixel = [&src]() PALWAYS_INLINE { return PColor::FromRGB15(*src++).GetColor16(); };
+            auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
+
+            PBlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
+            break;
+        }
+        case PEColorSpace::RGB16:
+        {
+            const int32_t srcModulo = srcBitmap->BytesPerLine / 2 - srcRect.Width();
+            const uint16_t* src = RAS_OFFSET16(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
+
+            auto readPixel = [&src]() PALWAYS_INLINE { return *src++; };
+            auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
+
+            PBlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
+            break;
+        }
+        case PEColorSpace::RGB32:
+        case PEColorSpace::RGBA32:
+        {
+            const int32_t srcModulo = srcBitmap->BytesPerLine / 4 - srcRect.Width();
+            const uint32_t* src = RAS_OFFSET32(srcBitmap->Raster, srcRect.left, srcRect.top, srcBitmap->BytesPerLine);
+
+            auto readPixelRGB = [&src]() PALWAYS_INLINE { return PColor::FromRGB32(*src++).GetColor16(); };
+            auto readPixelRGBA = [&src, bgColor]() PALWAYS_INLINE
+            {
+                const PColor pixel32 = PColor::FromRGB32A(*src++);
+                return PColor::Blend16(pixel32, bgColor);
+            };
+            auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
+
+            if (srcBitmap->ColorSpace == PEColorSpace::RGB32) {
+                PBlitterUtils::CopyBitmap(readPixelRGB, writePixel16, nextLine, srcRect);
+            } else {
+                PBlitterUtils::CopyBitmap(readPixelRGBA, writePixel16, nextLine, srcRect);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename PixelWriter>
+void RA8875GfxDriver::ScaleBitmapPixels(
+    PDisplayBitmap* srcBitmap,
+    PColor bgColor,
+    const PIRect& srcOrigRect,
+    const PIRect& dstOrigRect,
+    const PRect& srcRect,
+    const PIRect& dstRect,
+    PixelWriter writePixel16)
+{
+    switch (srcBitmap->ColorSpace)
+    {
+        case PEColorSpace::RGB16:
+        {
+            const uint16_t* const sourceRaster = reinterpret_cast<const uint16_t*>(srcBitmap->Raster);
+            const size_t pixelsPerLine = srcBitmap->BytesPerLine / sizeof(uint16_t);
+
+            auto readPixel = [sourceRaster, pixelsPerLine](int32_t x, int32_t y) PALWAYS_INLINE
+            {
+                return PColor::FromRGB16(sourceRaster[y * pixelsPerLine + x]);
+            };
+            auto writePixel = [&writePixel16](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
+            {
+                writePixel16(pixel.GetColor16());
+            };
+
+            const PIRect sourceBounds = srcOrigRect & PIRect(PIPoint(0, 0), srcBitmap->Size);
+            PBlitterUtils::ScaleBitmapBilinear(readPixel, writePixel, srcOrigRect, dstOrigRect, srcRect, dstRect, sourceBounds);
+            break;
+        }
+        case PEColorSpace::RGB32:
+        case PEColorSpace::RGBA32:
+        {
+            const uint32_t* const src = reinterpret_cast<const uint32_t*>(srcBitmap->Raster);
+            const uint32_t wordsPerLine = srcBitmap->BytesPerLine / 4;
+
+            auto readPixel = [src, wordsPerLine](int32_t x, int32_t y) PALWAYS_INLINE
+            {
+                return PColor::FromRGB32A(src[y * wordsPerLine + x]);
+            };
+            auto writePixel = [&writePixel16, bgColor](int32_t x, int32_t y, const PColor& pixel) PALWAYS_INLINE
+            {
+                writePixel16(PColor::Blend16(pixel, bgColor));
+            };
+
+            const PIRect srcBounds = srcOrigRect & PIRect(PIPoint(0, 0), srcBitmap->Size);
+            PBlitterUtils::ScaleBitmapBilinear(readPixel, writePixel, srcOrigRect, dstOrigRect, srcRect, dstRect, srcBounds);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::WriteFontSpan(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PDrawingMode mode)
+{
+    auto producePixels = [this, &bounds, &palette](auto writePixel) { WriteFontSpanPixels(bounds, palette, writePixel); };
+    WritePixelBlock(bounds, mode == PDrawingMode::Overlay, producePixels);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename PixelWriter>
+void RA8875GfxDriver::WriteFontSpanPixels(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PixelWriter writePixel)
+{
     const KDisplayTextGlyph* singleGlyph = m_FontText.GetSpan().SingleGlyph;
     if (singleGlyph != nullptr)
     {
@@ -785,7 +764,7 @@ void RA8875GfxDriver::WriteFontSpan(const PIRect& bounds, const std::array<uint3
         for (int y = bounds.top; y < bounds.bottom; ++y)
         {
             const uint8_t* source = sourceRow + column;
-            WriteFontRow(bounds.Width(), palette, [source]() mutable { return *source++; });
+            WriteFontRow(bounds.Width(), palette, writePixel, [source]() mutable { return *source++; });
             sourceRow += stride;
         }
     }
@@ -797,11 +776,11 @@ void RA8875GfxDriver::WriteFontSpan(const PIRect& bounds, const std::array<uint3
             if (sources.size() == 1)
             {
                 const uint8_t* source = sources[0];
-                WriteFontRow(bounds.Width(), palette, [source]() mutable { return *source++; });
+                WriteFontRow(bounds.Width(), palette, writePixel, [source]() mutable { return *source++; });
             }
             else
             {
-                WriteFontRow(bounds.Width(), palette, [sources] { return KDisplayText::ReadCoverage(sources); });
+                WriteFontRow(bounds.Width(), palette, writePixel, [sources] { return KDisplayText::ReadCoverage(sources); });
             }
         }
     }
@@ -811,15 +790,17 @@ void RA8875GfxDriver::WriteFontSpan(const PIRect& bounds, const std::array<uint3
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<typename CoverageReader>
-void RA8875GfxDriver::WriteFontRow(int width, const std::array<uint32_t, 256>& palette, CoverageReader readCoverage)
+template<typename PixelWriter, typename CoverageReader>
+void RA8875GfxDriver::WriteFontRow(
+    int width,
+    const std::array<uint32_t, 256>& palette,
+    PixelWriter writePixel,
+    CoverageReader readCoverage)
 {
     for (int x = 0; x < width; ++x)
     {
         const uint16_t color = uint16_t(palette[readCoverage()]);
-        // Prepare the final pixel colour while the preceding LCD write completes.
-        WaitMemory();
-        WriteData(color);
+        writePixel(color);
     }
 }
 

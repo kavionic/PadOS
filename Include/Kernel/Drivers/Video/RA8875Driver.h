@@ -158,9 +158,30 @@ public:
 
 private:
     void BeginTransparentWrite(const PIRect& bounds);
+    template<typename PixelProducer>
+    void WritePixelBlock(const PIRect& bounds, bool useBTE, PixelProducer producePixels);
+    template<typename PixelWriter>
+    void CopyBitmapPixels(
+        PDisplayBitmap* srcBitmap,
+        PColor bgColor,
+        PColor fgColor,
+        const PIRect& srcRect,
+        bool colorKeyed,
+        PixelWriter writePixel16);
+    template<typename PixelWriter>
+    void ScaleBitmapPixels(
+        PDisplayBitmap* srcBitmap,
+        PColor bgColor,
+        const PIRect& srcOrigRect,
+        const PIRect& dstOrigRect,
+        const PRect& srcRect,
+        const PIRect& dstRect,
+        PixelWriter writePixel16);
     void WriteFontSpan(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PDrawingMode mode);
-    template<typename CoverageReader>
-    void WriteFontRow(int width, const std::array<uint32_t, 256>& palette, CoverageReader readCoverage);
+    template<typename PixelWriter>
+    void WriteFontSpanPixels(const PIRect& bounds, const std::array<uint32_t, 256>& palette, PixelWriter writePixel);
+    template<typename PixelWriter, typename CoverageReader>
+    void WriteFontRow(int width, const std::array<uint32_t, 256>& palette, PixelWriter writePixel, CoverageReader readCoverage);
 
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
     IRQResult HandleIRQ();
@@ -212,7 +233,7 @@ private:
         WriteCommand(RA8875_CURV0, RA8875_CURV1, uint16_t(Y));
         BeginWriteData();
     }
-    void        BeginWriteData() { WriteCommand(RA8875_MRWC); }
+    void        BeginWriteData() { WriteCommand(RA8875_MRWC); WaitMemory(); }
     void WaitMemory()
     {
         while ((ReadCommand() & RA8875_STATUS_MEMORY_BUSY_bm) != 0) {

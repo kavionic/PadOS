@@ -39,6 +39,34 @@ PKeyboardManager::PKeyboardManager(PLooper& looper)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PKeyboardManager::PKeyboardManager(PLooper& looper, const PKeyboardManager& configuration)
+    : PKeyboardManager(looper)
+{
+    if (!configuration.IsConfigured()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    m_Keymap.reset(xkb_keymap_ref(configuration.m_Keymap.get()));
+    m_ComposeTable.reset(xkb_compose_table_ref(configuration.m_ComposeTable.get()));
+    m_State.reset(xkb_state_new(m_Keymap.get()));
+    if (m_State == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOMEM);
+    }
+    m_ComposeState.reset(xkb_compose_state_new(m_ComposeTable.get(), XKB_COMPOSE_STATE_NO_FLAGS));
+    if (m_ComposeState == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOMEM);
+    }
+    m_PhysicalKeyMap = configuration.m_PhysicalKeyMap;
+    m_Catalog = configuration.m_Catalog;
+    m_Layout = configuration.m_Layout;
+    m_Variant = configuration.m_Variant;
+    m_Options = configuration.m_Options;
+    m_Qualifiers = CalculateQualifiers();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PKeyboardManager::~PKeyboardManager()
 {
     m_RepeatTimer.Stop();
@@ -60,10 +88,10 @@ void PKeyboardManager::Initialize()
 
 const std::vector<PKeyboardLayoutInfo>& PKeyboardManager::GetLayouts()
 {
-    if (m_Layouts.empty()) {
+    if (m_Catalog == nullptr) {
         LoadCatalog();
     }
-    return m_Layouts;
+    return m_Catalog->Layouts;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,7 +112,7 @@ void PKeyboardManager::SetLayout(const PString& layout, const PString& variant, 
     {
         const size_t end = options.find(',', offset);
         const PString option = options.substr(offset, (end == PString::npos) ? end : end - offset);
-        if (!m_KnownOptions.contains(option)) {
+        if (!m_Catalog->Options.contains(option)) {
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
         offset = (end == PString::npos) ? options.size() : end + 1;
@@ -265,8 +293,9 @@ void PKeyboardManager::SetFocused(bool focused)
 
 void PKeyboardManager::LoadCatalog()
 {
-    std::vector<PKeyboardLayoutInfo> layouts;
-    std::set<PString> options;
+    Ptr<LayoutCatalog> catalog = ptr_new<LayoutCatalog>();
+    std::vector<PKeyboardLayoutInfo>& layouts = catalog->Layouts;
+    std::set<PString>& options = catalog->Options;
     for (const char* filename : {"/usr/share/X11/xkb/rules/evdev.xml", "/usr/share/X11/xkb/rules/evdev.extras.xml"})
     {
         pugi::xml_document document;
@@ -313,8 +342,7 @@ void PKeyboardManager::LoadCatalog()
             return lhs.Layout == rhs.Layout && lhs.Variant == rhs.Variant;
         });
     layouts.erase(end, layouts.end());
-    m_Layouts.swap(layouts);
-    m_KnownOptions.swap(options);
+    m_Catalog = catalog;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

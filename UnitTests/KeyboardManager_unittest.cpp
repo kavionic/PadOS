@@ -16,6 +16,18 @@
 
 class PKeyboardManagerTest : public testing::Test, public SignalTarget
 {
+public:
+    static void SetUpTestSuite()
+    {
+        s_Configuration = ptr_new<SharedConfiguration>();
+        s_Configuration->Manager.SetLayout("us", "", "", false);
+    }
+
+    static void TearDownTestSuite()
+    {
+        s_Configuration.Reset();
+    }
+
 protected:
     struct ReceivedKey
     {
@@ -25,19 +37,23 @@ protected:
 
     PKeyboardManagerTest()
         : m_Looper("keyboard_test", 4)
-        , m_Manager(m_Looper)
+        , m_Manager(m_Looper, s_Configuration->Manager)
     {
         m_Manager.SignalKeyEvent.Connect(this, &PKeyboardManagerTest::Receive);
     }
 
     void SetUp() override
     {
-        m_Manager.SetLayout("us", "", "", false);
         m_Manager.AddDevice(1);
         m_Manager.SetFocused(true);
     }
 
     void Send(PKeyCodes keyCode, bool pressed, int32_t sourceID = 1)
+    {
+        Send(m_Manager, keyCode, pressed, sourceID);
+    }
+
+    static void Send(PKeyboardManager& manager, PKeyCodes keyCode, bool pressed, int32_t sourceID = 1)
     {
         PRawKeyEvent event{};
         event.EventSize = sizeof(event);
@@ -46,7 +62,7 @@ protected:
         event.EventID = pressed ? PInputEventID::KeyDown : PInputEventID::KeyUp;
         event.SourceID = sourceID;
         event.KeyCode = keyCode;
-        m_Manager.HandleKeyEvent(event);
+        manager.HandleKeyEvent(event);
     }
 
     bool WaitForRepeat()
@@ -83,7 +99,46 @@ protected:
     PLooper m_Looper;
     PKeyboardManager m_Manager;
     std::vector<ReceivedKey> m_Received;
+
+private:
+    struct SharedConfiguration : public PtrTarget
+    {
+        PLooper Looper{"keyboard_test_configuration", 4};
+        PKeyboardManager Manager{Looper};
+    };
+
+    inline static Ptr<SharedConfiguration> s_Configuration;
 };
+
+TEST_F(PKeyboardManagerTest, ReusedConfigurationHasIndependentKeyState)
+{
+    Send(PKeyCodes::CAPS_LOCK, true);
+    Send(PKeyCodes::CAPS_LOCK, false);
+    Send(PKeyCodes::LEFT_SHIFT, true);
+    Send(PKeyCodes::A, true);
+
+    PKeyboardManager manager(m_Looper, m_Manager);
+    manager.SignalKeyEvent.Connect([this](const PKeyEvent& event, const PString& text) { Receive(event, text); });
+    manager.AddDevice(1);
+    manager.SetFocused(true);
+    const size_t firstEvent = m_Received.size();
+    Send(manager, PKeyCodes::A, true);
+    ASSERT_EQ(m_Received.size(), firstEvent + 1);
+    ASSERT_EQ(m_Received.back().Event.KeyCode, PKeyCodes::A);
+    EXPECT_EQ(m_Received.back().Event.KeySymbol, PKeySymbol(U'a'));
+    EXPECT_EQ(m_Received.back().Text, "a");
+    EXPECT_EQ(manager.GetQualifiers(), 0U);
+    EXPECT_NE(m_Manager.GetQualifiers() & QUAL_CAPS_LOCK, 0U);
+    EXPECT_NE(m_Manager.GetQualifiers() & QUAL_SHIFT, 0U);
+
+    Send(manager, PKeyCodes::LEFT_SHIFT, true);
+    Send(PKeyCodes::LEFT_SHIFT, false);
+    Send(manager, PKeyCodes::A, false);
+    Send(manager, PKeyCodes::A, true);
+    EXPECT_EQ(m_Received.back().Text, "A");
+    EXPECT_NE(manager.GetQualifiers() & QUAL_SHIFT, 0U);
+    EXPECT_EQ(m_Manager.GetQualifiers() & QUAL_SHIFT, 0U);
+}
 
 TEST_F(PKeyboardManagerTest, ShiftCapsAndControl)
 {
@@ -204,6 +259,14 @@ TEST_F(PKeyboardManagerTest, DeadKeyCompositionAndFocusReset)
     Send(PKeyCodes::APOSTROPHE, true);
     EXPECT_TRUE(m_Received.back().Text.empty());
     Send(PKeyCodes::APOSTROPHE, false);
+    {
+        PKeyboardManager manager(m_Looper, m_Manager);
+        manager.SignalKeyEvent.Connect([this](const PKeyEvent& event, const PString& text) { Receive(event, text); });
+        manager.AddDevice(1);
+        manager.SetFocused(true);
+        Send(manager, PKeyCodes::E, true);
+        EXPECT_EQ(m_Received.back().Text, "e");
+    }
     Send(PKeyCodes::E, true);
     EXPECT_EQ(m_Received.back().Text, "\xc3\xa9");
     EXPECT_EQ(m_Received.back().Event.KeySymbol, PKeySymbol(U'e'));

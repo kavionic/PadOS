@@ -16,6 +16,7 @@
 
 #include <GUI/GUIEvent.h>
 #include <GUI/KeyboardLayout.h>
+#include <Ptr/Ptr.h>
 #include <Signals/Signal.h>
 #include <Threads/EventTimer.h>
 #include <xkbcommon/xkbcommon.h>
@@ -25,6 +26,9 @@ class PKeyboardManager : public SignalTarget
 {
 public:
     explicit PKeyboardManager(PLooper& looper);
+    // Reuse a configured manager's immutable data with fresh input state.
+    // Managers sharing XKB data must be used and destroyed on the same thread.
+    PKeyboardManager(PLooper& looper, const PKeyboardManager& configuration);
     ~PKeyboardManager();
 
     void Initialize();
@@ -47,6 +51,12 @@ private:
     using Keymap            = std::unique_ptr<xkb_keymap, decltype(&xkb_keymap_unref)>;
     using State             = std::unique_ptr<xkb_state, decltype(&xkb_state_unref)>;
     using PhysicalKeyMap    = std::array<xkb_keycode_t, KEY_CODE_LIMIT>;
+
+    struct LayoutCatalog : public PtrTarget
+    {
+        std::vector<PKeyboardLayoutInfo> Layouts;
+        std::set<PString> Options;
+    };
 
     struct DeviceState
     {
@@ -79,8 +89,7 @@ private:
 
     std::array<uint32_t, KEY_CODE_LIMIT>    m_PressedCounts{};
     std::map<int32_t, DeviceState>          m_Devices;
-    std::vector<PKeyboardLayoutInfo>        m_Layouts;
-    std::set<PString>                       m_KnownOptions;
+    Ptr<const LayoutCatalog>                m_Catalog;
 
     PString         m_Layout;
     PString         m_Variant;

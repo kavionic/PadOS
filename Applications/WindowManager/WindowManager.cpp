@@ -124,7 +124,8 @@ void WindowManager::SlotRegisterView(handler_id viewHandle, PViewDockType dockTy
     }
     if (parent != nullptr)
     {
-        const Ptr<PView> view = ptr_new<PView>(parent, viewHandle, name, frame);
+        const Ptr<PView> view = ptr_new<PView>(viewHandle, name, frame);
+        parent->AddChild(view);
         Post<ASViewAddChild>(INVALID_INDEX, parent->GetServerHandle(), viewHandle, view->GetHandle());
         if (dockType != PViewDockType::PopupWindow) {
             view->SetFrame(parent->GetBounds());

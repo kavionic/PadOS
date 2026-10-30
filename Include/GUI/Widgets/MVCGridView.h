@@ -27,8 +27,8 @@ struct PMVCGridViewItemNode : PMVCBaseViewItemNode
 class PMVCGridView : public PMVCBaseView
 {
 public:
-    PMVCGridView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PMVCGridView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PMVCGridView(const PString& name = PString::zero, uint32_t flags = 0);
+    PMVCGridView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;
     virtual PPoint CalculateContentSize() const override;

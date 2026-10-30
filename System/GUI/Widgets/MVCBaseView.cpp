@@ -20,8 +20,8 @@ const std::map<PString, uint32_t> PMVCBaseViewFlags::FlagMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCBaseView::PMVCBaseView(const PString& name, Ptr<PView> parent, uint32_t flags)
-    : PControl(name, parent, flags | PViewFlags::WillDraw)
+PMVCBaseView::PMVCBaseView(const PString& name, uint32_t flags)
+    : PControl(name, flags | PViewFlags::WillDraw)
 {
     Construct();
 }
@@ -30,8 +30,8 @@ PMVCBaseView::PMVCBaseView(const PString& name, Ptr<PView> parent, uint32_t flag
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCBaseView::PMVCBaseView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
-    : PControl(context, parent, xmlData)
+PMVCBaseView::PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
+    : PControl(context, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PMVCBaseViewFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw);
     Construct();
@@ -375,7 +375,7 @@ void PMVCBaseView::CacheItemWidget(Ptr<PView> itemWidget, int32_t widgetClassID)
 void PMVCBaseView::Construct()
 {
     m_ScrollView = ptr_new<PScrollView>();
-    m_ContentView = ptr_new<PView>(PString::zero, nullptr, PViewFlags::WillDraw);
+    m_ContentView = ptr_new<PView>(PString::zero, PViewFlags::WillDraw);
 
     m_ContentView->VFCalculateContentSize.Connect(this, &PView::GetContentSize);
     m_ContentView->SignalFrameSized.Connect(this, &PMVCBaseView::OnContentViewFrameSized);

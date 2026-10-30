@@ -14,8 +14,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PControl::PControl(const PString& name, Ptr<PView> parent, uint32_t flags)
-    : PView(name, parent, flags )
+PControl::PControl(const PString& name, uint32_t flags)
+    : PView(name, flags)
 {
     m_IsEnabled	= true;
 }
@@ -24,7 +24,8 @@ PControl::PControl(const PString& name, Ptr<PView> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PControl::PControl(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment) : PView(context, parent, xmlData)
+PControl::PControl(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment)
+    : PView(context, xmlData)
 {
     m_Label             = context.GetAttribute(xmlData, "label", PString::zero);
     m_LabelAlignment    = context.GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);

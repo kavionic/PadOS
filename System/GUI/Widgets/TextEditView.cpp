@@ -16,7 +16,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextEditView::PTextEditView(const PString& name, const PString& text, Ptr<PView> parent, uint32_t flags) : PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Text(text)
+PTextEditView::PTextEditView(const PString& name, const PString& text, uint32_t flags)
+    : PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Text(text)
 {
     Initialize();
 }
@@ -25,7 +26,7 @@ PTextEditView::PTextEditView(const PString& name, const PString& text, Ptr<PView
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextEditView::PTextEditView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
+PTextEditView::PTextEditView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextBoxFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
     m_Text = context.GetAttribute(xmlData, "text", PString::zero);

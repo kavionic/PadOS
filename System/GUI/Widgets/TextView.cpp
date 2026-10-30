@@ -24,7 +24,7 @@ const std::map<PString, uint32_t> PTextViewFlags::FlagMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextView::PTextView(const PString& name, const PString& text, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
+PTextView::PTextView(const PString& name, const PString& text, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
 {
     SetText(text);
 }
@@ -33,7 +33,7 @@ PTextView::PTextView(const PString& name, const PString& text, Ptr<PView> parent
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextView::PTextView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
+PTextView::PTextView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextViewFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw);
 

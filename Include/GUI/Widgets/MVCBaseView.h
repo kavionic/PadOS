@@ -53,8 +53,8 @@ struct PMVCBaseViewItemNode
 class PMVCBaseView : public PControl
 {
 public:
-    PMVCBaseView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PMVCBaseView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PMVCBaseView(const PString& name = PString::zero, uint32_t flags = 0);
+    PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;
 

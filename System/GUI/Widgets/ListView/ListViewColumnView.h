@@ -15,7 +15,7 @@ class PListViewScrolledView;
 class PListViewColumnView : public PView
 {
 public:
-    PListViewColumnView(Ptr<PListViewScrolledView> parent, const PString& title);
+    PListViewColumnView(const PString& title);
     ~PListViewColumnView();
 
     virtual void OnFontChanged(Ptr<const PFont> newFont) override { Invalidate(); }

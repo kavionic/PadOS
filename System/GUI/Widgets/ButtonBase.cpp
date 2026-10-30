@@ -16,7 +16,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonBase::PButtonBase(const PString& name, Ptr<PView> parent, uint32_t flags) : PControl(name, parent, flags)
+PButtonBase::PButtonBase(const PString& name, uint32_t flags) : PControl(name, flags)
 {
 }
 
@@ -24,7 +24,8 @@ PButtonBase::PButtonBase(const PString& name, Ptr<PView> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonBase::PButtonBase(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment) : PControl(context, parent, xmlData, defaultLabelAlignment)
+PButtonBase::PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment)
+    : PControl(context, xmlData, defaultLabelAlignment)
 {
     PString groupName = context.GetAttribute(xmlData, "group", PString::zero);
 

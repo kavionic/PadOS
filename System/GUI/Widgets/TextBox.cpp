@@ -26,7 +26,8 @@ NoPtr<PTextBoxStyle> PTextBox::s_DefaultStyle;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextBox::PTextBox(const PString& name, const PString& text, Ptr<PView> parent, uint32_t flags) : PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PTextBox::PTextBox(const PString& name, const PString& text, uint32_t flags)
+    : PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     Initialize(text);
 }
@@ -35,7 +36,7 @@ PTextBox::PTextBox(const PString& name, const PString& text, Ptr<PView> parent, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextBox::PTextBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
+PTextBox::PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     Initialize(context.GetAttribute(xmlData, "text", PString::zero));
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextBoxFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
@@ -47,7 +48,8 @@ PTextBox::PTextBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::
 
 void PTextBox::Initialize(const PString& text)
 {
-    m_Editor = ptr_new<PTextEditView>("Editor", text, ptr_tmp_cast(this), GetFlags());
+    m_Editor = ptr_new<PTextEditView>("Editor", text, GetFlags());
+    AddChild(m_Editor);
     m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
 
     SetMaxOverscroll(40.0f, 0.0f);

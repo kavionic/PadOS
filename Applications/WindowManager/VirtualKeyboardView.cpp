@@ -20,11 +20,12 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PVirtualKeyboardView::PVirtualKeyboardView(bool numerical) : PView("VirtualKeyboard", nullptr, PViewFlags::WillDraw)
+PVirtualKeyboardView::PVirtualKeyboardView(bool numerical) : PView("VirtualKeyboard", PViewFlags::WillDraw)
 {
     SetLayoutNode(ptr_new<PLayoutNode>());
 
-    m_KeyboardView = ptr_new<PKeyboardView>("Keyboard", ptr_tmp_cast(this), (numerical) ? PKeyboardViewFlags::Numerical : 0);
+    m_KeyboardView = ptr_new<PKeyboardView>("Keyboard", (numerical) ? PKeyboardViewFlags::Numerical : 0);
+    AddChild(m_KeyboardView);
     m_KeyboardView->PreferredSizeChanged();
 
     m_KeyboardView->SignalKeyPressed.Connect(this, &PVirtualKeyboardView::SlotKeyPressed);

@@ -35,8 +35,8 @@ static PColor Tint(const PColor& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollBar::PScrollBar(const PString& name, Ptr<PView> parent, float min, float max, POrientation orientation, uint32_t flags)
-    : PControl(name, parent, flags | PViewFlags::WillDraw)
+PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation orientation, uint32_t flags)
+    : PControl(name, flags | PViewFlags::WillDraw)
 {
     memset(m_ArrowStates, 0, sizeof(m_ArrowStates));
     m_Orientation  = orientation;

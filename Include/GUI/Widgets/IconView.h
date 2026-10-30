@@ -21,8 +21,8 @@ class PPath;
 class PIconView : public PView
 {
 public:
-    PIconView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PIconView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PIconView(const PString& name = PString::zero, uint32_t flags = 0);
+    PIconView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     Ptr<PBitmapView>         GetIconView();
     Ptr<const PBitmapView>   GetIconView() const;

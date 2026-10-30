@@ -19,7 +19,8 @@ static constexpr float RB_CHECK_BORDER = 7.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PRadioButton::PRadioButton(const PString& name, Ptr<PView> parent, uint32_t flags) : PButtonBase(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PRadioButton::PRadioButton(const PString& name, uint32_t flags)
+    : PButtonBase(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     SetCheckable(true);
 }
@@ -28,7 +29,8 @@ PRadioButton::PRadioButton(const PString& name, Ptr<PView> parent, uint32_t flag
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PRadioButton::PRadioButton(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PButtonBase(context, parent, xmlData, PAlignment::Right)
+PRadioButton::PRadioButton(PViewFactoryContext& context, const pugi::xml_node& xmlData)
+    : PButtonBase(context, xmlData, PAlignment::Right)
 {
     MergeFlags(PViewFlags::WillDraw);
 	SetCheckable(true);

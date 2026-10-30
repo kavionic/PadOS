@@ -36,8 +36,8 @@ static constexpr float HLABEL_SPACING   = 2.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSlider::PSlider(const PString& name, Ptr<PView> parent, uint32_t flags, int tickCount, POrientation orientation)
-    : PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize )
+PSlider::PSlider(const PString& name, uint32_t flags, int tickCount, POrientation orientation)
+    : PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     m_Orientation   = orientation;
     m_NumTicks      = tickCount;
@@ -50,7 +50,7 @@ PSlider::PSlider(const PString& name, Ptr<PView> parent, uint32_t flags, int tic
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSlider::PSlider(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
+PSlider::PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PSliderFlags::FlagMap, "flags", PSliderFlags::TicksBelow | PSliderFlags::KnobPointDown) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
 
@@ -602,7 +602,8 @@ void PSlider::OnLabelChanged(const PString& label)
     {
         if (m_ValueView == nullptr)
         {
-            m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this));
+            m_ValueView = ptr_new<PTextView>("value", PString::zero);
+            AddChild(m_ValueView);
             m_ValueView->SetFont(GetFont());
             m_ValueView->SetHitMode(PViewHitMode::IgnoreThis);
             m_ValueView->SignalPreferredSizeChanged.Connect(this, &PSlider::LayoutValueView);

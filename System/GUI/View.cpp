@@ -131,7 +131,7 @@ uint32_t PView::GetInstanceCount()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags)
+PView::PView(const PString& name, uint32_t flags)
     : PViewBase(
         name,
         PRect(),
@@ -144,9 +144,6 @@ PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags)
         pget_standard_color(PStandardColorID::DefaultBackground),
         PColor(0, 0, 0))
 {
-    if (parent != nullptr) {
-        parent->AddChild(ptr_tmp_cast(this));
-    }
     ++s_InstanceCount;
 }
 
@@ -167,7 +164,7 @@ static PSizeOverride GetSizeOverride(pugi::xml_attribute absoluteAttr, pugi::xml
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
+PView::PView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
     : PViewBase(xmlData.attribute("name").value(),
                PRect(),
                PPoint(),
@@ -279,9 +276,6 @@ PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_no
 		}
 	}
 
-    if (parent != nullptr) {
-        parent->AddChild(ptr_tmp_cast(this));
-    }
     ++s_InstanceCount;
 }
 
@@ -289,12 +283,20 @@ PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_no
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PView::PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, const PRect& frame) : PViewBase(name, frame, PPoint(), PViewFlags::Eavesdropper | PViewFlags::WillDraw, PViewHitMode::HitTest, 0, 1.0f, PColor(0xffffffff), PColor(0xffffffff), PColor(0))
+PView::PView(handler_id serverHandle, const PString& name, const PRect& frame)
+    : PViewBase(
+        name,
+        frame,
+        PPoint(),
+        PViewFlags::Eavesdropper | PViewFlags::WillDraw,
+        PViewHitMode::HitTest,
+        0,
+        1.0f,
+        PColor(0xffffffff),
+        PColor(0xffffffff),
+        PColor(0))
 {
     m_ServerHandle = serverHandle;
-    if (parent != nullptr) {
-        parent->AddChild(ptr_tmp_cast(this));
-    }
     ++s_InstanceCount;
 }
 

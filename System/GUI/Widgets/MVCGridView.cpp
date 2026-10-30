@@ -16,8 +16,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCGridView::PMVCGridView(const PString& name, Ptr<PView> parent, uint32_t flags)
-    : PMVCBaseView(name, parent, flags | PViewFlags::WillDraw)
+PMVCGridView::PMVCGridView(const PString& name, uint32_t flags)
+    : PMVCBaseView(name, flags | PViewFlags::WillDraw)
 {
 }
 
@@ -25,8 +25,8 @@ PMVCGridView::PMVCGridView(const PString& name, Ptr<PView> parent, uint32_t flag
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCGridView::PMVCGridView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
-    : PMVCBaseView(context, parent, xmlData)
+PMVCGridView::PMVCGridView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
+    : PMVCBaseView(context, xmlData)
 {
 }
 

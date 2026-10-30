@@ -16,8 +16,8 @@ class PButtonGroup;
 class PButtonBase : public PControl
 {
 public:
-    PButtonBase(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PButtonBase(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment);
+    PButtonBase(const PString& name = PString::zero, uint32_t flags = 0);
+    PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment);
     ~PButtonBase();
 
     static Ptr<PButtonGroup> FindButtonGroup(Ptr<PView> root, const PString& name);

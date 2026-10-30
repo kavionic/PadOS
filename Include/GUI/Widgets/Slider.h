@@ -41,9 +41,12 @@ extern const std::map<PString, uint32_t> FlagMap;
 class PSlider : public PControl
 {
 public:
-    PSlider(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PSliderFlags::TicksBelow,
-           int tickCount = 10, POrientation orientation = POrientation::Horizontal);
-    PSlider(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PSlider(
+        const PString& name = PString::zero,
+        uint32_t flags = PSliderFlags::TicksBelow,
+        int tickCount = 10,
+        POrientation orientation = POrientation::Horizontal);
+    PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     ~PSlider();
 

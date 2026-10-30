@@ -19,7 +19,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PListViewScrolledView::PListViewScrolledView(Ptr<PListView> listView)
-    : PView("main_view", nullptr, PViewFlags::WillDraw | PViewFlags::DrawOnChildren)
+    : PView("main_view", PViewFlags::WillDraw | PViewFlags::DrawOnChildren)
 {
     m_ListView = ptr_raw_pointer_cast(listView);
 
@@ -729,7 +729,8 @@ size_t PListViewScrolledView::InsertColumn(const char* title, float width, size_
 {
     try
     {
-        Ptr<PListViewColumnView> columnView = ptr_new<PListViewColumnView>(ptr_tmp_cast(this), title);
+        Ptr<PListViewColumnView> columnView = ptr_new<PListViewColumnView>(title);
+        AddChild(columnView);
         columnView->SetFont(GetFont());
         columnView->SetFrame(PRect(0.0f, 0.0f, width, COORD_MAX));
 

@@ -16,7 +16,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PGroupView::PGroupView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
+PGroupView::PGroupView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
 {
 }
 
@@ -24,7 +24,7 @@ PGroupView::PGroupView(const PString& name, Ptr<PView> parent, uint32_t flags) :
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PGroupView::PGroupView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
+PGroupView::PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
     MergeFlags(PViewFlags::WillDraw);
 	m_Label = context.GetAttribute(xmlData, "label", PString::zero);

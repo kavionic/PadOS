@@ -14,8 +14,8 @@
 class PGroupView : public PView
 {
 public:
-    PGroupView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PGroupView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PGroupView(const PString& name = PString::zero, uint32_t flags = 0);
+    PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void OnFontChanged(Ptr<const PFont> newFont) override { Invalidate(); }

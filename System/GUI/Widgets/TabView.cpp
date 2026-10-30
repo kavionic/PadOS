@@ -19,7 +19,7 @@ static constexpr float ARROW_SPACE = 16.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
+PTabView::PTabView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
 {
     Initialize();
 }
@@ -28,7 +28,7 @@ PTabView::PTabView(const PString& name, Ptr<PView> parent, uint32_t flags) : PVi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
+PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
     MergeFlags(PViewFlags::WillDraw);
     Initialize();
@@ -86,6 +86,7 @@ void PTabView::Initialize()
     m_TotalTabsWidth = 4.0f;
 
     m_TopView = ptr_new<TopView>(this);
+    AddChild(m_TopView);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

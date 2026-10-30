@@ -15,8 +15,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCListView::PMVCListView(const PString& name, Ptr<PView> parent, uint32_t flags)
-    : PMVCBaseView(name, parent, flags)
+PMVCListView::PMVCListView(const PString& name, uint32_t flags)
+    : PMVCBaseView(name, flags)
 {
 }
 
@@ -24,8 +24,8 @@ PMVCListView::PMVCListView(const PString& name, Ptr<PView> parent, uint32_t flag
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCListView::PMVCListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
-    : PMVCBaseView(context, parent, xmlData)
+PMVCListView::PMVCListView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
+    : PMVCBaseView(context, xmlData)
 {
 }
 

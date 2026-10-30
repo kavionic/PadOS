@@ -57,9 +57,10 @@ class PView : public PViewBase<PView>
 public:
     static uint32_t GetInstanceCount();
 
-    PView(const PString& name, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
-    PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, const PRect& frame);
+    // Views are constructed detached. Call AddChild() after construction to attach them.
+    PView(const PString& name, uint32_t flags = 0);
+    PView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
+    PView(handler_id serverHandle, const PString& name, const PRect& frame);
     virtual ~PView();
 
     PApplication* GetApplication() const;

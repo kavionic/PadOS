@@ -75,8 +75,8 @@ const std::map<PString, uint32_t> PListViewFlags::FlagMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PListView::PListView(const PString& name, Ptr<PView> parent, uint32_t flags) :
-    PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PListView::PListView(const PString& name, uint32_t flags) :
+    PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     Construct();
 }
@@ -85,7 +85,7 @@ PListView::PListView(const PString& name, Ptr<PView> parent, uint32_t flags) :
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PListView::PListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
+PListView::PListView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PListViewFlags::FlagMap, "flags", PListViewFlags::RenderBorder) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
 
@@ -100,6 +100,7 @@ void PListView::Construct()
 {
     m_HeaderView = ptr_new<PListViewHeaderView>(ptr_tmp_cast(this));
     m_ScrolledContainerView = m_HeaderView->m_ScrolledContainerView;
+    AddChild(m_HeaderView);
 
     Layout();
 }
@@ -276,7 +277,7 @@ void PListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_VScrollBar == nullptr)
             {
-                m_VScrollBar = ptr_new<PScrollBar>("v_scroll", nullptr, 0.0f, 1000.0f, POrientation::Vertical);
+                m_VScrollBar = ptr_new<PScrollBar>("v_scroll", 0.0f, 1000.0f, POrientation::Vertical);
                 m_VScrollBar->SetScrollTarget(m_ScrolledContainerView);
                 AddChild(m_VScrollBar);
                 Layout();
@@ -314,7 +315,7 @@ void PListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_HScrollBar == nullptr)
             {
-                m_HScrollBar = ptr_new<PScrollBar>("h_scroll", nullptr, 0.0f, 1000.0f, POrientation::Horizontal);
+                m_HScrollBar = ptr_new<PScrollBar>("h_scroll", 0.0f, 1000.0f, POrientation::Horizontal);
                 m_HScrollBar->SetScrollTarget(m_HeaderView);
                 AddChild(m_HScrollBar);
                 Layout();

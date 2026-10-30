@@ -18,7 +18,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PBitmapView::PBitmapView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
+PBitmapView::PBitmapView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
 {
     SetDrawingMode(PDrawingMode::Copy);
 }
@@ -27,7 +27,7 @@ PBitmapView::PBitmapView(const PString& name, Ptr<PView> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PBitmapView::PBitmapView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
+PBitmapView::PBitmapView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
     MergeFlags(PViewFlags::WillDraw);
     SetDrawingMode(PDrawingMode::Copy);

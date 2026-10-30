@@ -20,7 +20,12 @@
 class PScrollBar : public PControl
 {
 public:
-    PScrollBar(const PString& name = PString::zero, Ptr<PView> parent = nullptr, float min = 0.0f, float max = std::numeric_limits<float>::max(), POrientation orientation = POrientation::Vertical, uint32_t flags = 0);
+    PScrollBar(
+        const PString& name = PString::zero,
+        float min = 0.0f,
+        float max = std::numeric_limits<float>::max(),
+        POrientation orientation = POrientation::Vertical,
+        uint32_t flags = 0);
     ~PScrollBar();
 
     void  SetScrollTarget(Ptr<PView> target);

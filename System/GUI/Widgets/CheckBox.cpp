@@ -18,7 +18,8 @@ static constexpr float CB_CHECK_BORDER = 7.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PCheckBox::PCheckBox(const PString& name, Ptr<PView> parent, uint32_t flags) : PButtonBase(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PCheckBox::PCheckBox(const PString& name, uint32_t flags)
+    : PButtonBase(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     SetCheckable(true);
 }
@@ -27,7 +28,8 @@ PCheckBox::PCheckBox(const PString& name, Ptr<PView> parent, uint32_t flags) : P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PCheckBox::PCheckBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PButtonBase(context, parent, xmlData, PAlignment::Right)
+PCheckBox::PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData)
+    : PButtonBase(context, xmlData, PAlignment::Right)
 {
     MergeFlags(PViewFlags::WillDraw);
 	SetCheckable(true);

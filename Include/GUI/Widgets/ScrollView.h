@@ -15,8 +15,8 @@
 class PScrollView : public PView, public PViewScroller
 {
 public:
-    PScrollView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PScrollView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PScrollView(const PString& name = PString::zero, uint32_t flags = 0);
+    PScrollView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void    OnLayoutChanged() override;

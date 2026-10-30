@@ -14,7 +14,7 @@
 class PMenuRenderView : public PView
 {
 public:
-    PMenuRenderView(PMenu* menu) : PView("menu_content", ptr_tmp_cast(menu), PViewFlags::WillDraw), m_Menu(menu) {}
+    PMenuRenderView(PMenu* menu) : PView("menu_content", PViewFlags::WillDraw), m_Menu(menu) {}
 
     virtual PPoint   CalculateContentSize() const override;
 

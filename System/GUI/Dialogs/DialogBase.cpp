@@ -145,7 +145,7 @@ PDialogButtonID PDialogBase::Go(Ptr<PView> owner)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PDialogBoxView::PDialogBoxView(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PView(title, nullptr)
+PDialogBoxView::PDialogBoxView(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PView(title)
 {
     SetLayoutNode(ptr_new<PVLayoutNode>());
 

@@ -17,8 +17,8 @@ struct PTextBoxStyle;
 class PTextEditView : public PControl
 {
 public:
-    PTextEditView(const PString& name, const PString& text, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PTextEditView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PTextEditView(const PString& name, const PString& text, uint32_t flags = 0);
+    PTextEditView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PTextEditView();
 
     // From View:

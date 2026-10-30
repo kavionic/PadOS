@@ -150,7 +150,8 @@ PKeyButton::PKeyButton(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PKeyboardView::PKeyboardView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PKeyboardView::PKeyboardView(const PString& name, uint32_t flags)
+    : PView(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
     m_KeyHeight = fontHeight.descender + fontHeight.ascender + 11.0f;

@@ -25,8 +25,8 @@ class PControl : public PView
 public:
     static constexpr int32_t INVALID_ID = -1;
 
-    PControl(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
-    PControl(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment = PAlignment::Center);
+    PControl(const PString& name = PString::zero, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PControl(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment = PAlignment::Center);
     ~PControl();
 
       // From Control:

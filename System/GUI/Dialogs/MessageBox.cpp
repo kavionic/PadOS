@@ -16,7 +16,7 @@
 
 PMessageBox::PMessageBox(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PDialogBase(title, text, buttonSet)
 {
-    m_MessageView = ptr_new<PTextView>("TextView", text, nullptr, PTextViewFlags::MultiLine);
+    m_MessageView = ptr_new<PTextView>("TextView", text, PTextViewFlags::MultiLine);
     m_MessageView->SetWidthOverride(PPrefSizeType::Smallest, PSizeOverride::Extend, 400.0f);
     SetContentView(m_MessageView);
 }

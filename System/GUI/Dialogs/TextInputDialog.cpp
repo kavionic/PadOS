@@ -17,7 +17,7 @@
 
 PTextInputDialog::PTextInputDialog(const PString& title, const PString& message, const PString& text, PDialogButtonSets buttonSet) : PDialogBase(title, text, buttonSet)
 {
-    m_MessageView = ptr_new<PTextView>("Message", message, nullptr, PTextViewFlags::MultiLine);
+    m_MessageView = ptr_new<PTextView>("Message", message, PTextViewFlags::MultiLine);
     m_TextInput   = ptr_new<PTextBox>("Input", text);
 
     m_MessageView->SetWidthOverride(PPrefSizeType::Smallest, PSizeOverride::Extend, 400.0f);

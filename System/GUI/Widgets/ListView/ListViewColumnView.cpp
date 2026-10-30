@@ -15,8 +15,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PListViewColumnView::PListViewColumnView(Ptr<PListViewScrolledView> parent, const PString& title)
-    : PView("_lv_column", parent, PViewFlags::WillDraw)
+PListViewColumnView::PListViewColumnView(const PString& title)
+    : PView("_lv_column", PViewFlags::WillDraw)
     , m_Title(title)
 {
     SetHitMode(PViewHitMode::IgnoreThis);

@@ -13,7 +13,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PWindow::PWindow(const PString& title) : PView("Window", nullptr, PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Title(title)
+PWindow::PWindow(const PString& title) : PView("Window", PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Title(title)
 {
     PFontHeight fontHeight = GetFontHeight();
     m_ClientBorders = PRect(8.0f, fontHeight.descender + fontHeight.ascender + 8.0f, 8.0f, 8.0f);

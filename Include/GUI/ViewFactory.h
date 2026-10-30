@@ -53,7 +53,7 @@ public:
 };
 
 
-class PViewFactory : public PXMLFactory<PViewFactoryContext&, Ptr<PView>, const pugi::xml_node&>
+class PViewFactory : public PXMLFactory<PViewFactoryContext&, const pugi::xml_node&>
 {
 public:
     PViewFactory();
@@ -68,15 +68,19 @@ private:
 };
 
 #define PVIEW_FACTORY_REGISTER_CLASS(CLASS) PFactoryAutoRegistrator<CLASS> \
-    g_ViewFactoryRegistrationHelper___##CLASS([] { \
-            PViewFactory::Get().RegisterClass(#CLASS, [](PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) { \
-                    return ptr_new<CLASS>(context, parent, xmlData); \
+    g_ViewFactoryRegistrationHelper___##CLASS([] \
+        { \
+            PViewFactory::Get().RegisterClass(#CLASS, [](PViewFactoryContext& context, const pugi::xml_node& xmlData) \
+                { \
+                    return ptr_new<CLASS>(context, xmlData); \
                 }); \
         });
 
 #define PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(CLASS) PFactoryAutoRegistrator<CLASS> \
-    g_ViewFactoryRegistrationHelper___##CLASS([] { \
-            PViewFactory::Get().RegisterClass(#CLASS + 1, [](PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) { \
-                    return ptr_new<CLASS>(context, parent, xmlData); \
+    g_ViewFactoryRegistrationHelper___##CLASS([] \
+        { \
+            PViewFactory::Get().RegisterClass(#CLASS + 1, [](PViewFactoryContext& context, const pugi::xml_node& xmlData) \
+                { \
+                    return ptr_new<CLASS>(context, xmlData); \
                 }); \
         });

@@ -96,7 +96,7 @@ static constexpr uint32_t Numerical = 0x01 << PViewFlags::FirstUserBit;
 class PKeyboardView : public PView
 {
 public:
-    PKeyboardView(const PString& name, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PKeyboardView(const PString& name, uint32_t flags = 0);
 
     static Ptr<PKeyboardViewStyle> GetDefaultStyle();
 

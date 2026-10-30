@@ -19,7 +19,7 @@ public:
     friend class PListViewRow;
     friend class PListViewColumnView;
 
-    PListViewHeaderView(Ptr<PListView> parent);
+    PListViewHeaderView(Ptr<PListView> listView);
 
 private:
     void DrawButton(const PString& title, const PRect& frame, const PFontHeight& fontHeight);

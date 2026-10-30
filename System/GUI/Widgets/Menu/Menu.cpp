@@ -50,13 +50,14 @@ static const uint32_t g_ArrowBitmapRaster[] =
 ///////////////////////////////////////////////////////////////////////////////
 
 PMenu::PMenu(const PString& title, PMenuLayout layout, uint32_t flags)
-    : PView("_menu_", nullptr, flags | PViewFlags::WillDraw | PViewFlags::ClearBackground)
+    : PView("_menu_", flags | PViewFlags::WillDraw | PViewFlags::ClearBackground)
     , m_Title(title)
 {
     m_ItemBorders = PRect(3, 2, 3, 2);
     m_Layout = layout;
 
     m_ContentView = ptr_new<PMenuRenderView>(this);
+    AddChild(m_ContentView);
 
     SetScrolledView(m_ContentView);
 

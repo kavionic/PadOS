@@ -19,7 +19,7 @@ static constexpr float SCROLL_VIEW_WHEEL_SCROLL_STEP = 32.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollView::PScrollView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
+PScrollView::PScrollView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
 {
     EnableEventPhase(PEventPhase::Capture, true);
     EnableEventPhase(PEventPhase::Bubble, true);
@@ -29,7 +29,7 @@ PScrollView::PScrollView(const PString& name, Ptr<PView> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollView::PScrollView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
+PScrollView::PScrollView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
     MergeFlags(PViewFlags::WillDraw);
     EnableEventPhase(PEventPhase::Capture, true);

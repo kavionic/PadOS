@@ -21,8 +21,8 @@
 class PProgressBar : public PView
 {
 public:
-    PProgressBar(const PString& name = PString::zero, Ptr<PView> parent = nullptr, POrientation orientation = POrientation::Horizontal, uint32_t flags = 0);
-    PProgressBar(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PProgressBar(const PString& name = PString::zero, POrientation orientation = POrientation::Horizontal, uint32_t flags = 0);
+    PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void OnPaint(const PRect& updateRect) override;

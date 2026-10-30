@@ -22,8 +22,8 @@
 class PCheckBox : public PButtonBase
 {
 public:
-    PCheckBox(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
-    PCheckBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PCheckBox(const PString& name = PString::zero, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PCheckBox();
 
       // From View:

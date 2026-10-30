@@ -149,9 +149,13 @@ bool PViewFactory::Parse(PViewFactoryContext& context, Ptr<PView> parentView, co
         {
             if (*childNode.name() != '_')
             {
-                Ptr<PView> childView = CreateInstance<PView>(childNode.name(), context, parentView, childNode);
-                if (childView != nullptr && childNode.first_child()) {
-                    Parse(context, childView, childNode);
+                Ptr<PView> childView = CreateInstance<PView>(childNode.name(), context, childNode);
+                if (childView != nullptr)
+                {
+                    if (childNode.first_child()) {
+                        Parse(context, childView, childNode);
+                    }
+                    parentView->AddChild(childView);
                 }
             }
         }

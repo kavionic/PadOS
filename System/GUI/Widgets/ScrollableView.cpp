@@ -13,7 +13,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollableView::PScrollableView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags)
+PScrollableView::PScrollableView(const PString& name, uint32_t flags) : PView(name, flags)
 {
 }
 
@@ -21,7 +21,7 @@ PScrollableView::PScrollableView(const PString& name, Ptr<PView> parent, uint32_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollableView::PScrollableView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
+PScrollableView::PScrollableView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
 }
 

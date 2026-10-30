@@ -16,7 +16,8 @@ namespace osi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection) : PView(PString::zero, nullptr, PViewFlags::WillDraw)
+DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection)
+    : PView(PString::zero, PViewFlags::WillDraw)
 {
     m_ContentView = ptr_new<DropdownMenuPopupView>(itemList, selection, SignalSelectionChanged);
     m_ContentView->SetBorders(2.0f, 4.0f, 2.0f, 4.0f);
@@ -90,7 +91,7 @@ void DropdownMenuPopupWindow::MakeSelectionVisible()
 ///////////////////////////////////////////////////////////////////////////////
 
 DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged)
-    : PView("drop_down_view", nullptr, PViewFlags::WillDraw)
+    : PView("drop_down_view", PViewFlags::WillDraw)
     , SignalSelectionChanged(signalSelectionChanged)
     , m_ItemList(itemList)
 {

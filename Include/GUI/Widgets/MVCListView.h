@@ -31,8 +31,8 @@ struct PMVCListViewItemNode : PMVCBaseViewItemNode
 class PMVCListView : public PMVCBaseView
 {
 public:
-    PMVCListView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PMVCListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PMVCListView(const PString& name = PString::zero, uint32_t flags = 0);
+    PMVCListView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void OnLayoutChanged() override;

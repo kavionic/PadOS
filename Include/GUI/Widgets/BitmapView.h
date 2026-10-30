@@ -20,8 +20,8 @@ class PPath;
 class PBitmapView : public PView
 {
 public:
-    PBitmapView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PBitmapView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PBitmapView(const PString& name = PString::zero, uint32_t flags = 0);
+    PBitmapView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;

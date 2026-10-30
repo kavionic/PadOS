@@ -50,8 +50,8 @@ const std::map<PString, uint32_t> PDropdownMenuFlags::FlagMap
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-PDropdownMenu::PDropdownMenu(const PString& name, Ptr<PView> parent, uint32_t flags) :
-    PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PDropdownMenu::PDropdownMenu(const PString& name, uint32_t flags) :
+    PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     Initialize();
 }
@@ -60,7 +60,7 @@ PDropdownMenu::PDropdownMenu(const PString& name, Ptr<PView> parent, uint32_t fl
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
+PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PDropdownMenuFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
     Initialize();
@@ -72,7 +72,11 @@ PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, Ptr<PView> parent, co
 
 void PDropdownMenu::Initialize()
 {
-    m_EditBox = ptr_new<PTextBox>("text_view", PString::zero, ptr_tmp_cast(this), HasFlags(PDropdownMenuFlags::ReadOnly) ? (PTextBoxFlags::ReadOnly | PTextBoxFlags::RaisedFrame) : 0);
+    m_EditBox = ptr_new<PTextBox>(
+        "text_view",
+        PString::zero,
+        HasFlags(PDropdownMenuFlags::ReadOnly) ? (PTextBoxFlags::ReadOnly | PTextBoxFlags::RaisedFrame) : 0);
+    AddChild(m_EditBox);
     OnFrameSized(PPoint(0, 0));
 
     m_EditBox->SignalTextChanged.Connect(this, &PDropdownMenu::SlotTextChanged);

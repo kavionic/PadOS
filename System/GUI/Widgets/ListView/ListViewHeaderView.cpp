@@ -15,11 +15,11 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PListViewHeaderView::PListViewHeaderView(Ptr<PListView> parent) : PView("header_view", parent, PViewFlags::WillDraw)
+PListViewHeaderView::PListViewHeaderView(Ptr<PListView> listView) : PView("header_view", PViewFlags::WillDraw)
 {
     m_SizeColumn = -1;
     m_DragColumn = -1;
-    m_ScrolledContainerView = ptr_new<PListViewScrolledView>(parent);
+    m_ScrolledContainerView = ptr_new<PListViewScrolledView>(listView);
     AddChild(m_ScrolledContainerView);
 }
 

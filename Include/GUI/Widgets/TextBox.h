@@ -36,8 +36,8 @@ struct PTextBoxStyle : PtrTarget
 class PTextBox : public PControl, public PViewScroller
 {
 public:
-    PTextBox(const PString& name, const PString& text, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-    PTextBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PTextBox(const PString& name, const PString& text, uint32_t flags = 0);
+    PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     static Ptr<PTextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
 

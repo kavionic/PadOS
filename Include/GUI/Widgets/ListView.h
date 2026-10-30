@@ -52,8 +52,8 @@ public:
     using const_iterator = std::vector<Ptr<PListViewRow>>::const_iterator;
     using ColumnMap = std::vector<size_t>;
 
-    PListView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PListViewFlags::MultiSelect | PListViewFlags::RenderBorder);
-    PListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PListView(const PString& name = PString::zero, uint32_t flags = PListViewFlags::MultiSelect | PListViewFlags::RenderBorder);
+    PListView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     ~PListView();
 

@@ -21,8 +21,8 @@ extern const std::map<PString, uint32_t> FlagMap;
 class PTextView : public PView
 {
 public:
-    PTextView(const PString& name = PString::zero, const PString& text = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
-	PTextView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    PTextView(const PString& name = PString::zero, const PString& text = PString::zero, uint32_t flags = 0);
+	PTextView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PTextView();
     
     void SetText(const PString& text);

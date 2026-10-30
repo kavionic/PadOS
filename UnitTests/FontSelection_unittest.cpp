@@ -69,7 +69,7 @@ TEST(FontSelection, TextViewsDefaultToOpaqueBlack)
         pugi::xml_document document;
         const pugi::xml_node xmlData = document.append_child("TextView");
         PViewFactoryContext context;
-        Ptr<PTextView> xmlLabel = ptr_new<PTextView>(context, nullptr, xmlData);
+        Ptr<PTextView> xmlLabel = ptr_new<PTextView>(context, xmlData);
         EXPECT_EQ(xmlLabel->GetFgColor(), PColor(0, 0, 0));
     });
 }

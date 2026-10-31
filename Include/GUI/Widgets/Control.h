@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <GUI/View.h>
+#include <GUI/StyledView.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -20,34 +20,25 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
-class PControl : public PView
+class PControl : public PStyledView
 {
 public:
     static constexpr int32_t INVALID_ID = -1;
 
     PControl(const PString& name = PString::zero, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
-    PControl(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment = PAlignment::Center);
+    PControl(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PControl();
 
       // From Control:
     virtual void OnEnableStatusChanged(bool isEnabled) { Invalidate(); Flush(); }
-    virtual void OnLabelChanged(const PString& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
 
     virtual void SetEnable(bool enabled);
     virtual bool IsEnabled() const;
-
-    void    SetLabel(const PString& label);
-    PString GetLabel() const { return m_Label; }
-    
-    void        SetLabelAlignment(PAlignment alignment) { m_LabelAlignment = alignment; PreferredSizeChanged(); Invalidate(); Flush(); }
-    PAlignment   GetLabelAlignment() const { return m_LabelAlignment; }
 
     void    SetID(int32_t ID) { m_ID = ID; }
     int32_t GetID() const { return m_ID; }
 
 private:
     int32_t m_ID = INVALID_ID;
-    PString     m_Label;
-    PAlignment   m_LabelAlignment = PAlignment::Center;
     bool    m_IsEnabled;
 };

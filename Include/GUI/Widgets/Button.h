@@ -20,18 +20,13 @@ public:
 
     // From View:
     virtual void AllAttachedToScreen() override { Invalidate(); }
-    virtual void OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void OnPaint(const PRect& updateRect) override;
 
 	// From Control:
     virtual void OnEnableStatusChanged(bool bIsEnabled) override { Invalidate(); Flush(); }
-	virtual void OnLabelChanged(const PString& label) override;
 
 private:
-    void UpdateLabelSize();
-    PPoint  m_LabelSize;
-        
     PButton(const PButton&) = delete;
     PButton& operator=(const PButton&) = delete;
 };

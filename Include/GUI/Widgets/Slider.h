@@ -7,12 +7,8 @@
 
 #pragma once
 
-#include <limits.h>
-#include <map>
+#include <GUI/Style/SliderStyleData.h>
 #include <GUI/Widgets/Control.h>
-
-
-class PTextView;
 
 
 namespace PSliderFlags
@@ -48,26 +44,18 @@ public:
         POrientation orientation = POrientation::Horizontal);
     PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
-    ~PSlider();
+    ~PSlider() override = default;
 
     // From View:
-    virtual void OnFlagsChanged(uint32_t changedFlags) override { PControl::OnFlagsChanged(changedFlags); PreferredSizeChanged(); Invalidate(); }
+    virtual void OnFlagsChanged(uint32_t changedFlags) override;
 
-    // From Control:
-    virtual void OnLabelChanged(const PString& label) override;
+    void SetLabel(const PString& label);
+    const PString& GetLabel() const { return m_SliderStyleData.Label; }
+    virtual void OnLabelChanged(const PString& label);
 
     // From Slider:
-    virtual void RenderLabels();
-    virtual void RenderSlider();
-    virtual void RenderKnob(PStandardColorID knobColor, float value);
-    virtual void RenderTicks();
-    
     virtual float PosToVal(const PPoint& position) const;
     virtual PPoint ValToPos(float value) const;
-
-    enum class GetKnobFrameMode {FullFrame, SquareFrame};
-    virtual PRect    GetKnobFrame(POrientation orientation, GetKnobFrameMode mode) const;
-    virtual PRect    GetSliderFrame(PRect* outTotalFrame = nullptr, float* minimumLength = nullptr) const;
 
     virtual void    SetSliderColors(const PColor& color1, const PColor& color2);
     virtual void    GetSliderColors(PColor* color1, PColor* color2) const;
@@ -95,7 +83,7 @@ public:
     virtual void    GetSteps(float* small, float* big) const { *small = m_SmallStep; *big = m_BigStep; }
     void            SetDragScale(float scale) { m_DragScale = scale; }
     void            SetDragScaleRange(float range) { m_DragScaleRange = range; }
-    virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
+    virtual void    SetMinMax(float min, float max);
     void            SetResolution(float resolution);
 
     void            SetShadowKnobsCount(size_t count);
@@ -114,6 +102,7 @@ public:
     virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
     virtual void OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void OnFrameSized(const PPoint& delta) override;
+    virtual void OnStyleChanged() override;
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
@@ -122,33 +111,24 @@ public:
     Signal<void, float, PSlider*, PPointerID> SignalEndDrag;
     Signal<void, float, bool, PSlider*>          SignalValueChanged;//(float value, bool finalUpdate, os::Slider* slider)
 private:
-    void UpdateValueView();
-    void LayoutValueView();
-    void RefreshDisplay();
+    float GetRelativeValue(float value) const;
+    void UpdateStyleFlags();
+    bool UpdateValueLabel();
+    void NotifyStylePropertyChanged(PSliderProperties properties);
 
-    Ptr<PTextView>   m_ValueView;
-
-    PString         m_MinLabel;
-    PString         m_MaxLabel;
+    PSliderStyleData m_SliderStyleData;
+    std::vector<float> m_ShadowValues;
     PString         m_ValueFormat;
-    float           m_ValueScale = 1.0f;
-
-    PColor           m_SliderColor1;
-    PColor           m_SliderColor2;
-    float           m_SliderSize = 5.0f;
-    int             m_NumSteps = 0;
-    int             m_NumTicks;
     float           m_Min = 0.0f;
     float           m_Max = 1.0f;
+    float           m_Value = 0.0f;
+    float           m_ValueScale = 1.0f;
+    int             m_NumSteps = 0;
     float           m_Resolution = 0.0f;
     float           m_SmallStep = 0.05f;
     float           m_BigStep = 0.1f;
     float           m_DragScale = 1.0f;
     float           m_DragScaleRange = 100.0f;
-    POrientation     m_Orientation;
-    float           m_Value = 0.0f;
-    
-    std::vector<float>  m_ShadowArrows;
 
     bool            m_Changed = false;
     bool            m_PointerCaptureLocked = false;

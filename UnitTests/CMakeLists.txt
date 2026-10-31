@@ -23,11 +23,13 @@ target_sources(PadOS_UnitTests PRIVATE
 	NamedColors_unittest.cpp
 	ObjectWaitGroup_unittest.cpp
 	PEnumBitmask_unittest.cpp
+	PRect_unittest.cpp
 	PSemaphore_unittest.cpp
 	PString_unittest.cpp
 	PThreadRWLock_unittest.cpp
 	Ptr_unittest.cpp
 	RPC_unittest.cpp
+	ScrollBarStyle_unittest.cpp
 	Signal_unittest.cpp
 	STLChronoCalendar_unittest.cpp
 	STLChrono_unittest.cpp

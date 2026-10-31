@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include <limits.h>
+#include <limits>
 
+#include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Widgets/Control.h>
 #include <Threads/EventTimer.h>
 
@@ -34,10 +35,15 @@ public:
 
     // From View
     virtual void    OnFrameSized(const PPoint& delta) override;
+    virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
+    virtual void    OnStyleChanged() override;
+    virtual void    OnEnableStatusChanged(bool isEnabled) override;
 
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
 
 //    virtual void	WheelMoved(const Point& cDelta);
 
@@ -62,26 +68,25 @@ public:
     Signal<void, float, bool, Ptr<PScrollBar>>	SignalValueChanged;
 
 private:
-    enum { HIT_NONE, HIT_KNOB, HIT_ARROW };
-    PRect	GetKnobFrame() const;
-    float	PosToVal(PPoint pos) const;
+    static bool IsArrowPart(PScrollBarPart part);
+    void        StepValue(PScrollBarPart part);
+    void        EndInteraction();
+    float       GetRelativeValue() const;
+    void        NotifyStylePropertyChanged(PScrollBarProperties properties);
 
     PEventTimer m_RepeatTimer;
 
-    PView*       m_Target = nullptr;
-    float       m_Min = 0.0f;
-    float       m_Max = 1.0f;
-    float       m_Value = 0.0f;
-    float       m_Proportion = 0.1f;
-    float       m_SmallStep = 1.0f;
-    float       m_BigStep = 10.0f;
-    POrientation m_Orientation = POrientation::Vertical;
-    PRect        m_ArrowRects[4];
-    bool        m_ArrowStates[4];
-    PRect        m_KnobArea;
-    bool        m_Changed = false;
-    bool        m_FirstTick = true;
-    PPoint       m_HitPos;
-    int         m_HitArrowIndex = 0;
-    int         m_HitState = HIT_NONE;
+    PScrollBarStyleData m_ScrollBarStyleData;
+
+    PView*          m_Target = nullptr;
+    PPoint          m_HitPos;
+    float           m_Min = 0.0f;
+    float           m_Max = 1.0f;
+    float           m_Value = 0.0f;
+    float           m_SmallStep = 1.0f;
+    float           m_BigStep = 10.0f;
+    PPointerID      m_HitPointerID = PInvalidPointerID;
+    PScrollBarPart  m_HitPart = PScrollBarPart::None;
+    bool            m_Changed = false;
+    bool            m_FirstTick = true;
 };

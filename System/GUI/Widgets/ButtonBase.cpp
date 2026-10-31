@@ -24,9 +24,11 @@ PButtonBase::PButtonBase(const PString& name, uint32_t flags) : PControl(name, f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonBase::PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment)
-    : PControl(context, xmlData, defaultLabelAlignment)
+PButtonBase::PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment) : PControl(context, xmlData)
 {
+    m_ButtonStyleData.Label = context.GetAttribute(xmlData, "label", PString::zero);
+    m_ButtonStyleData.LabelAlignment = context.GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
+
     PString groupName = context.GetAttribute(xmlData, "group", PString::zero);
 
     if (!groupName.empty())
@@ -77,6 +79,27 @@ Ptr<PButtonGroup> PButtonBase::FindButtonGroup(Ptr<PView> root, const PString& n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PButtonBase::OnFontChanged(Ptr<const PFont> newFont)
+{
+    m_ButtonStyleData.IsLabelSizeValid = false;
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::OnStyleChanged()
+{
+    m_ButtonStyleData.IsLabelSizeValid = false;
+    PControl::OnStyleChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     //    printf("Button: Mouse down %d, %.1f/%.1f\n", int(pointerID), position.x, position.y);
@@ -91,7 +114,7 @@ void PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, co
         if (event.ToolType != PMotionToolType::Mouse) {
             p_beep(PBeepLength::Short);
         }
-        if (m_CanBeCheked && event.ToolType == PMotionToolType::Mouse) {
+        if (m_ButtonStyleData.IsCheckable && event.ToolType == PMotionToolType::Mouse) {
             ActivateCheckableButton();
         }
     }
@@ -109,10 +132,10 @@ void PButtonBase::OnPointerUp(PPointerID pointerID, const PPoint& position, cons
         && pointerID == m_HitPointerID)
     {
         m_HitPointerID = PInvalidPointerID;
-        if (m_IsPressed)
+        if (m_ButtonStyleData.IsPressed)
         {
             SetPressedState(false);
-            if (!m_CanBeCheked) {
+            if (!m_ButtonStyleData.IsCheckable) {
                 SignalActivated(pointerID, this);
             } else if (event.ToolType != PMotionToolType::Mouse) {
                 ActivateCheckableButton();
@@ -142,7 +165,7 @@ void PButtonBase::OnPointerOver(PPointerID pointerID, const PPoint& position, co
 {
     if (phase == PEventPhase::Target)
     {
-        m_IsPointerOver = true;
+        m_ButtonStyleData.IsPointerOver = true;
         if (IsEnabled()) {
             Invalidate();
         }
@@ -157,7 +180,7 @@ void PButtonBase::OnPointerOut(PPointerID pointerID, const PPoint& position, con
 {
     if (phase == PEventPhase::Target)
     {
-        m_IsPointerOver = false;
+        m_ButtonStyleData.IsPointerOver = false;
         if (IsEnabled()) {
             Invalidate();
         }
@@ -182,12 +205,39 @@ void PButtonBase::OnPointerCaptureLost(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PButtonBase::SetLabel(const PString& label)
+{
+    if (label != m_ButtonStyleData.Label)
+    {
+        m_ButtonStyleData.Label = label;
+        m_ButtonStyleData.IsLabelSizeValid = false;
+        OnLabelChanged(m_ButtonStyleData.Label);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::SetLabelAlignment(PAlignment alignment)
+{
+    m_ButtonStyleData.LabelAlignment = alignment;
+    m_ButtonStyleData.IsLabelSizeValid = false;
+    PreferredSizeChanged();
+    Invalidate();
+    Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PButtonBase::SetChecked(bool isChecked)
 {
-    if (isChecked != m_IsChecked)
+    if (isChecked != m_ButtonStyleData.IsChecked)
     {
-        m_IsChecked = isChecked;
-        OnCheckedStateChanged(m_IsChecked);
+        m_ButtonStyleData.IsChecked = isChecked;
+        OnCheckedStateChanged(m_ButtonStyleData.IsChecked);
         SignalToggled(isChecked, this);
     }
 }
@@ -198,10 +248,10 @@ void PButtonBase::SetChecked(bool isChecked)
 
 void PButtonBase::SetPressedState(bool isPressed)
 {
-    if (isPressed != m_IsPressed)
+    if (isPressed != m_ButtonStyleData.IsPressed)
     {
-        m_IsPressed = isPressed;
-        OnPressedStateChanged(m_IsPressed);
+        m_ButtonStyleData.IsPressed = isPressed;
+        OnPressedStateChanged(m_ButtonStyleData.IsPressed);
     }
 }
 
@@ -214,8 +264,7 @@ void PButtonBase::OnEnableStatusChanged(bool isEnabled)
     if (!isEnabled)
     {
         m_HitPointerID = PInvalidPointerID;
-        if (m_IsPressed)
-        {
+        if (m_ButtonStyleData.IsPressed) {
             SetPressedState(false);
         }
     }
@@ -240,7 +289,7 @@ void PButtonBase::ActivateCheckableButton()
     if (m_ButtonGroup != nullptr) {
         m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
     } else {
-        SetChecked(!m_IsChecked);
+        SetChecked(!m_ButtonStyleData.IsChecked);
     }
 }
 

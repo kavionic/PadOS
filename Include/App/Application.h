@@ -21,6 +21,7 @@
 #include <Threads/EventTimer.h>
 #include <ApplicationServer/Protocol.h>
 
+class PGUIStyle;
 class PView;
 
 
@@ -34,6 +35,8 @@ public:
     static void SetDefaultApplication(PApplication* application);
 
     static PApplication* GetCurrentApplication() { return dynamic_cast<PApplication*>(GetCurrentThread()); }
+
+    const PGUIStyle* GetGUIStyle() const { return ptr_raw_pointer_cast(m_GUIStyle); }
 
     virtual void Idle() override;
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
@@ -126,12 +129,7 @@ private:
     
     void* AllocMessageBuffer(int32_t messageID, size_t size);
     void ReceiveReply(int32_t expectedCode, void* reply, size_t replySize);
-    PFontTextMetrics MeasureFontChunk(
-        handle_id fontHandle,
-        std::string_view text,
-        float width,
-        bool includeLast,
-        uint32_t& previousGlyph);
+    PFontTextMetrics MeasureFontChunk(handle_id fontHandle, std::string_view text, float width, bool includeLast, uint32_t& previousGlyph);
 
     bool CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index);
     void RegisterViewForLayout(Ptr<PView> view, bool recursive = false);
@@ -182,6 +180,7 @@ private:
     void LayoutViews();
 
     static PApplication* s_DefaultApplication;
+    Ptr<const PGUIStyle> m_GUIStyle;
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
     PMouseCursorToken m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;

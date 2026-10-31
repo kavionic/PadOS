@@ -47,7 +47,7 @@ public:
     constexpr PPoint TopRight() const noexcept { return PPoint(right, top); }
     constexpr PPoint BottomLeft() const noexcept { return PPoint(left, bottom); }
     constexpr PPoint BottomRight() const noexcept { return PPoint(right, bottom); }
-    constexpr PPoint Center() const noexcept { return PPoint(right * 0.5f, bottom * 0.5f); }
+    constexpr PPoint Center() const noexcept { return PPoint((left + right) * 0.5f, (top + bottom) * 0.5f); }
     constexpr PRect  Bounds() const noexcept { return PRect(0.0f, 0.0f, right - left, bottom - top); }
 
     PRect& Round() noexcept { left = std::round(left); right = std::round(right); top = std::round(top); bottom = std::round(bottom); return *this; }

@@ -36,7 +36,7 @@ public:
         , m_FgColor(fgColor) {}
 
     Ptr<ViewType>       GetParent()       { return m_Parent.Lock(); }
-    Ptr<const ViewType> GetParent() const { return m_Parent.Lock(); }
+    Ptr<const ViewType> GetParent() const { return ptr_static_cast<const ViewType>(m_Parent.Lock()); }
 
     Ptr<ViewType>       GetRoot()       { Ptr<ViewType> parent = GetParent(); return (parent != nullptr) ? parent->GetRoot() : ptr_static_cast<ViewType>(ptr_tmp_cast(this)); }
     Ptr<const ViewType> GetRoot() const { Ptr<const ViewType> parent = GetParent(); return (parent != nullptr) ? parent->GetRoot() : ptr_static_cast<const ViewType>(ptr_tmp_cast(this)); }

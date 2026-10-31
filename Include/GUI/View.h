@@ -36,6 +36,7 @@ class xml_node;
 
 #define DEFINE_FLAG_MAP_ENTRY(NAMESPACE, FLAG) {#FLAG, NAMESPACE::FLAG}
 
+class PGUIStyle;
 class PScrollBar;
 class PButtonGroup;
 class PBitmap;
@@ -64,6 +65,7 @@ public:
     virtual ~PView();
 
     PApplication* GetApplication() const;
+    const PGUIStyle* GetStyle() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
     handler_id   GetParentServerHandle() const;
 
@@ -131,6 +133,7 @@ public:
     virtual void    OnScreenFrameMoved(const PPoint& delta);
     virtual void    OnViewScrolled(const PPoint& delta);
     virtual void    OnFontChanged(Ptr<const PFont> newFont);
+    virtual void    OnStyleChanged() {}
     
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight);
     virtual PPoint  CalculateContentSize() const;

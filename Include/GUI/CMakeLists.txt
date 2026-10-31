@@ -18,6 +18,7 @@ target_sources(PadOS_GUI PRIVATE
 	LayoutNode.h
 	MouseCursor.h
 	Region.h
+	StyledView.h
 	View.h
 	ViewBase.h
 	ViewFactory.h
@@ -27,4 +28,6 @@ target_sources(PadOS_GUI PRIVATE
 )
 
 add_subdirectory(Dialogs)
+add_subdirectory(Style)
+add_subdirectory(Styles)
 add_subdirectory(Widgets)

@@ -5,31 +5,13 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <assert.h>
+#include <cmath>
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/ScrollBar.h>
-#include <GUI/Color.h>
 #include <Threads/Looper.h>
-
-//#include "stdbitmaps.h"
-
-
-enum { SB_MINSIZE = 12 };
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static PColor Tint(const PColor& color, float tint)
-{
-    int r = int((float(color.GetRed()) * tint + 127.0f * (1.0f - tint)));
-    int g = int((float(color.GetGreen()) * tint + 127.0f * (1.0f - tint)));
-    int b = int((float(color.GetBlue()) * tint + 127.0f * (1.0f - tint)));
-    if (r < 0) r = 0; else if (r > 255) r = 255;
-    if (g < 0) g = 0; else if (g > 255) g = 255;
-    if (b < 0) b = 0; else if (b > 255) b = 255;
-    return PColor(uint8_t(r), uint8_t(g), uint8_t(b), color.GetAlpha());
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -37,13 +19,12 @@ static PColor Tint(const PColor& color, float tint)
 
 PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation orientation, uint32_t flags)
     : PControl(name, flags | PViewFlags::WillDraw)
+    , m_Min(min)
+    , m_Max(max)
 {
-    memset(m_ArrowStates, 0, sizeof(m_ArrowStates));
-    m_Orientation  = orientation;
-    m_Min          = min;
-    m_Max          = max;
-    OnFrameSized(PPoint(0.0f, 0.0f));
-
+    m_ScrollBarStyleData.Orientation = orientation;
+    m_ScrollBarStyleData.HasRange = m_Max > m_Min;
+    m_ScrollBarStyleData.Value = GetRelativeValue();
     m_RepeatTimer.SignalTrigged.Connect(this, &PScrollBar::SlotTimerTick);
 }
 
@@ -55,12 +36,294 @@ PScrollBar::~PScrollBar()
 {
     if (m_Target != nullptr)
     {
-        if (m_Orientation == POrientation::Horizontal) {
+        if (m_ScrollBarStyleData.Orientation == POrientation::Horizontal) {
             m_Target->SetHScrollBar(nullptr);
         } else {
             m_Target->SetVScrollBar(nullptr);
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::SetScrollTarget(Ptr<PView> target)
+{
+    if (m_Target != nullptr)
+    {
+        if (m_ScrollBarStyleData.Orientation == POrientation::Horizontal) {
+            assert(m_Target->GetHScrollBar() == this);
+            m_Target->SetHScrollBar(nullptr);
+        } else {
+            assert(m_Target->GetVScrollBar() == this);
+            m_Target->SetVScrollBar(nullptr);
+        }
+    }
+    m_Target = ptr_raw_pointer_cast(target);
+    if (m_Target != nullptr)
+    {
+        if (m_ScrollBarStyleData.Orientation == POrientation::Horizontal)
+        {
+            assert(m_Target->GetHScrollBar() == nullptr);
+            m_Target->SetHScrollBar(this);
+            SetValue(m_Target->GetScrollOffset().x);
+        }
+        else
+        {
+            assert(m_Target->GetVScrollBar() == nullptr);
+            m_Target->SetVScrollBar(this);
+            SetValue(m_Target->GetScrollOffset().y);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PView> PScrollBar::GetScrollTarget()
+{
+    return ptr_tmp_cast(m_Target);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnFrameSized(const PPoint& delta)
+{
+	PControl::OnFrameSized(delta);
+	NotifyStylePropertyChanged(PScrollBarProperty::Frame);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnFontChanged(Ptr<const PFont> newFont)
+{
+    NotifyStylePropertyChanged(PScrollBarProperty::Font);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnStyleChanged()
+{
+    m_ScrollBarStyleData.StyleData.Reset();
+    EndInteraction();
+    PControl::OnStyleChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnEnableStatusChanged(bool isEnabled)
+{
+    m_ScrollBarStyleData.IsEnabled = isEnabled;
+    if (!isEnabled) {
+        EndInteraction();
+    }
+    NotifyStylePropertyChanged(PScrollBarProperty::Enabled);
+    Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+	if (phase != PEventPhase::Target || !IsEnabled() || m_HitPointerID != PInvalidPointerID) {
+		return;
+	}
+	const PGUIStyle* style = GetStyle();
+	if (style == nullptr) {
+		return;
+	}
+	const PScrollBarPart part = style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position);
+	if (part == PScrollBarPart::None || !SetPointerCapture(pointerID)) {
+		return;
+	}
+	m_HitPointerID = pointerID;
+	m_HitPart = part;
+	m_Changed = false;
+	m_ScrollBarStyleData.PressedPart = part;
+	if (part == PScrollBarPart::Knob)
+	{
+		m_HitPos = position - style->ScrollBarGetValuePosition(*this, m_ScrollBarStyleData, m_ScrollBarStyleData.Value);
+	}
+	else if (IsArrowPart(part))
+	{
+		m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
+		m_RepeatTimer.Start(true, GetLooper());
+	}
+	else
+	{
+		StepValue(part);
+	}
+	NotifyStylePropertyChanged(PScrollBarProperty::Pressed);
+	Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+	if (phase != PEventPhase::Target || pointerID != m_HitPointerID) {
+		return;
+	}
+	const PGUIStyle* style = GetStyle();
+	if (style != nullptr && IsArrowPart(m_HitPart) && m_FirstTick)
+	{
+		if (style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position) == m_HitPart) {
+			StepValue(m_HitPart);
+		}
+	}
+	else if (m_HitPart == PScrollBarPart::Knob && m_Changed)
+	{
+		SignalValueChanged(GetValue(), true, ptr_tmp_cast(this)); // Send a 'final' event.
+	}
+	EndInteraction();
+	Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+	if (phase != PEventPhase::Target || pointerID != m_HitPointerID) {
+		return;
+	}
+	const PGUIStyle* style = GetStyle();
+	if (style == nullptr) {
+		return;
+	}
+	if (IsArrowPart(m_HitPart))
+	{
+		const bool isHit = style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position) == m_HitPart;
+		const PScrollBarPart pressedPart = isHit ? m_HitPart : PScrollBarPart::None;
+		if (pressedPart != m_ScrollBarStyleData.PressedPart)
+		{
+			if (isHit)
+			{
+				m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
+				m_RepeatTimer.Start(true, GetLooper());
+			}
+			else
+			{
+				m_RepeatTimer.Stop();
+			}
+			m_ScrollBarStyleData.PressedPart = pressedPart;
+			NotifyStylePropertyChanged(PScrollBarProperty::Pressed);
+			Flush();
+		}
+	}
+	else if (m_HitPart == PScrollBarPart::Knob)
+	{
+		const float relativeValue = style->ScrollBarGetValueFromPosition(*this, m_ScrollBarStyleData, position - m_HitPos);
+		SetValue(m_Min + (m_Max - m_Min) * std::clamp(relativeValue, 0.0f, 1.0f));
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && pointerID == m_HitPointerID)
+    {
+        EndInteraction();
+        Flush();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
+{
+    if (pointerID == m_HitPointerID)
+    {
+        EndInteraction();
+        Flush();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+//void ScrollBar::WheelMoved(const Point& delta)
+//{
+//	float value = GetValue();
+//
+//	if (m_Orientation == Orientation::Vertical && delta.y != 0.0f) {
+//		value += delta.y * m_SmallStep;
+//	} else if (m_Orientation == Orientation::Horizontal && delta.x != 0.0f) {
+//		value += delta.y * m_SmallStep;
+//	}
+//	if (value < m_Min) {
+//		value = m_Min;
+//	} else if (value > m_Max) {
+//		value = m_Max;
+//	}
+//
+//	SetValue(value);
+//}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPaint(const PRect& updateRect)
+{
+	const PGUIStyle* style = GetStyle();
+	if (style != nullptr) {
+		style->ScrollBarPaint(*this, GetNormalizedBounds(), m_ScrollBarStyleData);
+	} else {
+		PView::OnPaint(updateRect);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
+{
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->ScrollBarGetPreferredSize(*this, m_ScrollBarStyleData, minSize, maxSize);
+    } else {
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::SlotTimerTick()
+{
+	if (!IsEnabled() || GetStyle() == nullptr || !IsArrowPart(m_ScrollBarStyleData.PressedPart)) {
+		return;
+	}
+	StepValue(m_HitPart);
+	if (m_RepeatTimer.IsSingleshot())
+	{
+		m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(30));
+		m_RepeatTimer.Start(false, GetLooper());
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,11 +336,12 @@ void PScrollBar::SetValue(float value)
         return;
     }
     m_Value = value;
+    m_ScrollBarStyleData.Value = GetRelativeValue();
     if (m_Target != nullptr)
     {
         PPoint pos = m_Target->GetScrollOffset();
 
-        if (m_Orientation == POrientation::Horizontal) {
+        if (m_ScrollBarStyleData.Orientation == POrientation::Horizontal) {
             pos.x = -std::floor(value);
         } else {
             pos.y = -std::floor(value);
@@ -85,28 +349,8 @@ void PScrollBar::SetValue(float value)
         m_Target->ScrollTo(pos);
         m_Target->Flush();
     }
-    Invalidate(m_KnobArea);
+    NotifyStylePropertyChanged(PScrollBarProperty::Value);
     Flush();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::SetProportion(float proportion)
-{
-    m_Proportion = proportion;
-    Invalidate(m_KnobArea);
-    Flush();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-float PScrollBar::GetProportion() const
-{
-    return m_Proportion;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,39 +381,88 @@ void PScrollBar::SetMinMax(float min, float max)
 {
     m_Min = min;
     m_Max = max;
+    m_ScrollBarStyleData.HasRange = m_Max > m_Min;
+    m_ScrollBarStyleData.Value = GetRelativeValue();
+    NotifyStylePropertyChanged(PScrollBarProperties(PScrollBarProperty::Range, PScrollBarProperty::Value));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PScrollBar::SetScrollTarget(Ptr<PView> target)
+void PScrollBar::SetProportion(float proportion)
 {
-    if (m_Target != nullptr)
+    m_ScrollBarStyleData.Proportion = proportion;
+    NotifyStylePropertyChanged(PScrollBarProperty::Proportion);
+    Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float PScrollBar::GetProportion() const
+{
+    return m_ScrollBarStyleData.Proportion;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PScrollBar::IsArrowPart(PScrollBarPart part)
+{
+    return part == PScrollBarPart::DecrementStart || part == PScrollBarPart::IncrementStart ||
+        part == PScrollBarPart::DecrementEnd || part == PScrollBarPart::IncrementEnd;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::StepValue(PScrollBarPart part)
+{
+    float step = 0.0f;
+    switch (part)
     {
-        if (m_Orientation == POrientation::Horizontal) {
-            assert(m_Target->GetHScrollBar() == this);
-            m_Target->SetHScrollBar(nullptr);
-        } else {
-            assert(m_Target->GetVScrollBar() == this);
-            m_Target->SetVScrollBar(nullptr);
-        }
+        case PScrollBarPart::DecrementStart:
+        case PScrollBarPart::DecrementEnd:
+            step = -m_SmallStep;
+            break;
+        case PScrollBarPart::IncrementStart:
+        case PScrollBarPart::IncrementEnd:
+            step = m_SmallStep;
+            break;
+        case PScrollBarPart::PageDecrement:
+            step = -m_BigStep;
+            break;
+        case PScrollBarPart::PageIncrement:
+            step = m_BigStep;
+            break;
+        default:
+            return;
     }
-    m_Target = ptr_raw_pointer_cast(target);
-    if (m_Target != nullptr)
+    SetValue(std::clamp(m_Value + step, m_Min, m_Max));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::EndInteraction()
+{
+    m_RepeatTimer.Stop();
+    const PPointerID pointerID = m_HitPointerID;
+    m_HitPointerID = PInvalidPointerID;
+    m_HitPart = PScrollBarPart::None;
+    m_Changed = false;
+    if (pointerID != PInvalidPointerID && HasPointerCapture(pointerID)) {
+        ReleasePointerCapture(pointerID);
+    }
+    if (m_ScrollBarStyleData.PressedPart != PScrollBarPart::None)
     {
-        if (m_Orientation == POrientation::Horizontal)
-        {
-            assert(m_Target->GetHScrollBar() == nullptr);
-            m_Target->SetHScrollBar(this);
-            SetValue(m_Target->GetScrollOffset().x);
-        }
-        else
-        {
-            assert(m_Target->GetVScrollBar() == nullptr);
-            m_Target->SetVScrollBar(this);
-            SetValue(m_Target->GetScrollOffset().y);
-        }
+        m_ScrollBarStyleData.PressedPart = PScrollBarPart::None;
+        NotifyStylePropertyChanged(PScrollBarProperty::Pressed);
     }
 }
 
@@ -177,489 +470,26 @@ void PScrollBar::SetScrollTarget(Ptr<PView> target)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PView> PScrollBar::GetScrollTarget()
+float PScrollBar::GetRelativeValue() const
 {
-    return ptr_tmp_cast(m_Target);
+    return (m_Max > m_Min) ? std::clamp((m_Value - m_Min) / (m_Max - m_Min), 0.0f, 1.0f) : 0.0f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PScrollBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
+void PScrollBar::NotifyStylePropertyChanged(PScrollBarProperties properties)
 {
-    const float w = 16.0f;
-
-    if (m_Orientation == POrientation::Horizontal) {
-        *minSize = PPoint(0.0f, w);
-        *maxSize = PPoint(COORD_MAX, w);
-    } else {
-        *minSize = PPoint(w, 0.0f);
-        *maxSize = PPoint(w, COORD_MAX);
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr)
+    {
+        style->ScrollBarPropertyChanged(*this, m_ScrollBarStyleData, properties);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::SlotTimerTick()
-{
-	float value = GetValue();
-	if (m_HitArrowIndex & 0x01) {
-		value += m_SmallStep;
-	} else {
-		value -= m_SmallStep;
-	}
-	if (value < m_Min) {
-		value = m_Min;
-	} else if (value > m_Max) {
-		value = m_Max;
-	}
-	SetValue(value);
-
-	if (m_RepeatTimer.IsSingleshot()) {
-        m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(30));
-		GetLooper()->AddTimer(&m_RepeatTimer, false);
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
-{
-	SetPointerCapture(pointerID);
-	m_HitState = HIT_NONE;
-	m_Changed = false;
-
-	for (int i = 0; i < 4; ++i)
-	{
-		if (m_ArrowRects[i].DoIntersect(position))
-		{
-			m_ArrowStates[i] = true;
-			m_HitArrowIndex = i;
-			m_HitState = HIT_ARROW;
-			Invalidate(m_ArrowRects[i]);
-			Flush();
-            m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
-            GetLooper()->AddTimer(&m_RepeatTimer, true);
-			return;
-		}
-	}
-	if (m_KnobArea.DoIntersect(position))
-	{
-		PRect cKnobFrame = GetKnobFrame();
-		if (cKnobFrame.DoIntersect(position)) {
-			m_HitPos = position - cKnobFrame.TopLeft();
-			m_HitState = HIT_KNOB;
-			return;
-		}
-		float vValue = GetValue();
-		if (m_Orientation == POrientation::Horizontal)
-		{
-			if (position.x < cKnobFrame.left) {
-				vValue -= m_BigStep;
-			} else if (position.x > cKnobFrame.right) {
-				vValue += m_BigStep;
-			}
-		}
-		else
-		{
-			if (position.y < cKnobFrame.top) {
-				vValue -= m_BigStep;
-			} else if (position.y > cKnobFrame.bottom) {
-				vValue += m_BigStep;
-			}
-		}
-		if (vValue < m_Min) {
-			vValue = m_Min;
-		} else if (vValue > m_Max) {
-			vValue = m_Max;
-		}
-		SetValue(vValue);
-		return;
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
-{
-	if (m_HitState == HIT_ARROW)
-	{
-		float value = GetValue();
-		bool changed = false;
-		if (m_FirstTick)
-		{
-			for (int i = 0; i < 4; ++i)
-			{
-				if (m_ArrowRects[i].DoIntersect(position))
-				{
-					if (i == m_HitArrowIndex)
-					{
-						changed = true;
-						if (i & 0x01) {
-							value += m_SmallStep;
-						} else {
-							value -= m_SmallStep;
-						}
-					}
-					break;
-				}
-			}
-		}
-		if (m_ArrowStates[m_HitArrowIndex])
-		{
-			m_RepeatTimer.Stop();
-			m_ArrowStates[m_HitArrowIndex] = false;
-		}
-		Invalidate(m_ArrowRects[m_HitArrowIndex]);
-		if (changed)
-		{
-			if (value < m_Min) {
-				value = m_Min;
-			} else if (value > m_Max) {
-				value = m_Max;
-			}
-			SetValue(value);
-		}
-		Flush();
-	}
-	else if (m_HitState == HIT_KNOB)
-	{
-		if (m_Changed) {
-			SignalValueChanged(GetValue(), true, ptr_tmp_cast(this)); // Send a 'final' event.
-			m_Changed = false;
-		}
-	}
-
-	m_HitState = HIT_NONE;
-	ReleasePointerCapture(pointerID);
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
-{
-	if (m_HitState == HIT_ARROW)
-	{
-		int i;
-		for (i = 0; i < 4; ++i)
-		{
-			if (m_ArrowRects[i].DoIntersect(position))
-			{
-				break;
-			}
-		}
-		const bool bHit = m_HitArrowIndex == i;
-		if (bHit != m_ArrowStates[m_HitArrowIndex])
-		{
-			if (m_ArrowStates[m_HitArrowIndex])
-			{
-                m_RepeatTimer.Stop();
-			}
-			else
-			{
-				if (!m_RepeatTimer.IsRunning())
-				{
-					m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
-					GetLooper()->AddTimer(&m_RepeatTimer, true);
-				}
-			}
-			m_ArrowStates[m_HitArrowIndex] = bHit;
-			Invalidate(m_ArrowRects[m_HitArrowIndex]);
-			Flush();
-		}
-
-	}
-	else if (m_HitState == HIT_KNOB)
-	{
-		SetValue(PosToVal(position));
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-//void ScrollBar::WheelMoved(const Point& delta)
-//{
-//	float value = GetValue();
-//
-//	if (m_Orientation == Orientation::Vertical && delta.y != 0.0f) {
-//		value += delta.y * m_SmallStep;
-//	} else if (m_Orientation == Orientation::Horizontal && delta.x != 0.0f) {
-//		value += delta.y * m_SmallStep;
-//	}
-//	if (value < m_Min) {
-//		value = m_Min;
-//	} else if (value > m_Max) {
-//		value = m_Max;
-//	}
-//
-//	SetValue(value);
-//}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::OnPaint(const PRect& cUpdateRect)
-{
-	PRect cBounds = GetBounds();
-	PRect cKnobFrame = GetKnobFrame();
-
-	//  SetEraseColor( get_default_color( COL_SCROLLBAR_BG ) );
-
-	//    DrawFrame( cBounds, FRAME_RECESSED | FRAME_TRANSPARENT | FRAME_THIN );
-
-	SetEraseColor(PStandardColorID::ScrollBarKnob);
-	DrawFrame(cKnobFrame, FRAME_RAISED);
-
-	if (m_Orientation == POrientation::Horizontal)
-	{
-		if (cKnobFrame.Width() > 30.0f)
-		{
-			const float vDist = 5.0f;
-			float vCenter = cKnobFrame.left + (cKnobFrame.Width() + 1.0f) * 0.5f;
-			SetFgColor(PStandardColorID::Shine);
-			DrawLine(PPoint(vCenter - vDist, cKnobFrame.top + 4.0f), PPoint(vCenter - vDist, cKnobFrame.bottom - 4.0f));
-			DrawLine(PPoint(vCenter, cKnobFrame.top + 4.0f), PPoint(vCenter, cKnobFrame.bottom - 4.0f));
-			DrawLine(PPoint(vCenter + vDist, cKnobFrame.top + 4.0f), PPoint(vCenter + vDist, cKnobFrame.bottom - 4.0f));
-
-			SetFgColor(PStandardColorID::Shadow);
-			vCenter -= 1.0f;
-			DrawLine(PPoint(vCenter - vDist, cKnobFrame.top + 4.0f), PPoint(vCenter - vDist, cKnobFrame.bottom - 4.0f));
-			DrawLine(PPoint(vCenter, cKnobFrame.top + 4.0f), PPoint(vCenter, cKnobFrame.bottom - 4.0f));
-			DrawLine(PPoint(vCenter + vDist, cKnobFrame.top + 4.0f), PPoint(vCenter + vDist, cKnobFrame.bottom - 4.0f));
-		}
-	}
-	else
-	{
-		if (cKnobFrame.Height() > 30.0f)
-		{
-			const float vDist = 5.0f;
-			float vCenter = cKnobFrame.top + (cKnobFrame.Height() + 1.0f) * 0.5f;
-			SetFgColor(PStandardColorID::Shine);
-			DrawLine(PPoint(cKnobFrame.left + 4.0f, vCenter - vDist), PPoint(cKnobFrame.right - 4.0f, vCenter - vDist));
-			DrawLine(PPoint(cKnobFrame.left + 4.0f, vCenter), PPoint(cKnobFrame.right - 4.0f, vCenter));
-			DrawLine(PPoint(cKnobFrame.left + 4.0f, vCenter + vDist), PPoint(cKnobFrame.right - 4.0f, vCenter + vDist));
-
-			SetFgColor(PStandardColorID::Shadow);
-			vCenter -= 1.0f;
-			DrawLine(PPoint(cKnobFrame.left + 4.0f, vCenter - vDist), PPoint(cKnobFrame.right - 4.0f, vCenter - vDist));
-			DrawLine(PPoint(cKnobFrame.left + 4.0f, vCenter), PPoint(cKnobFrame.right - 4.0f, vCenter));
-			DrawLine(PPoint(cKnobFrame.left + 4.0f, vCenter + vDist), PPoint(cKnobFrame.right - 4.0f, vCenter + vDist));
-		}
-	}
-
-	SetFgColor(PStandardColorID::ScrollBarBackground);
-
-	cBounds.left += 1;
-	cBounds.top += 1;
-	cBounds.right -= 1;
-	cBounds.bottom -= 1;
-
-	PRect cFrame(m_KnobArea);
-	if (m_Orientation == POrientation::Horizontal) {
-		cFrame.right = cKnobFrame.left - 1.0f;
-	} else {
-		cFrame.bottom = cKnobFrame.top - 1.0f;
-	}
-	FillRect(cFrame);
-
-	cFrame = m_KnobArea;
-	if (m_Orientation == POrientation::Horizontal) {
-		cFrame.left = cKnobFrame.right + 1.0f;
-	} else {
-		cFrame.top = cKnobFrame.bottom + 1.0f;
-	}
-	FillRect(cFrame);
-	if (m_Orientation == POrientation::Horizontal)
-	{
-		SetFgColor(Tint(pget_standard_color(PStandardColorID::Shadow), 0.5f));
-		DrawLine(PPoint(m_KnobArea.left, m_KnobArea.top - 1.0f), PPoint(m_KnobArea.right, m_KnobArea.top - 1.0f));
-		SetFgColor(Tint(pget_standard_color(PStandardColorID::Shine), 0.6f));
-		DrawLine(PPoint(m_KnobArea.left, m_KnobArea.bottom + 1.0f), PPoint(m_KnobArea.right, m_KnobArea.bottom + 1.0f));
-	}
-	else
-	{
-		SetFgColor(Tint(pget_standard_color(PStandardColorID::Shadow), 0.5f));
-		DrawLine(PPoint(m_KnobArea.left - 1.0f, m_KnobArea.top), PPoint(m_KnobArea.left - 1.0f, m_KnobArea.bottom));
-		SetFgColor(Tint(pget_standard_color(PStandardColorID::Shine), 0.6f));
-		DrawLine(PPoint(m_KnobArea.right + 1.0f, m_KnobArea.top), PPoint(m_KnobArea.right + 1.0f, m_KnobArea.bottom));
-	}
-	for (int i = 0; i < 4; ++i)
-	{
-		if (m_ArrowRects[i].IsValid())
-		{
-//			Rect cBmRect;
-//			Bitmap* pcBitmap;
-//
-//			if (m_Orientation == Orientation::Horizontal) {
-//				pcBitmap = get_std_bitmap(((i & 0x01) ? BMID_ARROW_RIGHT : BMID_ARROW_LEFT), 0, &cBmRect);
-//			} else {
-//				pcBitmap = get_std_bitmap(((i & 0x01) ? BMID_ARROW_DOWN : BMID_ARROW_UP), 0, &cBmRect);
-//			}
-			DrawFrame(m_ArrowRects[i], (m_ArrowStates[i] ? FRAME_RECESSED : FRAME_RAISED) | FRAME_THIN);
-
-			SetDrawingMode(PDrawingMode::Overlay);
-
-//			DrawBitmap(pcBitmap, cBmRect, cBmRect.Bounds() + Point((m_acArrowRects[i].Width() + 1.0f) * 0.5 - (cBmRect.Width() + 1.0f) * 0.5,
-//				(m_acArrowRects[i].Height() + 1.0f) * 0.5 - (cBmRect.Height() + 1.0f) * 0.5) +
-//				m_acArrowRects[i].LeftTop());
-
-			SetDrawingMode(PDrawingMode::Copy);
-
-		}
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-float PScrollBar::PosToVal(PPoint pos) const
-{
-	float value = m_Min;
-
-	pos -= m_HitPos;
-
-	if (m_Orientation == POrientation::Horizontal)
-	{
-		float	size   = m_KnobArea.Width() * m_Proportion;
-		float	length = m_KnobArea.Width() - size;
-
-		if (length > 0.0f) {
-			float relativePos = (pos.x - m_KnobArea.left) / length;
-			value = m_Min + (m_Max - m_Min) * relativePos;
-		}
-	} else {
-		float size   = m_KnobArea.Height() * m_Proportion;
-		float length = m_KnobArea.Height() - size;
-
-		if (length > 0.0f) {
-			float relativePos = (pos.y - m_KnobArea.top) / length;
-			value = m_Min + (m_Max - m_Min) * relativePos;
-		}
-	}
-	return std::clamp(value, m_Min, m_Max);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PScrollBar::OnFrameSized(const PPoint& delta)
-{
-	const PRect bounds = GetBounds();
-	PRect arrowRect = bounds;
-
-	m_KnobArea = bounds;
-	if (m_Orientation == POrientation::Horizontal)
-	{
-		arrowRect.right = std::ceil(arrowRect.Height() * 0.7f);
-		const float width = arrowRect.Width();
-
-		m_ArrowRects[0] = arrowRect;
-		m_ArrowRects[1] = arrowRect + PPoint(width, 0.0f);
-		m_ArrowRects[2] = arrowRect + PPoint(bounds.Width() - width * 2.0f, 0.0f);
-		m_ArrowRects[3] = arrowRect + PPoint(bounds.Width() - width, 0.0f);
-
-		if (m_ArrowRects[0].right > m_ArrowRects[3].left)
-        {
-			m_ArrowRects[0].right = std::floor(bounds.Width() * 0.5f);
-			m_ArrowRects[3].left  = m_ArrowRects[0].right;
-			m_ArrowRects[1].left  = m_ArrowRects[0].right;
-			m_ArrowRects[1].right = m_ArrowRects[1].left;
-			m_ArrowRects[2].right = m_ArrowRects[3].left;
-			m_ArrowRects[2].left  = m_ArrowRects[2].right;
-		}
-        else if (m_ArrowRects[1].right + 15.0f > m_ArrowRects[2].left)
-        {
-			m_ArrowRects[1].right = m_ArrowRects[1].left;
-			m_ArrowRects[2].left = m_ArrowRects[2].right;
-		}
-		m_KnobArea.left = m_ArrowRects[1].right;
-		m_KnobArea.right = m_ArrowRects[2].left;
-		m_KnobArea.top += 1.0f;
-		m_KnobArea.bottom -= 1.0f;
-	}
     else
     {
-		arrowRect.bottom = std::ceil(arrowRect.Width() * 0.7f);
-
-		const float height = arrowRect.Height();
-
-		m_ArrowRects[0] = arrowRect;
-		m_ArrowRects[1] = arrowRect + PPoint(0.0f, height);
-		m_ArrowRects[2] = arrowRect + PPoint(0.0f, bounds.Height() - height * 2.0f);
-		m_ArrowRects[3] = arrowRect + PPoint(0.0f, bounds.Height() - height);
-
-		if (m_ArrowRects[0].bottom > m_ArrowRects[3].top) {
-			m_ArrowRects[0].bottom = std::floor(bounds.Width() * 0.5f);
-			m_ArrowRects[3].top = m_ArrowRects[0].bottom;
-			m_ArrowRects[1].top = m_ArrowRects[0].bottom;
-			m_ArrowRects[1].bottom = m_ArrowRects[1].top;
-			m_ArrowRects[2].bottom = m_ArrowRects[3].top;
-			m_ArrowRects[2].top = m_ArrowRects[2].bottom;
-		} else if (m_ArrowRects[1].bottom + 15.0f > m_ArrowRects[2].top) {
-			m_ArrowRects[1].bottom = m_ArrowRects[1].top;
-			m_ArrowRects[2].top = m_ArrowRects[2].bottom;
-		}
-		m_KnobArea.top = m_ArrowRects[1].bottom;
-		m_KnobArea.bottom = m_ArrowRects[2].top;
-		m_KnobArea.left += 1.0f;
-		m_KnobArea.right -= 1.0f;
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PRect PScrollBar::GetKnobFrame(void) const
-{
-	PRect bounds = GetBounds();
-
-    bounds.Resize(1.0f, 1.0f, -1.0f, -1.0f);
-
-    PRect rect = m_KnobArea;
-
-	float value = std::clamp(GetValue(), m_Min, m_Max);
-
-    if (m_Orientation == POrientation::Horizontal)
-	{
-		float viewLength = m_KnobArea.Width() + 1.0f;
-		float size = std::max(float(SB_MINSIZE), viewLength * m_Proportion);
-		float length = viewLength - size;
-		float delta = m_Max - m_Min;
-
-		if (delta > 0.0f)
-		{
-			rect.left = rect.left + length * (value - m_Min) / delta;
-			rect.right = rect.left + size - 1.0f;
-		}
-	}
-	else
-	{
-		float viewLength = m_KnobArea.Height() + 1.0f;
-		float size = std::max(float(SB_MINSIZE), viewLength * m_Proportion);
-		float length = viewLength - size;
-		float delta = m_Max - m_Min;
-
-		if (delta > 0.0f) {
-			rect.top = rect.top + length * (value - m_Min) / delta;
-			rect.bottom = rect.top + size - 1.0f;
-		}
-	}
-	return rect & m_KnobArea;
+        PreferredSizeChanged();
+        Invalidate();
+    }
 }
 

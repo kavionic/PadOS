@@ -12,6 +12,7 @@ target_sources(PadOS_GUI PRIVATE
 	Font.cpp
 	KeyboardView.cpp
 	LayoutNode.cpp
+	StyledView.cpp
 	View.cpp
 	ViewFactory.cpp
 	ViewFactoryContext.cpp
@@ -20,4 +21,5 @@ target_sources(PadOS_GUI PRIVATE
 )
 
 add_subdirectory(Dialogs)
+add_subdirectory(Styles)
 add_subdirectory(Widgets)

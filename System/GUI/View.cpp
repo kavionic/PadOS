@@ -347,6 +347,16 @@ PApplication* PView::GetApplication() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+const PGUIStyle* PView::GetStyle() const
+{
+    PApplication* application = GetApplication();
+    return (application != nullptr) ? application->GetGUIStyle() : nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 handler_id PView::GetParentServerHandle() const
 {
     for (Ptr<const PView> i = GetParent(); i != nullptr; i = i->GetParent())
@@ -1766,6 +1776,7 @@ void PView::HandlePreAttachToScreen(PApplication* app)
     app->AddHandler(ptr_tmp_cast(this));
     AttachedToScreen();
 
+    OnStyleChanged();
     PreferredSizeChanged();
 
     for (Ptr<PView> child : m_ChildrenList) {

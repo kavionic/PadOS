@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <GUI/Style/ButtonStyleData.h>
 #include <GUI/Widgets/Control.h>
 
 
@@ -23,6 +24,8 @@ public:
     static Ptr<PButtonGroup> FindButtonGroup(Ptr<PView> root, const PString& name);
 
     virtual void AllAttachedToScreen() override { Invalidate(); }
+    virtual void OnFontChanged(Ptr<const PFont> newFont) override;
+    virtual void OnStyleChanged() override;
 
     virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
@@ -31,16 +34,23 @@ public:
     virtual void OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase) override;
     virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
 
-    void SetCheckable(bool value) { m_CanBeCheked = value; }
-    bool IsCheckable() const { return m_CanBeCheked; }
+    void SetLabel(const PString& label);
+    const PString& GetLabel() const { return m_ButtonStyleData.Label; }
+
+    void SetLabelAlignment(PAlignment alignment);
+    PAlignment GetLabelAlignment() const { return m_ButtonStyleData.LabelAlignment; }
+
+    void SetCheckable(bool value) { m_ButtonStyleData.IsCheckable = value; }
+    bool IsCheckable() const { return m_ButtonStyleData.IsCheckable; }
 
     void SetChecked(bool isChecked);
-    bool IsChecked() const { return m_IsChecked; }
+    bool IsChecked() const { return m_ButtonStyleData.IsChecked; }
 
     // From Control:
     virtual void OnEnableStatusChanged(bool isEnabled) override;
 
     // From ButtonBase:
+    virtual void OnLabelChanged(const PString& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
     virtual void OnPressedStateChanged(bool isPressed) { Invalidate(); Flush(); }
     virtual void OnCheckedStateChanged(bool isChecked) { Invalidate(); Flush(); }
 
@@ -51,8 +61,10 @@ public:
 
 protected:
     void SetPressedState(bool isPressed);
-    bool GetPressedState() const { return m_IsPressed; }
-    bool IsPointerOver() const { return m_IsPointerOver; }
+    bool GetPressedState() const { return m_ButtonStyleData.IsPressed; }
+    bool IsPointerOver() const { return m_ButtonStyleData.IsPointerOver; }
+
+    PButtonStyleData m_ButtonStyleData;
 
 
 private:
@@ -62,10 +74,6 @@ private:
     void SetButtonGroup(Ptr<PButtonGroup> group);
     PPointerID           m_HitPointerID = PInvalidPointerID;
     Ptr<PButtonGroup>        m_ButtonGroup;
-    bool                    m_CanBeCheked = false;
-    bool                    m_IsPressed = false;
-    bool                    m_IsChecked = false;
-    bool                    m_IsPointerOver = false;
 
 
     PButtonBase(const PButtonBase&) = delete;

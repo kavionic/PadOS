@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <App/Application.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/View.h>
 #include <GUI/Bitmap.h>
 #include <ApplicationServer/ApplicationServer.h>
@@ -47,6 +48,8 @@ void PApplication::SetDefaultApplication(PApplication* application)
 
 PApplication::PApplication(const PString& name) : PLooper(name, 1000, PAPPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("app_reply", 1000)
 {
+    m_GUIStyle = ptr_new<PDefaultGUIStyle>();
+
     RegisterRemoteSignal(&m_RSPaintView, &PApplication::HandlePaint);
     RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
     RegisterRemoteSignal(&m_RSViewScreenPositionChanged, &PApplication::HandleViewScreenPositionChanged);
@@ -95,14 +98,16 @@ PApplication::~PApplication()
     if (IsRunning() && !GetMutex().IsLocked()) {
         mutexGuard.emplace(GetMutex());
     }
+    // Release queued views while they can still use the application.
+    while (!m_ViewsNeedingLayout.empty())
+    {
+        auto pendingView = m_ViewsNeedingLayout.extract(m_ViewsNeedingLayout.begin());
+        pendingView.value()->m_IsLayoutPending = false;
+    }
     Flush();
     if (m_ServerHandle != INVALID_HANDLE)
     {
-        if (!p_post_to_remotesignal<ASUnregisterApplication>(
-            p_get_appserver_port(),
-            INVALID_HANDLE,
-            TimeValNanos::infinit,
-            m_ServerHandle))
+        if (!p_post_to_remotesignal<ASUnregisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ServerHandle))
         {
             p_system_log<PLogSeverity::ERROR>(
                 LogCategoryGUITK,
@@ -201,6 +206,7 @@ bool PApplication::RemoveView(Ptr<PView> view)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
+    const PGUIStyle* previousStyle = view->GetStyle();
     InvalidatePointerPaths();
 
     const handle_id serverHandle = view->m_ServerHandle;
@@ -216,6 +222,9 @@ bool PApplication::RemoveView(Ptr<PView> view)
         RemoveView(child);
     }
     view->ClearFlags(PViewFlags::IsAttachedToScreen);
+    if (view->GetStyle() != previousStyle) {
+        view->OnStyleChanged();
+    }
     return true;
 }
 
@@ -336,8 +345,7 @@ bool PApplication::SetKeyboardConfiguration(
         return false;
     }
     const uint32_t requestID = AllocateKeyboardRequestID();
-    if (ASSetKeyboardConfiguration::Sender::Serializer::GetSize(GetPortID(), requestID, layout, variant, options)
-        > PAPPSERVER_MSG_BUFFER_SIZE)
+    if (ASSetKeyboardConfiguration::Sender::Serializer::GetSize(GetPortID(), requestID, layout, variant, options) > PAPPSERVER_MSG_BUFFER_SIZE)
     {
         set_last_error(EINVAL);
         return false;
@@ -680,12 +688,7 @@ void PApplication::ReceiveReply(int32_t expectedCode, void* reply, size_t replyS
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PFontTextMetrics PApplication::MeasureFontChunk(
-    handle_id fontHandle,
-    std::string_view text,
-    float width,
-    bool includeLast,
-    uint32_t& previousGlyph)
+PFontTextMetrics PApplication::MeasureFontChunk(handle_id fontHandle, std::string_view text, float width, bool includeLast, uint32_t& previousGlyph)
 {
     const PString chunk(text.data(), text.size());
     if (!p_post_to_remotesignal<ASMeasureFont>(
@@ -859,9 +862,7 @@ void PApplication::SetLocalPointerCapture(
             pointerID, PPointerCaptureLostReason::Stolen);
     }
 
-    const bool previousCaptureWasConfirmed =
-        previousCapture.CaptureID != PInvalidPointerCaptureID
-        && previousCapture.View != nullptr;
+    const bool previousCaptureWasConfirmed = previousCapture.CaptureID != PInvalidPointerCaptureID && previousCapture.View != nullptr;
     if (captureID != PInvalidPointerCaptureID
         && view != nullptr
         && (!previousCaptureWasConfirmed || previousCaptureView != view)) {
@@ -943,14 +944,7 @@ void PApplication::UpdateConfirmedPointerCapture(
         previousCapture.RootView != ptr_raw_pointer_cast(rootView);
     const bool modeChanged = previousCapture.Mode != mode;
 
-    SetLocalPointerCapture(
-        pointerID,
-        pointerState,
-        view,
-        rootView,
-        previousCapture.CaptureID,
-        PInvalidPointerCaptureRequestID,
-        mode);
+    SetLocalPointerCapture(pointerID, pointerState, view, rootView, previousCapture.CaptureID, PInvalidPointerCaptureRequestID, mode);
 
     if (rootViewChanged) {
         pointerState.DeliveryRootView = rootView;
@@ -958,12 +952,7 @@ void PApplication::UpdateConfirmedPointerCapture(
     RefreshPointerPathAfterCaptureChange(pointerState);
 
     if (rootViewChanged || modeChanged) {
-        Post<ASSetPointerCapture>(
-            rootView->m_ServerHandle,
-            pointerID,
-            previousCapture.CaptureID,
-            PInvalidPointerCaptureRequestID,
-            mode);
+        Post<ASSetPointerCapture>(rootView->m_ServerHandle, pointerID, previousCapture.CaptureID, PInvalidPointerCaptureRequestID, mode);
     }
 }
 
@@ -1003,10 +992,7 @@ bool PApplication::SetPointerCapture(PPointerID pointerID, Ptr<PView> view, PPoi
         return true;
     }
 
-    const Ptr<PView> pendingRootView =
-        (captureIsPending && previousCapture.View != nullptr)
-            ? previousCapture.View->GetRoot()
-            : nullptr;
+    const Ptr<PView> pendingRootView = (captureIsPending && previousCapture.View != nullptr) ? previousCapture.View->GetRoot() : nullptr;
     if (captureIsPending
         && pendingRootView == rootView
         && previousCapture.Mode == mode)
@@ -1270,9 +1256,7 @@ void PApplication::DispatchPointerEvent(
     if (view != nullptr)
     {
         PointerState& pointerState = GetPointerState(pointerEvent.PointerID);
-        if (!pointerEvent.SupportsHover
-            && pointerEvent.EventType == PPointerEventType::Down
-            && captureID != PInvalidPointerCaptureID)
+        if (!pointerEvent.SupportsHover && pointerEvent.EventType == PPointerEventType::Down && captureID != PInvalidPointerCaptureID)
         {
             if (pointerState.Capture.View != nullptr) {
                 ClearLocalPointerCapture(

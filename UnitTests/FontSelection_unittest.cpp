@@ -5,48 +5,19 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <functional>
-#include <utility>
-
 #include <gtest/gtest.h>
 #include <App/Application.h>
 #include <ApplicationServer/Protocol.h>
 #include <GUI/Font.h>
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/Button.h>
+#include <GUI/Widgets/Slider.h>
 #include <GUI/Widgets/TextBox.h>
 #include <GUI/Widgets/TextView.h>
 #include <System/ExceptionHandling.h>
 
-// These integration tests require the running appserver and bundled fonts.
-class PFontSelectionTestApplication : public PApplication
-{
-public:
-    explicit PFontSelectionTestApplication(std::function<void(PApplication&)> test)
-        : PApplication("font_selection_test")
-        , m_Test(std::move(test))
-    {
-        SetDeleteOnExit(false);
-    }
-
-    void* Run() override
-    {
-        CRITICAL_SCOPE(GetMutex());
-        EXPECT_NO_THROW(m_Test(*this));
-        Flush();
-        return nullptr;
-    }
-
-private:
-    std::function<void(PApplication&)> m_Test;
-};
-
-static void RunFontSelectionTest(std::function<void(PApplication&)> test)
-{
-    Ptr<PFontSelectionTestApplication> application = ptr_new<PFontSelectionTestApplication>(std::move(test));
-    ASSERT_EQ(application->Start(PThreadDetachState_Joinable, 0, 16384), PErrorCode::Success);
-    ASSERT_EQ(application->Join(nullptr), PErrorCode::Success);
-}
+#include "GUITest.h"
 
 static void ExpectFontSelectionHandle(PApplication& application, handle_id fontHandle, PErrorCode expectedError)
 {
@@ -61,7 +32,7 @@ static void ExpectFontSelectionHandle(PApplication& application, handle_id fontH
 
 TEST(FontSelection, TextViewsDefaultToOpaqueBlack)
 {
-    RunFontSelectionTest([](PApplication&)
+    RunGUITest([](PApplication&)
     {
         Ptr<PTextView> label = ptr_new<PTextView>("label", "Test label");
         EXPECT_EQ(label->GetFgColor(), PColor(0, 0, 0));
@@ -76,7 +47,7 @@ TEST(FontSelection, TextViewsDefaultToOpaqueBlack)
 
 TEST(FontSelection, FontIDsSelectTrueTypePresets)
 {
-    RunFontSelectionTest([](PApplication&)
+    RunGUITest([](PApplication&)
     {
         const PString text = "Hello \xc3\x85";
         struct Preset
@@ -166,7 +137,7 @@ TEST(FontSelection, FontHandlesAreGlobalAndApplicationOwned)
 
 TEST(FontSelection, FontsDoNotKeepTheirApplicationAliveOrRebindAfterShutdown)
 {
-    RunFontSelectionTest([](PApplication& currentApplication)
+    RunGUITest([](PApplication& currentApplication)
     {
         Ptr<PApplication> application = ptr_new<PApplication>("font_lifetime_test");
         PFont font(PFontID::e_FontSmall, ptr_raw_pointer_cast(application));
@@ -182,7 +153,7 @@ TEST(FontSelection, FontsDoNotKeepTheirApplicationAliveOrRebindAfterShutdown)
 
 TEST(FontSelection, ViewsRejectFontsFromOtherApplications)
 {
-    RunFontSelectionTest([](PApplication& application)
+    RunGUITest([](PApplication& application)
     {
         Ptr<PApplication> otherApplication = ptr_new<PApplication>("foreign_font_test");
         Ptr<PFont> otherFont = ptr_new<PFont>(PFontID::e_FontSmall, ptr_raw_pointer_cast(otherApplication));
@@ -197,7 +168,7 @@ TEST(FontSelection, ViewsRejectFontsFromOtherApplications)
 
 TEST(FontSelection, FailedReselectionPreservesTheFont)
 {
-    RunFontSelectionTest([](PApplication& application)
+    RunGUITest([](PApplication& application)
     {
         PFont font(PFontID::e_FontSmall);
         const handle_id handle = font.GetHandle();
@@ -214,34 +185,51 @@ TEST(FontSelection, FailedReselectionPreservesTheFont)
 
 TEST(FontSelection, ReselectingUpdatesCachedWidgetSizesAndInternalEditors)
 {
-    RunFontSelectionTest([](PApplication&)
+    RunGUITest([](PApplication& application)
     {
         Ptr<PFont> font = ptr_new<PFont>(PFontID::e_FontSmall);
         Ptr<PTextView> label = ptr_new<PTextView>("label", "Test label");
         Ptr<PButton> button = ptr_new<PButton>("button", "Test label");
+        Ptr<PSlider> slider = ptr_new<PSlider>("slider");
         Ptr<PTextBox> textBox = ptr_new<PTextBox>("editor", "Test label");
+        ASSERT_TRUE(application.AddHandler(button));
+        PScopeExit removeHandler([&application, &button] { application.RemoveHandler(button); });
+        ASSERT_NE(button->GetStyle(), nullptr);
+        ASSERT_TRUE(application.AddHandler(slider));
+        PScopeExit removeSlider([&application, &slider] { application.RemoveHandler(slider); });
+        ASSERT_NE(slider->GetStyle(), nullptr);
+        slider->SetLabel("Value: ");
+        slider->SetValueStringFormat("{:.1f}");
+        slider->SetLimitLabels("Minimum", "Maximum");
+
         label->SetFont(font);
         button->SetFont(font);
+        slider->SetFont(font);
         textBox->SetFont(font);
         const PPoint labelSize = label->GetPreferredSize(PPrefSizeType::Smallest);
         const PPoint buttonSize = button->GetPreferredSize(PPrefSizeType::Smallest);
+        const PPoint sliderSize = slider->GetPreferredSize(PPrefSizeType::Smallest);
         const PPoint editorSize = textBox->GetPreferredSize(PPrefSizeType::Smallest);
+        ASSERT_GT(buttonSize.y, 0.0f);
+        ASSERT_GT(sliderSize.y, 0.0f);
         ASSERT_NE(textBox->GetChildAt(size_t(0)), nullptr);
         EXPECT_EQ(textBox->GetChildAt(size_t(0))->GetFont(), font);
 
         font->Set(PFontID::e_FontLarge);
         label->SetFont(font);
         button->SetFont(font);
+        slider->SetFont(font);
         textBox->SetFont(font);
         EXPECT_GT(label->GetPreferredSize(PPrefSizeType::Smallest).y, labelSize.y);
         EXPECT_GT(button->GetPreferredSize(PPrefSizeType::Smallest).y, buttonSize.y);
+        EXPECT_GT(slider->GetPreferredSize(PPrefSizeType::Smallest).y, sliderSize.y);
         EXPECT_GT(textBox->GetPreferredSize(PPrefSizeType::Smallest).y, editorSize.y);
     });
 }
 
 TEST(FontSelection, DescriptionsAndFontIDsUseTheExistingViewAPI)
 {
-    RunFontSelectionTest([](PApplication&)
+    RunGUITest([](PApplication&)
     {
         Ptr<PFont> font = ptr_new<PFont>(PFontDescription());
         Ptr<PTextView> label = ptr_new<PTextView>("label", "AV \xc3\x85");
@@ -261,7 +249,7 @@ TEST(FontSelection, DescriptionsAndFontIDsUseTheExistingViewAPI)
 
 TEST(FontSelection, LongMeasurementsPreserveKerningAcrossMessageBoundaries)
 {
-    RunFontSelectionTest([](PApplication&)
+    RunGUITest([](PApplication&)
     {
         PFont font{PFontDescription()};
         const float widthAV = font.GetStringWidth("AV", 2);
@@ -288,7 +276,7 @@ TEST(FontSelection, LongMeasurementsPreserveKerningAcrossMessageBoundaries)
 
 TEST(FontSelection, UTF8CharactersStraddlingAMessageBoundaryRemainWhole)
 {
-    RunFontSelectionTest([](PApplication&)
+    RunGUITest([](PApplication&)
     {
         PFont font{PFontDescription()};
         const PString character = "\xe2\x82\xac";
@@ -304,5 +292,103 @@ TEST(FontSelection, UTF8CharactersStraddlingAMessageBoundaryRemainWhole)
         EXPECT_EQ(font.GetStringLength(text, prefixWidth), int(prefixCharacters * character.size()));
         EXPECT_EQ(font.GetStringLength(text, prefixWidth - 0.5f), int((prefixCharacters - 1) * character.size()));
         EXPECT_EQ(font.GetStringLength(text, prefixWidth - 0.5f, true), int(prefixCharacters * character.size()));
+    });
+}
+
+TEST(FontSelection, SliderGeometryUsesTheStyleAndHandlesMissingStyle)
+{
+    RunGUITest([](PApplication& application)
+    {
+        for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
+        {
+            Ptr<PSlider> slider = ptr_new<PSlider>("slider", PSliderFlags::TicksBelow, 10, orientation);
+            slider->SetMinMax(10.0f, 30.0f);
+            slider->SetValue(20.0f, false);
+            slider->SetFrame(PRect(0.0f, 0.0f, 200.0f, 200.0f));
+            EXPECT_EQ(slider->GetStyle(), nullptr);
+            EXPECT_EQ(slider->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+            EXPECT_FLOAT_EQ(slider->PosToVal(PPoint(50.0f, 50.0f)), 20.0f);
+            EXPECT_EQ(slider->ValToPos(20.0f), PPoint());
+
+            ASSERT_TRUE(application.AddHandler(slider));
+            PScopeExit removeSlider([&application, &slider] { application.RemoveHandler(slider); });
+            slider->OnStyleChanged();
+            ASSERT_NE(slider->GetStyle(), nullptr);
+            EXPECT_GT(slider->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
+            EXPECT_GT(slider->GetPreferredSize(PPrefSizeType::Smallest).y, 0.0f);
+            const PPoint minimumPosition = slider->ValToPos(10.0f);
+            const PPoint maximumPosition = slider->ValToPos(30.0f);
+            EXPECT_FLOAT_EQ(slider->PosToVal(minimumPosition), 10.0f);
+            EXPECT_FLOAT_EQ(slider->PosToVal(maximumPosition), 30.0f);
+            EXPECT_FLOAT_EQ(slider->PosToVal((minimumPosition + maximumPosition) * 0.5f), 20.0f);
+            if (orientation == POrientation::Horizontal) {
+                EXPECT_LT(minimumPosition.x, maximumPosition.x);
+            } else {
+                EXPECT_GT(minimumPosition.y, maximumPosition.y);
+            }
+            slider->SetStepCount(5);
+            EXPECT_FLOAT_EQ(slider->PosToVal(minimumPosition * 0.6f + maximumPosition * 0.4f), 20.0f);
+            slider->SetResolution(2.0f);
+            slider->SetValue(17.2f, false);
+            EXPECT_FLOAT_EQ(slider->GetValue(), 18.0f);
+
+            slider->SetStepCount(0);
+            slider->SetFrame(PRect());
+            EXPECT_FLOAT_EQ(slider->PosToVal(PPoint(100.0f, 100.0f)), 18.0f);
+            slider->SetMinMax(10.0f, 10.0f);
+            slider->SetValue(10.0f, false);
+            EXPECT_FLOAT_EQ(slider->PosToVal(slider->ValToPos(10.0f)), 10.0f);
+        }
+    });
+}
+
+TEST(FontSelection, SliderPropertyChangesRefreshPrivateMeasurements)
+{
+    RunGUITest([](PApplication& application)
+    {
+        Ptr<PView> target = ptr_new<PView>("slider_style_target", PViewFlags::WillDraw);
+        ASSERT_TRUE(application.AddHandler(target));
+        PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
+        Ptr<PFont> font = ptr_new<PFont>(PFontID::e_FontSmall);
+        target->SetFont(font);
+        target->SetFrame(PRect(0.0f, 0.0f, 200.0f, 200.0f));
+        const PGUIStyle* style = target->GetStyle();
+        ASSERT_NE(style, nullptr);
+
+        PSliderStyleData data;
+        data.Orientation = POrientation::Vertical;
+        data.MinLabel = "i";
+        data.MaxLabel = "i";
+        PPoint initialSize;
+        PPoint maximumSize;
+        style->SliderGetPreferredSize(*target, data, &initialSize, &maximumSize);
+        Ptr<PtrTarget> privateData = data.StyleData;
+        ASSERT_NE(privateData, nullptr);
+
+        // Measurement queries must not consume the pending property change.
+        data.MinLabel = "A substantially longer minimum label";
+        style->SliderPropertyChanged(*target, data, PSliderProperty::MinLabel);
+        PPoint changedSize;
+        style->SliderGetPreferredSize(*target, data, &changedSize, &maximumSize);
+        EXPECT_GT(changedSize.x, initialSize.x);
+        EXPECT_EQ(data.StyleData, privateData);
+
+        // Batch both endpoints, with no intervening paint.
+        data.MinLabel = "i";
+        data.MaxLabel = "i";
+        style->SliderPropertyChanged(*target, data, PSliderProperties(PSliderProperty::MinLabel, PSliderProperty::MaxLabel));
+        style->SliderGetPreferredSize(*target, data, &changedSize, &maximumSize);
+        EXPECT_EQ(changedSize, initialSize);
+
+        data.MaxLabel = "Maximum";
+        style->SliderPropertyChanged(*target, data, PSliderProperty::MaxLabel);
+        PPoint smallFontSize;
+        style->SliderGetPreferredSize(*target, data, &smallFontSize, &maximumSize);
+        font->Set(PFontID::e_FontLarge);
+        target->SetFont(font);
+        style->SliderPropertyChanged(*target, data, PSliderProperty::Font);
+        style->SliderGetPreferredSize(*target, data, &changedSize, &maximumSize);
+        EXPECT_GT(changedSize.x, smallFontSize.x);
+        EXPECT_GT(changedSize.y, smallFontSize.y);
     });
 }

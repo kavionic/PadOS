@@ -58,25 +58,25 @@ void PGroupView::OnPaint(const PRect& updateRect)
     PRect bound = GetNormalizedBounds();
     bound.Resize(0.0f, std::floor(labelHeight * 0.5f), -1.0f, -1.0f);
 
-    for (int i = 0; i < 2; ++i)
+    const float oldPenWidth = GetPenWidth();
+    SetPenWidth(2.0f);
+    bound.Resize(1.0f, 1.0f, -1.0f, -1.0f);
+
+    SetFgColor(PStandardColorID::Shadow);
+    MovePenTo(bound.BottomLeft());
+    DrawLine(bound.TopLeft());
+
+    if (!m_Label.empty())
     {
-        SetFgColor(PStandardColorID::Shadow);
-        MovePenTo(bound.BottomLeft());
-        DrawLine(bound.TopLeft());
-
-        if (!m_Label.empty())
-        {
-            DrawLine(15.0f, bound.top);
-
-            MovePenTo(30.0f + labelWidth + 10.0f, bound.top);
-        }
-        DrawLine(bound.TopRight());
-
-        SetFgColor(PStandardColorID::Shine);
-        MovePenTo(bound.TopRight() + PPoint(0.0f, 1.0f));
-        DrawLine(bound.BottomRight());
-        DrawLine(bound.BottomLeft() + PPoint(1.0f, 0.0f));
-
-		bound.Resize(1.0f, 1.0f, -1.0f, -1.0f);
+        DrawLine(15.0f, bound.top);
+        MovePenTo(30.0f + labelWidth + 10.0f, bound.top);
     }
+    DrawLine(bound.TopRight());
+
+    SetFgColor(PStandardColorID::Shine);
+    MovePenTo(bound.TopRight() + PPoint(0.0f, 2.0f));
+    DrawLine(bound.BottomRight());
+    DrawLine(bound.BottomLeft() + PPoint(2.0f, 0.0f));
+
+    SetPenWidth(oldPenWidth);
 }

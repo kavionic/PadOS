@@ -227,19 +227,13 @@ public:
     void            SetEraseColor(PStandardColorID colorID)                                      { SetEraseColor(pget_standard_color(colorID)); }
     void            SetEraseColor(PNamedColors colorID)                                          { SetEraseColor(PColor(colorID)); }
 
-    void            SetPenWidth(float width)                           { if (width != m_PenWidth) { m_PenWidth = width; Post<ASViewSetPenWidth>(width); } }
-    void            SetCapStyle(PCapStyle style)
-    {
-        if (style != m_CapStyle) { m_CapStyle = style; Post<ASViewSetCapStyle>(style); }
+    void            SetPenWidth(float width)        { if (width != m_PenWidth) { m_PenWidth = width; Post<ASViewSetPenWidth>(width); } }
+    float           GetPenWidth() const noexcept    { return m_PenWidth; }
+
+    void            SetCapStyle(PCapStyle style) { if (style != m_CapStyle) { m_CapStyle = style; Post<ASViewSetCapStyle>(style); }
     }
-    void            SetJointStyle(PJointStyle style)
-    {
-        if (style != m_JointStyle) { m_JointStyle = style; Post<ASViewSetJointStyle>(style); }
-    }
-    void            SetMiterLimit(float limit)
-    {
-        if (limit != m_MiterLimit) { m_MiterLimit = limit; Post<ASViewSetMiterLimit>(limit); }
-    }
+    void            SetJointStyle(PJointStyle style)    { if (style != m_JointStyle) { m_JointStyle = style; Post<ASViewSetJointStyle>(style); } }
+    void            SetMiterLimit(float limit)          { if (limit != m_MiterLimit) { m_MiterLimit = limit; Post<ASViewSetMiterLimit>(limit); } }
     void            SetDashPattern(std::span<const float> pattern)
     {
         m_DashPattern.assign(pattern.begin(), pattern.end());
@@ -267,7 +261,7 @@ public:
         DrawLine(PPoint(frame.left, frame.top));
     }        
     void            FillRect(const PRect& rect)                         { Post<ASViewFillRect>(rect, m_FgColor); }
-    void            FillRect(const PRect& rect, PColor color)            { Post<ASViewFillRect>(rect, color); }
+    void            FillRect(const PRect& rect, PColor color)           { Post<ASViewFillRect>(rect, color); }
     void            EraseRect(const PRect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
 
     void            FillCircle(const PPoint& position, float radius) { Post<ASViewFillCircle>(position, radius); }

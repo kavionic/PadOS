@@ -1,12 +1,13 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 1999-2025 Kurt Skauen
+// Copyright (c) 1999-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
+#include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Widgets/Control.h>
 #include <GUI/Font.h>
 
@@ -54,6 +55,7 @@ public:
     virtual void    OnFlagsChanged(PViewFlags changedFlags) override;
     virtual void    DetachedFromScreen() override;
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
+    virtual void    OnStyleChanged() override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    OnFrameSized(const PPoint& cDelta) override;
     virtual void    OnScreenFrameMoved(const PPoint& delta) override;
@@ -86,14 +88,14 @@ private:
     void    OpenMenu();
     void    CloseMenu();
     void    LayoutMenuWindow();
+    void    LayoutEditor();
+    void    NotifyStylePropertyChanged(PDropdownMenuProperties properties);
     void    SlotTextChanged(const PString& text, bool finalUpdate);
     void    SlotSelectionChanged(size_t selection, bool finalUpdate);
 
     Ptr<PView>               m_MenuWindow;
     Ptr<PTextBox>            m_EditBox;
-    Ptr<PBitmap>             m_ArrowBitmap;
-    PRect                    m_ArrowFrame;
-    std::vector<PString>    m_StringList;
+    PDropdownMenuStyleData   m_DropdownMenuStyleData;
     size_t                  m_Selection = 0;
     bool                    m_SendIntermediateEvents = false;
 };

@@ -25,6 +25,14 @@ enum class PScrollBarPart : uint8_t;
 enum class PScrollBarProperty : uint32_t;
 using PScrollBarProperties = PEnumBitmask<PScrollBarProperty>;
 
+struct PDropdownMenuStyleData;
+enum class PDropdownMenuProperty : uint32_t;
+using PDropdownMenuProperties = PEnumBitmask<PDropdownMenuProperty>;
+
+struct PDropdownMenuPopupStyleData;
+enum class PDropdownMenuPopupProperty : uint32_t;
+using PDropdownMenuPopupProperties = PEnumBitmask<PDropdownMenuPopupProperty>;
+
 class PGUIStyle : public PtrTarget
 {
 public:
@@ -61,4 +69,33 @@ public:
     // offset from this center while dragging.
     virtual PPoint ScrollBarGetValuePosition(const PView& target, const PScrollBarStyleData& data, float relativeValue) const = 0;
     virtual float ScrollBarGetValueFromPosition(const PView& target, const PScrollBarStyleData& data, const PPoint& position) const = 0;
+
+    virtual void    DropdownMenuPaint(PView& target, const PRect& frame, const PDropdownMenuStyleData& data) const = 0;
+    virtual void    DropdownMenuGetPreferredSize(const PView& target, const PDropdownMenuStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
+    virtual void    DropdownMenuPropertyChanged(PView& target, PDropdownMenuStyleData& data, PDropdownMenuProperties properties) const = 0;
+    virtual PRect   DropdownMenuGetEditorFrame(const PView& target, const PDropdownMenuStyleData& data) const = 0;
+    virtual bool    DropdownMenuHitTest(const PView& target, const PDropdownMenuStyleData& data, const PPoint& position) const = 0;
+
+    virtual void    DropdownMenuPopupFramePaint(PView& target, const PRect& frame) const = 0;
+    virtual void    DropdownMenuPopupFrameGetPreferredSize(const PView& target, const PPoint& contentSize, PPoint* minSize, PPoint* maxSize) const = 0;
+    virtual PRect   DropdownMenuPopupFrameGetContentFrame(const PView& target) const = 0;
+
+    virtual void    DropdownMenuPopupPaint(PView& target, const PRect& updateRect, const PDropdownMenuPopupStyleData& data) const = 0;
+    virtual void    DropdownMenuPopupGetPreferredSize(
+        const PView& target,
+        const PDropdownMenuPopupStyleData& data,
+        PPoint* minSize,
+        PPoint* maxSize) const = 0;
+
+    virtual void DropdownMenuPopupPropertyChanged(
+        PView& target,
+        PDropdownMenuPopupStyleData& data,
+        PDropdownMenuPopupProperties properties) const = 0;
+
+    virtual PRect DropdownMenuPopupGetItemFrame(const PView& target, const PDropdownMenuPopupStyleData& data, size_t index) const = 0;
+
+    virtual size_t DropdownMenuPopupGetItemFromPosition(
+        const PView& target,
+        const PDropdownMenuPopupStyleData& data,
+        const PPoint& position) const = 0;
 };

@@ -1,15 +1,15 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 1999-2025 Kurt Skauen
+// Copyright (c) 1999-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 
-#include <GUI/Widgets/Dropdownmenu.h>
+#include <GUI/Style/GUIStyle.h>
+#include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/TextBox.h>
-#include <GUI/Bitmap.h>
 #include <Utils/Utils.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
@@ -18,24 +18,6 @@
 
 using namespace osi;
 
-
-static const uint32_t g_ArrowBitmapRaster[] =
-{
-    0b11111111111111111110000000000000,
-    0b01111111111111111100000000000000,
-    0b00111111111111111000000000000000,
-    0b00011111111111110000000000000000,
-    0b00001111111111100000000000000000,
-    0b00000111111111000000000000000000,
-    0b00000011111110000000000000000000,
-    0b00000001111100000000000000000000,
-    0b00000000111000000000000000000000,
-    0b00000000010000000000000000000000
-};
-
-static constexpr int    ARROW_WIDTH = 19;
-static constexpr int    ARROW_HEIGHT = 10;
-static constexpr float  ARROW_BUTTON_ASPECT_RATIO = 0.9f;
 
 const std::map<PString, PDropdownMenuFlags> PDROPDOWN_MENU_FLAG_MAP
 {
@@ -75,24 +57,6 @@ PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node&
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDropdownMenu::Initialize()
-{
-    const PTextBoxFlags editBoxFlags = HasFlags(PDropdownMenuFlag::ReadOnly)
-        ? (PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame)
-        : PTextBoxFlags::zero;
-    m_EditBox = ptr_new<PTextBox>("text_view", PString::zero, editBoxFlags);
-    AddChild(m_EditBox);
-    OnFrameSized(PPoint(0, 0));
-
-    m_EditBox->SignalTextChanged.Connect(this, &PDropdownMenu::SlotTextChanged);
-
-    m_ArrowBitmap = ptr_new<PBitmap>(ARROW_WIDTH, ARROW_HEIGHT, PEColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 PDropdownMenu::~PDropdownMenu()
 {
 }
@@ -106,11 +70,13 @@ void PDropdownMenu::OnFlagsChanged(PViewFlags changedFlags)
     PControl::OnFlagsChanged(changedFlags);
     if (PDropdownMenuFlags(changedFlags).Has(PDropdownMenuFlag::ReadOnly) && m_EditBox != nullptr)
     {
-        if (HasFlags(PDropdownMenuFlag::ReadOnly)) {
+        m_DropdownMenuStyleData.IsReadOnly = HasFlags(PDropdownMenuFlag::ReadOnly);
+        if (m_DropdownMenuStyleData.IsReadOnly) {
             m_EditBox->MergeFlags(PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame);
         } else {
             m_EditBox->ClearFlags(PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame);
         }
+        NotifyStylePropertyChanged(PDropdownMenuProperty::ReadOnly);
     }
 }
 
@@ -130,13 +96,26 @@ void PDropdownMenu::DetachedFromScreen()
 void PDropdownMenu::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_EditBox->SetFont(newFont);
+    m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Font);
     if (m_MenuWindow != nullptr)
     {
         m_MenuWindow->SetFont(newFont);
         LayoutMenuWindow();
     }
-    PreferredSizeChanged();
-    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDropdownMenu::OnStyleChanged()
+{
+    m_DropdownMenuStyleData.StyleData.Reset();
+    CloseMenu();
+    m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
+    LayoutEditor();
+    PControl::OnStyleChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,23 +124,12 @@ void PDropdownMenu::OnFontChanged(Ptr<const PFont> newFont)
 
 void PDropdownMenu::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    PPoint size = (m_StringList.empty()) ? m_EditBox->GetPreferredSize(PPrefSizeType::Smallest) : m_EditBox->GetSizeForString(m_StringList[0]);
-
-    if (includeWidth)
-    {
-        for (size_t i = 1; i < m_StringList.size(); ++i)
-        {
-            PPoint curSize = m_EditBox->GetSizeForString(m_StringList[i], true, false);
-
-            if (curSize.x > size.x) {
-                size.x = curSize.x;
-            }
-        }
-        size.x += 10.0f + std::round(size.y * ARROW_BUTTON_ASPECT_RATIO);
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->DropdownMenuGetPreferredSize(*this, m_DropdownMenuStyleData, minSize, maxSize);
+    } else {
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
-
-    *minSize = size;
-    *maxSize = size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -170,12 +138,9 @@ void PDropdownMenu::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, boo
 
 void PDropdownMenu::OnFrameSized(const PPoint& cDelta)
 {
-    PRect editFrame = GetBounds();
-
-    m_ArrowFrame = PRect(editFrame.right - std::round(editFrame.Height() * ARROW_BUTTON_ASPECT_RATIO), 0.0f, editFrame.right, editFrame.bottom);
-
-    editFrame.right = m_ArrowFrame.left;
-    m_EditBox->SetFrame(editFrame);
+    PControl::OnFrameSized(cDelta);
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Frame);
+    LayoutMenuWindow();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -193,13 +158,15 @@ void PDropdownMenu::OnScreenFrameMoved(const PPoint& delta)
 
 void PDropdownMenu::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (!m_EditBox->IsEnabled()) {
+    const PGUIStyle* style = GetStyle();
+    if (style == nullptr || !style->DropdownMenuHitTest(*this, m_DropdownMenuStyleData, position))
+    {
         PView::OnPointerDown(pointerID, position, event, phase);
         return;
     }
     if (m_MenuWindow == nullptr)
     {
-        if (!m_StringList.empty()) {
+        if (!m_DropdownMenuStyleData.Items.empty()) {
             OpenMenu();
         }
     }
@@ -215,32 +182,12 @@ void PDropdownMenu::OnPointerDown(PPointerID pointerID, const PPoint& position, 
 
 void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
 {
-    SetEraseColor(PStandardColorID::DefaultBackground);
-    DrawFrame(m_ArrowFrame, (m_MenuWindow != nullptr) ? FRAME_RECESSED : FRAME_RAISED);
-
-    PPoint center(m_ArrowFrame.left + m_ArrowFrame.Width() * 0.5f, m_ArrowFrame.top + m_ArrowFrame.Height() * 0.5f);
-    center.Round();
-
-    if (!m_EditBox->IsEnabled())
-    {
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->DropdownMenuPaint(*this, GetBounds(), m_DropdownMenuStyleData);
+    } else {
+        PView::OnPaint(cUpdateRect);
     }
-
-    const PRect arrowFrame(0.0f, 0.0f, float(ARROW_WIDTH), float(ARROW_HEIGHT));
-
-    SetDrawingMode(PDrawingMode::Overlay);
-    SetFgColor(0, 0, 0);
-    if (m_EditBox->IsEnabled())
-    {
-        DrawBitmap(m_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 4.0f));
-    }
-    else
-    {
-        SetFgColor(255, 255, 255);
-        DrawBitmap(m_ArrowBitmap, arrowFrame, center - PPoint(8.0f, 4.0f));
-        SetFgColor(110, 110, 110);
-        DrawBitmap(m_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 5.0f));
-    }
-    SetDrawingMode(PDrawingMode::Copy);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -249,8 +196,9 @@ void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
 
 void PDropdownMenu::OnEnableStatusChanged(bool isEnabled)
 {
+    m_DropdownMenuStyleData.IsEnabled = isEnabled;
     m_EditBox->SetEnable(isEnabled);
-    Invalidate();
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Enabled);
     Flush();
 }
 
@@ -262,8 +210,8 @@ void PDropdownMenu::OnEnableStatusChanged(bool isEnabled)
 
 void PDropdownMenu::AppendItem(const PString& text)
 {
-    m_StringList.push_back(text);
-    PreferredSizeChanged();
+    m_DropdownMenuStyleData.Items.push_back(text);
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Items);
 }
 
 /** Insert and item at a given position.
@@ -277,8 +225,8 @@ void PDropdownMenu::AppendItem(const PString& text)
 
 void PDropdownMenu::InsertItem(size_t index, const PString& text)
 {
-    m_StringList.insert(m_StringList.begin() + index, text);
-    PreferredSizeChanged();
+    m_DropdownMenuStyleData.Items.insert(m_DropdownMenuStyleData.Items.begin() + index, text);
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Items);
 }
 
 /** Delete a item
@@ -293,10 +241,10 @@ void PDropdownMenu::InsertItem(size_t index, const PString& text)
 
 bool PDropdownMenu::DeleteItem(size_t index)
 {
-    if (index < m_StringList.size())
+    if (index < m_DropdownMenuStyleData.Items.size())
     {
-        m_StringList.erase(m_StringList.begin() + index);
-        PreferredSizeChanged();
+        m_DropdownMenuStyleData.Items.erase(m_DropdownMenuStyleData.Items.begin() + index);
+        NotifyStylePropertyChanged(PDropdownMenuProperty::Items);
         return true;
     }
     return false;
@@ -310,7 +258,7 @@ bool PDropdownMenu::DeleteItem(size_t index)
 
 size_t PDropdownMenu::GetItemCount() const
 {
-    return m_StringList.size();
+    return m_DropdownMenuStyleData.Items.size();
 }
 
 /** Delete all items
@@ -324,8 +272,8 @@ size_t PDropdownMenu::GetItemCount() const
 
 void PDropdownMenu::Clear()
 {
-    m_StringList.clear();
-    PreferredSizeChanged();
+    m_DropdownMenuStyleData.Items.clear();
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Items);
 }
 
 /** Get one of the item strings.
@@ -339,8 +287,8 @@ void PDropdownMenu::Clear()
 
 const PString& PDropdownMenu::GetItem(size_t index) const
 {
-    assert(index < m_StringList.size());
-    return(m_StringList[index]);
+    assert(index < m_DropdownMenuStyleData.Items.size());
+    return(m_DropdownMenuStyleData.Items[index]);
 }
 
 /** Get the current selection
@@ -370,9 +318,9 @@ size_t PDropdownMenu::GetSelection() const
 
 void PDropdownMenu::SetSelection(size_t index, bool notify)
 {
-    if (index < m_StringList.size())
+    if (index < m_DropdownMenuStyleData.Items.size())
     {
-        m_EditBox->SetText(m_StringList[index]);
+        m_EditBox->SetText(m_DropdownMenuStyleData.Items[index]);
 
         if (index != m_Selection)
         {
@@ -406,22 +354,44 @@ void PDropdownMenu::SetCurrentString(const PString& cString)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PDropdownMenu::Initialize()
+{
+    m_DropdownMenuStyleData.IsReadOnly = HasFlags(PDropdownMenuFlag::ReadOnly);
+    m_DropdownMenuStyleData.IsEnabled = IsEnabled();
+    const PTextBoxFlags editBoxFlags = m_DropdownMenuStyleData.IsReadOnly
+        ? (PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame)
+        : PTextBoxFlags::zero;
+    m_EditBox = ptr_new<PTextBox>("text_view", PString::zero, editBoxFlags);
+    m_EditBox->SetEnable(IsEnabled());
+    m_EditBox->SetFont(GetFont());
+    m_DropdownMenuStyleData.Text = &m_EditBox->GetText();
+    m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
+    AddChild(m_EditBox);
+    LayoutEditor();
+    m_EditBox->SignalTextChanged.Connect(this, &PDropdownMenu::SlotTextChanged);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PDropdownMenu::OpenMenu()
 {
-    Ptr<DropdownMenuPopupWindow> pcMenuView = ptr_new<DropdownMenuPopupWindow>(m_StringList, m_Selection);
-    pcMenuView->SetFont(GetFont());
-    m_MenuWindow = pcMenuView;
-
-    pcMenuView->SignalSelectionChanged.Connect(this, &PDropdownMenu::SlotSelectionChanged);
-
-    LayoutMenuWindow();
-    pcMenuView->MakeSelectionVisible();
-
-    PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->AddView(m_MenuWindow, PViewDockType::PopupWindow);
+    PApplication* application = GetApplication();
+    if (application == nullptr || GetStyle() == nullptr) {
+        return;
     }
-    Invalidate();
+    Ptr<DropdownMenuPopupWindow> menuView = ptr_new<DropdownMenuPopupWindow>(m_DropdownMenuStyleData.Items, m_Selection);
+    m_MenuWindow = menuView;
+    menuView->SignalSelectionChanged.Connect(this, &PDropdownMenu::SlotSelectionChanged);
+    menuView->SignalPreferredSizeChanged.Connect(this, &PDropdownMenu::LayoutMenuWindow);
+    menuView->SetFont(GetFont());
+
+    application->AddView(m_MenuWindow, PViewDockType::PopupWindow);
+    LayoutMenuWindow();
+    menuView->MakeSelectionVisible();
+    m_DropdownMenuStyleData.IsOpen = true;
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Open);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -432,15 +402,14 @@ void PDropdownMenu::CloseMenu()
 {
     if (m_MenuWindow != nullptr)
     {
-        PApplication* app = GetApplication();
-        if (app != nullptr)
-        {
-            app->RemoveView(m_MenuWindow);
-            m_MenuWindow = nullptr;
-            Invalidate();
+        PApplication* application = GetApplication();
+        if (application != nullptr) {
+            application->RemoveView(m_MenuWindow);
         }
+        m_MenuWindow.Reset();
+        m_DropdownMenuStyleData.IsOpen = false;
+        NotifyStylePropertyChanged(PDropdownMenuProperty::Open);
     }
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -449,7 +418,7 @@ void PDropdownMenu::CloseMenu()
 
 void PDropdownMenu::LayoutMenuWindow()
 {
-    if (m_MenuWindow != nullptr)
+    if (m_MenuWindow != nullptr && m_MenuWindow->GetStyle() != nullptr)
     {
         PRect screenFrame = PApplication::GetScreenFrame();
 
@@ -495,8 +464,49 @@ void PDropdownMenu::LayoutMenuWindow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PDropdownMenu::LayoutEditor()
+{
+    if (m_EditBox != nullptr)
+    {
+        const PGUIStyle* style = GetStyle();
+        m_EditBox->SetFrame((style != nullptr) ? style->DropdownMenuGetEditorFrame(*this, m_DropdownMenuStyleData) : GetBounds());
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDropdownMenu::NotifyStylePropertyChanged(PDropdownMenuProperties properties)
+{
+    if (properties.Has(PDropdownMenuProperty::Items) && m_MenuWindow != nullptr)
+    {
+        if (m_DropdownMenuStyleData.Items.empty()) {
+            CloseMenu();
+        } else {
+            ptr_static_cast<DropdownMenuPopupWindow>(m_MenuWindow)->ItemsChanged();
+        }
+    }
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr)
+    {
+        style->DropdownMenuPropertyChanged(*this, m_DropdownMenuStyleData, properties);
+    }
+    else
+    {
+        PreferredSizeChanged();
+        Invalidate();
+    }
+    LayoutEditor();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PDropdownMenu::SlotTextChanged(const PString& text, bool finalUpdate)
 {
+    NotifyStylePropertyChanged(PDropdownMenuProperty::Text);
     SignalTextChanged(text, finalUpdate, this);
 }
 
@@ -510,11 +520,11 @@ void PDropdownMenu::SlotSelectionChanged(size_t selection, bool finalUpdate)
     {
         m_Selection = selection;
 
-        if (finalUpdate && m_Selection < m_StringList.size()) {
-            m_EditBox->SetText(m_StringList[m_Selection]);
+        if (finalUpdate && m_Selection < m_DropdownMenuStyleData.Items.size()) {
+            m_EditBox->SetText(m_DropdownMenuStyleData.Items[m_Selection]);
         }
 
-        if (m_Selection < m_StringList.size())
+        if (m_Selection < m_DropdownMenuStyleData.Items.size())
         {
             if (m_SendIntermediateEvents || finalUpdate)
             {

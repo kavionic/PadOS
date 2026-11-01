@@ -11,6 +11,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	Exit_unittest.cpp
 	FontProtocol_unittest.cpp
 	FontSelection_unittest.cpp
+	DropdownMenuStyle_unittest.cpp
 	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp
 	KeyboardManager_unittest.cpp

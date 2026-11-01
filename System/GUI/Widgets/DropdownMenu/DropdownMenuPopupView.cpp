@@ -1,10 +1,11 @@
 // This file is part of PadOS.
 //
-// Copyright (c) 1999-2025 Kurt Skauen
+// Copyright (c) 1999-2026 Kurt Skauen
 //
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include "DropdownMenuPopupView.h"
 
@@ -17,16 +18,14 @@ namespace osi
 ///////////////////////////////////////////////////////////////////////////////
 
 DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection)
-    : PView(PString::zero, PViewFlag::WillDraw)
+    : PStyledView(PString::zero, PViewFlag::WillDraw)
 {
     m_ContentView = ptr_new<DropdownMenuPopupView>(itemList, selection, SignalSelectionChanged);
-    m_ContentView->SetBorders(2.0f, 4.0f, 2.0f, 4.0f);
     m_ContentView->SignalPreferredSizeChanged.Connect(this, &PView::PreferredSizeChanged);
     SetScrolledView(m_ContentView);
 
     AddChild(m_ContentView);
     OnFrameSized(PPoint());
-    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -36,6 +35,7 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& ite
 void DropdownMenuPopupWindow::OnFontChanged(Ptr<const PFont> newFont)
 {
     m_ContentView->SetFont(newFont);
+    OnFrameSized(PPoint());
     PreferredSizeChanged();
     Invalidate();
 }
@@ -44,10 +44,25 @@ void DropdownMenuPopupWindow::OnFontChanged(Ptr<const PFont> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void DropdownMenuPopupWindow::OnStyleChanged()
+{
+    m_ContentView->OnStyleChanged();
+    OnFrameSized(PPoint());
+    PStyledView::OnStyleChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void DropdownMenuPopupWindow::OnPaint(const PRect& updateRect)
 {
-    SetEraseColor(255, 255, 255);
-    DrawFrame(GetBounds(), FRAME_RECESSED);
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->DropdownMenuPopupFramePaint(*this, GetBounds());
+    } else {
+        PView::OnPaint(updateRect);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,10 +71,9 @@ void DropdownMenuPopupWindow::OnPaint(const PRect& updateRect)
 
 void DropdownMenuPopupWindow::OnFrameSized(const PPoint& delta)
 {
-    PRect contentFrame = GetBounds();
-    PRect contentBorders = m_ContentView->GetBorders();
-    contentFrame.Resize(contentBorders.left, contentBorders.top, contentBorders.right, contentBorders.bottom);
-    m_ContentView->SetFrame(contentFrame);
+    const PGUIStyle* style = GetStyle();
+    m_ContentView->SetFrame((style != nullptr) ? style->DropdownMenuPopupFrameGetContentFrame(*this) : GetBounds());
+    Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -68,13 +82,16 @@ void DropdownMenuPopupWindow::OnFrameSized(const PPoint& delta)
 
 void DropdownMenuPopupWindow::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    *minSize = m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
-    *maxSize = m_ContentView->GetPreferredSize(PPrefSizeType::Greatest);
-    PRect  clientBorders = m_ContentView->GetBorders();
-    PPoint borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
-
-    *minSize += borderSize;
-    *maxSize += borderSize;
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr)
+    {
+        const PPoint contentSize = m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
+        style->DropdownMenuPopupFrameGetPreferredSize(*this, contentSize, minSize, maxSize);
+    }
+    else
+    {
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,17 +107,25 @@ void DropdownMenuPopupWindow::MakeSelectionVisible()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged)
-    : PView("drop_down_view", PViewFlag::WillDraw)
-    , SignalSelectionChanged(signalSelectionChanged)
-    , m_ItemList(itemList)
+void DropdownMenuPopupWindow::ItemsChanged()
 {
-    m_CurSelection = selection;
-    m_OldSelection = m_CurSelection;
+    m_ContentView->ItemsChanged();
+}
 
-    UpdateFontMetrics();
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-    PreferredSizeChanged();
+DropdownMenuPopupView::DropdownMenuPopupView(
+    const std::vector<PString>& itemList,
+    size_t selection,
+    Signal<void, size_t, bool>& signalSelectionChanged)
+    : PStyledView("drop_down_view", PViewFlag::WillDraw)
+    , SignalSelectionChanged(signalSelectionChanged)
+    , m_PopupStyleData(itemList)
+{
+    m_PopupStyleData.Selection = selection;
+    m_OldSelection = m_PopupStyleData.Selection;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -109,10 +134,28 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemLis
 
 void DropdownMenuPopupView::OnFontChanged(Ptr<const PFont> newFont)
 {
-    UpdateFontMetrics();
+    NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Font);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenuPopupView::OnStyleChanged()
+{
+    m_PopupStyleData.StyleData.Reset();
     ContentSizeChanged();
-    PreferredSizeChanged();
-    Invalidate();
+    PStyledView::OnStyleChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenuPopupView::OnFrameSized(const PPoint& delta)
+{
+    PStyledView::OnFrameSized(delta);
+    NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Frame);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,35 +164,11 @@ void DropdownMenuPopupView::OnFontChanged(Ptr<const PFont> newFont)
 
 void DropdownMenuPopupView::OnPaint(const PRect& updateRect)
 {
-    SetEraseColor(255, 255, 255);
-    const PRect bounds = GetBounds();
-    const float contentBottom = float(m_ItemList.size()) * m_GlyphHeight;
-    if (bounds.top < 0.0f) {
-        EraseRect(PRect(bounds.left, bounds.top, bounds.right, std::min(bounds.bottom, 0.0f)));
-    }
-    if (bounds.bottom > contentBottom) {
-        EraseRect(PRect(bounds.left, std::max(bounds.top, contentBottom), bounds.right, bounds.bottom));
-    }
-
-    const size_t firstVisible = size_t(std::max(0.0f, floorf(updateRect.top / m_GlyphHeight)));
-    const size_t endVisible = std::min(size_t(std::max(0.0f, ceilf(updateRect.bottom / m_GlyphHeight))), m_ItemList.size());
-    for (size_t i = firstVisible; i < endVisible; ++i)
-    {
-        if (i == m_CurSelection || i == m_HitItem)
-        {
-            SetFgColor(255, 255, 255);
-            SetBgColor((i == m_CurSelection) ? PColor(0, 0, 0) : PColor(0, 0, 200));
-        }
-        else
-        {
-            SetFgColor(0, 0, 0);
-            SetBgColor(255, 255, 255);
-        }
-
-        const float top = float(i) * m_GlyphHeight;
-        const PRect itemFrame(bounds.left, top, bounds.right, float(i + 1) * m_GlyphHeight);
-        const PPoint baseline(2.0f, std::round(top + m_FontHeight.ascender + m_FontHeight.line_gap * 0.5f));
-        DrawString(m_ItemList[i], baseline, itemFrame);
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->DropdownMenuPopupPaint(*this, updateRect, m_PopupStyleData);
+    } else {
+        PView::OnPaint(updateRect);
     }
 }
 
@@ -171,8 +190,28 @@ void DropdownMenuPopupView::Activated(bool isActive)
 
 void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    *minSize = m_ContentSize;
-    *maxSize = m_ContentSize;
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->DropdownMenuPopupGetPreferredSize(*this, m_PopupStyleData, minSize, maxSize);
+    } else {
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPoint DropdownMenuPopupView::CalculateContentSize() const
+{
+    const PGUIStyle* style = GetStyle();
+    PPoint size;
+    if (style != nullptr)
+    {
+        PPoint maximumSize;
+        style->DropdownMenuPopupGetPreferredSize(*this, m_PopupStyleData, &size, &maximumSize);
+    }
+    return size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -181,39 +220,39 @@ void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxS
 
 void DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (GetStyle() == nullptr)
+    {
+        PView::OnPointerDown(pointerID, position, event, phase);
+        return;
+    }
     if (event.ToolType == PMotionToolType::Mouse)
     {
-        if (m_HitPointerID != PInvalidPointerID) {
+        if (m_HitPointerID != PInvalidPointerID)
+        {
             PView::OnPointerDown(pointerID, position, event, phase);
             return;
         }
         m_HitPointerID = pointerID;
 
-        if (GetBounds().DoIntersect(position))
-        {
-            SignalSelectionChanged(m_CurSelection, true);
-        }
-        else
-        {
+        if (GetBounds().DoIntersect(position)) {
+            SignalSelectionChanged(m_PopupStyleData.Selection, true);
+        } else {
             SignalSelectionChanged(m_OldSelection, true);
         }
         return;
     }
 
-    if (m_HitPointerID != PInvalidPointerID) {
+    if (m_HitPointerID != PInvalidPointerID)
+    {
         PView::OnPointerDown(pointerID, position, event, phase);
         return;
     }
     m_HitPos = position;
     m_HitPointerID = pointerID;
 
-    m_HitItem = PositionToIndex(position);
+    m_PopupStyleData.PressedItem = PositionToIndex(position);
 
-    PRect itemFrame = GetBounds();
-
-    itemFrame.top = float(m_HitItem) * m_GlyphHeight;
-    itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-    Invalidate(itemFrame);
+    NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Pressed);
 
     SetPointerCapture(pointerID);
 }
@@ -224,16 +263,21 @@ void DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
 
 void DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (GetStyle() == nullptr)
+    {
+        PView::OnPointerUp(pointerID, position, event, phase);
+        return;
+    }
     if (event.ToolType == PMotionToolType::Mouse)
     {
-        if (GetBounds().DoIntersect(position))
-        {
-            SignalSelectionChanged(m_CurSelection, true);
+        if (GetBounds().DoIntersect(position)) {
+            SignalSelectionChanged(m_PopupStyleData.Selection, true);
         }
         return;
     }
 
-    if (pointerID != m_HitPointerID) {
+    if (pointerID != m_HitPointerID)
+    {
         PView::OnPointerUp(pointerID, position, event, phase);
         return;
     }
@@ -261,6 +305,11 @@ void DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
 
 void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
+    if (GetStyle() == nullptr)
+    {
+        PView::OnPointerMove(pointerID, position, event, phase);
+        return;
+    }
     if (event.ToolType == PMotionToolType::Mouse)
     {
         if (!GetBounds().DoIntersect(position)) {
@@ -268,26 +317,17 @@ void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
         }
         size_t newSelection = PositionToIndex(position);
 
-        if (newSelection != m_CurSelection)
+        if (newSelection != m_PopupStyleData.Selection)
         {
-            int prevSel = m_CurSelection;
-            m_CurSelection = newSelection;
-            PRect itemFrame = GetBounds();
-
-            itemFrame.top = float(prevSel) * m_GlyphHeight;
-            itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-            Invalidate(itemFrame);
-
-            itemFrame.top = float(m_CurSelection) * m_GlyphHeight;
-            itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-
-            Invalidate(itemFrame);
+            m_PopupStyleData.Selection = newSelection;
+            NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Selection);
             SignalSelectionChanged(newSelection, false);
         }
         return;
     }
 
-    if (pointerID != m_HitPointerID) {
+    if (pointerID != m_HitPointerID)
+    {
         PView::OnPointerMove(pointerID, position, event, phase);
         return;
     }
@@ -297,14 +337,10 @@ void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
         if (viewScroller != nullptr) {
             viewScroller->SwipeMove(position);
         }
-        if (m_HitItem != INVALID_INDEX)
+        if (m_PopupStyleData.PressedItem != INVALID_INDEX)
         {
-            PRect itemFrame = GetBounds();
-
-            itemFrame.top = float(m_HitItem) * m_GlyphHeight;
-            itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-            m_HitItem = INVALID_INDEX;
-            Invalidate(itemFrame);
+            m_PopupStyleData.PressedItem = INVALID_INDEX;
+            NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Pressed);
         }
     }
     else
@@ -326,16 +362,18 @@ void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
 
 void DropdownMenuPopupView::MakeSelectionVisible()
 {
-    PRect bounds = GetBounds();
-
-    const float itemTop = float(m_CurSelection) * m_GlyphHeight;
-    const float itemBottom = itemTop + m_GlyphHeight;
+    const PGUIStyle* style = GetStyle();
+    if (style == nullptr || m_PopupStyleData.Selection >= m_PopupStyleData.Items.size()) {
+        return;
+    }
+    const PRect bounds = GetBounds();
+    const PRect itemFrame = style->DropdownMenuPopupGetItemFrame(*this, m_PopupStyleData, m_PopupStyleData.Selection);
 
     // NOTE: All scroll offsets are negative.
     const float maxScroll = bounds.Height() - GetContentSize().y;
     if (maxScroll < 0.0f)
     {
-        const float offset = std::round((bounds.Height() + itemTop - itemBottom) * 0.5f - itemTop);
+        const float offset = std::round((bounds.Height() - itemFrame.Height()) * 0.5f - itemFrame.top);
         ScrollTo(0.0f, std::clamp(offset, maxScroll, 0.0f));
     }
 }
@@ -344,22 +382,28 @@ void DropdownMenuPopupView::MakeSelectionVisible()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupView::UpdateFontMetrics()
+void DropdownMenuPopupView::ItemsChanged()
 {
-    m_ContentSize = PPoint();
-    m_FontHeight = GetFontHeight();
-    m_GlyphHeight = std::round(m_FontHeight.descender + m_FontHeight.ascender + m_FontHeight.line_gap);
+    NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Items);
+}
 
-    m_ContentSize.y = float(m_ItemList.size()) * m_GlyphHeight;
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-    for (size_t i = 0; i < m_ItemList.size(); ++i)
+void DropdownMenuPopupView::NotifyStylePropertyChanged(PDropdownMenuPopupProperties properties)
+{
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr)
     {
-        const float width = GetStringWidth(m_ItemList[i]);
-        if (width > m_ContentSize.x) {
-            m_ContentSize.x = width;
-        }
+        style->DropdownMenuPopupPropertyChanged(*this, m_PopupStyleData, properties);
     }
-    m_ContentSize.x += 4.0f;
+    else
+    {
+        ContentSizeChanged();
+        PreferredSizeChanged();
+        Invalidate();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -368,15 +412,8 @@ void DropdownMenuPopupView::UpdateFontMetrics()
 
 size_t DropdownMenuPopupView::PositionToIndex(const PPoint& position)
 {
-    size_t newSelection = 0;
-    if (position.y < 0.0f) {
-        return 0;
-    }
-    newSelection = size_t(position.y / m_GlyphHeight);
-    if (newSelection >= m_ItemList.size()) {
-        newSelection = m_ItemList.size() - 1;
-    }
-    return newSelection;
+    const PGUIStyle* style = GetStyle();
+    return (style != nullptr) ? style->DropdownMenuPopupGetItemFromPosition(*this, m_PopupStyleData, position) : INVALID_INDEX;
 }
 
 } // namespace osi

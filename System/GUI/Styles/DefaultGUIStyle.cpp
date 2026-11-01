@@ -10,6 +10,8 @@
 
 #include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/Style/ButtonStyleData.h>
+#include <GUI/Style/DropdownMenuStyleData.h>
+#include <GUI/Style/DropdownMenuPopupStyleData.h>
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Bitmap.h>
@@ -43,6 +45,24 @@ struct PDefaultGUIStyle::ScrollBarGeometry
     PRect ArrowFrames[4];
     PRect TrackFrame;
     PRect KnobFrame;
+};
+
+struct PDefaultGUIStyle::DropdownMenuStyleData : PtrTarget
+{
+    Ptr<PBitmap> ArrowBitmap;
+    float ItemWidth = 0.0f;
+    bool AreMetricsValid = false;
+};
+
+struct PDefaultGUIStyle::DropdownMenuPopupStyleData : PtrTarget
+{
+    PPoint ContentSize;
+    PFontHeight FontHeight;
+    float ItemHeight = 0.0f;
+    size_t PreviousSelection = INVALID_INDEX;
+    size_t PreviousPressedItem = INVALID_INDEX;
+    bool AreMetricsValid = false;
+    bool HasVisualState = false;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -467,6 +487,261 @@ float PDefaultGUIStyle::ScrollBarGetValueFromPosition(const PView& target, const
     const float travel = trackLength - knobLength;
     const float offset = (isHorizontal ? position.x : position.y) - trackStart - knobLength * 0.5f;
     return (travel > 0.0f) ? std::clamp(offset / travel, 0.0f, 1.0f) : data.Value;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPaint(PView& target, const PRect& frame, const PDropdownMenuStyleData& data) const
+{
+    DropdownMenuStyleData& state = data.GetOrCreateStyleData<DropdownMenuStyleData>();
+    if (state.ArrowBitmap == nullptr)
+    {
+        state.ArrowBitmap = ptr_new<PBitmap>(
+            DROPDOWN_MENU_ARROW_WIDTH,
+            DROPDOWN_MENU_ARROW_HEIGHT,
+            PEColorSpace::MONO1,
+            DROPDOWN_MENU_ARROW_BITMAP_RASTER,
+            sizeof(uint32_t),
+            0,
+            target.GetApplication());
+    }
+    const PRect buttonFrame = GetDropdownMenuArrowFrame(frame);
+    target.SetEraseColor(PStandardColorID::DefaultBackground);
+    target.DrawFrame(buttonFrame, data.IsOpen ? FRAME_RECESSED : FRAME_RAISED);
+    const PPoint center = buttonFrame.Center().GetRounded();
+    const PRect arrowFrame = PRect::FromSize(float(DROPDOWN_MENU_ARROW_WIDTH), float(DROPDOWN_MENU_ARROW_HEIGHT));
+    target.SetDrawingMode(PDrawingMode::Overlay);
+    if (data.IsEnabled)
+    {
+        target.SetFgColor(0, 0, 0);
+        target.DrawBitmap(state.ArrowBitmap, arrowFrame, center - PPoint(9.0f, 4.0f));
+    }
+    else
+    {
+        target.SetFgColor(255, 255, 255);
+        target.DrawBitmap(state.ArrowBitmap, arrowFrame, center - PPoint(8.0f, 4.0f));
+        target.SetFgColor(110, 110, 110);
+        target.DrawBitmap(state.ArrowBitmap, arrowFrame, center - PPoint(9.0f, 5.0f));
+    }
+    target.SetDrawingMode(PDrawingMode::Copy);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuGetPreferredSize(const PView& target, const PDropdownMenuStyleData& data, PPoint* minSize, PPoint* maxSize) const
+{
+    UpdateDropdownMenuMetrics(target, data);
+    const DropdownMenuStyleData& state = *data.GetStyleData<DropdownMenuStyleData>();
+    PPoint size = data.EditorSize;
+    size.x += (data.Items.empty() && data.Text != nullptr) ? target.GetStringWidth(*data.Text) : state.ItemWidth;
+    size.x += DROPDOWN_MENU_LABEL_PADDING + std::round(size.y * DROPDOWN_MENU_ARROW_ASPECT_RATIO);
+    *minSize = size;
+    *maxSize = size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPropertyChanged(PView& target, PDropdownMenuStyleData& data, PDropdownMenuProperties properties) const
+{
+    DropdownMenuStyleData& state = data.GetOrCreateStyleData<DropdownMenuStyleData>();
+    if (properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Font))) {
+        state.AreMetricsValid = false;
+    }
+    if (properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Text, PDropdownMenuProperty::Font))) {
+        target.PreferredSizeChanged();
+    }
+    target.Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PRect PDefaultGUIStyle::DropdownMenuGetEditorFrame(const PView& target, const PDropdownMenuStyleData& data) const
+{
+    PRect frame = target.GetBounds();
+    frame.right = GetDropdownMenuArrowFrame(frame).left;
+    return frame;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PDefaultGUIStyle::DropdownMenuHitTest(const PView& target, const PDropdownMenuStyleData& data, const PPoint& position) const
+{
+    const PRect hitFrame = data.IsReadOnly ? target.GetBounds() : GetDropdownMenuArrowFrame(target.GetBounds());
+    return data.IsEnabled && hitFrame.DoIntersect(position);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPopupFramePaint(PView& target, const PRect& frame) const
+{
+    target.SetEraseColor(255, 255, 255);
+    target.DrawFrame(frame, FRAME_RECESSED);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPopupFrameGetPreferredSize(const PView& target, const PPoint& contentSize, PPoint* minSize, PPoint* maxSize) const
+{
+    *minSize = contentSize + PPoint(DROPDOWN_MENU_POPUP_BORDER_X * 2.0f, DROPDOWN_MENU_POPUP_BORDER_Y * 2.0f);
+    *maxSize = *minSize;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PRect PDefaultGUIStyle::DropdownMenuPopupFrameGetContentFrame(const PView& target) const
+{
+    const PRect bounds = target.GetBounds();
+    const float horizontalBorder = std::min(DROPDOWN_MENU_POPUP_BORDER_X, std::max(0.0f, bounds.Width() * 0.5f));
+    const float verticalBorder = std::min(DROPDOWN_MENU_POPUP_BORDER_Y, std::max(0.0f, bounds.Height() * 0.5f));
+    return bounds.GetResized(horizontalBorder, verticalBorder, -horizontalBorder, -verticalBorder);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPopupPaint(PView& target, const PRect& updateRect, const PDropdownMenuPopupStyleData& data) const
+{
+    UpdateDropdownMenuPopupMetrics(target, data);
+    DropdownMenuPopupStyleData& state = *data.GetStyleData<DropdownMenuPopupStyleData>();
+    target.SetEraseColor(255, 255, 255);
+    const PRect bounds = target.GetBounds();
+    if (bounds.top < 0.0f) {
+        target.EraseRect(PRect(bounds.left, bounds.top, bounds.right, std::min(bounds.bottom, 0.0f)));
+    }
+    if (bounds.bottom > state.ContentSize.y) {
+        target.EraseRect(PRect(bounds.left, std::max(bounds.top, state.ContentSize.y), bounds.right, bounds.bottom));
+    }
+    if (state.ItemHeight > 0.0f)
+    {
+        const size_t firstVisible = size_t(std::max(0.0f, std::floor(updateRect.top / state.ItemHeight)));
+        const size_t endVisible = std::min(size_t(std::max(0.0f, std::ceil(updateRect.bottom / state.ItemHeight))), data.Items.size());
+        for (size_t i = firstVisible; i < endVisible; ++i)
+        {
+            if (i == data.Selection || i == data.PressedItem)
+            {
+                target.SetFgColor(255, 255, 255);
+                target.SetBgColor((i == data.Selection) ? PColor(0, 0, 0) : PColor(0, 0, 200));
+            }
+            else
+            {
+                target.SetFgColor(0, 0, 0);
+                target.SetBgColor(255, 255, 255);
+            }
+            const PRect itemFrame = DropdownMenuPopupGetItemFrame(target, data, i);
+            const PPoint baseline(
+                DROPDOWN_MENU_POPUP_LABEL_PADDING,
+                std::round(itemFrame.top + state.FontHeight.ascender + state.FontHeight.line_gap * 0.5f));
+            target.DrawString(data.Items[i], baseline, itemFrame);
+        }
+    }
+    state.PreviousSelection = data.Selection;
+    state.PreviousPressedItem = data.PressedItem;
+    state.HasVisualState = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPopupGetPreferredSize(
+    const PView& target,
+    const PDropdownMenuPopupStyleData& data,
+    PPoint* minSize,
+    PPoint* maxSize) const
+{
+    UpdateDropdownMenuPopupMetrics(target, data);
+    *minSize = data.GetStyleData<DropdownMenuPopupStyleData>()->ContentSize;
+    *maxSize = *minSize;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::DropdownMenuPopupPropertyChanged(
+    PView& target,
+    PDropdownMenuPopupStyleData& data,
+    PDropdownMenuPopupProperties properties) const
+{
+    DropdownMenuPopupStyleData& state = data.GetOrCreateStyleData<DropdownMenuPopupStyleData>();
+    const PDropdownMenuPopupProperties metricProperties(PDropdownMenuPopupProperty::Items, PDropdownMenuPopupProperty::Font);
+    if (properties.HasAny(metricProperties))
+    {
+        state.AreMetricsValid = false;
+        target.ContentSizeChanged();
+        target.PreferredSizeChanged();
+    }
+    const PDropdownMenuPopupProperties incrementalProperties(PDropdownMenuPopupProperty::Selection, PDropdownMenuPopupProperty::Pressed);
+    const bool propertiesRequireFullUpdate = !(properties & ~incrementalProperties).Empty();
+    if (!state.HasVisualState || propertiesRequireFullUpdate)
+    {
+        target.Invalidate();
+    }
+    else
+    {
+        for (size_t index : {state.PreviousSelection, state.PreviousPressedItem, data.Selection, data.PressedItem})
+        {
+            if (index < data.Items.size()) {
+                target.Invalidate(DropdownMenuPopupGetItemFrame(target, data, index));
+            }
+        }
+    }
+    state.PreviousSelection = data.Selection;
+    state.PreviousPressedItem = data.PressedItem;
+    state.HasVisualState = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PRect PDefaultGUIStyle::DropdownMenuPopupGetItemFrame(const PView& target, const PDropdownMenuPopupStyleData& data, size_t index) const
+{
+    if (index >= data.Items.size()) {
+        return PRect();
+    }
+    UpdateDropdownMenuPopupMetrics(target, data);
+    const float itemHeight = data.GetStyleData<DropdownMenuPopupStyleData>()->ItemHeight;
+    const PRect bounds = target.GetBounds();
+    return PRect(bounds.left, float(index) * itemHeight, bounds.right, float(index + 1) * itemHeight);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PDefaultGUIStyle::DropdownMenuPopupGetItemFromPosition(
+    const PView& target,
+    const PDropdownMenuPopupStyleData& data,
+    const PPoint& position) const
+{
+    if (data.Items.empty()) {
+        return INVALID_INDEX;
+    }
+    UpdateDropdownMenuPopupMetrics(target, data);
+    const float itemHeight = data.GetStyleData<DropdownMenuPopupStyleData>()->ItemHeight;
+    if (itemHeight <= 0.0f) {
+        return INVALID_INDEX;
+    }
+    const float index = std::clamp(std::floor(position.y / itemHeight), 0.0f, float(data.Items.size() - 1));
+    return size_t(index);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1387,5 +1662,52 @@ void PDefaultGUIStyle::DrawScrollBarArrows(PView& target, const ScrollBarGeometr
             target.DrawBitmap(arrowBitmap, bitmapBounds, arrowPosition);
             target.SetDrawingMode(PDrawingMode::Copy);
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::UpdateDropdownMenuMetrics(const PView& target, const PDropdownMenuStyleData& data)
+{
+    DropdownMenuStyleData& state = data.GetOrCreateStyleData<DropdownMenuStyleData>();
+    if (!state.AreMetricsValid)
+    {
+        state.ItemWidth = 0.0f;
+        for (const PString& item : data.Items) {
+            state.ItemWidth = std::max(state.ItemWidth, target.GetStringWidth(item));
+        }
+        state.AreMetricsValid = true;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PRect PDefaultGUIStyle::GetDropdownMenuArrowFrame(const PRect& frame)
+{
+    const float width = std::round(std::max(0.0f, frame.Height()) * DROPDOWN_MENU_ARROW_ASPECT_RATIO);
+    return PRect(std::max(frame.left, frame.right - width), frame.top, frame.right, frame.bottom);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::UpdateDropdownMenuPopupMetrics(const PView& target, const PDropdownMenuPopupStyleData& data)
+{
+    DropdownMenuPopupStyleData& state = data.GetOrCreateStyleData<DropdownMenuPopupStyleData>();
+    if (!state.AreMetricsValid)
+    {
+        state.FontHeight = target.GetFontHeight();
+        state.ItemHeight = std::round(state.FontHeight.descender + state.FontHeight.ascender + state.FontHeight.line_gap);
+        state.ContentSize = PPoint(0.0f, float(data.Items.size()) * state.ItemHeight);
+        for (const PString& item : data.Items) {
+            state.ContentSize.x = std::max(state.ContentSize.x, target.GetStringWidth(item));
+        }
+        state.ContentSize.x += DROPDOWN_MENU_POPUP_LABEL_PADDING * 2.0f;
+        state.AreMetricsValid = true;
     }
 }

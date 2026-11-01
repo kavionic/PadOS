@@ -7,6 +7,8 @@
 
 target_sources(PadOS_GUI PRIVATE
 	ButtonStyleData.h
+	DropdownMenuStyleData.h
+	DropdownMenuPopupStyleData.h
 	GUIStyle.h
 	GUIStyleData.h
 	ScrollBarStyleData.h

@@ -33,6 +33,10 @@ struct PDropdownMenuPopupStyleData;
 enum class PDropdownMenuPopupProperty : uint32_t;
 using PDropdownMenuPopupProperties = PEnumBitmask<PDropdownMenuPopupProperty>;
 
+struct PGroupViewStyleData;
+enum class PGroupViewProperty : uint32_t;
+using PGroupViewProperties = PEnumBitmask<PGroupViewProperty>;
+
 class PGUIStyle : public PtrTarget
 {
 public:
@@ -98,4 +102,10 @@ public:
         const PView& target,
         const PDropdownMenuPopupStyleData& data,
         const PPoint& position) const = 0;
+
+    virtual void GroupViewPaint(PView& target, const PRect& updateRect, const PGroupViewStyleData& data) const = 0;
+
+    // Returns the frame and label size limits, combined with the child layout by PGroupView.
+    virtual void GroupViewGetPreferredSize(const PView& target, const PGroupViewStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
+    virtual void GroupViewPropertyChanged(PView& target, PGroupViewStyleData& data, PGroupViewProperties properties) const = 0;
 };

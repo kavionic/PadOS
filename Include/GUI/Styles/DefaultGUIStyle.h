@@ -86,12 +86,17 @@ public:
         const PDropdownMenuPopupStyleData& data,
         const PPoint& position) const override;
 
+    virtual void GroupViewPaint(PView& target, const PRect& updateRect, const PGroupViewStyleData& data) const override;
+    virtual void GroupViewGetPreferredSize(const PView& target, const PGroupViewStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
+    virtual void GroupViewPropertyChanged(PView& target, PGroupViewStyleData& data, PGroupViewProperties properties) const override;
+
 private:
     struct SliderStyleData;
     struct ScrollBarStyleData;
     struct ScrollBarGeometry;
     struct DropdownMenuStyleData;
     struct DropdownMenuPopupStyleData;
+    struct GroupViewStyleData;
 
     static constexpr float SCROLL_BAR_THICKNESS = 16.0f;
     static constexpr float SCROLL_BAR_MIN_KNOB_SIZE = 12.0f;
@@ -150,6 +155,12 @@ private:
         0b00000000111000000000000000000000,
         0b00000000010000000000000000000000
     };
+
+    static constexpr float GROUP_VIEW_PEN_WIDTH = 2.0f;
+    static constexpr float GROUP_VIEW_LABEL_OFFSET = 30.0f;
+    static constexpr float GROUP_VIEW_LABEL_GAP_START = 15.0f;
+    static constexpr float GROUP_VIEW_LABEL_SPACING = 10.0f;
+    static constexpr float GROUP_VIEW_MIN_SIZE = 5.0f;
 
     static constexpr float CHECK_BOX_SIZE = 32.0f;
     static constexpr float CHECK_BOX_LABEL_SPACING = 8.0f;
@@ -223,4 +234,5 @@ private:
     static void                 UpdateDropdownMenuMetrics(const PView& target, const PDropdownMenuStyleData& data);
     static PRect                GetDropdownMenuArrowFrame(const PRect& frame);
     static void                 UpdateDropdownMenuPopupMetrics(const PView& target, const PDropdownMenuPopupStyleData& data);
+    static void                 UpdateGroupViewMetrics(const PView& target, const PGroupViewStyleData& data);
 };

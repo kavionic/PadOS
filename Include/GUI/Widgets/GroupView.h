@@ -8,19 +8,28 @@
 
 #pragma once
 
-#include <GUI/View.h>
+#include <GUI/Style/GroupViewStyleData.h>
+#include <GUI/StyledView.h>
 
 
-class PGroupView : public PView
+class PGroupView : public PStyledView
 {
 public:
     PGroupView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:
-    virtual void OnFontChanged(Ptr<const PFont> newFont) override { Invalidate(); }
+    virtual void OnFontChanged(Ptr<const PFont> newFont) override;
+    virtual void OnStyleChanged() override;
+    virtual void OnFrameSized(const PPoint& delta) override;
     virtual void OnPaint(const PRect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+
+    void SetLabel(const PString& label);
+    const PString& GetLabel() const;
 
 private:
-    PString m_Label;
+    void NotifyStylePropertyChanged(PGroupViewProperties properties);
+
+    PGroupViewStyleData m_GroupViewStyleData;
 };

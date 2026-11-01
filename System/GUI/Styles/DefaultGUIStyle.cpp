@@ -12,6 +12,7 @@
 #include <GUI/Style/ButtonStyleData.h>
 #include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
+#include <GUI/Style/GroupViewStyleData.h>
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Bitmap.h>
@@ -63,6 +64,13 @@ struct PDefaultGUIStyle::DropdownMenuPopupStyleData : PtrTarget
     size_t PreviousPressedItem = INVALID_INDEX;
     bool AreMetricsValid = false;
     bool HasVisualState = false;
+};
+
+struct PDefaultGUIStyle::GroupViewStyleData : PtrTarget
+{
+    PPoint LabelSize;
+    float LabelAscender = 0.0f;
+    bool AreMetricsValid = false;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -742,6 +750,82 @@ size_t PDefaultGUIStyle::DropdownMenuPopupGetItemFromPosition(
     }
     const float index = std::clamp(std::floor(position.y / itemHeight), 0.0f, float(data.Items.size() - 1));
     return size_t(index);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::GroupViewPaint(PView& target, const PRect& updateRect, const PGroupViewStyleData& data) const
+{
+    UpdateGroupViewMetrics(target, data);
+    const GroupViewStyleData& state = *data.GetStyleData<GroupViewStyleData>();
+    if (!data.Label.empty())
+    {
+        target.SetBgColor(target.GetEraseColor());
+        target.SetFgColor(PStandardColorID::Shadow);
+        target.DrawString(data.Label, PPoint(GROUP_VIEW_LABEL_OFFSET, state.LabelAscender), target.GetBounds());
+    }
+    else
+    {
+        target.EraseRect(updateRect);
+    }
+
+    PRect bound = target.GetNormalizedBounds();
+    bound.Resize(0.0f, std::floor(state.LabelSize.y * 0.5f), -1.0f, -1.0f);
+
+    const float oldPenWidth = target.GetPenWidth();
+    target.SetPenWidth(GROUP_VIEW_PEN_WIDTH);
+    bound.Resize(1.0f, 1.0f, -1.0f, -1.0f);
+
+    target.SetFgColor(PStandardColorID::Shadow);
+    target.MovePenTo(bound.BottomLeft());
+    target.DrawLine(bound.TopLeft());
+
+    if (!data.Label.empty())
+    {
+        target.DrawLine(GROUP_VIEW_LABEL_GAP_START, bound.top);
+        target.MovePenTo(GROUP_VIEW_LABEL_OFFSET + state.LabelSize.x + GROUP_VIEW_LABEL_SPACING, bound.top);
+    }
+    target.DrawLine(bound.TopRight());
+
+    target.SetFgColor(PStandardColorID::Shine);
+    target.MovePenTo(bound.TopRight() + PPoint(0.0f, GROUP_VIEW_PEN_WIDTH));
+    target.DrawLine(bound.BottomRight());
+    target.DrawLine(bound.BottomLeft() + PPoint(GROUP_VIEW_PEN_WIDTH, 0.0f));
+
+    target.SetPenWidth(oldPenWidth);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::GroupViewGetPreferredSize(const PView& target, const PGroupViewStyleData& data, PPoint* minSize, PPoint* maxSize) const
+{
+    UpdateGroupViewMetrics(target, data);
+    const GroupViewStyleData& state = *data.GetStyleData<GroupViewStyleData>();
+    *minSize = PPoint(GROUP_VIEW_MIN_SIZE);
+    if (!data.Label.empty())
+    {
+        minSize->x = GROUP_VIEW_LABEL_OFFSET + state.LabelSize.x + GROUP_VIEW_LABEL_SPACING + GROUP_VIEW_PEN_WIDTH;
+        minSize->y = std::max(GROUP_VIEW_MIN_SIZE, state.LabelSize.y + GROUP_VIEW_PEN_WIDTH);
+    }
+    *maxSize = PPoint(LAYOUT_MAX_SIZE);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::GroupViewPropertyChanged(PView& target, PGroupViewStyleData& data, PGroupViewProperties properties) const
+{
+    if (properties.HasAny(PGroupViewProperties(PGroupViewProperty::Label, PGroupViewProperty::Font)))
+    {
+        data.GetOrCreateStyleData<GroupViewStyleData>().AreMetricsValid = false;
+        target.PreferredSizeChanged();
+    }
+    target.Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1708,6 +1792,27 @@ void PDefaultGUIStyle::UpdateDropdownMenuPopupMetrics(const PView& target, const
             state.ContentSize.x = std::max(state.ContentSize.x, target.GetStringWidth(item));
         }
         state.ContentSize.x += DROPDOWN_MENU_POPUP_LABEL_PADDING * 2.0f;
+        state.AreMetricsValid = true;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::UpdateGroupViewMetrics(const PView& target, const PGroupViewStyleData& data)
+{
+    GroupViewStyleData& state = data.GetOrCreateStyleData<GroupViewStyleData>();
+    if (!state.AreMetricsValid)
+    {
+        state.LabelSize = PPoint();
+        state.LabelAscender = 0.0f;
+        if (!data.Label.empty())
+        {
+            const PFontHeight fontHeight = target.GetFontHeight();
+            state.LabelSize = PPoint(target.GetStringWidth(data.Label), fontHeight.ascender + fontHeight.descender);
+            state.LabelAscender = fontHeight.ascender;
+        }
         state.AreMetricsValid = true;
     }
 }

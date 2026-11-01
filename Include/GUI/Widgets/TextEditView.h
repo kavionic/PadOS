@@ -13,17 +13,19 @@
 
 
 struct PTextBoxStyle;
+enum class PTextBoxFlag : uint32_t;
+using PTextBoxFlags = PEnumBitmask<PTextBoxFlag, PViewFlags>;
 
 class PTextEditView : public PControl
 {
 public:
-    PTextEditView(const PString& name, const PString& text, uint32_t flags = 0);
+    PTextEditView(const PString& name, const PString& text, PTextBoxFlags flags = PTextBoxFlags::zero);
     PTextEditView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PTextEditView();
 
     // From View:
     virtual void    OnKeyboardFocusChanged(bool hasFocus) override;
-    virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void    OnFlagsChanged(PViewFlags changedFlags) override;
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual PPoint   CalculateContentSize() const override;

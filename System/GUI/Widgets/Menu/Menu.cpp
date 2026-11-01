@@ -16,9 +16,9 @@
 #include "MenuRenderView.h"
 
 
-const std::map<PString, uint32_t> PMenuFlags::FlagMap
+const std::map<PString, PMenuFlags> PMENU_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PMenuFlags, NoKeyboardFocus)
+    DEFINE_FLAG_MAP_ENTRY(PMenuFlag, NoKeyboardFocus)
 };
 
 static const uint32_t g_ArrowBitmapRaster[] =
@@ -49,8 +49,8 @@ static const uint32_t g_ArrowBitmapRaster[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMenu::PMenu(const PString& title, PMenuLayout layout, uint32_t flags)
-    : PView("_menu_", flags | PViewFlags::WillDraw | PViewFlags::ClearBackground)
+PMenu::PMenu(const PString& title, PMenuLayout layout, PMenuFlags flags)
+    : PView("_menu_", flags | PViewFlag::WillDraw | PViewFlag::ClearBackground)
     , m_Title(title)
 {
     m_ItemBorders = PRect(3, 2, 3, 2);
@@ -362,7 +362,7 @@ void PMenu::Open(const PPoint& screenPosition, PMenuLocation relativeLocation)
     }
 
     SetFrame(frame);
-    if (!HasFlags(PMenuFlags::NoKeyboardFocus)) {
+    if (!HasFlags(PMenuFlag::NoKeyboardFocus)) {
         SetKeyboardFocus(true);
     }
 
@@ -410,7 +410,7 @@ void PMenu::Close(bool bCloseChilds, bool bCloseParent, Ptr<PMenuItem> selectedI
         Ptr<PMenu> parent = GetSuperMenu();
         if (parent != nullptr)
         {
-            if (parent->m_IsOpen && !HasFlags(PMenuFlags::NoKeyboardFocus)) {
+            if (parent->m_IsOpen && !HasFlags(PMenuFlag::NoKeyboardFocus)) {
                 parent->SetKeyboardFocus(true);
             }
             parent->m_HasOpenChildren = false;

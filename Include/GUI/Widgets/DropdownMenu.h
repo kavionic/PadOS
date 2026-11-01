@@ -22,16 +22,17 @@ class PTextBox;
 class PDropdownMenu;
 
 
-namespace PDropdownMenuFlags
+enum class PDropdownMenuFlag : uint32_t
 {
-// When the DropdownMenu is in read-only mode the user will not be able
-// to edit the contents of the edit box.It will also make the menu open
-// when the user click inside the edit box.
+    // When the DropdownMenu is in read-only mode the user will not be able
+    // to edit the contents of the edit box.It will also make the menu open
+    // when the user click inside the edit box.
+    ReadOnly             = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+};
 
-static constexpr uint32_t ReadOnly    = 0x01 << PViewFlags::FirstUserBit;
+PDEFINE_ENUM_BITMASK(PDropdownMenuFlags, PDropdownMenuFlag, PViewFlags);
 
-extern const std::map<PString, uint32_t> FlagMap;
-}
+extern const std::map<PString, PDropdownMenuFlags> PDROPDOWN_MENU_FLAG_MAP;
 
 
 /** Edit box with an asociated item-menu.
@@ -45,12 +46,12 @@ extern const std::map<PString, uint32_t> FlagMap;
 class PDropdownMenu : public PControl
 {
 public:
-    PDropdownMenu(const PString& name = PString::zero, uint32_t flags = 0);
+    PDropdownMenu(const PString& name = PString::zero, PDropdownMenuFlags flags = PDropdownMenuFlags::zero);
     PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PDropdownMenu();
 
     // From View:
-    virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void    OnFlagsChanged(PViewFlags changedFlags) override;
     virtual void    DetachedFromScreen() override;
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;

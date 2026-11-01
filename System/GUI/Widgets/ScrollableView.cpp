@@ -13,7 +13,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollableView::PScrollableView(const PString& name, uint32_t flags) : PView(name, flags)
+PScrollableView::PScrollableView(const PString& name, PViewFlags flags) : PView(name, flags)
 {
 }
 

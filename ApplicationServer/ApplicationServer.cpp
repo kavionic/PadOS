@@ -463,7 +463,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
         GetScreenFrame(),
         PPoint(0.0f, 0.0f),
         PViewDockType::TopLevelView,
-        0,
+        PViewFlags::zero,
         PViewHitMode::HitTest,
         0,
         PFocusKeyboardMode::None,

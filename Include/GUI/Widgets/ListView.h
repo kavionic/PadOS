@@ -19,17 +19,19 @@ class PListViewHeaderView;
 class PListViewScrolledView;
 class PListViewRow;
 
-namespace PListViewFlags
+enum class PListViewFlag : uint32_t
 {
-static constexpr uint32_t MultiSelect   = 0x0001 << PViewFlags::FirstUserBit;
-static constexpr uint32_t NoAutoSort    = 0x0002 << PViewFlags::FirstUserBit;
-static constexpr uint32_t RenderBorder  = 0x0004 << PViewFlags::FirstUserBit;
-static constexpr uint32_t DontScroll    = 0x0008 << PViewFlags::FirstUserBit;
-static constexpr uint32_t NoHeader      = 0x0010 << PViewFlags::FirstUserBit;
-static constexpr uint32_t NoColumnRemap = 0x0020 << PViewFlags::FirstUserBit;
+    MultiSelect          = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+    NoAutoSort           = 0x02 << PVIEW_FIRST_USER_FLAG_BIT,
+    RenderBorder         = 0x04 << PVIEW_FIRST_USER_FLAG_BIT,
+    DontScroll           = 0x08 << PVIEW_FIRST_USER_FLAG_BIT,
+    NoHeader             = 0x10 << PVIEW_FIRST_USER_FLAG_BIT,
+    NoColumnRemap        = 0x20 << PVIEW_FIRST_USER_FLAG_BIT,
+};
 
-extern const std::map<PString, uint32_t> FlagMap;
-}
+PDEFINE_ENUM_BITMASK(PListViewFlags, PListViewFlag, PViewFlags);
+
+extern const std::map<PString, PListViewFlags> PLIST_VIEW_FLAG_MAP;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -52,7 +54,7 @@ public:
     using const_iterator = std::vector<Ptr<PListViewRow>>::const_iterator;
     using ColumnMap = std::vector<size_t>;
 
-    PListView(const PString& name = PString::zero, uint32_t flags = PListViewFlags::MultiSelect | PListViewFlags::RenderBorder);
+    PListView(const PString& name = PString::zero, PListViewFlags flags = PListViewFlag::MultiSelect | PListViewFlag::RenderBorder);
     PListView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     ~PListView();

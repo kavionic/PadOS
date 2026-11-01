@@ -11,20 +11,21 @@
 #include <GUI/Widgets/Control.h>
 
 
-namespace PSliderFlags
+enum class PSliderFlag : uint32_t
 {
-static constexpr uint32_t TicksAbove        = 0x0001 << PViewFlags::FirstUserBit;
-static constexpr uint32_t TicksBelow        = 0x0002 << PViewFlags::FirstUserBit;
-static constexpr uint32_t TicksLeft         = TicksAbove;
-static constexpr uint32_t TicksRight        = TicksBelow;
-static constexpr uint32_t KnobPointUp       = 0x0004 << PViewFlags::FirstUserBit;
-static constexpr uint32_t KnobPointDown     = 0x0008 << PViewFlags::FirstUserBit;
-static constexpr uint32_t KnobPointLeft     = KnobPointUp;
-static constexpr uint32_t KnobPointRight    = KnobPointDown;
+    TicksAbove           = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+    TicksBelow           = 0x02 << PVIEW_FIRST_USER_FLAG_BIT,
+    TicksLeft            = TicksAbove,
+    TicksRight           = TicksBelow,
+    KnobPointUp          = 0x04 << PVIEW_FIRST_USER_FLAG_BIT,
+    KnobPointDown        = 0x08 << PVIEW_FIRST_USER_FLAG_BIT,
+    KnobPointLeft        = KnobPointUp,
+    KnobPointRight       = KnobPointDown,
+};
 
-extern const std::map<PString, uint32_t> FlagMap;
+PDEFINE_ENUM_BITMASK(PSliderFlags, PSliderFlag, PViewFlags);
 
-}
+extern const std::map<PString, PSliderFlags> PSLIDER_FLAG_MAP;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup gui
@@ -39,7 +40,7 @@ class PSlider : public PControl
 public:
     PSlider(
         const PString& name = PString::zero,
-        uint32_t flags = PSliderFlags::TicksBelow,
+        PSliderFlags flags = PSliderFlag::TicksBelow,
         int tickCount = 10,
         POrientation orientation = POrientation::Horizontal);
     PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData);
@@ -47,7 +48,7 @@ public:
     ~PSlider() override = default;
 
     // From View:
-    virtual void OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void OnFlagsChanged(PViewFlags changedFlags) override;
 
     void SetLabel(const PString& label);
     const PString& GetLabel() const { return m_SliderStyleData.Label; }

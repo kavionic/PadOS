@@ -70,7 +70,7 @@ struct PViewFactoryContext
         PString flagString = GetAttribute(xmlNode, name, noFlagString);
         if (flagString != noFlagString)
         {
-            T flags = 0;
+            T flags{};
             if (p_xml_object_parser::parse_flags(flagString.c_str(), flagDefinitions, flags)) {
                 return flags;
             }

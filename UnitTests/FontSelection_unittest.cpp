@@ -301,7 +301,7 @@ TEST(FontSelection, SliderGeometryUsesTheStyleAndHandlesMissingStyle)
     {
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
-            Ptr<PSlider> slider = ptr_new<PSlider>("slider", PSliderFlags::TicksBelow, 10, orientation);
+            Ptr<PSlider> slider = ptr_new<PSlider>("slider", PSliderFlag::TicksBelow, 10, orientation);
             slider->SetMinMax(10.0f, 30.0f);
             slider->SetValue(20.0f, false);
             slider->SetFrame(PRect(0.0f, 0.0f, 200.0f, 200.0f));
@@ -346,7 +346,7 @@ TEST(FontSelection, SliderPropertyChangesRefreshPrivateMeasurements)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("slider_style_target", PViewFlags::WillDraw);
+        Ptr<PView> target = ptr_new<PView>("slider_style_target", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
         Ptr<PFont> font = ptr_new<PFont>(PFontID::e_FontSmall);

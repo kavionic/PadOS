@@ -31,7 +31,7 @@ struct PMVCListViewItemNode : PMVCBaseViewItemNode
 class PMVCListView : public PMVCBaseView
 {
 public:
-    PMVCListView(const PString& name = PString::zero, uint32_t flags = 0);
+    PMVCListView(const PString& name = PString::zero, PMVCBaseViewFlags flags = PMVCBaseViewFlags::zero);
     PMVCListView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnFrameSized(const PPoint& delta) override;

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <type_traits>
 #include <utility>
@@ -18,6 +19,19 @@ concept PBitmaskEnum = std::is_enum_v<TEnumType>;
 
 template<PBitmaskEnum TEnumType, class TBaseMask = void>
 class PEnumBitmask;
+
+// Declare alongside the enum so argument-dependent lookup finds the association.
+// The lookup function is only declared and used in unevaluated contexts.
+#define PDEFINE_ENUM_BITMASK(MASK_TYPE, ENUM_TYPE, ...) \
+    using MASK_TYPE = PEnumBitmask<ENUM_TYPE __VA_OPT__(,) __VA_ARGS__>; \
+    std::type_identity<MASK_TYPE> p_enum_bitmask_type(ENUM_TYPE)
+
+template<class TEnumType>
+    requires PBitmaskEnum<std::remove_cvref_t<TEnumType>>
+using PEnumBitmaskFor = typename decltype(p_enum_bitmask_type(std::declval<std::remove_cvref_t<TEnumType>>()))::type;
+
+template<class TEnumType>
+concept PRegisteredBitmaskEnum = PBitmaskEnum<std::remove_cvref_t<TEnumType>> && requires { typename PEnumBitmaskFor<TEnumType>; };
 
 
 template<class T> struct PIsEnumBitmask : std::false_type {};
@@ -71,7 +85,7 @@ consteval bool PEnumBitmaskAcceptsArgImpl()
  *       Enabled = 0x02
  *   };
  *
- *   using PViewFlags = PEnumBitmask<PViewFlag>;
+ *   PDEFINE_ENUM_BITMASK(PViewFlags, PViewFlag);
  *
  *   PViewFlags flags(PViewFlag::Visible, PViewFlag::Enabled);
  *   flags |= PViewFlag::Enabled;
@@ -88,7 +102,7 @@ consteval bool PEnumBitmaskAcceptsArgImpl()
  *       Password  = 0x20
  *   };
  *
- *   using PTextViewFlags = PEnumBitmask<PTextViewFlag, PViewFlags>;
+ *   PDEFINE_ENUM_BITMASK(PTextViewFlags, PTextViewFlag, PViewFlags);
  *
  *   PTextViewFlags flags(
  *       PViewFlag::Visible,
@@ -97,6 +111,10 @@ consteval bool PEnumBitmaskAcceptsArgImpl()
  *
  * This allows higher-level APIs to add new flags without breaking or
  * duplicating lower-level ones.
+ *
+ * Declare the macro in the enum's namespace. PEnumBitmaskFor<TEnum> then
+ * retrieves the associated mask type, including for cv-qualified references.
+ * PRegisteredBitmaskEnum identifies enums with this association.
  *
  * ## Transitive construction
  *
@@ -126,9 +144,10 @@ consteval bool PEnumBitmaskAcceptsArgImpl()
  * ## Operators and behavior
  *
  * - Supports |, &, ^, ~ and their assignment variants.
- * - Member operators (e.g. operator|=) are preferred and unambiguous.
- * - Non-member operators may resolve to base types in some expressions;
- *   this is intentional and documented.
+ * - Registered enums support |, &, ^ and ~, returning their associated mask.
+ * - Supports == and != for masks sharing the same root flag set.
+ * - Binary operators accept flags and masks from any ancestor, preserving
+ *   the more-derived mask type when the operands share an inheritance chain.
  *
  * ## Performance
  *
@@ -172,6 +191,8 @@ public:
         return PEnumBitmask(flags...);
     }
 
+    static constexpr PEnumBitmask zero = From();
+
     // Queries
     constexpr bool Empty() const { return m_Bits == 0; }
     constexpr underlying_type GetBits() const { return m_Bits; }
@@ -195,6 +216,8 @@ public:
     constexpr void SetFlag(enum_type flag) { m_Bits |= std::to_underlying(flag); }
     constexpr void ClearFlag(enum_type flag) { m_Bits &= ~std::to_underlying(flag); }
     constexpr void ToggleFlag(enum_type flag) { m_Bits ^= std::to_underlying(flag); }
+
+    friend constexpr bool operator==(PEnumBitmask lhs, PEnumBitmask rhs) = default;
 
     // Operators with flags
     constexpr PEnumBitmask& operator|=(enum_type flag) { m_Bits |= std::to_underlying(flag); return *this; }
@@ -267,6 +290,8 @@ public:
         return PEnumBitmask(flags...);
     }
 
+    static constexpr PEnumBitmask zero = From();
+
     // Queries for this enum_type
     constexpr bool Has(enum_type flag) const
     {
@@ -292,13 +317,29 @@ public:
     friend constexpr PEnumBitmask operator&(PEnumBitmask a, PEnumBitmask b) { return a &= b; }
     friend constexpr PEnumBitmask operator^(PEnumBitmask a, PEnumBitmask b) { return a ^= b; }
 
-    friend constexpr PEnumBitmask operator|(PEnumBitmask a, enum_type b) { return a |= b; }
-    friend constexpr PEnumBitmask operator&(PEnumBitmask a, enum_type b) { return a &= b; }
-    friend constexpr PEnumBitmask operator^(PEnumBitmask a, enum_type b) { return a ^= b; }
+    template<class TFlagType>
+        requires PEnumBitmaskAcceptsArg<PEnumBitmask, TFlagType>
+    friend constexpr PEnumBitmask operator|(PEnumBitmask lhs, TFlagType rhs) { return lhs |= PEnumBitmask(rhs); }
 
-    friend constexpr PEnumBitmask operator|(enum_type a, PEnumBitmask b) { return b |= a; }
-    friend constexpr PEnumBitmask operator&(enum_type a, PEnumBitmask b) { return PEnumBitmask{ a } &= b; }
-    friend constexpr PEnumBitmask operator^(enum_type a, PEnumBitmask b) { return b ^= a; }
+    template<class TFlagType>
+        requires PEnumBitmaskAcceptsArg<PEnumBitmask, TFlagType>
+    friend constexpr PEnumBitmask operator&(PEnumBitmask lhs, TFlagType rhs) { return lhs &= PEnumBitmask(rhs); }
+
+    template<class TFlagType>
+        requires PEnumBitmaskAcceptsArg<PEnumBitmask, TFlagType>
+    friend constexpr PEnumBitmask operator^(PEnumBitmask lhs, TFlagType rhs) { return lhs ^= PEnumBitmask(rhs); }
+
+    template<class TFlagType>
+        requires PEnumBitmaskAcceptsArg<PEnumBitmask, TFlagType>
+    friend constexpr PEnumBitmask operator|(TFlagType lhs, PEnumBitmask rhs) { return rhs |= PEnumBitmask(lhs); }
+
+    template<class TFlagType>
+        requires PEnumBitmaskAcceptsArg<PEnumBitmask, TFlagType>
+    friend constexpr PEnumBitmask operator&(TFlagType lhs, PEnumBitmask rhs) { return rhs &= PEnumBitmask(lhs); }
+
+    template<class TFlagType>
+        requires PEnumBitmaskAcceptsArg<PEnumBitmask, TFlagType>
+    friend constexpr PEnumBitmask operator^(TFlagType lhs, PEnumBitmask rhs) { return rhs ^= PEnumBitmask(lhs); }
 
     friend constexpr PEnumBitmask operator~(PEnumBitmask a)
     {
@@ -332,3 +373,28 @@ private:
         this->m_Bits |= base_mask_type(flags).GetBits();
     }
 };
+
+
+template<PRegisteredBitmaskEnum TEnumType>
+constexpr PEnumBitmaskFor<TEnumType> operator|(TEnumType lhs, TEnumType rhs)
+{
+    return {lhs, rhs};
+}
+
+template<PRegisteredBitmaskEnum TEnumType>
+constexpr PEnumBitmaskFor<TEnumType> operator&(TEnumType lhs, TEnumType rhs)
+{
+    return PEnumBitmaskFor<TEnumType>(lhs) & rhs;
+}
+
+template<PRegisteredBitmaskEnum TEnumType>
+constexpr PEnumBitmaskFor<TEnumType> operator^(TEnumType lhs, TEnumType rhs)
+{
+    return PEnumBitmaskFor<TEnumType>(lhs) ^ rhs;
+}
+
+template<PRegisteredBitmaskEnum TEnumType>
+constexpr PEnumBitmaskFor<TEnumType> operator~(TEnumType flag)
+{
+    return ~PEnumBitmaskFor<TEnumType>(flag);
+}

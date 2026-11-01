@@ -16,12 +16,14 @@ class PMenuItem;
 class PMenuRenderView;
 
 
-namespace PMenuFlags
+enum class PMenuFlag : uint32_t
 {
-static constexpr uint32_t NoKeyboardFocus = 0x01 << PViewFlags::FirstUserBit;
+    NoKeyboardFocus      = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+};
 
-extern const std::map<PString, uint32_t> FlagMap;
-}
+PDEFINE_ENUM_BITMASK(PMenuFlags, PMenuFlag, PViewFlags);
+
+extern const std::map<PString, PMenuFlags> PMENU_FLAG_MAP;
 
 
 enum class PMenuLayout : uint8_t
@@ -52,7 +54,7 @@ public:
     static constexpr int    LEFT_ARROW_WIDTH = 10;
     static constexpr int    LEFT_ARROW_HEIGHT = 19;
 
-    PMenu(const PString& title = PString::zero, PMenuLayout layout = PMenuLayout::Vertical, uint32_t flags = 0);
+    PMenu(const PString& title = PString::zero, PMenuLayout layout = PMenuLayout::Vertical, PMenuFlags flags = PMenuFlags::zero);
     ~PMenu();
 
 //  From View:

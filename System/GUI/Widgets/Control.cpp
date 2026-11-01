@@ -14,7 +14,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PControl::PControl(const PString& name, uint32_t flags)
+PControl::PControl(const PString& name, PViewFlags flags)
     : PStyledView(name, flags)
 {
     m_IsEnabled	= true;

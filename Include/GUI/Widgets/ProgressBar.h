@@ -21,7 +21,7 @@
 class PProgressBar : public PView
 {
 public:
-    PProgressBar(const PString& name = PString::zero, POrientation orientation = POrientation::Horizontal, uint32_t flags = 0);
+    PProgressBar(const PString& name = PString::zero, POrientation orientation = POrientation::Horizontal, PViewFlags flags = PViewFlags::zero);
     PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:

@@ -61,22 +61,22 @@
 //  +--------------------------------------------------------------------------+
 
 
-const std::map<PString, uint32_t> PListViewFlags::FlagMap
+const std::map<PString, PListViewFlags> PLIST_VIEW_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, MultiSelect),
-    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, NoAutoSort),
-    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, RenderBorder),
-    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, DontScroll),
-    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, NoHeader),
-    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, NoColumnRemap)
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlag, MultiSelect),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlag, NoAutoSort),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlag, RenderBorder),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlag, DontScroll),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlag, NoHeader),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlag, NoColumnRemap)
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PListView::PListView(const PString& name, uint32_t flags) :
-    PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PListView::PListView(const PString& name, PListViewFlags flags) :
+    PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     Construct();
 }
@@ -87,7 +87,8 @@ PListView::PListView(const PString& name, uint32_t flags) :
 
 PListView::PListView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PListViewFlags::FlagMap, "flags", PListViewFlags::RenderBorder) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
+    const PListViewFlags flags = context.GetFlagsAttribute<PListViewFlags>(xmlData, PLIST_VIEW_FLAG_MAP, "flags", PListViewFlag::RenderBorder);
+    MergeFlags(flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize);
 
     Construct();
 }
@@ -119,7 +120,7 @@ PListView::~PListView()
 
 bool PListView::IsMultiSelect() const
 {
-    return HasFlags(PListViewFlags::MultiSelect);
+    return HasFlags(PListViewFlag::MultiSelect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -129,9 +130,9 @@ bool PListView::IsMultiSelect() const
 void PListView::SetMultiSelect(bool multi)
 {
     if (multi) {
-        MergeFlags(PListViewFlags::MultiSelect);
+        MergeFlags(PListViewFlag::MultiSelect);
     } else {
-        ClearFlags(PListViewFlags::MultiSelect);
+        ClearFlags(PListViewFlag::MultiSelect);
     }
 }
 
@@ -141,7 +142,7 @@ void PListView::SetMultiSelect(bool multi)
 
 bool PListView::IsAutoSort() const
 {
-    return !HasFlags(PListViewFlags::NoAutoSort);
+    return !HasFlags(PListViewFlag::NoAutoSort);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,9 +152,9 @@ bool PListView::IsAutoSort() const
 void PListView::SetAutoSort(bool autoSort)
 {
     if (autoSort) {
-        ClearFlags(PListViewFlags::NoAutoSort);
+        ClearFlags(PListViewFlag::NoAutoSort);
     } else {
-        MergeFlags(PListViewFlags::NoAutoSort);
+        MergeFlags(PListViewFlag::NoAutoSort);
     }
 }
 
@@ -163,7 +164,7 @@ void PListView::SetAutoSort(bool autoSort)
 
 bool PListView::HasBorder() const
 {
-    return HasFlags(PListViewFlags::RenderBorder);
+    return HasFlags(PListViewFlag::RenderBorder);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -173,9 +174,9 @@ bool PListView::HasBorder() const
 void PListView::SetRenderBorder(bool render)
 {
     if (render) {
-        MergeFlags(PListViewFlags::RenderBorder);
+        MergeFlags(PListViewFlag::RenderBorder);
     } else {
-        ClearFlags(PListViewFlags::RenderBorder);
+        ClearFlags(PListViewFlag::RenderBorder);
     }
     Layout();
     Flush();
@@ -187,7 +188,7 @@ void PListView::SetRenderBorder(bool render)
 
 bool PListView::HasColumnHeader() const
 {
-    return !HasFlags(PListViewFlags::NoHeader);
+    return !HasFlags(PListViewFlag::NoHeader);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -197,9 +198,9 @@ bool PListView::HasColumnHeader() const
 void PListView::SetHasColumnHeader(bool value)
 {
     if (value) {
-        ClearFlags(PListViewFlags::NoHeader);
+        ClearFlags(PListViewFlag::NoHeader);
     } else {
-        MergeFlags(PListViewFlags::NoHeader);
+        MergeFlags(PListViewFlag::NoHeader);
     }
     Layout();
     Flush();
@@ -376,7 +377,7 @@ void PListView::Layout()
 
     PRect frame(GetBounds().Bounds());
     frame.Floor();
-    if (HasFlags(PListViewFlags::RenderBorder)) {
+    if (HasFlags(PListViewFlag::RenderBorder)) {
         frame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
     }
 
@@ -671,7 +672,7 @@ void PListView::Select(size_t first, size_t last, bool replace, bool select)
     if (m_ScrolledContainerView->m_Rows.empty()) {
         return;
     }
-    if ((replace || !HasFlags(PListViewFlags::MultiSelect)) && m_ScrolledContainerView->m_FirstSel != INVALID_INDEX)
+    if ((replace || !HasFlags(PListViewFlag::MultiSelect)) && m_ScrolledContainerView->m_FirstSel != INVALID_INDEX)
     {
         for (size_t i = m_ScrolledContainerView->m_FirstSel; i <= m_ScrolledContainerView->m_LastSel; ++i)
         {
@@ -788,7 +789,7 @@ void PListView::OnPaint(const PRect& updateRect)
         const PRect frame(scrollBarFrameH.right, scrollBarFrameV.bottom, scrollBarFrameV.right, scrollBarFrameH.bottom);
         FillRect(frame, pget_standard_color(PStandardColorID::DefaultBackground));
     }
-    if (HasFlags(PListViewFlags::RenderBorder)) {
+    if (HasFlags(PListViewFlag::RenderBorder)) {
         DrawFrame(GetBounds(), FRAME_RECESSED | FRAME_TRANSPARENT);
     }
 }

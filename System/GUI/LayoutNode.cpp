@@ -115,7 +115,7 @@ void PLayoutNode::CalculatePreferredSize(PPoint* minSizeOut, PPoint* maxSizeOut,
     {
         for (Ptr<PView> child : *m_View)
         {
-            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+            if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible()) {
                 continue;
             }
             const PRect borders = child->GetBorders();
@@ -242,7 +242,7 @@ void PHLayoutNode::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool
     {
         for (Ptr<PView> child : *m_View)
         {
-            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+            if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible()) {
                 continue;
             }
             PRect borders = child->GetBorders();
@@ -327,7 +327,7 @@ void PHLayoutNode::Layout()
         {
             Ptr<PView> child = childList[i];
   
-            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible())
+            if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible())
             {
                 wheights[i] = 0.0f;
                 maxHeights[i] = 0.0f;
@@ -411,7 +411,7 @@ void PVLayoutNode::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool
     {
         for (Ptr<PView> child : *m_View)
         {
-            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+            if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible()) {
                 continue;
             }
 
@@ -458,7 +458,7 @@ void PVLayoutNode::Layout()
         {
             Ptr<PView> child = childList[i];
             
-            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible())
+            if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible())
             {
                 wheights[i] = 0.0f;
                 maxWidths[i] = 0.0f;

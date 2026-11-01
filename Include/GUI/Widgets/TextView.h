@@ -11,17 +11,20 @@
 #include <GUI/View.h>
 
 
-namespace PTextViewFlags
+enum class PTextViewFlag : uint32_t
 {
-static constexpr uint32_t IncludeLineGap    = 0x01 << PViewFlags::FirstUserBit;
-static constexpr uint32_t MultiLine         = 0x02 << PViewFlags::FirstUserBit;
-extern const std::map<PString, uint32_t> FlagMap;
-}
+    IncludeLineGap       = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+    MultiLine            = 0x02 << PVIEW_FIRST_USER_FLAG_BIT,
+};
+
+PDEFINE_ENUM_BITMASK(PTextViewFlags, PTextViewFlag, PViewFlags);
+
+extern const std::map<PString, PTextViewFlags> PTEXT_VIEW_FLAG_MAP;
 
 class PTextView : public PView
 {
 public:
-    PTextView(const PString& name = PString::zero, const PString& text = PString::zero, uint32_t flags = 0);
+    PTextView(const PString& name = PString::zero, const PString& text = PString::zero, PTextViewFlags flags = PTextViewFlags::zero);
 	PTextView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PTextView();
     

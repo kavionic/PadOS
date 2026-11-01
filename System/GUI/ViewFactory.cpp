@@ -107,7 +107,7 @@ Ptr<PView> PViewFactory::CreateView(PViewFactoryContext& context, Ptr<PView> par
         parentView = ptr_new<PView>(PString::zero);
     }
 
-    parentView->MergeFlags(p_xml_object_parser::parse_flags_attribute<uint32_t>(xmlNode, PViewFlags::FlagMap, "flags", 0));
+    parentView->MergeFlags(p_xml_object_parser::parse_flags_attribute<PViewFlags>(xmlNode, PVIEW_FLAG_MAP, "flags", PViewFlags::zero));
     parentView->SetHitMode(p_xml_object_parser::parse_attribute(xmlNode, "hit_mode", parentView->GetHitMode()));
     parentView->SetLayoutNode(p_xml_object_parser::parse_attribute(xmlNode, "layout", parentView->GetLayoutNode()));
     parentView->SetBorders(p_xml_object_parser::parse_attribute(xmlNode, "layout_borders", parentView->GetBorders()));

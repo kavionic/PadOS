@@ -20,7 +20,7 @@ class PPath;
 class PBitmapView : public PView
 {
 public:
-    PBitmapView(const PString& name = PString::zero, uint32_t flags = 0);
+    PBitmapView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PBitmapView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnPaint(const PRect& updateRect) override;

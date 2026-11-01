@@ -15,8 +15,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButton::PButton(const PString& name, const PString& label, uint32_t flags)
-    : PButtonBase(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PButton::PButton(const PString& name, const PString& label, PViewFlags flags)
+    : PButtonBase(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     SetLabel(label);
 }
@@ -27,7 +27,7 @@ PButton::PButton(const PString& name, const PString& label, uint32_t flags)
 
 PButton::PButton(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PButtonBase(context, xmlData, PAlignment::Center)
 {
-    MergeFlags(PViewFlags::WillDraw);
+    MergeFlags(PViewFlag::WillDraw);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

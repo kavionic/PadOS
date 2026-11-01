@@ -16,7 +16,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PGroupView::PGroupView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
+PGroupView::PGroupView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
 {
 }
 
@@ -26,7 +26,7 @@ PGroupView::PGroupView(const PString& name, uint32_t flags) : PView(name, flags 
 
 PGroupView::PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
-    MergeFlags(PViewFlags::WillDraw);
+    MergeFlags(PViewFlag::WillDraw);
 	m_Label = context.GetAttribute(xmlData, "label", PString::zero);
 }
 

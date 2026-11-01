@@ -19,7 +19,7 @@ static constexpr float SCROLL_VIEW_WHEEL_SCROLL_STEP = 32.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollView::PScrollView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
+PScrollView::PScrollView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
 {
     EnableEventPhase(PEventPhase::Capture, true);
     EnableEventPhase(PEventPhase::Bubble, true);
@@ -31,7 +31,7 @@ PScrollView::PScrollView(const PString& name, uint32_t flags) : PView(name, flag
 
 PScrollView::PScrollView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
-    MergeFlags(PViewFlags::WillDraw);
+    MergeFlags(PViewFlag::WillDraw);
     EnableEventPhase(PEventPhase::Capture, true);
     EnableEventPhase(PEventPhase::Bubble, true);
 
@@ -53,8 +53,8 @@ PScrollView::PScrollView(PViewFactoryContext& context, const pugi::xml_node& xml
                     if (contentView->GetLayoutNode() == nullptr) {
                         contentView->SetLayoutNode(ptr_new<PLayoutNode>());
                     }
-                    scrollableView->MergeFlags(PViewFlags::WillDraw);
-                    contentView->MergeFlags(PViewFlags::WillDraw);
+                    scrollableView->MergeFlags(PViewFlag::WillDraw);
+                    contentView->MergeFlags(PViewFlag::WillDraw);
 
                     scrollableView->SetContentView(contentView);
                     SetScrolledView(scrollableView);

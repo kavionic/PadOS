@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <vector>
 
 #include "GUIDefines.h"
@@ -18,7 +19,22 @@ class PViewBase : public PEventHandler, public SignalTarget
 public:
     typedef std::vector<Ptr<ViewType>> ChildList_t;
 
-    PViewBase(const PString& name, const PRect& frame, const PPoint& scrollOffset, uint32_t flags, PViewHitMode hitMode, int32_t hideCount, float penWidth, PColor eraseColor, PColor bgColor, PColor fgColor, PCapStyle capStyle = PCapStyle::Flat, PJointStyle jointStyle = PJointStyle::Bevel, float miterLimit = 4.0f, const std::vector<float>& dashPattern = {}, float dashOffset = 0.0f)
+    PViewBase(
+        const PString& name,
+        const PRect& frame,
+        const PPoint& scrollOffset,
+        PViewFlags flags,
+        PViewHitMode hitMode,
+        int32_t hideCount,
+        float penWidth,
+        PColor eraseColor,
+        PColor bgColor,
+        PColor fgColor,
+        PCapStyle capStyle = PCapStyle::Flat,
+        PJointStyle jointStyle = PJointStyle::Bevel,
+        float miterLimit = 4.0f,
+        const std::vector<float>& dashPattern = {},
+        float dashOffset = 0.0f)
         : PEventHandler(name)
         , m_Frame(frame)
         , m_ScrollOffset(scrollOffset)
@@ -114,15 +130,89 @@ public:
             return -1;
         }
     }
-    virtual void OnFlagsChanged(uint32_t changedFlags) {}
+    virtual void OnFlagsChanged(PViewFlags changedFlags) {}
 
-    void        ReplaceFlags(uint32_t flags)	    { if (flags != m_Flags) { uint32_t changedFlags = m_Flags ^ flags; m_Flags = flags; OnFlagsChanged(changedFlags); } }
-    void        MergeFlags(uint32_t flags)	        { ReplaceFlags(m_Flags | flags); }
-    void        ClearFlags(uint32_t flags)	        { ReplaceFlags(m_Flags & ~flags); }
-    uint32_t    GetFlags() const		            { return m_Flags; }
-    bool	    HasFlags(uint32_t flags) const	    { return (m_Flags & flags) != 0; }
-    bool	    HasFlagsAll(uint32_t mask) const    { return (m_Flags & mask) == mask; }
-    
+    template<PRegisteredBitmaskEnum TFlag>
+        requires std::derived_from<PEnumBitmaskFor<TFlag>, PViewFlags>
+    void ReplaceFlags(TFlag flag)
+    {
+        ReplaceFlags<PEnumBitmaskFor<TFlag>>(flag);
+    }
+
+    template<PEnumBitmaskType TFlags = PViewFlags>
+        requires std::derived_from<TFlags, PViewFlags>
+    void ReplaceFlags(std::type_identity_t<TFlags> flags)
+    {
+        if (flags != m_Flags)
+        {
+            const PViewFlags changedFlags = m_Flags ^ PViewFlags(flags);
+            m_Flags = flags;
+            OnFlagsChanged(changedFlags);
+        }
+    }
+
+    template<PRegisteredBitmaskEnum TFlag>
+        requires std::derived_from<PEnumBitmaskFor<TFlag>, PViewFlags>
+    void MergeFlags(TFlag flag)
+    {
+        MergeFlags<PEnumBitmaskFor<TFlag>>(flag);
+    }
+
+    template<PEnumBitmaskType TFlags = PViewFlags>
+        requires std::derived_from<TFlags, PViewFlags>
+    void MergeFlags(std::type_identity_t<TFlags> flags)
+    {
+        ReplaceFlags(m_Flags | PViewFlags(flags));
+    }
+
+    template<PRegisteredBitmaskEnum TFlag>
+        requires std::derived_from<PEnumBitmaskFor<TFlag>, PViewFlags>
+    void ClearFlags(TFlag flag)
+    {
+        ClearFlags<PEnumBitmaskFor<TFlag>>(flag);
+    }
+
+    template<PEnumBitmaskType TFlags = PViewFlags>
+        requires std::derived_from<TFlags, PViewFlags>
+    void ClearFlags(std::type_identity_t<TFlags> flags)
+    {
+        ReplaceFlags(m_Flags & ~PViewFlags(flags));
+    }
+
+    template<PEnumBitmaskType TFlags = PViewFlags>
+        requires std::derived_from<TFlags, PViewFlags>
+    TFlags GetFlags() const
+    {
+        return TFlags(m_Flags);
+    }
+
+    template<PRegisteredBitmaskEnum TFlag>
+        requires std::derived_from<PEnumBitmaskFor<TFlag>, PViewFlags>
+    bool HasFlags(TFlag flag) const
+    {
+        return HasFlags<PEnumBitmaskFor<TFlag>>(flag);
+    }
+
+    template<PEnumBitmaskType TFlags = PViewFlags>
+        requires std::derived_from<TFlags, PViewFlags>
+    bool HasFlags(std::type_identity_t<TFlags> flags) const
+    {
+        return GetFlags<TFlags>().HasAny(flags);
+    }
+
+    template<PRegisteredBitmaskEnum TFlag>
+        requires std::derived_from<PEnumBitmaskFor<TFlag>, PViewFlags>
+    bool HasFlagsAll(TFlag flag) const
+    {
+        return HasFlagsAll<PEnumBitmaskFor<TFlag>>(flag);
+    }
+
+    template<PEnumBitmaskType TFlags = PViewFlags>
+        requires std::derived_from<TFlags, PViewFlags>
+    bool HasFlagsAll(std::type_identity_t<TFlags> flags) const
+    {
+        return GetFlags<TFlags>().HasAll(flags);
+    }
 
     const PRect&	GetFrame() const { return m_Frame; }
     PRect	    GetBounds() const { return m_Frame.Bounds() - m_ScrollOffset; }
@@ -172,7 +262,7 @@ public:
     
     static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, PIRect* frame = nullptr)
     {
-        while(view != nullptr && view->HasFlags(PViewFlags::Transparent))
+        while(view != nullptr && view->HasFlags(PViewFlag::Transparent))
         {
             if (frame != nullptr) {
                 *frame += view->GetITopLeft();
@@ -212,7 +302,7 @@ protected:
 
     PRect           m_Frame = PRect(0.0f, 0.0f, 0.0f, 0.0f);
     PPoint          m_ScrollOffset;
-    uint32_t        m_Flags = 0;    
+    PViewFlags      m_Flags = PViewFlags::zero;    
     PViewHitMode    m_HitMode = PViewHitMode::HitTest;
 
     PPoint          m_ScreenPos = PPoint(0.0f, 0.0f);

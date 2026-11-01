@@ -17,7 +17,7 @@ class PButtonGroup;
 class PButtonBase : public PControl
 {
 public:
-    PButtonBase(const PString& name = PString::zero, uint32_t flags = 0);
+    PButtonBase(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment);
     ~PButtonBase();
 

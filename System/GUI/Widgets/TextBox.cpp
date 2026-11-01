@@ -13,11 +13,11 @@
 #include <Utils/XMLObjectParser.h>
 
 
-const std::map<PString, uint32_t> PTextBoxFlags::FlagMap
+const std::map<PString, PTextBoxFlags> PTEXT_BOX_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlags, IncludeLineGap),
-    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlags, RaisedFrame),
-    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlags, ReadOnly)
+    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlag, IncludeLineGap),
+    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlag, RaisedFrame),
+    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlag, ReadOnly)
 };
 
 NoPtr<PTextBoxStyle> PTextBox::s_DefaultStyle;
@@ -26,8 +26,8 @@ NoPtr<PTextBoxStyle> PTextBox::s_DefaultStyle;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextBox::PTextBox(const PString& name, const PString& text, uint32_t flags)
-    : PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PTextBox::PTextBox(const PString& name, const PString& text, PTextBoxFlags flags)
+    : PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     Initialize(text);
 }
@@ -39,7 +39,8 @@ PTextBox::PTextBox(const PString& name, const PString& text, uint32_t flags)
 PTextBox::PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     Initialize(context.GetAttribute(xmlData, "text", PString::zero));
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextBoxFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
+    const PTextBoxFlags flags = context.GetFlagsAttribute<PTextBoxFlags>(xmlData, PTEXT_BOX_FLAG_MAP, "flags", PTextBoxFlags::zero);
+    MergeFlags(flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,7 +49,7 @@ PTextBox::PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
 
 void PTextBox::Initialize(const PString& text)
 {
-    m_Editor = ptr_new<PTextEditView>("Editor", text, GetFlags());
+    m_Editor = ptr_new<PTextEditView>("Editor", text, GetFlags<PTextBoxFlags>());
     AddChild(m_Editor);
     m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
 
@@ -71,10 +72,10 @@ void PTextBox::SlotTextChanged(const PString& text, bool finalUpdate)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextBox::OnFlagsChanged(uint32_t changedFlags)
+void PTextBox::OnFlagsChanged(PViewFlags changedFlags)
 {
     PControl::OnFlagsChanged(changedFlags);
-    m_Editor->ReplaceFlags(GetFlags());
+    m_Editor->ReplaceFlags(GetFlags<PTextBoxFlags>());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -124,14 +125,14 @@ void PTextBox::OnPaint(const PRect& updateRect)
     Ptr<const PTextBoxStyle> style = GetStyle();
     if (!IsEnabled()) {
         SetEraseColor(style->DisabledBackgroundColor);
-    } else if (HasFlags(PTextBoxFlags::ReadOnly)) {
+    } else if (HasFlags(PTextBoxFlag::ReadOnly)) {
         SetEraseColor(style->ReadOnlyBackgroundColor);
     } else {
         SetEraseColor(style->BackgroundColor);
     }
 
     PRect bounds = GetBounds();
-    DrawFrame(bounds, HasFlags(PTextBoxFlags::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
+    DrawFrame(bounds, HasFlags(PTextBoxFlag::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

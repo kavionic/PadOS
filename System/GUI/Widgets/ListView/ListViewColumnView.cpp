@@ -16,7 +16,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PListViewColumnView::PListViewColumnView(const PString& title)
-    : PView("_lv_column", PViewFlags::WillDraw)
+    : PView("_lv_column", PViewFlag::WillDraw)
     , m_Title(title)
 {
     SetHitMode(PViewHitMode::IgnoreThis);

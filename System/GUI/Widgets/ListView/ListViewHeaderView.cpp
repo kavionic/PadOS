@@ -15,7 +15,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PListViewHeaderView::PListViewHeaderView(Ptr<PListView> listView) : PView("header_view", PViewFlags::WillDraw)
+PListViewHeaderView::PListViewHeaderView(Ptr<PListView> listView) : PView("header_view", PViewFlag::WillDraw)
 {
     m_SizeColumn = -1;
     m_DragColumn = -1;
@@ -200,7 +200,7 @@ void PListViewHeaderView::OnPointerUp(PPointerID pointerID, const PPoint& positi
     {
         m_ScrolledContainerView->m_SortColumn = m_ScrolledContainerView->m_ColumnMap[m_DragColumn];
 
-        if (!m_ScrolledContainerView->m_ListView->HasFlags(PListViewFlags::NoAutoSort))
+        if (!m_ScrolledContainerView->m_ListView->HasFlags(PListViewFlag::NoAutoSort))
         {
             Ptr<PListView> listView = ptr_static_cast<PListView>(GetParent());
             assert(listView != nullptr);
@@ -293,7 +293,7 @@ void PListViewHeaderView::Layout()
 {
     PFontHeight fontHeight = GetFontHeight();
 
-    if (m_ScrolledContainerView->m_ListView->HasFlags(PListViewFlags::NoHeader)) {
+    if (m_ScrolledContainerView->m_ListView->HasFlags(PListViewFlag::NoHeader)) {
         m_HeaderHeight = 0.0f;
     } else {
         m_HeaderHeight = fontHeight.ascender + fontHeight.descender + 6.0f;

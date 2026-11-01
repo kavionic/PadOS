@@ -26,7 +26,7 @@ public:
         float min = 0.0f,
         float max = std::numeric_limits<float>::max(),
         POrientation orientation = POrientation::Vertical,
-        uint32_t flags = 0);
+        PViewFlags flags = PViewFlags::zero);
     ~PScrollBar();
 
     void  SetScrollTarget(Ptr<PView> target);

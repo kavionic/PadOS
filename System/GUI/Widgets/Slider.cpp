@@ -14,24 +14,24 @@
 #include <Utils/XMLObjectParser.h>
 
 
-const std::map<PString, uint32_t> PSliderFlags::FlagMap
+const std::map<PString, PSliderFlags> PSLIDER_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksAbove),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksBelow),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksLeft),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksRight),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointUp),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointDown),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointLeft),
-    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointRight)
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, TicksAbove),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, TicksBelow),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, TicksLeft),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, TicksRight),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, KnobPointUp),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, KnobPointDown),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, KnobPointLeft),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlag, KnobPointRight)
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSlider::PSlider(const PString& name, uint32_t flags, int tickCount, POrientation orientation)
-    : PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PSlider::PSlider(const PString& name, PSliderFlags flags, int tickCount, POrientation orientation)
+    : PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     UpdateStyleFlags();
     m_SliderStyleData.Orientation = orientation;
@@ -50,12 +50,12 @@ PSlider::PSlider(const PString& name, uint32_t flags, int tickCount, POrientatio
 PSlider::PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
     m_SliderStyleData.Label = context.GetAttribute(xmlData, "label", PString::zero);
-    const uint32_t flags = context.GetFlagsAttribute<uint32_t>(
+    const PSliderFlags flags = context.GetFlagsAttribute<PSliderFlags>(
         xmlData,
-        PSliderFlags::FlagMap,
+        PSLIDER_FLAG_MAP,
         "flags",
-        PSliderFlags::TicksBelow | PSliderFlags::KnobPointDown);
-    MergeFlags(flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
+        PSliderFlag::TicksBelow | PSliderFlag::KnobPointDown);
+    MergeFlags(flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize);
     UpdateStyleFlags();
 
     m_SliderStyleData.Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
@@ -85,11 +85,11 @@ PSlider::PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData) : 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PSlider::OnFlagsChanged(uint32_t changedFlags)
+void PSlider::OnFlagsChanged(PViewFlags changedFlags)
 {
     PControl::OnFlagsChanged(changedFlags);
-    constexpr uint32_t STYLE_FLAGS = PSliderFlags::TicksAbove | PSliderFlags::TicksBelow | PSliderFlags::KnobPointUp | PSliderFlags::KnobPointDown;
-    if ((changedFlags & STYLE_FLAGS) != 0)
+    constexpr PSliderFlags STYLE_FLAGS = PSliderFlag::TicksAbove | PSliderFlag::TicksBelow | PSliderFlag::KnobPointUp | PSliderFlag::KnobPointDown;
+    if (changedFlags.HasAny(STYLE_FLAGS))
     {
         UpdateStyleFlags();
         NotifyStylePropertyChanged(PSliderProperty::Appearance);
@@ -738,10 +738,10 @@ float PSlider::GetRelativeValue(float value) const
 
 void PSlider::UpdateStyleFlags()
 {
-    m_SliderStyleData.TicksAbove = HasFlags(PSliderFlags::TicksAbove);
-    m_SliderStyleData.TicksBelow = HasFlags(PSliderFlags::TicksBelow);
-    m_SliderStyleData.KnobPointUp = HasFlags(PSliderFlags::KnobPointUp);
-    m_SliderStyleData.KnobPointDown = HasFlags(PSliderFlags::KnobPointDown);
+    m_SliderStyleData.TicksAbove = HasFlags(PSliderFlag::TicksAbove);
+    m_SliderStyleData.TicksBelow = HasFlags(PSliderFlag::TicksBelow);
+    m_SliderStyleData.KnobPointUp = HasFlags(PSliderFlag::KnobPointUp);
+    m_SliderStyleData.KnobPointDown = HasFlags(PSliderFlag::KnobPointDown);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

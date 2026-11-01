@@ -19,9 +19,62 @@ enum class PEB_TE1 : uint32_t { A = 0x01, B = 0x02 };
 enum class PEB_TE2 : uint32_t { A = 0x04, B = 0x08 };
 enum class PEB_TE3 : uint32_t { A = 0x10, B = 0x20 };
 
-using PEB_TM1 = PEnumBitmask<PEB_TE1>;
-using PEB_TM2 = PEnumBitmask<PEB_TE2, PEB_TM1>;
-using PEB_TM3 = PEnumBitmask<PEB_TE3, PEB_TM2>;
+PDEFINE_ENUM_BITMASK(PEB_TM1, PEB_TE1);
+PDEFINE_ENUM_BITMASK(PEB_TM2, PEB_TE2, PEB_TM1);
+PDEFINE_ENUM_BITMASK(PEB_TM3, PEB_TE3, PEB_TM2);
+
+TEST(PEnumBitmask, RegisteredEnumLookup)
+{
+    enum class UnregisteredFlag : uint32_t
+    {
+        Value = 0x01
+    };
+
+    static_assert(PRegisteredBitmaskEnum<PEB_TE1>);
+    static_assert(PRegisteredBitmaskEnum<PEB_TE2>);
+    static_assert(PRegisteredBitmaskEnum<PEB_TE3>);
+    static_assert(std::same_as<PEnumBitmaskFor<PEB_TE1>, PEB_TM1>);
+    static_assert(std::same_as<PEnumBitmaskFor<PEB_TE2>, PEB_TM2>);
+    static_assert(std::same_as<PEnumBitmaskFor<PEB_TE3>, PEB_TM3>);
+    static_assert(std::same_as<PEnumBitmaskFor<const PEB_TE3&>, PEB_TM3>);
+    static_assert(!PRegisteredBitmaskEnum<UnregisteredFlag>);
+    static_assert(!PRegisteredBitmaskEnum<uint32_t>);
+    static_assert(!PRegisteredBitmaskEnum<PEB_TM1>);
+}
+
+TEST(PEnumBitmask, RegisteredEnumOperators)
+{
+    static_assert(std::same_as<decltype(PEB_TE1::A | PEB_TE1::B), PEB_TM1>);
+    static_assert(std::same_as<decltype(PEB_TE1::A & PEB_TE1::B), PEB_TM1>);
+    static_assert(std::same_as<decltype(PEB_TE1::A ^ PEB_TE1::B), PEB_TM1>);
+    static_assert(std::same_as<decltype(~PEB_TE1::A), PEB_TM1>);
+    static_assert(std::same_as<decltype(PEB_TE3::A | PEB_TE3::B), PEB_TM3>);
+    static_assert(std::same_as<decltype(PEB_TE3::A & PEB_TE3::B), PEB_TM3>);
+    static_assert(std::same_as<decltype(PEB_TE3::A ^ PEB_TE3::B), PEB_TM3>);
+    static_assert(std::same_as<decltype(~PEB_TE3::A), PEB_TM3>);
+
+    static_assert((PEB_TE1::A | PEB_TE1::B).GetBits() == 0x03);
+    static_assert((PEB_TE1::A & PEB_TE1::B).Empty());
+    static_assert((PEB_TE1::A & PEB_TE1::A).GetBits() == 0x01);
+    static_assert((PEB_TE1::A ^ PEB_TE1::B).GetBits() == 0x03);
+    static_assert((PEB_TE1::A ^ PEB_TE1::A).Empty());
+    static_assert((~PEB_TE1::A).GetBits() == 0xfffffffe);
+
+    static_assert((PEB_TE3::A | PEB_TE3::B).GetBits() == 0x30);
+    static_assert((PEB_TE3::A & PEB_TE3::B).Empty());
+    static_assert((PEB_TE3::A & PEB_TE3::A).GetBits() == 0x10);
+    static_assert((PEB_TE3::A ^ PEB_TE3::B).GetBits() == 0x30);
+    static_assert((PEB_TE3::A ^ PEB_TE3::A).Empty());
+    static_assert((~PEB_TE3::A).GetBits() == 0xffffffef);
+}
+
+TEST(PEnumBitmask, RegisteredEnumOperatorChaining)
+{
+    static_assert(std::same_as<decltype(PEB_TE3::A | PEB_TE3::B | PEB_TE2::A | PEB_TE1::B), PEB_TM3>);
+    static_assert((PEB_TE3::A | PEB_TE3::B | PEB_TE2::A | PEB_TE1::B).GetBits() == 0x36);
+    static_assert(((PEB_TE3::A | PEB_TE3::B | PEB_TE1::B) & ~PEB_TE3::A).GetBits() == 0x22);
+    static_assert(((PEB_TE3::A | PEB_TE3::B | PEB_TE1::B) & ~PEB_TE1::B).GetBits() == 0x30);
+}
 
 TEST(PEnumBitmask, Root_EmptyAndFrom)
 {

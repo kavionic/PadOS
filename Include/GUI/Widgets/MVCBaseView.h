@@ -25,13 +25,15 @@ enum class PEMVCHighlightState : uint8_t
     Selected
 };
 
-namespace PMVCBaseViewFlags
+enum class PMVCBaseViewFlag : uint32_t
 {
-static constexpr uint32_t MultiSelect   = 0x0001 << PViewFlags::FirstUserBit;
-static constexpr uint32_t NoAutoSelect  = 0x0002 << PViewFlags::FirstUserBit;
+    MultiSelect          = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+    NoAutoSelect         = 0x02 << PVIEW_FIRST_USER_FLAG_BIT,
+};
 
-extern const std::map<PString, uint32_t> FlagMap;
-}
+PDEFINE_ENUM_BITMASK(PMVCBaseViewFlags, PMVCBaseViewFlag, PViewFlags);
+
+extern const std::map<PString, PMVCBaseViewFlags> PMVC_BASE_VIEW_FLAG_MAP;
 
 struct PMVCBaseViewItemNode
 {
@@ -53,7 +55,7 @@ struct PMVCBaseViewItemNode
 class PMVCBaseView : public PControl
 {
 public:
-    PMVCBaseView(const PString& name = PString::zero, uint32_t flags = 0);
+    PMVCBaseView(const PString& name = PString::zero, PMVCBaseViewFlags flags = PMVCBaseViewFlags::zero);
     PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;

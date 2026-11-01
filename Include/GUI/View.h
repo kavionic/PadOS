@@ -59,7 +59,7 @@ public:
     static uint32_t GetInstanceCount();
 
     // Views are constructed detached. Call AddChild() after construction to attach them.
-    PView(const PString& name, uint32_t flags = 0);
+    PView(const PString& name, PViewFlags flags = PViewFlags::zero);
     PView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     PView(handler_id serverHandle, const PString& name, const PRect& frame);
     virtual ~PView();

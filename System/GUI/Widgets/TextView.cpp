@@ -14,17 +14,17 @@
 #include "Utils/XMLObjectParser.h"
 
 
-const std::map<PString, uint32_t> PTextViewFlags::FlagMap
+const std::map<PString, PTextViewFlags> PTEXT_VIEW_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PTextViewFlags, IncludeLineGap),
-    DEFINE_FLAG_MAP_ENTRY(PTextViewFlags, MultiLine),
+    DEFINE_FLAG_MAP_ENTRY(PTextViewFlag, IncludeLineGap),
+    DEFINE_FLAG_MAP_ENTRY(PTextViewFlag, MultiLine),
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextView::PTextView(const PString& name, const PString& text, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
+PTextView::PTextView(const PString& name, const PString& text, PTextViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
 {
     SetText(text);
 }
@@ -35,7 +35,8 @@ PTextView::PTextView(const PString& name, const PString& text, uint32_t flags) :
 
 PTextView::PTextView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextViewFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw);
+    const PTextViewFlags flags = context.GetFlagsAttribute<PTextViewFlags>(xmlData, PTEXT_VIEW_FLAG_MAP, "flags", PTextViewFlags::zero);
+    MergeFlags(flags | PViewFlag::WillDraw);
 
     SetText(context.GetAttribute(xmlData, "text", PString::zero));
 }
@@ -59,8 +60,7 @@ void PTextView::SetText(const PString& text)
 
     m_TextWidth = GetStringWidth(m_Text);
 
-    if (HasFlags(PTextViewFlags::MultiLine))
-    {
+    if (HasFlags(PTextViewFlag::MultiLine)) {
         m_IsWordWrappingValid = false;
     }
     PreferredSizeChanged();
@@ -87,7 +87,7 @@ void PTextView::OnFrameSized(const PPoint& delta)
 {
     PView::OnFrameSized(delta);
 
-    if (delta.x != 0.0f && HasFlags(PTextViewFlags::MultiLine))
+    if (delta.x != 0.0f && HasFlags(PTextViewFlag::MultiLine))
     {
         m_IsWordWrappingValid = false;
         PreferredSizeChanged();
@@ -101,7 +101,7 @@ void PTextView::OnFrameSized(const PPoint& delta)
 void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PFontHeight fontHeight = GetFontHeight();
-    if (HasFlags(PTextViewFlags::MultiLine))
+    if (HasFlags(PTextViewFlag::MultiLine))
     {
         if (includeWidth)
         {
@@ -126,7 +126,7 @@ void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
 
             minSize->y = std::max(1.0f, float(m_LineWraps.size()))
                 * (fontHeight.descender + fontHeight.ascender + fontHeight.line_gap);
-            if (!HasFlags(PTextViewFlags::IncludeLineGap)) {
+            if (!HasFlags(PTextViewFlag::IncludeLineGap)) {
                 minSize->y -= fontHeight.line_gap;
             }
             maxSize->y = minSize->y;
@@ -141,7 +141,7 @@ void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
         if (includeHeight)
         {
             size.y = fontHeight.descender + fontHeight.ascender;
-            if (HasFlags(PTextViewFlags::IncludeLineGap)) {
+            if (HasFlags(PTextViewFlag::IncludeLineGap)) {
                 size.y += fontHeight.line_gap;
             }
         }
@@ -216,7 +216,7 @@ bool PTextView::UpdateWordWrapping()
         return false;
     }
     m_IsWordWrappingValid = true;
-    if (!HasFlags(PTextViewFlags::MultiLine))
+    if (!HasFlags(PTextViewFlag::MultiLine))
     {
         const bool wasEmpty = m_LineWraps.empty();
         m_LineWraps.clear();

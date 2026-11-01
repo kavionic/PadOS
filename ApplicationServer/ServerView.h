@@ -27,7 +27,7 @@ public:
         const PRect&         frame,
         const PPoint&        scrollOffset,
         PViewDockType        dockType,
-        uint32_t            flags,
+        PViewFlags          flags,
         PViewHitMode        hitMode,
         int32_t             hideCount,
         PFocusKeyboardMode   focusKeyboardMode,

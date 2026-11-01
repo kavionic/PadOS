@@ -15,7 +15,7 @@
 class PScrollView : public PView, public PViewScroller
 {
 public:
-    PScrollView(const PString& name = PString::zero, uint32_t flags = 0);
+    PScrollView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PScrollView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:

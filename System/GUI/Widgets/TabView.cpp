@@ -19,7 +19,7 @@ static constexpr float ARROW_SPACE = 16.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
+PTabView::PTabView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
 {
     Initialize();
 }
@@ -30,7 +30,7 @@ PTabView::PTabView(const PString& name, uint32_t flags) : PView(name, flags | PV
 
 PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
-    MergeFlags(PViewFlags::WillDraw);
+    MergeFlags(PViewFlag::WillDraw);
     Initialize();
 
     for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
@@ -48,7 +48,7 @@ PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
                         tabContentView->SetLayoutNode(ptr_new<PLayoutNode>());
                     }
                     tabContentView->SetName(tabName);
-                    tabContentView->MergeFlags(PViewFlags::WillDraw);
+                    tabContentView->MergeFlags(PViewFlag::WillDraw);
                 }
             }
             AppendTab(tabName, tabContentView);
@@ -66,7 +66,7 @@ PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
                         topBarClientView->SetLayoutNode(ptr_new<PLayoutNode>());
                     }
                     topBarClientView->SetName(viewName);
-                    topBarClientView->MergeFlags(PViewFlags::WillDraw);
+                    topBarClientView->MergeFlags(PViewFlag::WillDraw);
                 }
             }
             SetTopBarClientView(topBarClientView);

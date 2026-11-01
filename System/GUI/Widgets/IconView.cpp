@@ -16,7 +16,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PIconView::PIconView(const PString& name, uint32_t flags) : PView(name, flags | PViewFlags::WillDraw)
+PIconView::PIconView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
 {
     Construct();
 }
@@ -27,7 +27,7 @@ PIconView::PIconView(const PString& name, uint32_t flags) : PView(name, flags | 
 
 PIconView::PIconView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
-    MergeFlags(PViewFlags::WillDraw);
+    MergeFlags(PViewFlag::WillDraw);
     Construct();
 }
 

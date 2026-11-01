@@ -20,11 +20,11 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PVirtualKeyboardView::PVirtualKeyboardView(bool numerical) : PView("VirtualKeyboard", PViewFlags::WillDraw)
+PVirtualKeyboardView::PVirtualKeyboardView(bool numerical) : PView("VirtualKeyboard", PViewFlag::WillDraw)
 {
     SetLayoutNode(ptr_new<PLayoutNode>());
 
-    m_KeyboardView = ptr_new<PKeyboardView>("Keyboard", (numerical) ? PKeyboardViewFlags::Numerical : 0);
+    m_KeyboardView = ptr_new<PKeyboardView>("Keyboard", numerical ? PKeyboardViewFlags{PKeyboardViewFlag::Numerical} : PKeyboardViewFlags::zero);
     AddChild(m_KeyboardView);
     m_KeyboardView->PreferredSizeChanged();
 
@@ -38,9 +38,9 @@ PVirtualKeyboardView::PVirtualKeyboardView(bool numerical) : PView("VirtualKeybo
 void PVirtualKeyboardView::SetIsNumerical(bool numerical)
 {
     if (numerical) {
-        m_KeyboardView->MergeFlags(PKeyboardViewFlags::Numerical);
+        m_KeyboardView->MergeFlags(PKeyboardViewFlag::Numerical);
     } else {
-        m_KeyboardView->ClearFlags(PKeyboardViewFlags::Numerical);
+        m_KeyboardView->ClearFlags(PKeyboardViewFlag::Numerical);
     }
 }
 

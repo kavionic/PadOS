@@ -14,7 +14,7 @@
 class PButton : public PButtonBase
 {
 public:
-    PButton(const PString& name, const PString& label, uint32_t flags = 0);
+    PButton(const PString& name, const PString& label, PViewFlags flags = PViewFlags::zero);
 	PButton(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PButton();
 

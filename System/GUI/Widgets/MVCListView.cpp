@@ -15,7 +15,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCListView::PMVCListView(const PString& name, uint32_t flags)
+PMVCListView::PMVCListView(const PString& name, PMVCBaseViewFlags flags)
     : PMVCBaseView(name, flags)
 {
 }

@@ -22,7 +22,7 @@
 class PRadioButton : public PButtonBase
 {
 public:
-    PRadioButton(const PString& name = PString::zero, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PRadioButton(const PString& name = PString::zero, PViewFlags flags = PViewFlag::WillDraw | PViewFlag::ClearBackground);
     PRadioButton(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PRadioButton();
 

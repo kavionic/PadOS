@@ -14,14 +14,16 @@
 #include <Ptr/NoPtr.h>
 
 
-namespace PTextBoxFlags
+enum class PTextBoxFlag : uint32_t
 {
-static constexpr uint32_t IncludeLineGap = 0x01 << PViewFlags::FirstUserBit;
-static constexpr uint32_t RaisedFrame    = 0x02 << PViewFlags::FirstUserBit;
-static constexpr uint32_t ReadOnly       = 0x04 << PViewFlags::FirstUserBit;
+    IncludeLineGap       = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+    RaisedFrame          = 0x02 << PVIEW_FIRST_USER_FLAG_BIT,
+    ReadOnly             = 0x04 << PVIEW_FIRST_USER_FLAG_BIT,
+};
 
-extern const std::map<PString, uint32_t> FlagMap;
-}
+PDEFINE_ENUM_BITMASK(PTextBoxFlags, PTextBoxFlag, PViewFlags);
+
+extern const std::map<PString, PTextBoxFlags> PTEXT_BOX_FLAG_MAP;
 
 struct PTextBoxStyle : PtrTarget
 {
@@ -36,13 +38,13 @@ struct PTextBoxStyle : PtrTarget
 class PTextBox : public PControl, public PViewScroller
 {
 public:
-    PTextBox(const PString& name, const PString& text, uint32_t flags = 0);
+    PTextBox(const PString& name, const PString& text, PTextBoxFlags flags = PTextBoxFlags::zero);
     PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     static Ptr<PTextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
 
     // From View:
-    virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void    OnFlagsChanged(PViewFlags changedFlags) override;
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    OnFrameSized(const PPoint& delta) override;

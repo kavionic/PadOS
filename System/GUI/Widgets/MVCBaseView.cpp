@@ -10,18 +10,18 @@
 #include <GUI/Widgets/MVCBaseView.h>
 
 
-const std::map<PString, uint32_t> PMVCBaseViewFlags::FlagMap
+const std::map<PString, PMVCBaseViewFlags> PMVC_BASE_VIEW_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PMVCBaseViewFlags, MultiSelect),
-    DEFINE_FLAG_MAP_ENTRY(PMVCBaseViewFlags, NoAutoSelect),
+    DEFINE_FLAG_MAP_ENTRY(PMVCBaseViewFlag, MultiSelect),
+    DEFINE_FLAG_MAP_ENTRY(PMVCBaseViewFlag, NoAutoSelect),
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCBaseView::PMVCBaseView(const PString& name, uint32_t flags)
-    : PControl(name, flags | PViewFlags::WillDraw)
+PMVCBaseView::PMVCBaseView(const PString& name, PMVCBaseViewFlags flags)
+    : PControl(name, flags | PViewFlag::WillDraw)
 {
     Construct();
 }
@@ -33,7 +33,8 @@ PMVCBaseView::PMVCBaseView(const PString& name, uint32_t flags)
 PMVCBaseView::PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
     : PControl(context, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PMVCBaseViewFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw);
+    const PMVCBaseViewFlags flags = context.GetFlagsAttribute<PMVCBaseViewFlags>(xmlData, PMVC_BASE_VIEW_FLAG_MAP, "flags", PMVCBaseViewFlags::zero);
+    MergeFlags(flags | PViewFlag::WillDraw);
     Construct();
 }
 
@@ -117,7 +118,7 @@ void PMVCBaseView::SetItemSelection(size_t index, bool isSelected)
         PMVCBaseViewItemNode& itemNode = GetItemNode(index);
         if (isSelected != itemNode.IsSelected)
         {
-            if (isSelected && !HasFlags(PMVCBaseViewFlags::MultiSelect)) {
+            if (isSelected && !HasFlags(PMVCBaseViewFlag::MultiSelect)) {
                 ClearSelection();
             }
             itemNode.IsSelected = isSelected;
@@ -375,7 +376,7 @@ void PMVCBaseView::CacheItemWidget(Ptr<PView> itemWidget, int32_t widgetClassID)
 void PMVCBaseView::Construct()
 {
     m_ScrollView = ptr_new<PScrollView>();
-    m_ContentView = ptr_new<PView>(PString::zero, PViewFlags::WillDraw);
+    m_ContentView = ptr_new<PView>(PString::zero, PViewFlag::WillDraw);
 
     m_ContentView->VFCalculateContentSize.Connect(this, &PView::GetContentSize);
     m_ContentView->SignalFrameSized.Connect(this, &PMVCBaseView::OnContentViewFrameSized);
@@ -398,7 +399,7 @@ void PMVCBaseView::Construct()
 
 void PMVCBaseView::ItemClicked(size_t index)
 {
-    if (!HasFlags(PMVCBaseViewFlags::NoAutoSelect)) {
+    if (!HasFlags(PMVCBaseViewFlag::NoAutoSelect)) {
         SetItemSelection(index, !GetItemSelection(index));
     }
     SignalItemClicked(index, this);

@@ -16,8 +16,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTextEditView::PTextEditView(const PString& name, const PString& text, uint32_t flags)
-    : PControl(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Text(text)
+PTextEditView::PTextEditView(const PString& name, const PString& text, PTextBoxFlags flags)
+    : PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize), m_Text(text)
 {
     Initialize();
 }
@@ -28,7 +28,8 @@ PTextEditView::PTextEditView(const PString& name, const PString& text, uint32_t 
 
 PTextEditView::PTextEditView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextBoxFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
+    const PTextBoxFlags flags = context.GetFlagsAttribute<PTextBoxFlags>(xmlData, PTEXT_BOX_FLAG_MAP, "flags", PTextBoxFlags::zero);
+    MergeFlags(flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize);
     m_Text = context.GetAttribute(xmlData, "text", PString::zero);
 
     Initialize();
@@ -69,11 +70,14 @@ void PTextEditView::OnKeyboardFocusChanged(bool hasFocus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextEditView::OnFlagsChanged(uint32_t changedFlags)
+void PTextEditView::OnFlagsChanged(PViewFlags changedFlags)
 {
     PControl::OnFlagsChanged(changedFlags);
-    if (changedFlags & PTextBoxFlags::ReadOnly) {
-        if (HasFlags(PTextBoxFlags::ReadOnly)) SetKeyboardFocus(false);
+    if (PTextBoxFlags(changedFlags).Has(PTextBoxFlag::ReadOnly))
+    {
+        if (HasFlags(PTextBoxFlag::ReadOnly)) {
+            SetKeyboardFocus(false);
+        }
         Invalidate();
     }
 }
@@ -108,7 +112,7 @@ void PTextEditView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, boo
 PPoint PTextEditView::CalculateContentSize() const
 {
     PPoint size = GetSizeForString(m_Text, true, true);
-    if (!HasFlags(PTextBoxFlags::ReadOnly) && HasKeyboardFocus()) {
+    if (!HasFlags(PTextBoxFlag::ReadOnly) && HasKeyboardFocus()) {
         size.x += 10.0f;
     }
     return size;
@@ -125,7 +129,7 @@ void PTextEditView::OnPaint(const PRect& updateRect)
         SetBgColor(m_Style->DisabledBackgroundColor);
         SetFgColor(m_Style->DisabledTextColor);
     }
-    else if (HasFlags(PTextBoxFlags::ReadOnly))
+    else if (HasFlags(PTextBoxFlag::ReadOnly))
     {
         SetBgColor(m_Style->ReadOnlyBackgroundColor);
         SetFgColor(m_Style->ReadOnlyTextColor);
@@ -150,7 +154,7 @@ void PTextEditView::OnPaint(const PRect& updateRect)
 
 void PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (HasFlags(PTextBoxFlags::ReadOnly) || m_HitPointerID != PInvalidPointerID) {
+    if (HasFlags(PTextBoxFlag::ReadOnly) || m_HitPointerID != PInvalidPointerID) {
         return;
     }
 
@@ -450,7 +454,7 @@ PPoint PTextEditView::GetSizeForString(const PString& text, bool includeWidth, b
     {
         PFontHeight fontHeight = GetFontHeight();
         size.y = fontHeight.descender + fontHeight.ascender;
-        if (HasFlags(PTextBoxFlags::IncludeLineGap)) {
+        if (HasFlags(PTextBoxFlag::IncludeLineGap)) {
             size.y += fontHeight.line_gap;
         }
     }
@@ -497,7 +501,7 @@ PRect PTextEditView::GetCursorFrame()
 
 void PTextEditView::UpdateCursorTimer()
 {
-    const bool hasFocus = !HasFlags(PTextBoxFlags::ReadOnly) && HasKeyboardFocus();
+    const bool hasFocus = !HasFlags(PTextBoxFlag::ReadOnly) && HasKeyboardFocus();
     bool showCursor = m_CursorVisible;
     if (!m_CursorFrozen && hasFocus)
     {

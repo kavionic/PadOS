@@ -88,20 +88,22 @@ enum class PCapsLockMode : uint8_t
     Locked
 };
 
-namespace PKeyboardViewFlags
+enum class PKeyboardViewFlag : uint32_t
 {
-static constexpr uint32_t Numerical = 0x01 << PViewFlags::FirstUserBit;
-}
+    Numerical            = 0x01 << PVIEW_FIRST_USER_FLAG_BIT,
+};
+
+PDEFINE_ENUM_BITMASK(PKeyboardViewFlags, PKeyboardViewFlag, PViewFlags);
 
 class PKeyboardView : public PView
 {
 public:
-    PKeyboardView(const PString& name, uint32_t flags = 0);
+    PKeyboardView(const PString& name, PKeyboardViewFlags flags = PKeyboardViewFlags::zero);
 
     static Ptr<PKeyboardViewStyle> GetDefaultStyle();
 
     // From ViewBase:
-    virtual void OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void OnFlagsChanged(PViewFlags changedFlags) override;
 
     // From View:
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;

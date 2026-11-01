@@ -25,7 +25,7 @@ class PControl : public PStyledView
 public:
     static constexpr int32_t INVALID_ID = -1;
 
-    PControl(const PString& name = PString::zero, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PControl(const PString& name = PString::zero, PViewFlags flags = PViewFlag::WillDraw | PViewFlag::ClearBackground);
     PControl(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PControl();
 

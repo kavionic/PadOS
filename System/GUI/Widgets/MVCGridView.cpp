@@ -16,8 +16,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PMVCGridView::PMVCGridView(const PString& name, uint32_t flags)
-    : PMVCBaseView(name, flags | PViewFlags::WillDraw)
+PMVCGridView::PMVCGridView(const PString& name, PMVCBaseViewFlags flags)
+    : PMVCBaseView(name, flags | PViewFlag::WillDraw)
 {
 }
 

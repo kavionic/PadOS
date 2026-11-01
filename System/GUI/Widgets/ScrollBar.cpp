@@ -17,8 +17,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation orientation, uint32_t flags)
-    : PControl(name, flags | PViewFlags::WillDraw)
+PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation orientation, PViewFlags flags)
+    : PControl(name, flags | PViewFlag::WillDraw)
     , m_Min(min)
     , m_Max(max)
 {

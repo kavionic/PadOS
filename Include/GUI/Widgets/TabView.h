@@ -17,7 +17,7 @@
 class PTabView : public PView
 {
 public:
-    PTabView(const PString& name = PString::zero, uint32_t flags = 0);
+    PTabView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     int         AppendTab( const PString& title, Ptr<PView> view = nullptr );
@@ -64,7 +64,7 @@ private:
     class TopView : public PView
     {
     public:
-        TopView(PTabView* tabView) : PView("top_view", PViewFlags::WillDraw), m_TabView(tabView) {}
+        TopView(PTabView* tabView) : PView("top_view", PViewFlag::WillDraw), m_TabView(tabView) {}
     
         virtual void OnFontChanged(Ptr<const PFont> newFont) override { Invalidate(); }
         virtual void OnPaint(const PRect& updateRect) override;

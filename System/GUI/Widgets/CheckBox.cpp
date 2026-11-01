@@ -14,7 +14,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PCheckBox::PCheckBox(const PString& name, uint32_t flags) : PButtonBase(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PCheckBox::PCheckBox(const PString& name, PViewFlags flags) : PButtonBase(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     SetCheckable(true);
 }
@@ -25,7 +25,7 @@ PCheckBox::PCheckBox(const PString& name, uint32_t flags) : PButtonBase(name, fl
 
 PCheckBox::PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PButtonBase(context, xmlData, PAlignment::Right)
 {
-    MergeFlags(PViewFlags::WillDraw);
+    MergeFlags(PViewFlag::WillDraw);
 	SetCheckable(true);
     SetChecked(context.GetAttribute<bool>(xmlData, "value", false));
 }

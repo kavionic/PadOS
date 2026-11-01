@@ -341,7 +341,7 @@ PServerView::PServerView(
     const PRect&                frame,
     const PPoint&               scrollOffset,
     PViewDockType               dockType,
-    uint32_t                    flags,
+    PViewFlags                  flags,
     PViewHitMode                hitMode,
     int32_t                     hideCount,
     PFocusKeyboardMode          focusKeyboardMode,
@@ -591,7 +591,8 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
         {
             for (Ptr<PServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & PViewFlags::Transparent) == 0) {
+                if (!i->m_Flags.Has(PViewFlag::Transparent))
+                {
                     i->SetDirtyRegFlags();
                     break;
                 }                    
@@ -673,7 +674,7 @@ void PServerView::SetShapeRegion(Ptr<PRegion> region)
         {
             for (Ptr<PServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & PViewFlags::Transparent) == 0)
+                if (!i->m_Flags.Has(PViewFlag::Transparent))
                 {
                     i->SetDirtyRegFlags();
                     break;
@@ -752,7 +753,8 @@ void PServerView::InvalidateNewAreas()
   
     if (m_HasInvalidRegs)
     {
-        if ( ((m_Flags & PViewFlags::FullUpdateOnResizeH) && m_DeltaSize.x != 0) || ((m_Flags & PViewFlags::FullUpdateOnResizeV) && m_DeltaSize.y != 0) )
+        if ((m_Flags.Has(PViewFlag::FullUpdateOnResizeH) && m_DeltaSize.x != 0)
+            || (m_Flags.Has(PViewFlag::FullUpdateOnResizeV) && m_DeltaSize.y != 0))
         {
             Invalidate(false);
         }
@@ -976,7 +978,7 @@ void PServerView::RebuildRegion()
         }
         m_VisibleReg = ptr_new<PRegion>(*m_FullReg);
 
-        if ((m_Flags & PViewFlags::DrawOnChildren) == 0)
+        if (!m_Flags.Has(PViewFlag::DrawOnChildren))
         {
             bool regModified = false;
             for (Ptr<PServerView> child : m_ChildrenList)
@@ -1004,7 +1006,7 @@ bool PServerView::ExcludeFromRegion(Ptr<PRegion> region, const PIPoint& offset)
 {
     if (m_HideCount == 0)
     {
-        if ((m_Flags & PViewFlags::Transparent) == 0)
+        if (!m_Flags.Has(PViewFlag::Transparent))
         {
             if ( m_ShapeConstrainReg == nullptr ) {
                 region->Exclude(GetIFrame() + offset);
@@ -1329,7 +1331,7 @@ void PServerView::Show(bool doShow)
         {
             for (Ptr<PServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & PViewFlags::Transparent) == 0)
+                if (!i->m_Flags.Has(PViewFlag::Transparent))
                 {
                     i->SetDirtyRegFlags();
                     break;

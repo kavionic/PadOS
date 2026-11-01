@@ -16,7 +16,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonBase::PButtonBase(const PString& name, uint32_t flags) : PControl(name, flags)
+PButtonBase::PButtonBase(const PString& name, PViewFlags flags) : PControl(name, flags)
 {
 }
 

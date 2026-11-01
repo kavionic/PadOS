@@ -14,7 +14,7 @@
 class PGroupView : public PView
 {
 public:
-    PGroupView(const PString& name = PString::zero, uint32_t flags = 0);
+    PGroupView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     // From View:

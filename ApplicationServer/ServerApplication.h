@@ -52,7 +52,7 @@ private:
                         const PString& name,
                         const PRect& frame,
                         const PPoint& scrollOffset,
-                        uint32_t flags,
+                        PViewFlags flags,
                         PViewHitMode hitMode,
                         int32_t hideCount,
                         PFocusKeyboardMode focusKeyboardMode,

@@ -132,9 +132,9 @@ PDialogButtonID PDialogBase::Go(Ptr<PView> owner)
 
     if (looper != nullptr)
     {
-        while (HasFlags(PViewFlags::IsAttachedToScreen) && (owner == nullptr || owner->HasFlags(PViewFlags::IsAttachedToScreen)) && looper->Tick());
+        while (HasFlags(PViewFlag::IsAttachedToScreen) && (owner == nullptr || owner->HasFlags(PViewFlag::IsAttachedToScreen)) && looper->Tick());
     }
-    if (HasFlags(PViewFlags::IsAttachedToScreen)) {
+    if (HasFlags(PViewFlag::IsAttachedToScreen)) {
         Close();
     }
     return m_ButtonClicked;

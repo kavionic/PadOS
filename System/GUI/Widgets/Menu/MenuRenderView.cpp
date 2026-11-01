@@ -71,7 +71,7 @@ void PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position
 
             if (item != nullptr)
             {
-                if (!m_Menu->HasFlags(PMenuFlags::NoKeyboardFocus)) {
+                if (!m_Menu->HasFlags(PMenuFlag::NoKeyboardFocus)) {
                     m_Menu->SetKeyboardFocus(true);
                 }
                 m_Menu->SelectItem(item);
@@ -108,7 +108,7 @@ void PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position
 
     if (item != nullptr)
     {
-        if (!m_Menu->HasFlags(PMenuFlags::NoKeyboardFocus)) {
+        if (!m_Menu->HasFlags(PMenuFlag::NoKeyboardFocus)) {
             m_Menu->SetKeyboardFocus(true);
         }
         m_Menu->SelectItem(item);

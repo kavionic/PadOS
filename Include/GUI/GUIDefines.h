@@ -11,6 +11,7 @@
 #include <map>
 #include <stdint.h>
 #include <utility>
+#include <Utils/EnumBitmask.h>
 #include <Utils/String.h>
 #include <Utils/Logging.h>
 
@@ -24,22 +25,26 @@ PDEFINE_LOG_CATEGORY(LogCategoryGUITK, "GUITK", PLogSeverity::WARNING);
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-namespace PViewFlags
+enum class PViewFlag : uint32_t
 {
-    static constexpr uint32_t FullUpdateOnResizeH = 0x0001;   ///< Cause the entire view to be invalidated if made wider
-    static constexpr uint32_t FullUpdateOnResizeV = 0x0002;   ///< Cause the entire view to be invalidated if made higher
-    static constexpr uint32_t FullUpdateOnResize  = 0x0003;   ///< Cause the entire view to be invalidated if resized
-    static constexpr uint32_t IgnoreWhenHidden    = 0x0004;   ///< Ignore size when hidden.
-    static constexpr uint32_t WillDraw            = 0x0008;   ///< Tell the appserver that you want to render stuff to it
-    static constexpr uint32_t Transparent         = 0x0010;   ///< Allow the parent view to render in areas covered by this view
-    static constexpr uint32_t ClearBackground     = 0x0020;   ///< Automatically clear new areas when windows are moved/resized
-    static constexpr uint32_t DrawOnChildren      = 0x0040;   ///< Setting this flag allows the view to render atop of all its children.
-    static constexpr uint32_t Eavesdropper        = 0x0080;   ///< Client-side view that is connected to a foreign server-side view.
-    static constexpr uint32_t IsAttachedToScreen  = 0x0100;   ///< Set while the view is registered with the server.
-    static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
+    FullUpdateOnResizeH  = 0x0001,   ///< Cause the entire view to be invalidated if made wider
+    FullUpdateOnResizeV  = 0x0002,   ///< Cause the entire view to be invalidated if made higher
+    FullUpdateOnResize   = 0x0003,   ///< Cause the entire view to be invalidated if resized
+    IgnoreWhenHidden     = 0x0004,   ///< Ignore size when hidden.
+    WillDraw             = 0x0008,   ///< Tell the appserver that you want to render stuff to it
+    Transparent          = 0x0010,   ///< Allow the parent view to render in areas covered by this view
+    ClearBackground      = 0x0020,   ///< Automatically clear new areas when windows are moved/resized
+    DrawOnChildren       = 0x0040,   ///< Setting this flag allows the view to render atop of all its children.
+    Eavesdropper         = 0x0080,   ///< Client-side view that is connected to a foreign server-side view.
+    IsAttachedToScreen   = 0x0100,   ///< Set while the view is registered with the server.
+};
 
-    extern const std::map<PString, uint32_t> FlagMap;
-}
+PDEFINE_ENUM_BITMASK(PViewFlags, PViewFlag);
+
+// Widget-specific flags start at this bit to avoid the common view flags.
+static constexpr int PVIEW_FIRST_USER_FLAG_BIT = 16;
+
+extern const std::map<PString, PViewFlags> PVIEW_FLAG_MAP;
 
 enum class PViewHitMode : uint8_t
 {

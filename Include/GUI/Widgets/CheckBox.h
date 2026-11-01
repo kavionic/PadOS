@@ -22,7 +22,7 @@
 class PCheckBox : public PButtonBase
 {
 public:
-    PCheckBox(const PString& name = PString::zero, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PCheckBox(const PString& name = PString::zero, PViewFlags flags = PViewFlag::WillDraw | PViewFlag::ClearBackground);
     PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PCheckBox();
 

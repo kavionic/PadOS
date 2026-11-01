@@ -25,17 +25,17 @@
 #include <Utils/XMLObjectParser.h>
 
 
-const std::map<PString, uint32_t> PViewFlags::FlagMap
+const std::map<PString, PViewFlags> PVIEW_FLAG_MAP
 {
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, FullUpdateOnResizeH),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, FullUpdateOnResizeV),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, FullUpdateOnResize),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, IgnoreWhenHidden),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, WillDraw),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, Transparent),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, ClearBackground),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, DrawOnChildren),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, Eavesdropper)
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, FullUpdateOnResizeH),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, FullUpdateOnResizeV),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, FullUpdateOnResize),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, IgnoreWhenHidden),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, WillDraw),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, Transparent),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, ClearBackground),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, DrawOnChildren),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlag, Eavesdropper)
 };
 
 static PColor g_DefaultColors[] =
@@ -131,7 +131,7 @@ uint32_t PView::GetInstanceCount()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PView::PView(const PString& name, uint32_t flags)
+PView::PView(const PString& name, PViewFlags flags)
     : PViewBase(
         name,
         PRect(),
@@ -168,7 +168,7 @@ PView::PView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
     : PViewBase(xmlData.attribute("name").value(),
                PRect(),
                PPoint(),
-               context.GetFlagsAttribute<uint32_t>(xmlData, PViewFlags::FlagMap, "flags", 0),
+               context.GetFlagsAttribute<PViewFlags>(xmlData, PVIEW_FLAG_MAP, "flags", PViewFlags::zero),
                context.GetAttribute(xmlData, "hit_mode", PViewHitMode::HitTest),
                0,
                1.0f,
@@ -288,7 +288,7 @@ PView::PView(handler_id serverHandle, const PString& name, const PRect& frame)
         name,
         frame,
         PPoint(),
-        PViewFlags::Eavesdropper | PViewFlags::WillDraw,
+        PViewFlag::Eavesdropper | PViewFlag::WillDraw,
         PViewHitMode::HitTest,
         0,
         1.0f,
@@ -1048,7 +1048,7 @@ void PView::Show(bool visible)
         for (Ptr<PView> child : *this) {
             child->Show(isVisible);
         }
-        if (HasFlags(PViewFlags::IgnoreWhenHidden))
+        if (HasFlags(PViewFlag::IgnoreWhenHidden))
         {
             Ptr<PView> parent = GetParent();
             if (parent != nullptr) {
@@ -1262,7 +1262,7 @@ void PView::Invalidate(const PRect& rect)
 {
     if (m_ServerHandle != INVALID_HANDLE) {
         Post<ASViewInvalidate>(PIRect(rect));
-    } else if (!HasFlags(PViewFlags::WillDraw)) {
+    } else if (!HasFlags(PViewFlag::WillDraw)) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "{}: Called on client-only view {}[{}].", __PRETTY_FUNCTION__, typeid(*this).name(), GetName());
     }
 }
@@ -1716,7 +1716,7 @@ void PView::HandleAddedToParent(Ptr<PView> parent, size_t index)
     if (!parent->IsVisible()) {
         Show(false);
     }
-    if (parent->HasFlags(PViewFlags::IsAttachedToScreen))
+    if (parent->HasFlags(PViewFlag::IsAttachedToScreen))
     {
         parent->InvalidateLayout();
 
@@ -1725,7 +1725,7 @@ void PView::HandleAddedToParent(Ptr<PView> parent, size_t index)
         {
             HandlePreAttachToScreen(app);
 
-            if (!HasFlags(PViewFlags::Eavesdropper)) {
+            if (!HasFlags(PViewFlag::Eavesdropper)) {
                 app->AddChildView(parent, ptr_tmp_cast(this), index);
             } else {
                 app->InvalidatePointerPaths();
@@ -1750,7 +1750,7 @@ void PView::HandleRemovedFromParent(Ptr<PView> parent)
     }
     OnDetachedFromParent(parent);
     PApplication* const app = GetApplication();
-    if (HasFlags(PViewFlags::Eavesdropper))
+    if (HasFlags(PViewFlag::Eavesdropper))
     {
         if (app != nullptr) {
             app->InvalidatePointerPaths();
@@ -1772,7 +1772,7 @@ void PView::HandleRemovedFromParent(Ptr<PView> parent)
 
 void PView::HandlePreAttachToScreen(PApplication* app)
 {
-    MergeFlags(PViewFlags::IsAttachedToScreen);
+    MergeFlags(PViewFlag::IsAttachedToScreen);
     app->AddHandler(ptr_tmp_cast(this));
     AttachedToScreen();
 
@@ -2051,7 +2051,7 @@ void PView::UpdatePosition(UpdatePositionNotifyServer notifyMode)
     PPoint newScreenPos;
     {
         Ptr<PView> parent = m_Parent.Lock();
-        if (parent != nullptr && !parent->HasFlags(PViewFlags::WillDraw)) {
+        if (parent != nullptr && !parent->HasFlags(PViewFlag::WillDraw)) {
             newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
         } else {
             newOffset = PPoint(0.0f, 0.0f);

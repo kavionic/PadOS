@@ -52,7 +52,7 @@ bool parse(const char* text, PKeyCodes& value);
 template<typename T>
 bool parse_flags(const char* text, const std::map<PString, T>& flagDefinitions, T& value)
 {
-    T flags = 0;
+    T flags{};
     const char* start = text;
 
     for (;;)

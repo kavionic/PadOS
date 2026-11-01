@@ -189,7 +189,7 @@ bool PApplication::AddChildView(Ptr<PView> parent, Ptr<PView> view, size_t index
 
     handler_id parentHandle = view->GetParentServerHandle();
 
-    if (view->HasFlags(PViewFlags::WillDraw)) {
+    if (view->HasFlags(PViewFlag::WillDraw)) {
         CreateServerView(view, parentHandle, PViewDockType::ChildView, index);
     }
     for (Ptr<PView> child : view->m_ChildrenList) {
@@ -211,7 +211,7 @@ bool PApplication::RemoveView(Ptr<PView> view)
 
     const handle_id serverHandle = view->m_ServerHandle;
     DetachView(view, serverHandle != INVALID_HANDLE);
-    if (serverHandle != INVALID_HANDLE && !view->HasFlags(PViewFlags::Eavesdropper)) {
+    if (serverHandle != INVALID_HANDLE && !view->HasFlags(PViewFlag::Eavesdropper)) {
         Post<ASDeleteView>(serverHandle);
     }
     view->HandleDetachedFromScreen();
@@ -221,7 +221,7 @@ bool PApplication::RemoveView(Ptr<PView> view)
     for (Ptr<PView> child : *view) {
         RemoveView(child);
     }
-    view->ClearFlags(PViewFlags::IsAttachedToScreen);
+    view->ClearFlags(PViewFlag::IsAttachedToScreen);
     if (view->GetStyle() != previousStyle) {
         view->OnStyleChanged();
     }

@@ -19,7 +19,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PListViewScrolledView::PListViewScrolledView(Ptr<PListView> listView)
-    : PView("main_view", PViewFlags::WillDraw | PViewFlags::DrawOnChildren)
+    : PView("main_view", PViewFlag::WillDraw | PViewFlag::DrawOnChildren)
 {
     m_ListView = ptr_raw_pointer_cast(listView);
 
@@ -240,7 +240,7 @@ bool PListViewScrolledView::HandleMousePointerDown(PPointerID pointerID, const P
 
     uint32_t qualifiers = GetApplication()->GetQualifiers();
 
-    if ((qualifiers & QUAL_SHIFT) && m_ListView->HasFlags(PListViewFlags::MultiSelect)) {
+    if ((qualifiers & QUAL_SHIFT) && m_ListView->HasFlags(PListViewFlag::MultiSelect)) {
         m_EndSel = m_BeginSel;
     } else {
         m_BeginSel = hitRowIndex;
@@ -275,8 +275,11 @@ bool PListViewScrolledView::HandleMousePointerDown(PPointerID pointerID, const P
     }
     else
     {
-        ExpandSelect(hitRowIndex, (qualifiers & QUAL_CTRL), ((qualifiers & (QUAL_CTRL | QUAL_SHIFT)) == 0 || !m_ListView->HasFlags(PListViewFlags::MultiSelect)));
-        if (m_ListView->HasFlags(PListViewFlags::MultiSelect))
+        ExpandSelect(
+            hitRowIndex,
+            (qualifiers & QUAL_CTRL),
+            ((qualifiers & (QUAL_CTRL | QUAL_SHIFT)) == 0 || !m_ListView->HasFlags(PListViewFlag::MultiSelect)));
+        if (m_ListView->HasFlags(PListViewFlag::MultiSelect))
         {
             m_IsSelecting = true;
             m_SelectRect = PRect(position.x, position.y, position.x, position.y);
@@ -766,7 +769,7 @@ size_t PListViewScrolledView::InsertRow(size_t index, Ptr<PListViewRow> row, boo
     }
     else
     {
-        if (!m_ListView->HasFlags(PListViewFlags::NoAutoSort) && m_SortColumn != INVALID_INDEX)
+        if (!m_ListView->HasFlags(PListViewFlag::NoAutoSort) && m_SortColumn != INVALID_INDEX)
         {
             std::vector<Ptr<PListViewRow>>::iterator iterator;
 
@@ -809,7 +812,7 @@ size_t PListViewScrolledView::InsertRow(size_t index, Ptr<PListViewRow> row, boo
 
         if (row->m_YPos + row->m_Height + m_VSpacing <= bounds.bottom)
         {
-            if (m_ListView->HasFlags(PListViewFlags::DontScroll))
+            if (m_ListView->HasFlags(PListViewFlag::DontScroll))
             {
                 bounds.top = row->m_YPos;
                 for (size_t i = 0; i < m_ColumnViews.size(); ++i) {
@@ -873,7 +876,7 @@ Ptr<PListViewRow> PListViewScrolledView::RemoveRow(size_t index, bool update)
 
         if (y + rowHeight <= bounds.bottom)
         {
-            if (m_ListView->HasFlags(PListViewFlags::DontScroll))
+            if (m_ListView->HasFlags(PListViewFlag::DontScroll))
             {
                 bounds.top = y;
                 for (size_t i = 0; i < m_ColumnViews.size(); ++i) {

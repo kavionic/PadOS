@@ -14,8 +14,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PProgressBar::PProgressBar(const PString& name, POrientation orientation, uint32_t flags)
-    : PView(name, flags | PViewFlags::WillDraw | PViewFlags::ClearBackground)
+PProgressBar::PProgressBar(const PString& name, POrientation orientation, PViewFlags flags)
+    : PView(name, flags | PViewFlag::WillDraw | PViewFlag::ClearBackground)
 {
     m_Orientation = orientation;
 }
@@ -26,7 +26,7 @@ PProgressBar::PProgressBar(const PString& name, POrientation orientation, uint32
 
 PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
 {
-    MergeFlags(PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    MergeFlags(PViewFlag::WillDraw | PViewFlag::ClearBackground);
     m_Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
 }
 

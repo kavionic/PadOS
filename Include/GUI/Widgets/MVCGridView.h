@@ -27,7 +27,7 @@ struct PMVCGridViewItemNode : PMVCBaseViewItemNode
 class PMVCGridView : public PMVCBaseView
 {
 public:
-    PMVCGridView(const PString& name = PString::zero, uint32_t flags = 0);
+    PMVCGridView(const PString& name = PString::zero, PMVCBaseViewFlags flags = PMVCBaseViewFlags::zero);
     PMVCGridView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;

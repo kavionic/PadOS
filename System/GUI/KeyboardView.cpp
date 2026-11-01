@@ -150,8 +150,8 @@ PKeyButton::PKeyButton(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PKeyboardView::PKeyboardView(const PString& name, uint32_t flags)
-    : PView(name, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
+PKeyboardView::PKeyboardView(const PString& name, PKeyboardViewFlags flags)
+    : PView(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
     m_KeyHeight = fontHeight.descender + fontHeight.ascender + 11.0f;
@@ -206,7 +206,7 @@ PKeyboardView::PKeyboardView(const PString& name, uint32_t flags)
         }
     }
 
-    if (HasFlags(PKeyboardViewFlags::Numerical))
+    if (HasFlags(PKeyboardViewFlag::Numerical))
     {
         LoadKeyboard("Numerical");
     }
@@ -329,13 +329,13 @@ bool PKeyboardView::LoadKeyboard(const PString& name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PKeyboardView::OnFlagsChanged(uint32_t changedFlags)
+void PKeyboardView::OnFlagsChanged(PViewFlags changedFlags)
 {
-    if (changedFlags & PKeyboardViewFlags::Numerical)
+    if (PKeyboardViewFlags(changedFlags).Has(PKeyboardViewFlag::Numerical))
     {
         m_SymbolsActive = false;
         m_SymbolPage = 0;
-        if (HasFlags(PKeyboardViewFlags::Numerical))
+        if (HasFlags(PKeyboardViewFlag::Numerical))
         {
             LoadKeyboard("Numerical");
         }
@@ -455,11 +455,11 @@ void PKeyboardView::OnPointerLongPress(PPointerID pointerID, const PPoint& posit
                 cancelPress = true;
             }
         }
-        else if (button.KeyCode == PKeyCodes::ENTER && !HasFlags(PKeyboardViewFlags::Numerical))
+        else if (button.KeyCode == PKeyCodes::ENTER && !HasFlags(PKeyboardViewFlag::Numerical))
         {
             if (!m_Keyboards.empty() && m_LayoutSelectMenu == nullptr)
             {
-                m_LayoutSelectMenu = ptr_new<PMenu>(PString::zero, PMenuLayout::Vertical, PMenuFlags::NoKeyboardFocus);
+                m_LayoutSelectMenu = ptr_new<PMenu>(PString::zero, PMenuLayout::Vertical, PMenuFlag::NoKeyboardFocus);
 
                 for (size_t i = 0; i < m_Keyboards.size(); ++i)
                 {

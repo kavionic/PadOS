@@ -13,6 +13,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	FontSelection_unittest.cpp
 	DropdownMenuStyle_unittest.cpp
 	GroupViewStyle_unittest.cpp
+	ProgressBarStyle_unittest.cpp
 	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp
 	KeyboardManager_unittest.cpp

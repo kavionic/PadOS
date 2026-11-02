@@ -6,8 +6,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
+#include <GUI/Style/GUIStyle.h>
+#include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ProgressBar.h>
-#include <GUI/Font.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -15,19 +16,38 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PProgressBar::PProgressBar(const PString& name, POrientation orientation, PViewFlags flags)
-    : PView(name, flags | PViewFlag::WillDraw | PViewFlag::ClearBackground)
+    : PStyledView(name, flags | PViewFlag::WillDraw | PViewFlag::ClearBackground)
 {
-    m_Orientation = orientation;
+    m_ProgressBarStyleData.Orientation = orientation;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
+PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PStyledView(context, xmlData)
 {
     MergeFlags(PViewFlag::WillDraw | PViewFlag::ClearBackground);
-    m_Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
+    m_ProgressBarStyleData.Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PProgressBar::OnFontChanged(Ptr<const PFont> newFont)
+{
+    NotifyStylePropertyChanged(PProgressBarProperty::Font);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PProgressBar::OnStyleChanged()
+{
+    m_ProgressBarStyleData.StyleData.Reset();
+    PStyledView::OnStyleChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -36,47 +56,11 @@ PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& x
 
 void PProgressBar::OnPaint(const PRect& updateRect)
 {
-    PRect bounds = GetNormalizedBounds();
-    bounds.Floor();
-
-    DrawFrame(bounds, FRAME_RECESSED | FRAME_TRANSPARENT);
-
-    float barLength = (m_Orientation == POrientation::Horizontal) ? bounds.Width() : bounds.Height();
-    barLength = std::ceil((barLength - 4.0f) * m_Progress);
-
-    PRect barFrame = bounds;
-    barFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
-    PRect restFrame = barFrame;
-
-    if (barLength < 1.0f)
-    {
-        FillRect(restFrame, GetBgColor());
-    }
-    else
-    {
-        if (m_Orientation == POrientation::Horizontal)
-        {
-            barFrame.right = barFrame.left + barLength;
-            if (barFrame.right > bounds.right - 2.0f) {
-                barFrame.right = bounds.right - 2.0f;
-            }
-            restFrame.left = barFrame.right;
-        }
-        else
-        {
-            barFrame.top = barFrame.bottom - barLength;
-            if (barFrame.right < bounds.right + 2.0f) {
-                barFrame.top = bounds.top + 2.0f;
-            }
-            restFrame.bottom = barFrame.top;
-        }
-
-        if (barLength >= 1.0f) {
-            FillRect(barFrame, PColor(0x66, 0x88, 0xbb));
-        }
-        if (restFrame.IsValid()) {
-            FillRect(restFrame, GetBgColor());
-        }
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->ProgressBarPaint(*this, GetNormalizedBounds(), m_ProgressBarStyleData);
+    } else {
+        PView::OnPaint(updateRect);
     }
 }
 
@@ -86,34 +70,9 @@ void PProgressBar::OnPaint(const PRect& updateRect)
 
 void PProgressBar::OnFrameSized(const PPoint& delta)
 {
-    PRect bounds(GetBounds());
-    bool needFlush = false;
-    if ((m_Orientation == POrientation::Horizontal && delta.x != 0.0f) || (m_Orientation == POrientation::Vertical && delta.y != 0.0f))
-    {
-        PRect damage = bounds;
-        damage.Resize(2.0f, 2.0f, -2.0f, -2.0f);
-        Invalidate(damage);
-        needFlush = true;
-    }
-    if (delta.x != 0.0f)
-    {
-        PRect damage = bounds;
-
-        damage.left = damage.right - std::max(2.0f, delta.x + 2.0f);
-        Invalidate(damage);
-        needFlush = true;
-    }
-    if (delta.y != 0.0f)
-    {
-        PRect damage = bounds;
-
-        damage.top = damage.bottom - std::max(2.0f, delta.y + 2.0f);
-        Invalidate(damage);
-        needFlush = true;
-    }
-    if (needFlush) {
-        Flush();
-    }
+    PStyledView::OnFrameSized(delta);
+    NotifyStylePropertyChanged(PProgressBarProperty::Frame);
+    Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,11 +81,12 @@ void PProgressBar::OnFrameSized(const PPoint& delta)
 
 void PProgressBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    minSize->x = 50.0f;
-    minSize->y = 24.0f;
-
-    maxSize->x = LAYOUT_MAX_SIZE;
-    maxSize->y = minSize->y;
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->ProgressBarGetPreferredSize(*this, m_ProgressBarStyleData, minSize, maxSize);
+    } else {
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,8 +95,8 @@ void PProgressBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool
 
 void PProgressBar::SetProgress(float value)
 {
-    m_Progress = value;
-    Invalidate();
+    m_ProgressBarStyleData.Value = value;
+    NotifyStylePropertyChanged(PProgressBarProperty::Value);
     Flush();
 }
 
@@ -146,5 +106,25 @@ void PProgressBar::SetProgress(float value)
 
 float PProgressBar::GetProgress() const
 {
-    return m_Progress;
+    return m_ProgressBarStyleData.Value;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PProgressBar::NotifyStylePropertyChanged(PProgressBarProperties properties)
+{
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr)
+    {
+        style->ProgressBarPropertyChanged(*this, m_ProgressBarStyleData, properties);
+    }
+    else
+    {
+        if (properties.Has(PProgressBarProperty::Font)) {
+            PreferredSizeChanged();
+        }
+        Invalidate();
+    }
 }

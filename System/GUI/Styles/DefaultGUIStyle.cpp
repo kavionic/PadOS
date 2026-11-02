@@ -13,6 +13,7 @@
 #include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
 #include <GUI/Style/GroupViewStyleData.h>
+#include <GUI/Style/ProgressBarStyleData.h>
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Bitmap.h>
@@ -71,6 +72,11 @@ struct PDefaultGUIStyle::GroupViewStyleData : PtrTarget
     PPoint LabelSize;
     float LabelAscender = 0.0f;
     bool AreMetricsValid = false;
+};
+
+struct PDefaultGUIStyle::ProgressBarStyleData : PtrTarget
+{
+    PRect PreviousFrame;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -826,6 +832,78 @@ void PDefaultGUIStyle::GroupViewPropertyChanged(PView& target, PGroupViewStyleDa
         target.PreferredSizeChanged();
     }
     target.Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::ProgressBarPaint(PView& target, const PRect& frame, const PProgressBarStyleData& data) const
+{
+    const PRect bounds = frame.GetFloored();
+    target.DrawFrame(bounds, FRAME_RECESSED | FRAME_TRANSPARENT);
+
+    const PRect trackFrame = bounds.GetResized(PROGRESS_BAR_BORDER, PROGRESS_BAR_BORDER, -PROGRESS_BAR_BORDER, -PROGRESS_BAR_BORDER);
+    if (trackFrame.IsValid())
+    {
+        const float trackLength = (data.Orientation == POrientation::Horizontal) ? trackFrame.Width() : trackFrame.Height();
+        const float barLength = std::ceil(trackLength * std::clamp(data.Value, 0.0f, 1.0f));
+        PRect barFrame = trackFrame;
+        PRect restFrame = trackFrame;
+        if (data.Orientation == POrientation::Horizontal)
+        {
+            barFrame.right = barFrame.left + barLength;
+            restFrame.left = barFrame.right;
+        }
+        else
+        {
+            barFrame.top = barFrame.bottom - barLength;
+            restFrame.bottom = barFrame.top;
+        }
+        if (barFrame.IsValid()) {
+            target.FillRect(barFrame, PColor(0x66, 0x88, 0xbb));
+        }
+        if (restFrame.IsValid()) {
+            target.FillRect(restFrame, target.GetBgColor());
+        }
+    }
+    data.GetOrCreateStyleData<ProgressBarStyleData>().PreviousFrame = frame;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::ProgressBarGetPreferredSize(const PView& target, const PProgressBarStyleData& data, PPoint* minSize, PPoint* maxSize) const
+{
+    if (data.Orientation == POrientation::Horizontal)
+    {
+        *minSize = PPoint(PROGRESS_BAR_MIN_LENGTH, PROGRESS_BAR_THICKNESS);
+        *maxSize = PPoint(LAYOUT_MAX_SIZE, PROGRESS_BAR_THICKNESS);
+    }
+    else
+    {
+        *minSize = PPoint(PROGRESS_BAR_THICKNESS, PROGRESS_BAR_MIN_LENGTH);
+        *maxSize = PPoint(PROGRESS_BAR_THICKNESS, LAYOUT_MAX_SIZE);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::ProgressBarPropertyChanged(PView& target, PProgressBarStyleData& data, PProgressBarProperties properties) const
+{
+    ProgressBarStyleData& state = data.GetOrCreateStyleData<ProgressBarStyleData>();
+    if (properties.Has(PProgressBarProperty::Font)) {
+        target.PreferredSizeChanged();
+    }
+    if (properties == PProgressBarProperties(PProgressBarProperty::Frame) && state.PreviousFrame.IsValid()) {
+        InvalidateProgressBarResize(target, data, state.PreviousFrame);
+    } else {
+        target.Invalidate();
+    }
+    state.PreviousFrame = target.GetNormalizedBounds();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1814,5 +1892,30 @@ void PDefaultGUIStyle::UpdateGroupViewMetrics(const PView& target, const PGroupV
             state.LabelAscender = fontHeight.ascender;
         }
         state.AreMetricsValid = true;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDefaultGUIStyle::InvalidateProgressBarResize(PView& target, const PProgressBarStyleData& data, const PRect& previousFrame)
+{
+    const PRect bounds = target.GetNormalizedBounds();
+    const PPoint delta = bounds.Size() - previousFrame.Size();
+    if ((data.Orientation == POrientation::Horizontal && delta.x != 0.0f) || (data.Orientation == POrientation::Vertical && delta.y != 0.0f)) {
+        target.Invalidate(bounds.GetResized(PROGRESS_BAR_BORDER, PROGRESS_BAR_BORDER, -PROGRESS_BAR_BORDER, -PROGRESS_BAR_BORDER));
+    }
+    if (delta.x != 0.0f)
+    {
+        PRect damage = bounds;
+        damage.left = damage.right - std::max(PROGRESS_BAR_BORDER, delta.x + PROGRESS_BAR_BORDER);
+        target.Invalidate(damage);
+    }
+    if (delta.y != 0.0f)
+    {
+        PRect damage = bounds;
+        damage.top = damage.bottom - std::max(PROGRESS_BAR_BORDER, delta.y + PROGRESS_BAR_BORDER);
+        target.Invalidate(damage);
     }
 }

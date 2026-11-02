@@ -37,6 +37,10 @@ struct PGroupViewStyleData;
 enum class PGroupViewProperty : uint32_t;
 using PGroupViewProperties = PEnumBitmask<PGroupViewProperty>;
 
+struct PProgressBarStyleData;
+enum class PProgressBarProperty : uint32_t;
+using PProgressBarProperties = PEnumBitmask<PProgressBarProperty>;
+
 class PGUIStyle : public PtrTarget
 {
 public:
@@ -108,4 +112,11 @@ public:
     // Returns the frame and label size limits, combined with the child layout by PGroupView.
     virtual void GroupViewGetPreferredSize(const PView& target, const PGroupViewStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
     virtual void GroupViewPropertyChanged(PView& target, PGroupViewStyleData& data, PGroupViewProperties properties) const = 0;
+
+    virtual void ProgressBarPaint(PView& target, const PRect& frame, const PProgressBarStyleData& data) const = 0;
+    virtual void ProgressBarGetPreferredSize(const PView& target, const PProgressBarStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
+
+    // Called after all listed properties have been updated. The style owns
+    // invalidation and preferred-size notifications for these changes.
+    virtual void ProgressBarPropertyChanged(PView& target, PProgressBarStyleData& data, PProgressBarProperties properties) const = 0;
 };

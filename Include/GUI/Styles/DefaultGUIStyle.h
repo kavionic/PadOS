@@ -90,6 +90,10 @@ public:
     virtual void GroupViewGetPreferredSize(const PView& target, const PGroupViewStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
     virtual void GroupViewPropertyChanged(PView& target, PGroupViewStyleData& data, PGroupViewProperties properties) const override;
 
+    virtual void ProgressBarPaint(PView& target, const PRect& frame, const PProgressBarStyleData& data) const override;
+    virtual void ProgressBarGetPreferredSize(const PView& target, const PProgressBarStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
+    virtual void ProgressBarPropertyChanged(PView& target, PProgressBarStyleData& data, PProgressBarProperties properties) const override;
+
 private:
     struct SliderStyleData;
     struct ScrollBarStyleData;
@@ -97,6 +101,7 @@ private:
     struct DropdownMenuStyleData;
     struct DropdownMenuPopupStyleData;
     struct GroupViewStyleData;
+    struct ProgressBarStyleData;
 
     static constexpr float SCROLL_BAR_THICKNESS = 16.0f;
     static constexpr float SCROLL_BAR_MIN_KNOB_SIZE = 12.0f;
@@ -161,6 +166,10 @@ private:
     static constexpr float GROUP_VIEW_LABEL_GAP_START = 15.0f;
     static constexpr float GROUP_VIEW_LABEL_SPACING = 10.0f;
     static constexpr float GROUP_VIEW_MIN_SIZE = 5.0f;
+
+    static constexpr float PROGRESS_BAR_MIN_LENGTH = 50.0f;
+    static constexpr float PROGRESS_BAR_THICKNESS = 24.0f;
+    static constexpr float PROGRESS_BAR_BORDER = 2.0f;
 
     static constexpr float CHECK_BOX_SIZE = 32.0f;
     static constexpr float CHECK_BOX_LABEL_SPACING = 8.0f;
@@ -235,4 +244,5 @@ private:
     static PRect                GetDropdownMenuArrowFrame(const PRect& frame);
     static void                 UpdateDropdownMenuPopupMetrics(const PView& target, const PDropdownMenuPopupStyleData& data);
     static void                 UpdateGroupViewMetrics(const PView& target, const PGroupViewStyleData& data);
+    static void                 InvalidateProgressBarResize(PView& target, const PProgressBarStyleData& data, const PRect& previousFrame);
 };

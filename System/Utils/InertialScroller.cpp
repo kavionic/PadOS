@@ -75,6 +75,9 @@ void PInertialScroller::EndDrag()
         m_State = State::Idle;
         return;
     }
+    if (m_State != State::Dragging) {
+        return;
+    }
 
     const float deltaTime = (get_monotonic_time() - m_BeginDragTime).AsSecondsF();
     if (deltaTime > 0.0f && deltaTime < 0.2f) {

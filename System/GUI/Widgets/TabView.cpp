@@ -6,20 +6,21 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
-#include <stdio.h>
+#include <algorithm>
+#include <cstring>
 
-#include <GUI/Widgets/Tabview.h>
+#include <GUI/Style/GUIStyle.h>
+#include <GUI/Widgets/TabView.h>
+#include <GUI/Widgets/ScrollView.h>
 #include <GUI/ViewFactory.h>
+#include <System/ExceptionHandling.h>
 
-
-static constexpr float CORNER_SIZE = 10.0f;
-static constexpr float ARROW_SPACE = 16.0f;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
+PTabView::PTabView(const PString& name, PViewFlags flags) : PStyledView(name, flags | PViewFlag::WillDraw)
 {
     Initialize();
 }
@@ -28,7 +29,7 @@ PTabView::PTabView(const PString& name, PViewFlags flags) : PView(name, flags | 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData)
+PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PStyledView(context, xmlData)
 {
     MergeFlags(PViewFlag::WillDraw);
     Initialize();
@@ -75,21 +76,6 @@ PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTabView::Initialize()
-{
-    m_FontHeight = GetFontHeight();
-    m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
-    m_TabHeight = std::round(m_GlyphHeight * 1.2f + 6.0f);
-    m_TotalTabsWidth = 4.0f;
-
-    m_TopView = ptr_new<TopView>(this);
-    AddChild(m_TopView);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 /// Add a tab at the end of the list.
 /// \par Description:
 ///     Add a new tab to the TabView. The new tab will be appended to the list
@@ -118,7 +104,7 @@ void PTabView::Initialize()
 
 int PTabView::AppendTab(const PString& title, Ptr<PView> view)
 {
-    return InsertTab(m_TabList.size(), title, view);
+    return InsertTab(m_TabViews.size(), title, view);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,25 +130,29 @@ int PTabView::AppendTab(const PString& title, Ptr<PView> view)
 
 int PTabView::InsertTab(size_t index, const PString& title, Ptr<PView> view)
 {
-    if (index > m_TabList.size()) index = m_TabList.size();
-    if (m_SelectedTab != INVALID_INDEX && index <= m_SelectedTab) {
-        m_SelectedTab++;
+    m_TabsView->CancelInteraction();
+    index = std::min(index, m_TabViews.size());
+    m_TabViewStyleData.Titles.insert(m_TabViewStyleData.Titles.begin() + index, title);
+    PScopeFail restoreTitles([this, index] { m_TabViewStyleData.Titles.erase(m_TabViewStyleData.Titles.begin() + index); });
+    m_TabViews.insert(m_TabViews.begin() + index, view);
+    restoreTitles.release();
+    if (m_TabViewStyleData.Selection != INVALID_INDEX && index <= m_TabViewStyleData.Selection) {
+        ++m_TabViewStyleData.Selection;
     }
-    m_TabList.insert(m_TabList.begin() + index, Tab(title, view));
-    if (view != nullptr && view->GetParent() != this)
+    const bool addView = view != nullptr && view->GetParent() != this;
+    if (addView && m_TabViewStyleData.Selection == INVALID_INDEX) {
+        m_TabViewStyleData.Selection = index;
+    }
+    NotifyStylePropertyChanged(PTabViewProperty::TabInserted, index);
+    if (addView)
     {
         AddChild(view);
         view->SetFrame(GetClientFrame());
-        if (m_SelectedTab == INVALID_INDEX) {
-            m_SelectedTab = index;
-        } else {
-            view->Show(false);
+        if (index != m_TabViewStyleData.Selection) {
+            view->Hide();
         }
     }
-    m_TabList[index].m_Width = std::round(GetStringWidth(title) * 1.1f) + 4.0f;
-    m_TotalTabsWidth += m_TabList[index].m_Width;
-    m_TopView->Invalidate();
-    m_TopView->Flush();
+    Flush();
     return index;
 }
 
@@ -183,59 +173,43 @@ int PTabView::InsertTab(size_t index, const PString& title, Ptr<PView> view)
 
 Ptr<PView> PTabView::DeleteTab(size_t index)
 {
-    if (index >= m_TabList.size()) {
+    if (index >= m_TabViews.size()) {
         return nullptr;
     }
-
-    const size_t  oldSelection = m_SelectedTab;
-    Ptr<PView> view = m_TabList[index].m_View;
-    Ptr<PView> prevSelection;
-
-    if (m_SelectedTab != INVALID_INDEX && m_SelectedTab < m_TabList.size() && m_TabList[m_SelectedTab].m_View != nullptr) {
-        prevSelection = m_TabList[m_SelectedTab].m_View;
-    }
-
-    if (index < m_SelectedTab || m_SelectedTab == (m_TabList.size() - 1)) {
-        m_SelectedTab--;
-    }
-    m_TotalTabsWidth -= m_TabList[index].m_Width;
-
-    m_TabList.erase(m_TabList.begin() + index);
-
-    bool stillMember = false;
-    for (size_t i = 0; i < m_TabList.size(); ++i)
+    m_TabsView->CancelInteraction();
+    const size_t oldSelection = m_TabViewStyleData.Selection;
+    Ptr<PView> view = m_TabViews[index];
+    Ptr<PView> previousView = (oldSelection < m_TabViews.size()) ? m_TabViews[oldSelection] : nullptr;
+    m_TabViews.erase(m_TabViews.begin() + index);
+    m_TabViewStyleData.Titles.erase(m_TabViewStyleData.Titles.begin() + index);
+    if (oldSelection != INVALID_INDEX)
     {
-        if (m_TabList[i].m_View == view)
-        {
-            stillMember = true;
-            break;
+        if (m_TabViews.empty()) {
+            m_TabViewStyleData.Selection = INVALID_INDEX;
+        } else if (index < oldSelection || oldSelection == m_TabViews.size()) {
+            --m_TabViewStyleData.Selection;
         }
     }
-    if (!stillMember)
+    NotifyStylePropertyChanged(PTabViewProperty::TabDeleted, index);
+    const bool stillMember = std::find(m_TabViews.begin(), m_TabViews.end(), view) != m_TabViews.end();
+    if (view != nullptr && !stillMember)
     {
         RemoveChild(view);
-        if (index != oldSelection) {
+        if (view != previousView) {
             view->Show(); // Leave the view as we found it.
         }
     }
-    if (!m_TabList.empty())
+    Ptr<PView> selectedView = (m_TabViewStyleData.Selection < m_TabViews.size()) ? m_TabViews[m_TabViewStyleData.Selection] : nullptr;
+    if (previousView != selectedView)
     {
-        if (prevSelection != m_TabList[m_SelectedTab].m_View)
-        {
-            if (prevSelection != nullptr && prevSelection != view) {
-                prevSelection->Hide();
-            }
-            if (m_TabList[m_SelectedTab].m_View != nullptr)
-            {
-                Ptr<PView> newView = m_TabList[m_SelectedTab].m_View;
-                newView->SetFrame(GetClientFrame());
-                newView->Show(true);
-            }
+        if (previousView != nullptr && (previousView != view || stillMember)) {
+            previousView->Hide();
+        }
+        if (selectedView != nullptr) {
+            selectedView->Show();
         }
     }
-    m_TopView->Invalidate();
-    Invalidate();
-    m_TopView->Flush();
+    Flush();
     return view;
 }
 
@@ -250,7 +224,7 @@ Ptr<PView> PTabView::DeleteTab(size_t index)
 
 Ptr<PView> PTabView::GetTabView(size_t index) const
 {
-    return m_TabList[index].m_View;
+    return m_TabViews[index];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -262,7 +236,7 @@ Ptr<PView> PTabView::GetTabView(size_t index) const
 
 int PTabView::GetTabCount() const
 {
-    return m_TabList.size();
+    return m_TabViews.size();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -271,16 +245,13 @@ int PTabView::GetTabCount() const
 
 int PTabView::SetTabTitle(size_t index, const PString& title)
 {
-    m_TabList[index].m_Title = title;
-
-    float vOldWidth = m_TabList[index].m_Width;
-    m_TabList[index].m_Width = std::round(GetStringWidth(title) * 1.1f) + 4.0f;
-    m_TotalTabsWidth += m_TabList[index].m_Width - vOldWidth;
-
-    Invalidate();
-    m_TopView->Invalidate();
-    m_TopView->Flush();
-
+    if (m_TabViewStyleData.Titles[index] != title)
+    {
+        m_TabsView->CancelInteraction();
+        m_TabViewStyleData.Titles[index] = title;
+        NotifyStylePropertyChanged(PTabViewProperty::Title, index);
+        Flush();
+    }
     return 0;
 }
 
@@ -294,7 +265,7 @@ int PTabView::SetTabTitle(size_t index, const PString& title)
 
 const std::string& PTabView::GetTabTitle(size_t index) const
 {
-    return m_TabList[index].m_Title;
+    return m_TabViewStyleData.Titles[index];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -305,18 +276,20 @@ Ptr<PView> PTabView::SetTopBarClientView(Ptr<PView> view)
 {
     if (view != m_TopBarClientView)
     {
-        Ptr<PView> prevView = m_TopBarClientView;
-        m_TopBarClientView = view;
-        if (prevView != nullptr)
+        Ptr<PView> previousView = m_TopBarClientView;
+        if (previousView != nullptr)
         {
-            prevView->RemoveThis();
+            previousView->SignalPreferredSizeChanged.Disconnect(this, &PTabView::SlotTopBarPreferredSizeChanged);
+            previousView->RemoveThis();
         }
+        m_TopBarClientView = view;
+        SlotTopBarPreferredSizeChanged();
         if (view != nullptr)
         {
+            view->SignalPreferredSizeChanged.Connect(this, &PTabView::SlotTopBarPreferredSizeChanged);
             AddChild(view);
         }
-        Layout(PPoint(0.0f, 0.0f));
-        return prevView;
+        return previousView;
     }
     return m_TopBarClientView;
 }
@@ -335,7 +308,7 @@ Ptr<PView> PTabView::SetTopBarClientView(Ptr<PView> view)
 
 size_t PTabView::GetSelection()
 {
-    return m_SelectedTab;
+    return m_TabViewStyleData.Selection;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -352,24 +325,22 @@ size_t PTabView::GetSelection()
 
 void PTabView::SetSelection(size_t index, bool notify)
 {
-    if (index != m_SelectedTab && index < m_TabList.size())
+    if (index != m_TabViewStyleData.Selection && index < m_TabViews.size())
     {
-        if (m_SelectedTab < m_TabList.size() && m_TabList[m_SelectedTab].m_View != nullptr) {
-            m_TabList[m_SelectedTab].m_View->Show(false);
+        Ptr<PView> previousView = (m_TabViewStyleData.Selection < m_TabViews.size()) ? m_TabViews[m_TabViewStyleData.Selection] : nullptr;
+        Ptr<PView> selectedView = m_TabViews[index];
+        if (previousView != selectedView && previousView != nullptr) {
+            previousView->Hide();
         }
-        m_SelectedTab = index;
-        if (m_TabList[m_SelectedTab].m_View != nullptr)
-        {
-            Ptr<PView> view = m_TabList[m_SelectedTab].m_View;
-            view->SetFrame(GetClientFrame());
-            view->Show(true);
-//            view->SetPointerCapture(pointerID);
+        m_TabViewStyleData.Selection = index;
+        NotifyStylePropertyChanged(PTabViewProperty::Selection);
+        if (previousView != selectedView && selectedView != nullptr) {
+            selectedView->Show();
         }
-        Invalidate();
-        m_TopView->Invalidate();
-        m_TopView->Flush();
-
-        SignalSelectionChanged(m_SelectedTab, m_TabList[m_SelectedTab].m_View, this);
+        Flush();
+        if (notify) {
+            SignalSelectionChanged(index, selectedView, this);
+        }
     }
 }
 
@@ -379,9 +350,8 @@ void PTabView::SetSelection(size_t index, bool notify)
 
 PRect PTabView::GetClientFrame() const
 {
-    PRect frame = GetNormalizedBounds();
-    frame.Resize(2.0f, m_TabHeight, -2.0f, -2.0f);
-    return frame;
+    const PGUIStyle* style = GetStyle();
+    return (style != nullptr) ? style->TabViewGetFrames(*this, m_TabViewStyleData).ClientFrame : GetNormalizedBounds();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -390,19 +360,23 @@ PRect PTabView::GetClientFrame() const
 
 void PTabView::OnFontChanged(Ptr<const PFont> newFont)
 {
-    m_FontHeight = GetFontHeight();
-    m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
-    m_TabHeight = std::round(m_GlyphHeight * 1.2f + 6.0f);
-    m_TotalTabsWidth = 4.0f;
-    for (Tab& tab : m_TabList)
-    {
-        tab.m_Width = std::round(GetStringWidth(tab.m_Title) * 1.1f) + 4.0f;
-        m_TotalTabsWidth += tab.m_Width;
-    }
+    m_TabsView->CancelInteraction();
     m_TopView->SetFont(newFont);
+    m_TabsView->SetFont(newFont);
+    NotifyStylePropertyChanged(PTabViewProperty::Font);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::OnStyleChanged()
+{
+    m_TabViewStyleData.StyleData.Reset();
+    m_TabsView->CancelInteraction();
+    PStyledView::OnStyleChanged();
     Layout(PPoint());
-    PreferredSizeChanged();
-    Invalidate();
+    m_TabsView->ContentSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -411,99 +385,37 @@ void PTabView::OnFontChanged(Ptr<const PFont> newFont)
 
 void PTabView::Layout(const PPoint& delta)
 {
-    const PRect bounds = GetBounds();
-    bool needFlush = false;
-
-    if (m_SelectedTab != INVALID_INDEX && m_SelectedTab < m_TabList.size())
+    const PGUIStyle* style = GetStyle();
+    PTabViewFrames frames;
+    if (style != nullptr) {
+        frames = style->TabViewGetFrames(*this, m_TabViewStyleData);
+    } else {
+        frames.ClientFrame = GetNormalizedBounds();
+    }
+    if (m_TabViewStyleData.Selection < m_TabViews.size())
     {
-        Ptr<PView> view = m_TabList[m_SelectedTab].m_View;
-        if (view != nullptr)
-        {
-            view->SetFrame(GetClientFrame());
+        Ptr<PView> view = m_TabViews[m_TabViewStyleData.Selection];
+        if (view != nullptr && view->GetFrame() != frames.ClientFrame) {
+            view->SetFrame(frames.ClientFrame);
         }
     }
-    if (delta.x != 0.0f)
-    {
-        PRect damage = bounds;
-
-        damage.left = damage.right - std::max(3.0f, delta.x + 9.0f);
-        Invalidate(damage);
-        needFlush = true;
+    if (m_TopView->GetFrame() != frames.TabsFrame) {
+        m_TopView->SetFrame(frames.TabsFrame);
     }
-    if (delta.y != 0.0f)
-    {
-        PRect damage = bounds;
-
-        damage.top = damage.bottom - std::max(3.0f, delta.y + 2.0f);
-        Invalidate(damage);
-        needFlush = true;
+    m_TopView->RefreshLayout();
+    if (m_TopBarClientView != nullptr && m_TopBarClientView->GetFrame() != frames.TopBarClientFrame) {
+        m_TopBarClientView->SetFrame(frames.TopBarClientFrame);
     }
-
-    float width = bounds.Width();
-
-    if (m_TopBarClientView != nullptr) {
-        width -= m_TopBarClientView->GetPreferredSize(PPrefSizeType::Smallest).x;
-    }
-
-    const float oldOffset = m_ScrollOffset;
-    if (width < m_TotalTabsWidth)
+    if (style != nullptr)
     {
-        m_TopView->SetFrame(PRect(bounds.left + ARROW_SPACE, bounds.top, bounds.right - ARROW_SPACE, m_TabHeight - 2.0f));
-        width -= ARROW_SPACE * 2.0f;
-        if (m_ScrollOffset > 0.0f) {
-            m_ScrollOffset = 0.0f;
-        }
-        if (m_TotalTabsWidth + m_ScrollOffset < width) {
-            m_ScrollOffset = width - m_TotalTabsWidth;
-        }
-        if (width + ARROW_SPACE * 2.0f - delta.x >= m_TotalTabsWidth)
-        {
-            m_TopView->Invalidate();
-            PRect damage(bounds);
-            damage.bottom = damage.top + m_TabHeight;
-            Invalidate(damage);
-            needFlush = true;
-        }
+        style->TabViewPropertyChanged(*this, *m_TabsView, m_TabViewStyleData, PTabViewProperty::Frame, INVALID_INDEX);
     }
     else
     {
-        m_TopView->SetFrame(PRect(bounds.left + 2.0f, bounds.top, bounds.right - 2.0f, m_TabHeight - 2.0f));
-        if (m_ScrollOffset > width - m_TotalTabsWidth) {
-            m_ScrollOffset = width - m_TotalTabsWidth;
-        }
-        if (m_ScrollOffset < 0.0f) {
-            m_ScrollOffset = 0.0f;
-        }
-        if (width - delta.x < m_TotalTabsWidth)
-        {
-            m_TopView->Invalidate();
-            PRect damage(bounds);
-            damage.bottom = damage.top + m_TabHeight;
-            Invalidate(damage);
-            needFlush = true;
-        }
+        m_TabsView->Invalidate();
+        Invalidate();
     }
-    if (m_TopBarClientView != nullptr)
-    {
-        PRect topBarClientViewFrame = m_TopView->GetFrame();
-        topBarClientViewFrame.left = m_TotalTabsWidth + 2.0f;
-        topBarClientViewFrame.right = bounds.right - 2.0f;
-        float maxWidth = m_TopBarClientView->GetPreferredSize(PPrefSizeType::Greatest).x;
-        if (topBarClientViewFrame.Width() > maxWidth) topBarClientViewFrame.left = topBarClientViewFrame.right - maxWidth;
-        m_TopBarClientView->SetFrame(topBarClientViewFrame);
-    }
-    if (m_ScrollOffset != oldOffset)
-    {
-        m_TopView->ScrollBy(m_ScrollOffset - oldOffset, 0.0f);
-        m_TopView->Invalidate();
-        PRect damage(bounds);
-        damage.bottom = damage.top + m_TabHeight;
-        Invalidate(damage);
-        needFlush = true;
-    }
-    if (needFlush) {
-        Flush();
-    }
+    Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -512,101 +424,8 @@ void PTabView::Layout(const PPoint& delta)
 
 void PTabView::OnFrameSized(const PPoint& delta)
 {
+    PStyledView::OnFrameSized(delta);
     Layout(delta);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
-{
-    if (m_HitPointerID != PInvalidPointerID || m_TabList.empty() || position.y >= m_TabHeight) {
-        return;
-    }
-    m_HitPointerID = pointerID;
-    m_HitPos    = position;
-
-    float x = m_ScrollOffset;
-
-    for (size_t i = 0; i < m_TabList.size(); ++i)
-    {
-        float width = m_TabList[i].m_Width;
-        if (position.x > x && position.x < x + width) {
-            SetSelection(i);
-            break;
-        }
-        x += width;
-    }
-    SetPointerCapture(pointerID);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
-{
-    if (pointerID != m_HitPointerID) {
-        return;
-    }
-    ReleasePointerCapture(pointerID);
-    m_HitPointerID = PInvalidPointerID;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
-{
-    if (pointerID == m_HitPointerID)
-    {
-        float oldOffset = m_ScrollOffset;
-
-        float width = Width();
-
-        if (m_TotalTabsWidth <= width /*&& (GetQualifiers() & QUAL_SHIFT) == 0*/) {
-            return;
-        }
-
-        m_ScrollOffset += position.x - m_HitPos.x;
-
-        if (m_TotalTabsWidth <= width)
-        {
-            if (m_ScrollOffset > width - m_TotalTabsWidth) {
-                m_ScrollOffset = width - m_TotalTabsWidth;
-            }
-            if (m_ScrollOffset < 0.0f) {
-                m_ScrollOffset = 0.0f;
-            }
-        }
-        else
-        {
-            width -= ARROW_SPACE * 2.0f;
-            if (m_ScrollOffset > 0.0f) {
-                m_ScrollOffset = 0.0f;
-            }
-            if (m_TotalTabsWidth + m_ScrollOffset < width) {
-                m_ScrollOffset = width - m_TotalTabsWidth;
-            }
-        }
-        if (m_ScrollOffset != oldOffset)
-        {
-            m_HitPos = position;
-            if (m_TotalTabsWidth <= width)
-            {
-                Invalidate();
-            }
-            else
-            {
-                PRect cBounds = GetBounds();
-                Invalidate(PRect(cBounds.left, m_TabHeight - 2.0f, cBounds.right, m_TabHeight));
-            }
-            m_TopView->ScrollBy(m_ScrollOffset - oldOffset, 0.0f);
-            Flush();
-        }
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -618,13 +437,13 @@ void PTabView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent
     switch (event.KeySymbol)
     {
         case PKeySymbol::LEFT_ARROW:
-            if (m_SelectedTab > 0) {
-                SetSelection(m_SelectedTab - 1);
+            if (m_TabViewStyleData.Selection != INVALID_INDEX && m_TabViewStyleData.Selection > 0) {
+                SetSelection(m_TabViewStyleData.Selection - 1);
             }
             break;
         case PKeySymbol::RIGHT_ARROW:
-            if (m_SelectedTab < m_TabList.size() - 1) {
-                SetSelection(m_SelectedTab + 1);
+            if (!m_TabViews.empty() && m_TabViewStyleData.Selection < m_TabViews.size() - 1) {
+                SetSelection(m_TabViewStyleData.Selection + 1);
             }
             break;
         default:
@@ -644,146 +463,36 @@ void PTabView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent
 
 void PTabView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    minSize->x = m_TotalTabsWidth;
-    minSize->y = 0.0f;
-    *maxSize = *minSize;
-
-    for (size_t i = 0; i < m_TabList.size(); ++i)
+    const PGUIStyle* style = GetStyle();
+    if (style == nullptr)
     {
-        if (m_TabList[i].m_View != nullptr)
-        {
-            const PPoint viewMinSize = m_TabList[i].m_View->GetPreferredSize(PPrefSizeType::Smallest);
-            if (viewMinSize.x > minSize->x) minSize->x = viewMinSize.x;
-            if (viewMinSize.y > minSize->y) minSize->y = viewMinSize.y;
-            const PPoint viewMaxSize = m_TabList[i].m_View->GetPreferredSize(PPrefSizeType::Greatest);
-            if (viewMaxSize.x > maxSize->x) maxSize->x = viewMaxSize.x;
-            if (viewMaxSize.y > maxSize->y) maxSize->y = viewMaxSize.y;
-        }
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
-    minSize->y += m_TabHeight + 3.0f;
-    minSize->x += 5.0f;
-
-    maxSize->y += m_TabHeight + 3.0f;
-    maxSize->x += 5.0f;
-}
-
-
-float PTabView::GetAvailableTabsWidth() const
-{
-    float width = Width();
-
-    if (m_TopBarClientView != nullptr) {
-        width -= m_TopBarClientView->GetPreferredSize(PPrefSizeType::Smallest).x;
-    }
-    return width;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static PColor Tint(const PColor& color, float tint)
-{
-    return PColor(uint8_t((float(color.GetRed()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
-                  uint8_t((float(color.GetGreen()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
-                  uint8_t((float(color.GetBlue()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
-                  color.GetAlpha()
-    );
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTabView::TopView::OnPaint(const PRect& updateRect)
-{
-    const PRect bounds = GetBounds();
-
-    const PDynamicColor fgColor(PStandardColorID::Shine);
-    const PDynamicColor bgColor(PStandardColorID::Shadow);
-    const PColor fgShadowColor = Tint(fgColor, 0.9f);
-    const PColor bgShadowColor = Tint(bgColor, 0.8f);
-
-    float x;
-
-    if (m_TabView->m_TotalTabsWidth > m_TabView->Width()) {
-        x = 0.0f;
-    } else {
-        x = -2.0f;
-    }
-
-    const float       tabHeight = m_TabView->m_TabHeight;
-    const PFontHeight  fontHeight = m_TabView->m_FontHeight;
-    const float       glyphHeight = m_TabView->m_GlyphHeight;
-
-    SetBgColor(PStandardColorID::DefaultBackground);
-    SetFgColor(0, 0, 0);
-    const float firstTabX = x;
-    float backgroundLeft = bounds.left;
-    for (size_t i = 0; i < m_TabView->m_TabList.size(); ++i)
+    else
     {
-        const float width = m_TabView->m_TabList[i].m_Width;
-        const float top = (i == m_TabView->m_SelectedTab) ? 0.0f : 2.0f;
-        const PPoint baseline(
-            std::round(x + (width - 4.0f) * 0.05f + 4.0f),
-            std::round(top + tabHeight * 0.5f + fontHeight.ascender - fontHeight.line_gap * 0.5f - glyphHeight * 0.5f + 2.0f));
-        const float right = std::clamp(x + width, bounds.left, bounds.right);
-        DrawString(m_TabView->m_TabList[i].m_Title, baseline, PRect(backgroundLeft, bounds.top, right, bounds.bottom));
-        backgroundLeft = right;
-        x += width;
+        *minSize = PPoint();
+        *maxSize = PPoint();
     }
-    if (backgroundLeft < bounds.right) {
-        FillRect(PRect(backgroundLeft, bounds.top, bounds.right, bounds.bottom), GetBgColor());
-    }
-
-    x = firstTabX;
-    for (size_t i = 0; i < m_TabView->m_TabList.size(); ++i)
+    for (const Ptr<PView>& view : m_TabViews)
     {
-        float width = m_TabView->m_TabList[i].m_Width;
-        PRect tabFrame(x + 2.0f, 2.0f, x + width + 2.0f, m_TabView->m_TabHeight);
-
-        if (i == m_TabView->m_SelectedTab) {
-            tabFrame.Resize(-2.0f, -2.0f, 2.0f, 0.0f);
-        }
-        SetFgColor(fgShadowColor);
-        if (i != m_TabView->m_SelectedTab + 1)
+        if (view != nullptr)
         {
-            DrawLine(PPoint(tabFrame.left, tabFrame.bottom - 3.0f), PPoint(tabFrame.left, tabFrame.top + CORNER_SIZE));
-            DrawLine(PPoint(tabFrame.left + CORNER_SIZE, tabFrame.top));
-            if (i == m_TabView->m_SelectedTab - 1) {
-                DrawLine(PPoint(tabFrame.right + CORNER_SIZE - 3.0f, tabFrame.top));
-            } else {
-                DrawLine(PPoint(tabFrame.right - 1.0f, tabFrame.top));
-            }
-
-            SetFgColor(fgColor);
-
-            DrawLine(PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), PPoint(tabFrame.left + 1.0f, tabFrame.top + 1.0f + CORNER_SIZE));
-            DrawLine(PPoint(tabFrame.left + 1.0f + CORNER_SIZE, tabFrame.top + 1.0f));
-            if (i == m_TabView->m_SelectedTab - 1) {
-                DrawLine(PPoint(tabFrame.right + CORNER_SIZE - 4.0f, tabFrame.top + 1.0f));
-            } else {
-                DrawLine(PPoint(tabFrame.right - 2.0f, tabFrame.top + 1.0f));
-            }
+            const PPoint viewMinSize = view->GetPreferredSize(PPrefSizeType::Smallest);
+            const PPoint viewMaxSize = view->GetPreferredSize(PPrefSizeType::Greatest);
+            minSize->x = std::max(minSize->x, viewMinSize.x);
+            minSize->y = std::max(minSize->y, viewMinSize.y);
+            maxSize->x = std::max(maxSize->x, viewMaxSize.x);
+            maxSize->y = std::max(maxSize->y, viewMaxSize.y);
         }
-        else
-        {
-            DrawLine(PPoint(tabFrame.left + 2.0f, tabFrame.top), PPoint(tabFrame.right - 1.0f, tabFrame.top));
-            SetFgColor(fgColor);
-            DrawLine(PPoint(tabFrame.left + 2.0f, tabFrame.top + 1.0f), PPoint(tabFrame.right - 2.0f, tabFrame.top + 1.0f));
-        }
-
-        if (i != m_TabView->m_SelectedTab - 1)
-        {
-            SetFgColor(bgShadowColor);
-            DrawLine(PPoint(tabFrame.right - 1.0f, tabFrame.top + 2.0f), PPoint(tabFrame.right - 1.0f, tabFrame.bottom - 3.0f));
-
-            SetFgColor(bgColor);
-            DrawLine(PPoint(tabFrame.right - 2.0f, tabFrame.top + 2.0f), PPoint(tabFrame.right - 2.0f, tabFrame.bottom - 2.0f));
-        }
-        x += width;
+    }
+    if (style != nullptr)
+    {
+        const PPoint contentMinSize = *minSize;
+        const PPoint contentMaxSize = *maxSize;
+        style->TabViewGetPreferredSize(*this, m_TabViewStyleData, contentMinSize, contentMaxSize, minSize, maxSize);
     }
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -791,127 +500,260 @@ void PTabView::TopView::OnPaint(const PRect& updateRect)
 
 void PTabView::OnPaint(const PRect& updateRect)
 {
-    PRect bounds = GetBounds();
-
-    const float viewWidth = bounds.Width();
-
-    PRect tabRect = bounds;
-    tabRect.bottom = m_TabHeight - 2.0f;
-
-    bounds.top += m_TabHeight - 2.0f;
-
-    const PDynamicColor fgColor(PStandardColorID::Shine);
-    const PDynamicColor bgColor(PStandardColorID::Shadow);
-
-    const PColor fgShadowColor = Tint(fgColor, 0.9f);
-    const PColor bgShadowColor = Tint(bgColor, 0.8f);
-
-    SetFgColor(bgShadowColor);
-    DrawLine(PPoint(bounds.right - 1.0f, bounds.top + 2.0f), PPoint(bounds.right - 1.0f, bounds.bottom - 1.0f));  // top/right -> bottom/right
-    DrawLine(PPoint(bounds.left, bounds.bottom - 1.0f));                                                         // bottom/left
-
-    SetFgColor(bgColor);
-    DrawLine(PPoint(bounds.right - 2.0f, bounds.top + 2.0f), PPoint(bounds.right - 2.0f, bounds.bottom - 2.0f));  // top/right -> bottom/right
-    DrawLine(PPoint(bounds.left + 1.0f, bounds.bottom - 2.0f));                                                  // bottom/left
-
-    SetFgColor(fgShadowColor);
-    DrawLine(PPoint(bounds.left, bounds.top - 1.0f), PPoint(bounds.left, bounds.bottom - 3.0f));                  // top/left -> bottom/left
-
-    SetFgColor(fgColor);
-    DrawLine(PPoint(bounds.left + 1.0f, bounds.top + 1.0f), PPoint(bounds.left + 1.0f, bounds.bottom - 3.0f));    // top/left -> bottom/left
-
-    float x = m_ScrollOffset;
-
-    if (m_TotalTabsWidth > viewWidth) {
-        x += ARROW_SPACE;
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->TabViewPaint(*this, *m_TabsView, updateRect, m_TabViewStyleData);
+    } else {
+        PView::OnPaint(updateRect);
     }
-    if (m_TotalTabsWidth <= viewWidth)
-    {
-        SetFgColor(PStandardColorID::DefaultBackground);
-        FillRect(PRect(0.0f, 0.0f, 2.0f, m_TabHeight - 2.0f));
-        FillRect(PRect(tabRect.right - 2.0f, 0.0f, tabRect.right, m_TabHeight - 2.0f));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::Initialize()
+{
+    m_TopView = ptr_new<PScrollView>("top_view");
+    m_TabsView = ptr_new<TabsView>(this);
+    m_TopView->SetFont(GetFont());
+    m_TabsView->SetFont(GetFont());
+    m_TopView->SetMaxOverscroll(0.0f, 0.0f);
+    m_TopView->SetScrolledView(m_TabsView);
+    AddChild(m_TopView);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::NotifyStylePropertyChanged(PTabViewProperties properties, size_t tabIndex)
+{
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        style->TabViewPropertyChanged(*this, *m_TabsView, m_TabViewStyleData, properties, tabIndex);
+    } else {
+        PreferredSizeChanged();
     }
+    Layout(PPoint());
+}
 
-    for (size_t i = 0; i < m_TabList.size(); ++i)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::SlotTopBarPreferredSizeChanged()
+{
+    m_TabViewStyleData.HasTopBarClient = m_TopBarClientView != nullptr;
+    if (m_TopBarClientView != nullptr)
     {
-        float width = m_TabList[i].m_Width;
-        PRect tabFrame(x + 2.0f, 2.0f, x + width + 2.0f, m_TabHeight);
-
-        if (i == m_SelectedTab) {
-            tabFrame.Resize(-2.0f, -2.0f, 2.0f, 0.0f);
-        }
-
-        if (m_TotalTabsWidth <= viewWidth)
-        {
-            if (i != m_SelectedTab + 1)
-            {
-                SetFgColor(fgShadowColor);
-                DrawLine(PPoint(tabFrame.left, tabFrame.bottom - 3.0f), PPoint(tabFrame.left, tabFrame.top + 2.0f + CORNER_SIZE));
-                DrawLine(PPoint(tabFrame.left + 3.0f, tabFrame.top));
-                SetFgColor(fgColor);
-                DrawLine(PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), PPoint(tabFrame.left + 1.0f, tabFrame.top + 2.0f + CORNER_SIZE));
-                DrawLine(PPoint(tabFrame.left + 1.0f + CORNER_SIZE, tabFrame.top + 1.0f));
-            }
-        }
-        else
-        {
-            if (i == m_SelectedTab) {
-                DrawLine(PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f));
-            }
-        }
-        if (i == m_SelectedTab)
-        {
-            SetFgColor(PStandardColorID::DefaultBackground);
-            float x1 = x + 2.0f;
-            float x2 = x + width + 2.0f;
-
-            if (m_TotalTabsWidth > viewWidth)
-            {
-                if (x1 < ARROW_SPACE) {
-                    x1 = ARROW_SPACE;
-                }
-                if (x2 > bounds.right - 2.0f - ARROW_SPACE) {
-                    x2 = bounds.right - 2.0f - ARROW_SPACE;
-                }
-            }
-            DrawLine(PPoint(x1, tabFrame.bottom - 2.0f), PPoint(x2, tabFrame.bottom - 2.0f));
-            DrawLine(PPoint(x1, tabFrame.bottom - 1.0f), PPoint(x2, tabFrame.bottom - 1.0f));
-
-            SetFgColor(fgShadowColor);
-
-            if (x >= 0.0f) {
-                DrawLine(PPoint(0, tabFrame.bottom - 2.0f), PPoint(x, tabFrame.bottom - 2.0f));
-            }
-            DrawLine(PPoint(x + width + 2, tabFrame.bottom - 2.0f), PPoint(bounds.right - 1.0f, tabFrame.bottom - 2.0f));
-
-            SetFgColor(fgColor);
-            if (x >= 1) {
-                DrawLine(PPoint(1, tabFrame.bottom - 1.0f), PPoint(x + 1.0f, tabFrame.bottom - 1.0f));
-            }
-            DrawLine(PPoint(x + width + 2.0f, tabFrame.bottom - 1.0f), PPoint(bounds.right - 1.0f, tabFrame.bottom - 1.0f));
-        }
-        x += width;
+        m_TabViewStyleData.TopBarMinSize = m_TopBarClientView->GetPreferredSize(PPrefSizeType::Smallest);
+        m_TabViewStyleData.TopBarMaxSize = m_TopBarClientView->GetPreferredSize(PPrefSizeType::Greatest);
     }
-
-    if (m_TotalTabsWidth > viewWidth)
+    else
     {
-        SetFgColor(PStandardColorID::DefaultBackground);
-        FillRect(PRect(0.0f, 0.0f, ARROW_SPACE, m_TabHeight - 2.0f));
-        FillRect(PRect(tabRect.right - ARROW_SPACE, 0.0f, tabRect.right, m_TabHeight - 2.0f));
-        SetFgColor(bgColor);
-        for (float x = 2.0f; x < ARROW_SPACE - 2.0f; x += 1.0f)
-        {
-            const float y1 = m_TabHeight * 0.5f - (x - 2.0f);
-            const float y2 = m_TabHeight * 0.5f + (x - 2.0f);
-            DrawLine(PPoint(x, y1), PPoint(x, y2));
-            DrawLine(PPoint(bounds.right - x - 1.0f, y1), PPoint(bounds.right - x - 1.0f, y2));
-        }
+        m_TabViewStyleData.TopBarMinSize = PPoint();
+        m_TabViewStyleData.TopBarMaxSize = PPoint();
+    }
+    NotifyStylePropertyChanged(PTabViewProperty::TopBar);
+}
 
-        SetFgColor(fgShadowColor);
-        DrawLine(PPoint(0, m_TabHeight - 2.0f), PPoint(ARROW_SPACE, m_TabHeight - 2.0f));
-        DrawLine(PPoint(bounds.right - 1.0f - ARROW_SPACE, m_TabHeight - 2.0f), PPoint(bounds.right - 1.0f, m_TabHeight - 2.0f));
-        SetFgColor(fgColor);
-        DrawLine(PPoint(1.0f, m_TabHeight - 1.0f), PPoint(ARROW_SPACE, m_TabHeight - 1.0f));
-        DrawLine(PPoint(bounds.right - 1.0f - ARROW_SPACE, m_TabHeight - 1.0f), PPoint(bounds.right - 1.0f, m_TabHeight - 1.0f));
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPaint(const PRect& updateRect)
+{
+    const PGUIStyle* style = m_TabView->GetStyle();
+    if (style != nullptr) {
+        style->TabViewTabsPaint(*this, *m_TabView, updateRect, m_TabView->m_TabViewStyleData);
+    } else {
+        PView::OnPaint(updateRect);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPoint PTabView::TabsView::CalculateContentSize() const
+{
+    const PGUIStyle* style = m_TabView->GetStyle();
+    return (style != nullptr) ? style->TabViewGetTabsContentSize(*m_TabView, m_TabView->m_TabViewStyleData) : PPoint();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnViewScrolled(const PPoint& delta)
+{
+    m_IsHoverSuppressed = true;
+    CancelInteraction();
+    const PGUIStyle* style = m_TabView->GetStyle();
+    if (style != nullptr) {
+        style->TabViewPropertyChanged(*m_TabView, *this, m_TabView->m_TabViewStyleData, PTabViewProperty::Scroll, INVALID_INDEX);
+    }
+    Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase != PEventPhase::Target || m_HitPointerID != PInvalidPointerID) {
+        return;
+    }
+    const size_t index = GetTabFromPosition(position);
+    if (index != INVALID_INDEX && SetPointerCapture(pointerID, PPointerCaptureMode::Preemptible))
+    {
+        m_HitPointerID = pointerID;
+        m_PressedTab = index;
+        m_IsHoverSuppressed = false;
+        SetHighlightedTab(index);
+        m_TabView->SetSelection(index);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && pointerID == m_HitPointerID)
+    {
+        const size_t index = GetTabFromPosition(position);
+        m_HitPointerID = PInvalidPointerID;
+        m_PressedTab = INVALID_INDEX;
+        SetHighlightedTab(event.SupportsHover ? index : INVALID_INDEX);
+        ReleasePointerCapture(pointerID);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase != PEventPhase::Target) {
+        return;
+    }
+    if (pointerID == m_HitPointerID)
+    {
+        const size_t index = GetTabFromPosition(position);
+        SetHighlightedTab((index == m_PressedTab) ? index : INVALID_INDEX);
+    }
+    else if (m_HitPointerID == PInvalidPointerID && event.SupportsHover && event.Buttons == PPointerButtonMaskNone && !IsScrolling(pointerID))
+    {
+        m_IsHoverSuppressed = false;
+        SetHighlightedTab(GetTabFromPosition(position));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && event.SupportsHover && m_HitPointerID == PInvalidPointerID
+        && !m_IsHoverSuppressed && !IsScrolling(pointerID)) {
+        SetHighlightedTab(GetTabFromPosition(position));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && (m_HitPointerID == PInvalidPointerID || pointerID == m_HitPointerID)) {
+        SetHighlightedTab(INVALID_INDEX);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && pointerID == m_HitPointerID) {
+        CancelInteraction();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason)
+{
+    if (pointerID == m_HitPointerID) {
+        CancelInteraction();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::CancelInteraction()
+{
+    const PPointerID pointerID = m_HitPointerID;
+    m_HitPointerID = PInvalidPointerID;
+    m_PressedTab = INVALID_INDEX;
+    if (pointerID != PInvalidPointerID || m_TabView->m_TabViewStyleData.HighlightedTab != INVALID_INDEX) {
+        m_IsHoverSuppressed = true;
+    }
+    SetHighlightedTab(INVALID_INDEX);
+    if (pointerID != PInvalidPointerID) {
+        ReleasePointerCapture(pointerID);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PTabView::TabsView::GetTabFromPosition(const PPoint& position) const
+{
+    const PGUIStyle* style = m_TabView->GetStyle();
+    return (style != nullptr) ? style->TabViewGetTabFromPosition(*m_TabView, *this, m_TabView->m_TabViewStyleData, position) : INVALID_INDEX;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PTabView::TabsView::IsScrolling(PPointerID pointerID) const
+{
+    const PInertialScroller::State state = m_TabView->m_TopView->GetInertialScrollerState();
+    const bool isInertialScroll = state == PInertialScroller::State::Dragging || state == PInertialScroller::State::Coasting;
+    return m_TabView->m_TopView->HasPointerCapture(pointerID) || isInertialScroll;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::TabsView::SetHighlightedTab(size_t index)
+{
+    PTabViewStyleData& data = m_TabView->m_TabViewStyleData;
+    if (data.HighlightedTab != index)
+    {
+        data.HighlightedTab = index;
+        const PGUIStyle* style = m_TabView->GetStyle();
+        if (style != nullptr) {
+            style->TabViewPropertyChanged(*m_TabView, *this, data, PTabViewProperty::Highlight, INVALID_INDEX);
+        } else {
+            Invalidate();
+        }
+        Flush();
     }
 }

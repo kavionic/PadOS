@@ -14,6 +14,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	DropdownMenuStyle_unittest.cpp
 	GroupViewStyle_unittest.cpp
 	ProgressBarStyle_unittest.cpp
+	TabViewStyle_unittest.cpp
 	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp
 	KeyboardManager_unittest.cpp

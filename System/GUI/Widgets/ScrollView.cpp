@@ -150,11 +150,18 @@ PPoint PScrollView::OnPointerWheel(PPointerID pointerID, const PPoint& position,
     }
 
     PPoint scrollDelta;
-    if (CanScrollHorizontally()) {
-        scrollDelta.x = event.WheelDelta.x * SCROLL_VIEW_WHEEL_SCROLL_STEP;
+    if (event.WheelDelta.x == 0.0f && event.WheelDelta.y != 0.0f && !CanScrollVertically())
+    {
+        scrollDelta.x = event.WheelDelta.y * SCROLL_VIEW_WHEEL_SCROLL_STEP;
     }
-    if (CanScrollVertically()) {
-        scrollDelta.y = event.WheelDelta.y * SCROLL_VIEW_WHEEL_SCROLL_STEP;
+    else
+    {
+        if (CanScrollHorizontally()) {
+            scrollDelta.x = event.WheelDelta.x * SCROLL_VIEW_WHEEL_SCROLL_STEP;
+        }
+        if (CanScrollVertically()) {
+            scrollDelta.y = event.WheelDelta.y * SCROLL_VIEW_WHEEL_SCROLL_STEP;
+        }
     }
     if (scrollDelta.x == 0.0f && scrollDelta.y == 0.0f) {
         return event.WheelDelta;
@@ -169,6 +176,17 @@ PPoint PScrollView::OnPointerWheel(PPointerID pointerID, const PPoint& position,
         remainingWheelDelta.y -= consumedScrollDelta.y / SCROLL_VIEW_WHEEL_SCROLL_STEP;
     }
     return remainingWheelDelta;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target || phase == PEventPhase::Capture) {
+        EndPointerScrollTracking(pointerID);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

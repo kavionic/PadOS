@@ -7,14 +7,15 @@
 
 #pragma once
 
-#include <GUI/View.h>
-#include <GUI/Font.h>
+#include <GUI/Style/TabViewStyleData.h>
+#include <GUI/StyledView.h>
 
 #include <vector>
 #include <string>
 
+class PScrollView;
 
-class PTabView : public PView
+class PTabView : public PStyledView
 {
 public:
     PTabView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
@@ -38,11 +39,9 @@ public:
     PRect GetClientFrame() const;
 
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
+    virtual void    OnStyleChanged() override;
     virtual void    Layout(const PPoint& delta);
     virtual void    OnFrameSized(const PPoint& delta) override;
-    virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual void    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual void    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
@@ -51,38 +50,41 @@ public:
     Signal<void, size_t, Ptr<PView>, PTabView*> SignalSelectionChanged;//(size_t index, Ptr<View> tabView, TabView* source)
 private:
     void Initialize();
-    float GetAvailableTabsWidth() const;
+    void NotifyStylePropertyChanged(PTabViewProperties properties, size_t tabIndex = INVALID_INDEX);
+    void SlotTopBarPreferredSizeChanged();
 
-    struct Tab
-    {
-        Tab(const PString& title, Ptr<PView> view) : m_Title(title) { m_View = view; }
-        Ptr<PView>   m_View;
-        PString     m_Title;
-        float       m_Width;
-    };
-
-    class TopView : public PView
+    class TabsView : public PView
     {
     public:
-        TopView(PTabView* tabView) : PView("top_view", PViewFlag::WillDraw), m_TabView(tabView) {}
-    
-        virtual void OnFontChanged(Ptr<const PFont> newFont) override { Invalidate(); }
+        TabsView(PTabView* tabView) : PView("tabs_view", PViewFlag::WillDraw), m_TabView(tabView) {}
+
         virtual void OnPaint(const PRect& updateRect) override;
+        virtual PPoint CalculateContentSize() const override;
+        virtual void OnViewScrolled(const PPoint& delta) override;
+        virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+        virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+        virtual void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+        virtual void OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+        virtual void OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+        virtual void OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+        virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
+
+        void CancelInteraction();
+
     private:
+        size_t GetTabFromPosition(const PPoint& position) const;
+        bool IsScrolling(PPointerID pointerID) const;
+        void SetHighlightedTab(size_t index);
+
         PTabView* m_TabView;
+        size_t m_PressedTab = INVALID_INDEX;
+        PPointerID m_HitPointerID = PInvalidPointerID;
+        bool m_IsHoverSuppressed = false;
     };
 
-    friend class PTabView::TopView;
-  
-    size_t              m_SelectedTab = INVALID_INDEX;
-    float               m_ScrollOffset = 0.0f;
-    PPoint               m_HitPos;
-    PPointerID       m_HitPointerID = PInvalidPointerID;
-    float               m_TabHeight;
-    float               m_GlyphHeight;
-    PFontHeight          m_FontHeight;
-    float               m_TotalTabsWidth;
-    std::vector<Tab>    m_TabList;
-    Ptr<TopView>        m_TopView;
-    Ptr<PView>           m_TopBarClientView;
+    PTabViewStyleData        m_TabViewStyleData;
+    std::vector<Ptr<PView>>  m_TabViews;
+    Ptr<PScrollView>        m_TopView;
+    Ptr<TabsView>           m_TabsView;
+    Ptr<PView>              m_TopBarClientView;
 };

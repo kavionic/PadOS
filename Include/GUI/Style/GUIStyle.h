@@ -41,6 +41,11 @@ struct PProgressBarStyleData;
 enum class PProgressBarProperty : uint32_t;
 using PProgressBarProperties = PEnumBitmask<PProgressBarProperty>;
 
+struct PTabViewStyleData;
+struct PTabViewFrames;
+enum class PTabViewProperty : uint32_t;
+using PTabViewProperties = PEnumBitmask<PTabViewProperty>;
+
 class PGUIStyle : public PtrTarget
 {
 public:
@@ -119,4 +124,33 @@ public:
     // Called after all listed properties have been updated. The style owns
     // invalidation and preferred-size notifications for these changes.
     virtual void ProgressBarPropertyChanged(PView& target, PProgressBarStyleData& data, PProgressBarProperties properties) const = 0;
+
+    virtual void TabViewPaint(PView& target, const PView& tabsTarget, const PRect& updateRect, const PTabViewStyleData& data) const = 0;
+    virtual void TabViewTabsPaint(PView& target, const PView& tabView, const PRect& updateRect, const PTabViewStyleData& data) const = 0;
+    virtual void TabViewGetPreferredSize(
+        const PView& target,
+        const PTabViewStyleData& data,
+        const PPoint& contentMinSize,
+        const PPoint& contentMaxSize,
+        PPoint* minSize,
+        PPoint* maxSize) const = 0;
+
+    // The style owns damage and preferred/content size notifications for both drawing surfaces.
+    // tabIndex identifies the inserted, deleted, or renamed tab. Each notification may contain at most one such edit with other properties.
+    virtual void TabViewPropertyChanged(
+        PView& target,
+        PView& tabsTarget,
+        PTabViewStyleData& data,
+        PTabViewProperties properties,
+        size_t tabIndex) const = 0;
+
+    virtual PTabViewFrames TabViewGetFrames(const PView& target, const PTabViewStyleData& data) const = 0;
+    virtual PPoint TabViewGetTabsContentSize(const PView& target, const PTabViewStyleData& data) const = 0;
+
+    // position is in tabsTarget's scrolled content coordinates.
+    virtual size_t TabViewGetTabFromPosition(
+        const PView& target,
+        const PView& tabsTarget,
+        const PTabViewStyleData& data,
+        const PPoint& position) const = 0;
 };

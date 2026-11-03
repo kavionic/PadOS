@@ -15,4 +15,5 @@ target_sources(PadOS_GUI PRIVATE
 	GUIStyleData.h
 	ScrollBarStyleData.h
 	SliderStyleData.h
+	TabViewStyleData.h
 )

@@ -94,6 +94,35 @@ public:
     virtual void ProgressBarGetPreferredSize(const PView& target, const PProgressBarStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
     virtual void ProgressBarPropertyChanged(PView& target, PProgressBarStyleData& data, PProgressBarProperties properties) const override;
 
+    virtual void TabViewPaint(PView& target, const PView& tabsTarget, const PRect& updateRect, const PTabViewStyleData& data) const override;
+    virtual void TabViewTabsPaint(PView& target, const PView& tabView, const PRect& updateRect, const PTabViewStyleData& data) const override;
+    virtual void TabViewGetPreferredSize(
+        const PView& target,
+        const PTabViewStyleData& data,
+        const PPoint& contentMinSize,
+        const PPoint& contentMaxSize,
+        PPoint* minSize,
+        PPoint* maxSize) const override;
+
+    // The style owns damage and preferred/content size notifications for both drawing surfaces.
+    // tabIndex identifies the inserted, deleted, or renamed tab. Each notification may contain at most one such edit with other properties.
+    virtual void TabViewPropertyChanged(
+        PView& target,
+        PView& tabsTarget,
+        PTabViewStyleData& data,
+        PTabViewProperties properties,
+        size_t tabIndex) const override;
+
+    virtual PTabViewFrames TabViewGetFrames(const PView& target, const PTabViewStyleData& data) const override;
+    virtual PPoint TabViewGetTabsContentSize(const PView& target, const PTabViewStyleData& data) const override;
+
+    // position is in tabsTarget's scrolled content coordinates.
+    virtual size_t TabViewGetTabFromPosition(
+        const PView& target,
+        const PView& tabsTarget,
+        const PTabViewStyleData& data,
+        const PPoint& position) const override;
+
 private:
     struct SliderStyleData;
     struct ScrollBarStyleData;
@@ -102,6 +131,8 @@ private:
     struct DropdownMenuPopupStyleData;
     struct GroupViewStyleData;
     struct ProgressBarStyleData;
+    struct TabViewStyleData;
+    struct TabViewGeometry;
 
     static constexpr float SCROLL_BAR_THICKNESS = 16.0f;
     static constexpr float SCROLL_BAR_MIN_KNOB_SIZE = 12.0f;
@@ -170,6 +201,12 @@ private:
     static constexpr float PROGRESS_BAR_MIN_LENGTH = 50.0f;
     static constexpr float PROGRESS_BAR_THICKNESS = 24.0f;
     static constexpr float PROGRESS_BAR_BORDER = 2.0f;
+
+    static constexpr float TAB_VIEW_CORNER_SIZE = 10.0f;
+    static constexpr float TAB_VIEW_ARROW_SPACE = 16.0f;
+    static constexpr float TAB_VIEW_BORDER = 2.0f;
+    static constexpr float TAB_VIEW_TITLE_PADDING = 4.0f;
+    static constexpr float TAB_VIEW_TITLE_SCALE = 1.1f;
 
     static constexpr float CHECK_BOX_SIZE = 32.0f;
     static constexpr float CHECK_BOX_LABEL_SPACING = 8.0f;
@@ -245,4 +282,16 @@ private:
     static void                 UpdateDropdownMenuPopupMetrics(const PView& target, const PDropdownMenuPopupStyleData& data);
     static void                 UpdateGroupViewMetrics(const PView& target, const PGroupViewStyleData& data);
     static void                 InvalidateProgressBarResize(PView& target, const PProgressBarStyleData& data, const PRect& previousFrame);
+
+    static void UpdateTabViewMetrics(const PView& target, const PTabViewStyleData& data);
+    static void UpdateTabViewTitle(const PView& target, const PTabViewStyleData& data, PTabViewProperties properties, size_t tabIndex);
+    static TabViewGeometry GetTabViewGeometry(const PView& target, const PTabViewStyleData& data);
+    static void InvalidateTabViewResize(PView& target, PView& tabsTarget, const PTabViewStyleData& data, const TabViewGeometry& geometry);
+    static PColor GetTabViewTint(PColor color, float tint);
+    static void DrawTabViewBorder(PView& target, const PRect& bounds);
+    static void DrawTabViewSelection(PView& target, const PView& tabsTarget, const PTabViewStyleData& data, const TabViewGeometry& geometry);
+    static void DrawTabViewArrows(PView& target, const TabViewGeometry& geometry);
+    static void DrawTabViewTitles(PView& target, const PTabViewStyleData& data, const TabViewGeometry& geometry);
+    static void DrawTabViewHighlight(PView& target, const PTabViewStyleData& data, PRect frame, const PPoint& baseline);
+    static void DrawTabViewTabs(PView& target, const PTabViewStyleData& data, const TabViewGeometry& geometry);
 };

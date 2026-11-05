@@ -54,7 +54,7 @@ void PWindow::OnPaint(const PRect& updateRect)
     FillRect(PRect(outerFrame.left + 2.0f, innerFrame.bottom, outerFrame.right - 2.0f, outerFrame.bottom - 2.0f));   // Bottom edge.
 
     SetFgColor(PNamedColors::black);
-    SetBgColor(PStandardColorID::WindowBorderActive);
+    SetBrush(PStandardColorID::WindowBorderActive);
 
     DrawString(
         m_Title,
@@ -201,10 +201,8 @@ void PWindow::Open(PApplication* application)
 
 void PWindow::Close()
 {
-    PApplication* application = GetApplication();
-    if (application != nullptr)
-    {
-        application->RemoveView(ptr_tmp_cast(this));
+    if (HasFlags(PViewFlag::IsAttachedToScreen)) {
+        GetApplication()->RemoveView(ptr_tmp_cast(this));
     }
 }
 

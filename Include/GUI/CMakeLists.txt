@@ -6,6 +6,8 @@
 ###############################################################################
 
 target_sources(PadOS_GUI PRIVATE
+	Brush.h
+	BrushTypes.h
 	Bitmap.h
 	Color.h
 	Desktop.h

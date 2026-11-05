@@ -142,6 +142,12 @@ enum class PStandardColorID : int32_t
     SliderTrackDisabled,
     ListViewTab,
     ListViewTabText,
+    ListViewBackground,
+    ListViewSelection,
+    ListViewHighlight,
+    DropdownMenuBackground,
+    DropdownMenuSelection,
+    DropdownMenuPressed,
     Count
 };
 

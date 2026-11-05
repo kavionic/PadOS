@@ -25,6 +25,7 @@
 #include "GUI/GUIEvent.h"
 #include "GUI/Font.h"
 #include "GUI/Color.h"
+#include <GUI/Brush.h>
 #include "GUI/LayoutNode.h"
 #include "ApplicationServer/Protocol.h"
 #include "ViewFactoryContext.h"
@@ -64,6 +65,8 @@ public:
     PView(handler_id serverHandle, const PString& name, const PRect& frame);
     virtual ~PView();
 
+    // Falls back to the current thread's application when this view and its ancestors have no looper.
+    // Screen attachment is tracked separately by PViewFlag::IsAttachedToScreen.
     PApplication* GetApplication() const;
     const PGUIStyle* GetStyle() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
@@ -217,15 +220,21 @@ public:
     void            SetFgColor(PStandardColorID colorID)                                         { SetFgColor(pget_standard_color(colorID)); }
     void            SetFgColor(PNamedColors colorID)                                             { SetFgColor(PColor(colorID)); }
 
-    void            SetBgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetBgColor(PColor(red, green, blue, alpha)); }
-    void            SetBgColor(PColor color)                                                     { if (color != m_BgColor) { m_BgColor = color; Post<ASViewSetBgColor>(color); } }
-    void            SetBgColor(PStandardColorID colorID)                                         { SetBgColor(pget_standard_color(colorID)); }
-    void            SetBgColor(PNamedColors colorID)                                             { SetBgColor(PColor(colorID)); }
+    Ptr<const PBrush> GetStandardBrush(PStandardColorID color) const;
+    Ptr<const PBrush> GetStandardBrush(PNamedColors color) const;
 
-    void            SetEraseColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255){ SetEraseColor(PColor(red, green, blue, alpha)); }
-    void            SetEraseColor(PColor color)                                                  { if (color != m_EraseColor) { m_EraseColor = color; Post<ASViewSetEraseColor>(color); } }
-    void            SetEraseColor(PStandardColorID colorID)                                      { SetEraseColor(pget_standard_color(colorID)); }
-    void            SetEraseColor(PNamedColors colorID)                                          { SetEraseColor(PColor(colorID)); }
+    // A null background inherits from ancestors; a null drawing brush uses
+    // this view's effective background. Automatic bounds start at content (0,0).
+    const PViewBrushBinding& GetBackgroundBrushBinding() const noexcept { return m_BackgroundBrush; }
+    const PViewBrushBinding& GetBrushBinding() const noexcept { return m_DrawingBrush; }
+    void SetBackgroundBrush(Ptr<const PBrush> brush);
+    void SetBackgroundBrush(PStandardColorID color) { SetBackgroundBrush(GetStandardBrush(color)); }
+    void SetBackgroundBrush(PNamedColors color) { SetBackgroundBrush(GetStandardBrush(color)); }
+    void SetBackgroundBrush(Ptr<const PBrush> brush, const PRect& bounds);
+    void SetBrush(Ptr<const PBrush> brush);
+    void SetBrush(PStandardColorID color) { SetBrush(GetStandardBrush(color)); }
+    void SetBrush(PNamedColors color) { SetBrush(GetStandardBrush(color)); }
+    void SetBrush(Ptr<const PBrush> brush, const PRect& bounds);
 
     void            SetPenWidth(float width)        { if (width != m_PenWidth) { m_PenWidth = width; Post<ASViewSetPenWidth>(width); } }
     float           GetPenWidth() const noexcept    { return m_PenWidth; }
@@ -262,7 +271,8 @@ public:
     }        
     void            FillRect(const PRect& rect)                         { Post<ASViewFillRect>(rect, m_FgColor); }
     void            FillRect(const PRect& rect, PColor color)           { Post<ASViewFillRect>(rect, color); }
-    void            EraseRect(const PRect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
+    void            FillBrushRect(const PRect& rect) { Post<ASViewEraseRect>(rect, true); }
+    void            EraseRect(const PRect& rect);
 
     void            FillCircle(const PPoint& position, float radius) { Post<ASViewFillCircle>(position, radius); }
 
@@ -298,7 +308,7 @@ public:
         Post<ASViewDrawStringWidth>(string, width, allowPartialCharacter);
     }
 
-    // Paint the background rectangle with GetBgColor() and draw at the supplied baseline.
+    // Paint the background rectangle with the selected drawing background (color or brush) and draw at the supplied baseline.
     // Upright Copy text fills its own band; only the surrounding padding is cleared separately.
     // Upright Copy text clips at the right edge. Other modes/transforms clear first and draw normally.
     void DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
@@ -374,6 +384,8 @@ private:
     void HandleDetachedFromScreen();
 
     void HandlePaint(const PRect& updateRect);
+    void SendBrush(bool background);
+    void SetBrushBinding(bool background, Ptr<const PBrush> brush, const PRect& bounds, bool automaticBounds);
     
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
         
@@ -450,6 +462,9 @@ private:
 
     PScrollBar*         m_HScrollBar = nullptr;
     PScrollBar*         m_VScrollBar = nullptr;
+
+    PViewBrushBinding m_BackgroundBrush;
+    PViewBrushBinding m_DrawingBrush;
 
     Ptr<const PFont>    m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
 };

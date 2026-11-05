@@ -151,17 +151,18 @@ TEST(ScrollBarStyle, FullKnobsHaveNoDragTravel)
     });
 }
 
-TEST(ScrollBarStyle, DetachedScrollBarsHandleMissingStyle)
+TEST(ScrollBarStyle, DetachedScrollBarsUseTheApplicationStyleWithoutCapturingInput)
 {
-    RunGUITest([](PApplication&)
+    RunGUITest([](PApplication& application)
     {
         Ptr<PScrollBar> scrollBar = ptr_new<PScrollBar>("scrollbar", 10.0f, 30.0f);
         scrollBar->SetFrame(PRect(0.0f, 0.0f, 16.0f, 200.0f));
         scrollBar->SetValue(20.0f);
         scrollBar->SetProportion(0.25f);
         scrollBar->OnStyleChanged();
-        EXPECT_EQ(scrollBar->GetStyle(), nullptr);
-        EXPECT_EQ(scrollBar->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(scrollBar->GetStyle(), application.GetGUIStyle());
+        EXPECT_GT(scrollBar->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
+        EXPECT_FLOAT_EQ(scrollBar->GetPreferredSize(PPrefSizeType::Smallest).y, 0.0f);
         EXPECT_FLOAT_EQ(scrollBar->GetValue(), 20.0f);
         EXPECT_FLOAT_EQ(scrollBar->GetProportion(), 0.25f);
         const PPointerEvent event;

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <deque>
 #include <functional>
 #include <map>
@@ -21,6 +22,7 @@
 #include <Threads/EventTimer.h>
 #include <ApplicationServer/Protocol.h>
 
+class PBrush;
 class PGUIStyle;
 class PView;
 
@@ -36,6 +38,8 @@ public:
 
     static PApplication* GetCurrentApplication() { return dynamic_cast<PApplication*>(GetCurrentThread()); }
 
+    // Select the style before the first view is attached to this application.
+    void SetGUIStyle(Ptr<const PGUIStyle> style);
     const PGUIStyle* GetGUIStyle() const { return ptr_raw_pointer_cast(m_GUIStyle); }
 
     virtual void Idle() override;
@@ -80,6 +84,17 @@ public:
 
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
+
+    // Shared cache entries cannot be modified by callers. Hold this application's mutex.
+    // Standard palette changes refresh the existing resource on its next lookup.
+    Ptr<const PBrush> GetStandardBrush(PStandardColorID color);
+    Ptr<const PBrush> GetStandardBrush(PNamedColors color);
+
+    // Brush handles belong to this application. Updates use the drawing queue.
+    handle_id CreateBrush(const PBrushDescription& description, handle_id bitmapHandle);
+    void DeleteBrush(handle_id brushHandle);
+    void UpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle);
+    void SetBrushColor(handle_id brushHandle, PColor color);
 
     // Font handles belong to this application. Hold its mutex while calling these methods.
     handle_id CreateFont(const PFontDescription& description, PFontHeight& outHeight);
@@ -181,6 +196,9 @@ private:
 
     static PApplication* s_DefaultApplication;
     Ptr<const PGUIStyle> m_GUIStyle;
+    std::array<Ptr<PBrush>, std::to_underlying(PStandardColorID::Count)> m_StandardBrushes;
+    std::map<PNamedColors, Ptr<PBrush>> m_NamedBrushes;
+    bool m_StyleSelectionClosed = false;
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
     PMouseCursorToken m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;

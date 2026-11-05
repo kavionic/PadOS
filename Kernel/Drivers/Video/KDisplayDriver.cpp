@@ -14,6 +14,7 @@
 #include <cmath>
 
 #include <Kernel/Drivers/Video/KDisplayDriver.h>
+#include <Kernel/VFS/KFSVolume.h>
 
 #include <GUI/Bitmap.h>
 #include <GUI/Color.h>
@@ -41,6 +42,11 @@ KDisplayDriver::KDisplayDriver()
         this,
         &KDisplayDriver::HandleSetMouseCursorBitmap);
 
+    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::CreateBitmap, this, &KDisplayDriver::HandleCreateBitmap);
+    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::DeleteBitmap, this, &KDisplayDriver::HandleDeleteBitmap);
+    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::CreateBrush, this, &KDisplayDriver::HandleCreateBrush);
+    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::DeleteBrush, this, &KDisplayDriver::HandleDeleteBrush);
+
     m_CommandDispatcher.AddHandler(&PDisplayCommands::SetFgColor, this, &KDisplayDriver::SetFgColor);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBgColor, this, &KDisplayDriver::SetBgColor);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::SetColor, this, &KDisplayDriver::SetColor);
@@ -59,6 +65,10 @@ KDisplayDriver::KDisplayDriver()
     m_CommandDispatcher.AddHandler(&PDisplayCommands::FillCircle, this, &KDisplayDriver::HandleFillCircle);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteString, this, &KDisplayDriver::HandleWriteString);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteStringWidth, this, &KDisplayDriver::HandleWriteStringWidth);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBrush, this, &KDisplayDriver::HandleSetBrush);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::FillBrushRect, this, &KDisplayDriver::HandleFillBrushRect);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::UpdateBrush, this, &KDisplayDriver::HandleUpdateBrush);
+    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBrushColor, this, &KDisplayDriver::HandleSetBrushColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1452,6 +1462,19 @@ void KDisplayDriver::FillRect(PDisplayBitmap* bitmap, const PIRect& rect)
 
 void KDisplayDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode)
 {
+    if (!m_Brush.IsEmpty() && !srcBitmap->VideoMemory)
+    {
+        PDisplayBrushLayer source;
+        source.Bitmap = *srcBitmap;
+        source.Description.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
+        source.Description.OpaqueSlices = 0;
+        source.Description.Type = PBrushType::BitmapTile;
+        source.Description.SourceRect = srcRect;
+        source.Bounds = PIRect(dstPos, dstPos + srcRect.Size());
+        DrawBrushBitmap(dstBitmap, source, source.Bounds, mode);
+        return;
+    }
+
     switch (mode)
     {
         case PDrawingMode::Copy:
@@ -1492,6 +1515,19 @@ void KDisplayDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitm
 
 void KDisplayDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
 {
+    if (!m_Brush.IsEmpty() && !srcBitmap->VideoMemory)
+    {
+        PDisplayBrushLayer source;
+        source.Bitmap = *srcBitmap;
+        source.Description.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
+        source.Description.OpaqueSlices = 0;
+        source.Description.Type = PBrushType::BitmapStretch;
+        source.Description.SourceRect = srcOrigRect;
+        source.Bounds = dstOrigRect;
+        DrawBrushBitmap(dstBitmap, source, dstRect, mode);
+        return;
+    }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////

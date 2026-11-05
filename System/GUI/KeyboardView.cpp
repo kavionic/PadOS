@@ -153,6 +153,8 @@ PKeyButton::PKeyButton(
 PKeyboardView::PKeyboardView(const PString& name, PKeyboardViewFlags flags)
     : PView(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
+    m_BackgroundColorBrush = ptr_new<PBrush>(m_Style->BackgroundColor, GetApplication());
+
     const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
     m_KeyHeight = fontHeight.descender + fontHeight.ascender + 11.0f;
 
@@ -380,6 +382,7 @@ void PKeyboardView::OnFrameSized(const PPoint& delta)
 
 void PKeyboardView::OnPaint(const PRect& updateRect)
 {
+    SetBackgroundBrush(m_BackgroundColorBrush);
     PRegion clearRegion(updateRect);
     for (const auto& button : m_CurrentLayout->m_KeyButtons)
     {
@@ -397,7 +400,9 @@ void PKeyboardView::OnPaint(const PRect& updateRect)
             DrawButton(button, i == m_PressedButton);
         }
     }
-    SetEraseColor(m_Style->BackgroundColor);
+    if (m_BackgroundColorBrush->GetDescription().Color != m_Style->BackgroundColor) {
+        m_BackgroundColorBrush->SetColor(m_Style->BackgroundColor);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -629,23 +634,23 @@ void PKeyboardView::SetLayout(PKeyboardLayout* layout)
 void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
 {
     PColor textColor = m_Style->NormalTextColor;
+    PColor backgroundColor = m_Style->NormalButtonColor;
 
     if (pressed)
     {
-        SetEraseColor(m_Style->PressedButtonColor);
+        backgroundColor = m_Style->PressedButtonColor;
     }
     else if (!m_SymbolsActive && button.KeyCode == PKeyCodes::LEFT_SHIFT)
     {
         switch (m_CapsLockMode)
         {
-            case PCapsLockMode::Off:     SetEraseColor(m_Style->NormalButtonColor);      break;
-            case PCapsLockMode::Single:  SetEraseColor(m_Style->SelectedButtonColor); textColor = m_Style->SelectedTextColor;   break;
-            case PCapsLockMode::Locked:  SetEraseColor(m_Style->LockedButtonColor);   textColor = m_Style->LockedTextColor;     break;
+            case PCapsLockMode::Off:     backgroundColor = m_Style->NormalButtonColor; break;
+            case PCapsLockMode::Single:  backgroundColor = m_Style->SelectedButtonColor; textColor = m_Style->SelectedTextColor; break;
+            case PCapsLockMode::Locked:  backgroundColor = m_Style->LockedButtonColor; textColor = m_Style->LockedTextColor; break;
         }
     }
-    else
-    {
-        SetEraseColor(m_Style->NormalButtonColor);
+    if (m_BackgroundColorBrush->GetDescription().Color != backgroundColor) {
+        m_BackgroundColorBrush->SetColor(backgroundColor);
     }
 
     DrawFrame(button.m_Frame, FRAME_RAISED | FRAME_TRANSPARENT);
@@ -686,7 +691,7 @@ void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
     }
     else
     {
-        SetBgColor(GetEraseColor());
+        SetBrush(nullptr);
 
         PString label;
         if (button.KeyCode == PKeyCodes::LEFT_ALT)

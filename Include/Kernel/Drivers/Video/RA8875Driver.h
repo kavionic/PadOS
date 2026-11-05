@@ -154,6 +154,8 @@ public:
         PDrawingMode mode,
         float width = std::numeric_limits<float>::infinity()) override;
 
+    void WriteBrushBlock(PDisplayBitmap* bitmap, const PIRect& bounds, std::span<const PColor> pixels) override;
+
     virtual void WaitIdle() override;
 
 private:
@@ -300,6 +302,12 @@ private:
     bool            m_IsWindowSet = false;
     bool            m_IsMouseCursorVisible = false;
     bool            m_IsMouseCursorRasterUploaded = false;
+
+    // Debugger-readable transfer counters; no display readback is required.
+    uint64_t m_UploadedPixelCount = 0;
+    uint64_t m_UploadBlockCount = 0;
+    uint64_t m_CopiedPixelCount = 0;
+    uint64_t m_SolidFillPixelCount = 0;
 
     uint32_t m_BTETimeoutCount = 0;
     uint16_t m_LastBTETimeoutStatus = 0;

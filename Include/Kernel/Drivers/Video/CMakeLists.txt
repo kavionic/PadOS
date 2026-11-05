@@ -6,6 +6,8 @@
 ###############################################################################
 
 target_sources(PadOS_Kernel PRIVATE
+	KDisplayBrush.h
+	KDisplayResources.h
 	RA8875Driver.h
 	RA8875Registers.h
 	KDisplayDriver.h

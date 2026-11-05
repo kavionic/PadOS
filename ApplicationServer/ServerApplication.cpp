@@ -38,6 +38,10 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
+    RegisterRemoteSignal(&m_RSCreateBrush, &ServerApplication::SlotCreateBrush);
+    RegisterRemoteSignal(&m_RSDeleteBrush, &ServerApplication::SlotDeleteBrush);
+    RegisterRemoteSignal(&m_RSUpdateBrush, &ServerApplication::SlotUpdateBrush);
+    RegisterRemoteSignal(&m_RSSetBrushColor, &ServerApplication::SlotSetBrushColor);
     RegisterRemoteSignal(&m_RSCreateFont,       &ServerApplication::SlotCreateFont);
     RegisterRemoteSignal(&m_RSDeleteFont,       &ServerApplication::SlotDeleteFont);
     RegisterRemoteSignal(&m_RSMeasureFont,      &ServerApplication::SlotMeasureFont);
@@ -53,8 +57,8 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewShow,                   &ServerApplication::SlotViewShow);
     RegisterRemoteSignal(&RSViewSetHitMode,             &ServerApplication::SlotViewSetHitMode);
     RegisterRemoteSignal(&RSViewSetFgColor,             &ServerApplication::SlotViewSetFgColor);
-    RegisterRemoteSignal(&RSViewSetBgColor,             &ServerApplication::SlotViewSetBgColor);
-    RegisterRemoteSignal(&RSViewSetEraseColor,          &ServerApplication::SlotViewSetEraseColor);
+    RegisterRemoteSignal(&m_RSViewSetBrush, &ServerApplication::SlotViewSetBrush);
+    RegisterRemoteSignal(&m_RSViewEraseRect, &ServerApplication::SlotViewEraseRect);
     RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
     RegisterRemoteSignal(&m_RSViewSetFont,              &ServerApplication::SlotViewSetFont);
@@ -144,6 +148,20 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+handle_id ServerApplication::AllocateBrushHandle()
+{
+    const handle_id firstHandle = m_NextBrushHandle;
+    do
+    {
+        const handle_id handle = m_NextBrushHandle;
+        m_NextBrushHandle = (handle == std::numeric_limits<handle_id>::max()) ? 1 : handle + 1;
+        if (!m_BrushMap.contains(handle)) {
+            return handle;
+        }
+    } while (m_NextBrushHandle != firstHandle);
+    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+}
+
 handle_id ServerApplication::AllocateFontHandle()
 {
     const handle_id firstHandle = s_NextFontHandle;
@@ -224,6 +242,12 @@ Ptr<PSrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PServerBrush> ServerApplication::GetBrush(handle_id brushHandle) const
+{
+    const auto iterator = m_BrushMap.find(brushHandle);
+    return (iterator != m_BrushMap.end()) ? iterator->second : nullptr;
+}
 
 Ptr<PServerFontInstance> ServerApplication::GetFont(handle_id fontHandle) const
 {
@@ -390,11 +414,13 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
                                        const std::vector<float>& dashPattern,
                                        float                 dashOffset,
                                        handle_id             fontHandle,
-                                       PColor                eraseColor,
-                                       PColor                bgColor,
+                                       handle_id                backgroundBrush,
+                                       handle_id                drawingBrush,
                                        PColor                fgColor)
 {
     Ptr<PServerFontInstance> font = GetFont(fontHandle);
+    Ptr<PServerBrush> background = (backgroundBrush != INVALID_HANDLE) ? GetBrush(backgroundBrush) : nullptr;
+    Ptr<PServerBrush> drawing = (drawingBrush != INVALID_HANDLE) ? GetBrush(drawingBrush) : nullptr;
     Ptr<PServerView> parent;
 
     if (dockType == PViewDockType::RootLevelView) {
@@ -402,7 +428,8 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
     } else if (dockType == PViewDockType::ChildView) {
         parent = m_Server->FindView(parentHandle);
     }
-    if (font == nullptr || (dockType == PViewDockType::ChildView && parent == nullptr))
+    if (font == nullptr || (dockType == PViewDockType::ChildView && parent == nullptr)
+        || (backgroundBrush != INVALID_HANDLE && background == nullptr) || (drawingBrush != INVALID_HANDLE && drawing == nullptr))
     {
         MsgCreateViewReply reply{};
         reply.m_ViewHandle = INVALID_HANDLE;
@@ -442,8 +469,8 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
         dashPattern,
         dashOffset,
         std::move(font),
-        eraseColor,
-        bgColor,
+        std::move(background),
+        std::move(drawing),
         fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
@@ -575,20 +602,22 @@ void ServerApplication::SlotSetKeyboardFocus(handler_id clientHandle, bool focus
 
 void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags)
 {
-    const Ptr<PSrvBitmap> bitmap = ptr_new<PSrvBitmap>(PIPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow);
-
-    const handle_id handle = m_NextBitmapHandle++;
-
-    m_BitmapMap[handle] = bitmap;
-
     MsgCreateBitmapReply reply;
-    reply.m_BitmapHandle = handle;
-    reply.m_Framebuffer  = bitmap->m_Raster;
-    reply.m_BytesPerRow  = bitmap->m_BytesPerLine;
-
-    const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, PAppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0);
-    if (result != PErrorCode::Success) {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
+    try
+    {
+        const Ptr<PSrvBitmap> bitmap = ptr_new<PSrvBitmap>(
+            PIPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow, (flags & PBitmap::READ_ONLY) != 0);
+        m_Server->GetDisplayDriver()->RegisterBitmap(ptr_raw_pointer_cast(bitmap));
+        const handle_id handle = m_NextBitmapHandle++;
+        m_BitmapMap.emplace(handle, bitmap);
+        reply.m_BitmapHandle = handle;
+        reply.m_Framebuffer = bitmap->m_Raster;
+        reply.m_BytesPerRow = bitmap->m_BytesPerLine;
+    }
+    PERROR_CATCH([](PErrorCode error) { p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "Creating bitmap failed: {}", p_strerror(error)); });
+    if (!PMessagePort(replyPort).SendMessageTimeout(
+        INVALID_HANDLE, PAppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), TimeValNanos::zero)) {
+        m_BitmapMap.erase(reply.m_BitmapHandle);
     }
 }
 
@@ -598,22 +627,61 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
 
 void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
 {
-    auto i = m_BitmapMap.find(bitmapHandle);
-    if (i != m_BitmapMap.end())
-    {
-        // The kernel releases raster references even when the flush fails.
-        PScopeExit eraseBitmap([this, i] { m_BitmapMap.erase(i); });
-        i->second->PrepareForModification();
-    }
-    else
-    {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: invalid handle: {}", __PRETTY_FUNCTION__, bitmapHandle);
-    }
+    m_BitmapMap.erase(bitmapHandle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotCreateBrush(port_id replyPort, const PBrushDescription& description, handle_id bitmapHandle)
+{
+    MsgCreateBrushReply reply;
+    try
+    {
+        Ptr<PSrvBitmap> bitmap;
+        if (bitmapHandle != INVALID_HANDLE)
+        {
+            bitmap = GetBitmap(bitmapHandle);
+            if (bitmap == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+        }
+        Ptr<PServerBrush> brush = ptr_new<PServerBrush>(*m_Server->GetDisplayDriver(), description, std::move(bitmap));
+        const handle_id handle = AllocateBrushHandle();
+        m_BrushMap.emplace(handle, std::move(brush));
+        reply.BrushHandle = handle;
+    }
+    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
+    if (!PMessagePort(replyPort).SendMessageTimeout(
+        INVALID_HANDLE, PAppserverProtocol::CREATE_BRUSH_REPLY, &reply, sizeof(reply), TimeValNanos::zero)) {
+        m_BrushMap.erase(reply.BrushHandle);
+    }
+}
+
+void ServerApplication::SlotDeleteBrush(handle_id brushHandle)
+{
+    m_BrushMap.erase(brushHandle);
+}
+
+void ServerApplication::SlotUpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle)
+{
+    Ptr<PServerBrush> brush = GetBrush(brushHandle);
+    Ptr<PSrvBitmap> bitmap = (bitmapHandle != INVALID_HANDLE) ? GetBitmap(bitmapHandle) : nullptr;
+    if (brush == nullptr || (bitmapHandle != INVALID_HANDLE && bitmap == nullptr)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    brush->SetProperties(description, std::move(bitmap));
+}
+
+void ServerApplication::SlotSetBrushColor(handle_id brushHandle, PColor color)
+{
+    Ptr<PServerBrush> brush = GetBrush(brushHandle);
+    if (brush == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    brush->SetColor(color);
+}
 
 void ServerApplication::SlotCreateFont(port_id replyPort, const PFontDescription& description)
 {

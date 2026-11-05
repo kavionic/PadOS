@@ -19,6 +19,7 @@
 #include <GUI/MouseCursor.h>
 #include <ApplicationServer/KeyboardProtocol.h>
 #include <ApplicationServer/FontProtocol.h>
+#include <GUI/BrushTypes.h>
 
 class PString;
 
@@ -86,8 +87,6 @@ namespace PAppserverProtocol
         VIEW_SET_FOCUS_KEYBOARD_MODE,
         VIEW_SET_DRAWING_MODE,
         VIEW_SET_FG_COLOR,
-        VIEW_SET_BG_COLOR,
-        VIEW_SET_ERASE_COLOR,
         VIEW_SET_FONT,
         VIEW_MOVE_PEN_TO,
         VIEW_SET_PEN_WIDTH,
@@ -145,7 +144,14 @@ namespace PAppserverProtocol
         GET_KEYBOARD_CONFIGURATION,
         SET_KEYBOARD_CONFIGURATION,
         KEYBOARD_LAYOUTS_REPLY,
-        KEYBOARD_CONFIGURATION_REPLY
+        KEYBOARD_CONFIGURATION_REPLY,
+        VIEW_SET_BRUSH,
+        VIEW_ERASE_RECT,
+        CREATE_BRUSH,
+        DELETE_BRUSH,
+        CREATE_BRUSH_REPLY,
+        UPDATE_BRUSH,
+        SET_BRUSH_COLOR
     };
 }
 
@@ -171,9 +177,15 @@ struct MsgCreateViewReply
 
 struct MsgCreateBitmapReply
 {
-    handler_id  m_BitmapHandle;
-    uint8_t*    m_Framebuffer;
-    size_t      m_BytesPerRow;
+    handler_id  m_BitmapHandle = INVALID_HANDLE;
+    uint8_t*    m_Framebuffer = nullptr;
+    size_t      m_BytesPerRow = 0;
+};
+
+struct MsgCreateBrushReply
+{
+    handle_id BrushHandle = INVALID_HANDLE;
+    PErrorCode Error = PErrorCode::Success;
 };
 
 using ASRegisterApplication = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const PString& name)>;
@@ -204,8 +216,8 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         const std::vector<float>& dashPattern,
         float              dashOffset,
         handle_id          fontHandle,
-        PColor             eraseColor,
-        PColor             bgColor,
+        handle_id          backgroundBrush,
+        handle_id          drawingBrush,
         PColor             fgColor
     )
 >;
@@ -245,6 +257,24 @@ using ASCreateBitmap = PRemoteSignal<PAppserverProtocol::CREATE_BITMAP,
 using ASDeleteBitmap        = PRemoteSignal<PAppserverProtocol::DELETE_BITMAP,        void(handler_id handle)>;
 using ASPushMouseCursor     = PRemoteSignal<PAppserverProtocol::PUSH_MOUSE_CURSOR,    void(PMouseCursorToken token, PMouseCursorID cursorID)>;
 using ASPopMouseCursor      = PRemoteSignal<PAppserverProtocol::POP_MOUSE_CURSOR,     void(PMouseCursorToken token)>;
+using ASCreateBrush = PRemoteSignal<PAppserverProtocol::CREATE_BRUSH,
+    void(port_id replyPort, const PBrushDescription& description, handle_id bitmap)>;
+using ASDeleteBrush = PRemoteSignal<PAppserverProtocol::DELETE_BRUSH, void(handle_id brush)>;
+using ASUpdateBrush = PRemoteSignal<PAppserverProtocol::UPDATE_BRUSH,
+    void(handle_id brush, const PBrushDescription& description, handle_id bitmap)>;
+using ASSetBrushColor = PRemoteSignal<PAppserverProtocol::SET_BRUSH_COLOR, void(handle_id brush, PColor color)>;
+using ASViewSetBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH,
+    void(
+        handler_id viewHandle,
+        bool background,
+        PBrushSource source,
+        handle_id brush,
+        const PRect& bounds,
+        bool automaticBounds
+        )
+>;
+using ASViewEraseRect = PRemoteSignal<PAppserverProtocol::VIEW_ERASE_RECT, void(handler_id viewHandle, const PRect& rect, bool drawingBackground)>;
+
 using ASViewSetFrame        = PRemoteSignal<PAppserverProtocol::VIEW_SET_FRAME,       void(handler_id viewHandle, const PRect& frame, handler_id requestingClient)>;
 using ASViewInvalidate      = PRemoteSignal<PAppserverProtocol::VIEW_INVALIDATE,      void(handler_id viewHandle, const PIRect& frame)>;
 using ASViewAddChild        = PRemoteSignal<PAppserverProtocol::VIEW_ADD_CHILD,       void(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle)>;
@@ -256,8 +286,6 @@ using ASViewSetHitMode      = PRemoteSignal<PAppserverProtocol::VIEW_SET_HIT_MOD
 using ASViewSetFocusKeyboardMode= PRemoteSignal<PAppserverProtocol::VIEW_SET_FOCUS_KEYBOARD_MODE, void(handler_id viewHandle, PFocusKeyboardMode mode)>;
 using ASViewSetDrawingMode  = PRemoteSignal<PAppserverProtocol::VIEW_SET_DRAWING_MODE,    void(handler_id viewHandle, PDrawingMode Mode)>;
 using ASViewSetFgColor      = PRemoteSignal<PAppserverProtocol::VIEW_SET_FG_COLOR,        void(handler_id viewHandle, PColor color)>;
-using ASViewSetBgColor      = PRemoteSignal<PAppserverProtocol::VIEW_SET_BG_COLOR,        void(handler_id viewHandle, PColor color)>;
-using ASViewSetEraseColor   = PRemoteSignal<PAppserverProtocol::VIEW_SET_ERASE_COLOR,     void(handler_id viewHandle, PColor color)>;
 using ASViewSetFont         = PRemoteSignal<PAppserverProtocol::VIEW_SET_FONT, void(handler_id viewHandle, handle_id fontHandle)>;
 using ASViewMovePenTo       = PRemoteSignal<PAppserverProtocol::VIEW_MOVE_PEN_TO,         void(handler_id viewHandle, const PPoint pos)>;
 using ASViewSetPenWidth     = PRemoteSignal<PAppserverProtocol::VIEW_SET_PEN_WIDTH,       void(handler_id viewHandle, float width)>;

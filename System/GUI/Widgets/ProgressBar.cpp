@@ -19,6 +19,7 @@ PProgressBar::PProgressBar(const PString& name, POrientation orientation, PViewF
     : PStyledView(name, flags | PViewFlag::WillDraw | PViewFlag::ClearBackground)
 {
     m_ProgressBarStyleData.Orientation = orientation;
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -29,6 +30,7 @@ PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& x
 {
     MergeFlags(PViewFlag::WillDraw | PViewFlag::ClearBackground);
     m_ProgressBarStyleData.Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

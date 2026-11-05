@@ -6,5 +6,6 @@
 ###############################################################################
 
 target_sources(PadOS_GUI PRIVATE
+	SkinnableGUIStyle.h
 	DefaultGUIStyle.h
 )

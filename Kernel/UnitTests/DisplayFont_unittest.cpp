@@ -376,10 +376,28 @@ public:
         std::span<const PIRect> clips,
         PColor background,
         PColor foreground,
-        PDrawingMode mode)
+        PDrawingMode mode,
+        std::span<const PDisplayBrushLayer> layers = {})
     {
         CRITICAL_SCOPE(m_Mutex);
+        m_Brush.SetLayers(layers);
+        PScopeExit clearBrush([this] { m_Brush.Clear(); });
         WriteString(&bitmap, position, text, font, {}, clips, background, foreground, advance, mode);
+    }
+
+    void WriteBrushBlock(PDisplayBitmap* bitmap, const PIRect& bounds, std::span<const PColor> pixels) override
+    {
+        for (int y = bounds.top; y < bounds.bottom; ++y)
+        {
+            for (int x = bounds.left; x < bounds.right; ++x)
+            {
+                const size_t index = size_t(y) * 16 + size_t(x);
+                if (pixels[size_t(y - bounds.top) * size_t(bounds.Width()) + size_t(x - bounds.left)].GetAlpha() != 0) {
+                    ++m_BrushWrites[index];
+                }
+            }
+        }
+        KDisplayDriver::WriteBrushBlock(bitmap, bounds, pixels);
     }
 
     void CheckPaletteEndpoints(PColor background, PColor foreground)
@@ -405,6 +423,8 @@ public:
         EXPECT_EQ(restored[128], halfCoverage);
         EXPECT_EQ(restored[255], foreground.GetColor16());
     }
+
+    std::array<uint8_t, 16 * 12> m_BrushWrites{};
 };
 
 class DisplayFontRasterTest : public ::testing::Test
@@ -609,6 +629,131 @@ TEST_F(DisplayFontRasterTest, Rgb16CopyAndOverlayUseTheSamePaletteColours)
     EXPECT_EQ(pixels[2 * 16 + 2], untouched);
     EXPECT_EQ(pixels[2 * 16 + 3], PColor(128, 128, 128).GetColor16());
     EXPECT_EQ(pixels[3 * 16 + 2], m_Foreground.GetColor16());
+}
+
+
+TEST_F(DisplayFontRasterTest, BrushLabelsBlendCoverageWithTheMappedBackground)
+{
+    const std::array<uint32_t, 2> artwork = {PColor(80, 120, 160).GetColor32(), PColor(160, 80, 40).GetColor32()};
+    PDisplayBrushLayer layer;
+    layer.Bitmap = {PEColorSpace::RGBA32, PIPoint(2, 1), 2 * sizeof(uint32_t),
+        reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(artwork.data())), false};
+    layer.Description.Type = PBrushType::BitmapTile;
+    layer.Description.SourceRect = PIRect(0, 0, 2, 1);
+    layer.Bounds = PIRect(0, 0, 16, 12);
+    const std::span<const PDisplayBrushLayer> layers(&layer, 1);
+    const uint32_t untouched = PColor(16, 32, 48).GetColor32();
+    const PPoint advance(4, 0);
+    m_Driver->Render(m_Bitmap, m_Position, "A", m_Font, advance, m_Clips, m_Background, m_Foreground, PDrawingMode::Overlay, layers);
+    EXPECT_EQ(Pixel(2, 2), untouched);
+    EXPECT_EQ(Pixel(3, 2), PColor(208, 168, 148).GetColor32());
+    EXPECT_EQ(Pixel(2, 3), m_Foreground.GetColor32());
+    EXPECT_EQ(Pixel(3, 3), untouched);
+    const std::array<uint32_t, 16 * 12> full = m_Pixels;
+    m_Pixels.fill(untouched);
+    for (int32_t column = 0; column < 16; ++column)
+    {
+        const PIRect clip(column, 0, column + 1, 12);
+        m_Driver->Render(
+            m_Bitmap,
+            m_Position,
+            "A",
+            m_Font,
+            advance,
+            std::span(&clip, 1),
+            m_Background,
+            m_Foreground,
+            PDrawingMode::Overlay,
+            layers);
+    }
+    EXPECT_EQ(m_Pixels, full);
+    m_Driver->Render(m_Bitmap, m_Position, "A", m_Font, advance, m_Clips, m_Background, m_Foreground, PDrawingMode::Copy, layers);
+    EXPECT_EQ(Pixel(2, 2), artwork[0]);
+    EXPECT_EQ(Pixel(3, 3), artwork[1]);
+    m_Foreground = PColor(255, 255, 255, 0);
+    m_Pixels.fill(untouched);
+    m_Driver->Render(m_Bitmap, m_Position, "A", m_Font, advance, m_Clips, m_Background, m_Foreground, PDrawingMode::Overlay, layers);
+    for (uint32_t pixel : m_Pixels) {
+        EXPECT_EQ(pixel, untouched);
+    }
+}
+
+
+TEST_F(DisplayFontRasterTest, BrushCopyReplacesHoverAppearanceWithOneWritePerTextPixel)
+{
+    std::array<uint32_t, 2> artwork;
+    PDisplayBrushLayer layer;
+    layer.Bitmap = {PEColorSpace::RGBA32, PIPoint(2, 1), 2 * sizeof(uint32_t), reinterpret_cast<uint8_t*>(artwork.data()), false};
+    layer.Description.Type = PBrushType::BitmapTile;
+    layer.Description.SourceRect = PIRect(0, 0, 2, 1);
+    layer.Bounds = PIRect(0, 0, 16, 12);
+    const std::span<const PDisplayBrushLayer> layers(&layer, 1);
+    const PPoint advance(4, 0);
+    for (bool hovered : {false, true, false})
+    {
+        artwork[0] = hovered ? PColor(0, 80, 160).GetColor32() : PColor(80, 120, 160).GetColor32();
+        artwork[1] = hovered ? PColor(40, 160, 80).GetColor32() : PColor(160, 80, 40).GetColor32();
+        m_Driver->m_BrushWrites.fill(0);
+        m_Driver->Render(m_Bitmap, m_Position, "A", m_Font, advance, m_Clips, m_Background, m_Foreground, PDrawingMode::Copy, layers);
+        EXPECT_EQ(Pixel(2, 2), artwork[0]);
+        EXPECT_EQ(Pixel(3, 2), (hovered ? PColor(148, 208, 168) : PColor(208, 168, 148)).GetColor32());
+        EXPECT_EQ(Pixel(2, 3), m_Foreground.GetColor32());
+        EXPECT_EQ(Pixel(3, 3), artwork[1]);
+        EXPECT_EQ(Pixel(6, 4), artwork[0]);
+        for (size_t y = 0; y < 12; ++y)
+        {
+            for (size_t x = 0; x < 16; ++x)
+            {
+                const bool covered = (x >= 3 && x < 7 && y >= 1 && y < 5) || (x == 2 && y >= 2 && y < 4);
+                EXPECT_EQ(m_Driver->m_BrushWrites[y * 16 + x], covered ? 1 : 0) << x << ',' << y;
+            }
+        }
+    }
+}
+
+TEST_F(DisplayFontRasterTest, NineSliceLabelsMatchPartialRedrawsAndRgb565Output)
+{
+    std::array<uint32_t, 9> artwork;
+    for (size_t index = 0; index < artwork.size(); ++index) {
+        artwork[index] = PColor(uint8_t(index * 20), 60, 100).GetColor32();
+    }
+    PDisplayBrushLayer layer;
+    layer.Bitmap = {PEColorSpace::RGBA32, PIPoint(3, 3), 3 * sizeof(uint32_t), reinterpret_cast<uint8_t*>(artwork.data()), false};
+    layer.Description.Type = PBrushType::NineSlice;
+    layer.Description.SourceRect = PIRect(0, 0, 3, 3);
+    layer.Description.Borders = {1, 1, 1, 1};
+    layer.Bounds = PIRect(1, 1, 8, 6);
+    static constexpr std::array<uint8_t, 18> COVERAGE = {0, 128, 255, 128, 255, 0, 255, 0, 128, 255, 128, 0, 128, 255, 0, 128, 0, 255};
+    m_Glyph.Bounds = PIRect(-2, -3, 4, 0);
+    m_Glyph.Raster = COVERAGE.data();
+    const std::span<const PDisplayBrushLayer> layers(&layer, 1);
+    const PPoint advance(4, 0);
+    for (PDrawingMode mode : {PDrawingMode::Copy, PDrawingMode::Overlay})
+    {
+        m_Pixels.fill(PColor(16, 32, 48).GetColor32());
+        m_Driver->Render(m_Bitmap, m_Position, "A", m_Font, advance, m_Clips, m_Background, m_Foreground, mode, layers);
+        const std::array<uint32_t, 16 * 12> full = m_Pixels;
+        m_Pixels.fill(PColor(16, 32, 48).GetColor32());
+        for (int32_t top = 0; top < 12; ++top)
+        {
+            for (int32_t left = 0; left < 16; left += 2)
+            {
+                const PIRect clip(left, top, left + 2, top + 1);
+                m_Driver->Render(m_Bitmap, m_Position, "A", m_Font, advance, std::span(&clip, 1), m_Background, m_Foreground, mode, layers);
+            }
+        }
+        EXPECT_EQ(m_Pixels, full);
+        std::array<uint16_t, 16 * 12> pixels16;
+        pixels16.fill(PColor(16, 32, 48).GetColor16());
+        PDisplayBitmap bitmap16 = m_Bitmap;
+        bitmap16.ColorSpace = PEColorSpace::RGB16;
+        bitmap16.BytesPerLine = 16 * sizeof(uint16_t);
+        bitmap16.Raster = reinterpret_cast<uint8_t*>(pixels16.data());
+        m_Driver->Render(bitmap16, m_Position, "A", m_Font, advance, m_Clips, m_Background, m_Foreground, mode, layers);
+        for (size_t index = 0; index < full.size(); ++index) {
+            EXPECT_EQ(pixels16[index], PColor::FromRGB32A(full[index]).GetColor16());
+        }
+    }
 }
 
 } // namespace kernel

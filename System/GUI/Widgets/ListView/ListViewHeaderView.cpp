@@ -41,16 +41,16 @@ bool PListViewHeaderView::HasPointerCapture(PPointerID pointerID) const
 
 void PListViewHeaderView::DrawButton(const PString& title, const PRect& frame, const PFontHeight& fontHeight)
 {
-    SetEraseColor(PStandardColorID::ListViewTab);
+    SetBackgroundBrush(PStandardColorID::ListViewTab);
     DrawFrame(frame, FRAME_RAISED | FRAME_TRANSPARENT);
 
     SetFgColor(PStandardColorID::ListViewTabText);
-    SetBgColor(PStandardColorID::ListViewTab);
+    SetBrush(PStandardColorID::ListViewTab);
 
     const float textHeight = fontHeight.ascender + fontHeight.descender;
     const PPoint baseline = frame.TopLeft() + PPoint(5.0f, (frame.Height() + 1.0f - textHeight) * 0.5f + fontHeight.ascender);
     const PRect background = frame.GetFloored().GetResized(2.0f, 2.0f, -4.0f, -2.0f);
-    FillRect(PRect(background.right, background.top, background.right + 2.0f, background.bottom), GetBgColor());
+    FillBrushRect(PRect(background.right, background.top, background.right + 2.0f, background.bottom));
     DrawString(title, baseline, background, false);
 }
 

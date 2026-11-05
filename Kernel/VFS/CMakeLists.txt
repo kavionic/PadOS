@@ -22,7 +22,10 @@ if(PADOS_OPT_DEBUG_BLOCK_CACHE_DIAGNOSTICS)
 	target_sources(PadOS_Kernel PRIVATE KBlockCacheDiagnostics.cpp)
 endif()
 
+# Filesystem registration, partition discovery, and volume mount/unmount paths.
 target_sources(PadOS_KernelExt PRIVATE
+	FileIOVolumes.cpp
+	KVFSManagerVolumes.cpp
 	KDriverManager.cpp
 	KRootFilesystem.cpp
 	KPipeFilesystem.cpp

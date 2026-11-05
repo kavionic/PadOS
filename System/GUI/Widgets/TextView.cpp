@@ -160,7 +160,15 @@ void PTextView::OnPaint(const PRect& updateRect)
         PreferredSizeChanged();
     }
 
-    SetEraseColor(GetBgColor());
+    const PViewBrushBinding& drawingBrush = GetBrushBinding();
+    if (drawingBrush.Source == PBrushSource::Brush)
+    {
+        if (drawingBrush.AutomaticBounds) {
+            SetBackgroundBrush(drawingBrush.Brush);
+        } else {
+            SetBackgroundBrush(drawingBrush.Brush, drawingBrush.Bounds);
+        }
+    }
     const PRect bounds = GetBounds();
     const PFontHeight fontHeight = GetFontHeight();
     PPoint baseline(0.0f, fontHeight.ascender);

@@ -107,6 +107,11 @@ void KDisplayDriver::WriteString(
     if (mode != PDrawingMode::Copy && mode != PDrawingMode::Overlay) {
         PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
+    if (!m_Brush.IsEmpty())
+    {
+        WriteBrushString(bitmap, position, text, font, kernings, clipRects, foreground, advance, mode, width);
+        return;
+    }
     if (bitmap->VideoMemory) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }

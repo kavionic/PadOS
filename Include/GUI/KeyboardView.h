@@ -131,6 +131,7 @@ private:
     void    SlotLayoutSelected(Ptr<PMenuItem> item);
 
     Ptr<PKeyboardViewStyle>          m_Style = GetDefaultStyle();
+    Ptr<PBrush>                      m_BackgroundColorBrush;
 
     Ptr<PBitmap>                 m_KeysBitmap;
     PEventTimer                  m_RepeatTimer;

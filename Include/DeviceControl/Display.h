@@ -13,6 +13,7 @@
 #include <DeviceControl/DisplayFont.h>
 #include <ApplicationServer/DisplayDriverInvoker.h>
 #include <GUI/Color.h>
+#include <GUI/BrushTypes.h>
 #include <GUI/GUIDefines.h>
 #include <GUI/MouseCursor.h>
 #include <Math/Rect.h>
@@ -31,7 +32,16 @@ struct PScreenMode
 };
 
 
-// Raster storage remains owned by the appserver/client until submission completes.
+// Identifies a resource registered with one open kernel driver session.
+// These IDs are separate from appserver bitmap and brush handles.
+using PDriverResourceID = uint32_t;
+static constexpr PDriverResourceID DRIVER_INVALID_RESOURCE_ID = 0;
+
+// The owner preserves raster storage and validated access grants while any
+// registered bitmap, brush, selected composition, or pending command uses it.
+// Deleting an ID removes that handle; dependent resources retain their objects.
+// Device close releases all references after completing hardware accesses.
+// Future address-span revocation must retire these uses before removing grants.
 struct PDisplayBitmap
 {
     PEColorSpace ColorSpace = PEColorSpace::NO_COLOR_SPACE;
@@ -47,12 +57,17 @@ enum class PDisplayRequest : int
     Submit,
     GetScreenMode,
     SetScreenMode,
-    SetMouseCursorBitmap
+    SetMouseCursorBitmap,
+    CreateBitmap,
+    DeleteBitmap,
+    CreateBrush,
+    DeleteBrush
 };
 
 struct PDisplayInfo
 {
     PDisplayBitmap ScreenBitmap;
+    PDriverResourceID ScreenBitmapDriverResourceID = DRIVER_INVALID_RESOURCE_ID;
     int ModeCount = 0;
 };
 
@@ -65,6 +80,10 @@ public:
         , GetScreenMode(*this)
         , SetScreenMode(*this)
         , SetMouseCursorBitmap(*this)
+        , CreateBitmap(*this)
+        , DeleteBitmap(*this)
+        , CreateBrush(*this)
+        , DeleteBrush(*this)
     {
     }
 
@@ -89,6 +108,13 @@ public:
         std::to_underlying(PDisplayRequest::SetMouseCursorBitmap),
         bool(const PMouseCursorBitmap& cursor)
     > SetMouseCursorBitmap;
+    PDeviceControlInvoker<std::to_underlying(PDisplayRequest::CreateBitmap), PDriverResourceID(PDisplayBitmap bitmap, bool writable)> CreateBitmap;
+    PDeviceControlInvoker<std::to_underlying(PDisplayRequest::DeleteBitmap), void(PDriverResourceID bitmap)> DeleteBitmap;
+    PDeviceControlInvoker<
+        std::to_underlying(PDisplayRequest::CreateBrush),
+        PDriverResourceID(PDriverResourceID bitmap, const PBrushDescription& description)
+    > CreateBrush;
+    PDeviceControlInvoker<std::to_underlying(PDisplayRequest::DeleteBrush), void(PDriverResourceID brush)> DeleteBrush;
 };
 
 static constexpr size_t DISPLAY_COMMAND_ALIGNMENT = 8;
@@ -114,6 +140,10 @@ enum class PDisplayCommandID : uint32_t
     FillCircle,
     WriteString,
     WriteStringWidth,
+    SetBrush,
+    FillBrushRect,
+    UpdateBrush,
+    SetBrushColor,
     Count
 };
 
@@ -145,6 +175,10 @@ public:
         , FillCircle(driver)
         , WriteString(driver)
         , WriteStringWidth(driver)
+        , SetBrush(driver)
+        , FillBrushRect(driver)
+        , UpdateBrush(driver)
+        , SetBrushColor(driver)
     {
     }
 
@@ -154,33 +188,33 @@ public:
     PDisplayDriverInvoker<PDisplayCommandID::PowerLost, void(bool hasPower)> PowerLost;
     PDisplayDriverInvoker<PDisplayCommandID::SetMouseCursorVisible, void(bool visible)> SetMouseCursorVisible;
     PDisplayDriverInvoker<PDisplayCommandID::SetMousePos, void(PIPoint position)> SetMousePos;
-    PDisplayDriverInvoker<PDisplayCommandID::WritePixel, void(PDisplayBitmap bitmap, PIPoint position, PColor color)> WritePixel;
+    PDisplayDriverInvoker<PDisplayCommandID::WritePixel, void(PDriverResourceID bitmap, PIPoint position, PColor color)> WritePixel;
     PDisplayDriverInvoker<
         PDisplayCommandID::DrawLine,
-        void(PDisplayBitmap bitmap, PIRect clipRect, PIPoint position1, PIPoint position2, PColor color, PDrawingMode mode)
+        void(PDriverResourceID bitmap, PIRect clipRect, PIPoint position1, PIPoint position2, PColor color, PDrawingMode mode)
     > DrawLine;
     PDisplayDriverInvoker<
         PDisplayCommandID::FillPolygon,
-        void(PDisplayBitmap bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+        void(PDriverResourceID bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
     > FillPolygon;
     PDisplayDriverInvoker<
         PDisplayCommandID::FillTriangle,
-        void(PDisplayBitmap bitmap, PIRect clipRect, PIPoint position1, PIPoint position2, PIPoint position3, PDrawingMode mode)
+        void(PDriverResourceID bitmap, PIRect clipRect, PIPoint position1, PIPoint position2, PIPoint position3, PDrawingMode mode)
     > FillTriangle;
     PDisplayDriverInvoker<
         PDisplayCommandID::FillTriangleFan,
-        void(PDisplayBitmap bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+        void(PDriverResourceID bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
     > FillTriangleFan;
     PDisplayDriverInvoker<
         PDisplayCommandID::FillTriangleStrip,
-        void(PDisplayBitmap bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
+        void(PDriverResourceID bitmap, size_t clipCount, size_t pointCount, PDrawingMode mode)
     > FillTriangleStrip;
-    PDisplayDriverInvoker<PDisplayCommandID::FillRect, void(PDisplayBitmap bitmap, PIRect rect)> FillRect;
+    PDisplayDriverInvoker<PDisplayCommandID::FillRect, void(PDriverResourceID bitmap, PIRect rect)> FillRect;
     PDisplayDriverInvoker<
         PDisplayCommandID::CopyRect,
         void(
-            PDisplayBitmap destination,
-            PDisplayBitmap source,
+            PDriverResourceID destination,
+            PDriverResourceID source,
             PColor background,
             PColor foreground,
             PIRect sourceRect,
@@ -190,8 +224,8 @@ public:
     PDisplayDriverInvoker<
         PDisplayCommandID::ScaleRect,
         void(
-            PDisplayBitmap destination,
-            PDisplayBitmap source,
+            PDriverResourceID destination,
+            PDriverResourceID source,
             PColor background,
             PColor foreground,
             PIRect sourceOriginal,
@@ -202,7 +236,7 @@ public:
     > ScaleRect;
     PDisplayDriverInvoker<
         PDisplayCommandID::FillCircle,
-        void(PDisplayBitmap bitmap, PIRect clipRect, PIPoint center, int32_t radius, PColor color, PDrawingMode mode)
+        void(PDriverResourceID bitmap, PIRect clipRect, PIPoint center, int32_t radius, PColor color, PDrawingMode mode)
     > FillCircle;
     // Payload: clips, optional int32_t kerning adjustments, UTF-8.
     // One signed 26.6 adjustment per decoded character, applied before its glyph.
@@ -210,7 +244,7 @@ public:
     PDisplayDriverInvoker<
         PDisplayCommandID::WriteString,
         void(
-            PDisplayBitmap bitmap,
+            PDriverResourceID bitmap,
             PIPoint position,
             const PDisplayFontCache* font,
             size_t stringLength,
@@ -224,7 +258,7 @@ public:
     PDisplayDriverInvoker<
         PDisplayCommandID::WriteStringWidth,
         void(
-            PDisplayBitmap bitmap,
+            PDriverResourceID bitmap,
             PIPoint position,
             const PDisplayFontCache* font,
             size_t stringLength,
@@ -236,4 +270,14 @@ public:
             PDrawingMode mode,
             float width)
     > WriteStringWidth;
+
+    // SetBrush payload contains layerCount PDisplayBrushBinding records. State persists across submissions.
+    PDisplayDriverInvoker<PDisplayCommandID::SetBrush, void(size_t layerCount)> SetBrush;
+    PDisplayDriverInvoker<PDisplayCommandID::FillBrushRect, void(PDriverResourceID bitmap, PIRect bounds)> FillBrushRect;
+    PDisplayDriverInvoker<
+        PDisplayCommandID::UpdateBrush,
+        void(PDriverResourceID brush, PDriverResourceID bitmap, const PBrushDescription& description)
+    > UpdateBrush;
+    // Sets a solid color, releasing any previous bitmap at execution time.
+    PDisplayDriverInvoker<PDisplayCommandID::SetBrushColor, void(PDriverResourceID brush, PColor color)> SetBrushColor;
 };

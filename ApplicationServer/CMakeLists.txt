@@ -6,12 +6,14 @@
 ###############################################################################
 
 target_sources(PadOS_ApplicationServer PRIVATE
+	ServerViewBrush.cpp
 	ApplicationServer.cpp
 	DisplayDriver.cpp
 	KeyboardManager.cpp
 	ServerApplication.cpp
 	ServerApplication.h
 	ServerBitmap.cpp
+	ServerBrush.cpp
 	ServerView.cpp
 	ServerView.h
 )
@@ -26,7 +28,7 @@ set_source_files_properties(${applicationServerSources}
     TARGET_DIRECTORY PadOS_ApplicationServer
     PROPERTIES UNITY_GROUP appserver
 )
-set_source_files_properties(ServerView.cpp
+set_source_files_properties(ServerView.cpp ServerViewBrush.cpp
     TARGET_DIRECTORY PadOS_ApplicationServer
     PROPERTIES UNITY_GROUP views
 )

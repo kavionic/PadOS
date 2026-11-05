@@ -26,6 +26,7 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& ite
 
     AddChild(m_ContentView);
     OnFrameSized(PPoint());
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,6 +127,7 @@ DropdownMenuPopupView::DropdownMenuPopupView(
 {
     m_PopupStyleData.Selection = selection;
     m_OldSelection = m_PopupStyleData.Selection;
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -72,6 +72,7 @@ private:
     PPoint                   m_HitPos;
 
     Ptr<const PTextBoxStyle> m_Style;
+    Ptr<PBrush> m_BackgroundColorBrush;
 
     PTextEditView(const PTextEditView&) = delete;
     PTextEditView& operator=(const PTextEditView&) = delete;

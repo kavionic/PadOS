@@ -73,6 +73,7 @@ private:
 
 
     Ptr<PTextEditView> m_Editor;
+    Ptr<PBrush> m_BackgroundColorBrush;
 
     PTextBox(const PTextBox&) = delete;
     PTextBox& operator=(const PTextBox&) = delete;

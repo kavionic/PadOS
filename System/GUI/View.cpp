@@ -63,7 +63,13 @@ static PColor g_DefaultColors[] =
     [int(PStandardColorID::SliderTrackNormal)]       = PColor(PNamedColors::darkgray),
     [int(PStandardColorID::SliderTrackDisabled)]     = PColor(PNamedColors::darkgray),
     [int(PStandardColorID::ListViewTab)]             = PColor(PNamedColors::slategray),
-    [int(PStandardColorID::ListViewTabText)]         = PColor(PNamedColors::white)
+    [int(PStandardColorID::ListViewTabText)]         = PColor(PNamedColors::white),
+    [int(PStandardColorID::ListViewBackground)]      = PColor(PNamedColors::white),
+    [int(PStandardColorID::ListViewSelection)]       = PColor(PNamedColors::black),
+    [int(PStandardColorID::ListViewHighlight)]       = PColor(0, 50, 200),
+    [int(PStandardColorID::DropdownMenuBackground)]  = PColor(PNamedColors::white),
+    [int(PStandardColorID::DropdownMenuSelection)]   = PColor(PNamedColors::black),
+    [int(PStandardColorID::DropdownMenuPressed)]     = PColor(0, 0, 200)
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,10 +146,11 @@ PView::PView(const PString& name, PViewFlags flags)
         PViewHitMode::HitTest,
         0,
         1.0f,
-        pget_standard_color(PStandardColorID::DefaultBackground),
-        pget_standard_color(PStandardColorID::DefaultBackground),
         PColor(0, 0, 0))
 {
+    m_BackgroundBrush.Brush = GetStandardBrush(PStandardColorID::DefaultBackground);
+    m_BackgroundBrush.Source = PBrushSource::Brush;
+    m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
 
@@ -172,9 +179,7 @@ PView::PView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
                context.GetAttribute(xmlData, "hit_mode", PViewHitMode::HitTest),
                0,
                1.0f,
-               pget_standard_color(PStandardColorID::DefaultBackground),
-               pget_standard_color(PStandardColorID::DefaultBackground),
-               PColor(0, 0, 0))
+                             PColor(0, 0, 0))
 {
     SetHAlignment(context.GetAttribute(xmlData, "h_alignment", PAlignment::Center));
     SetVAlignment(context.GetAttribute(xmlData, "v_alignment", PAlignment::Center));
@@ -276,6 +281,9 @@ PView::PView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
 		}
 	}
 
+    m_BackgroundBrush.Brush = GetStandardBrush(PStandardColorID::DefaultBackground);
+    m_BackgroundBrush.Source = PBrushSource::Brush;
+    m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
 
@@ -292,11 +300,12 @@ PView::PView(handler_id serverHandle, const PString& name, const PRect& frame)
         PViewHitMode::HitTest,
         0,
         1.0f,
-        PColor(0xffffffff),
-        PColor(0xffffffff),
         PColor(0))
 {
     m_ServerHandle = serverHandle;
+    m_BackgroundBrush.Brush = GetStandardBrush(PNamedColors::white);
+    m_BackgroundBrush.Source = PBrushSource::Brush;
+    m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
 
@@ -336,11 +345,9 @@ PApplication* PView::GetApplication() const
         if (parent != nullptr) {
             return parent->GetApplication();
         } else {
-            return nullptr;
+            return PApplication::GetCurrentApplication();
         }
     }
-
-    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -609,9 +616,8 @@ void PView::InvalidateLayout()
     if (m_IsLayoutValid)
     {
         m_IsLayoutValid = false;
-        PApplication* app = GetApplication();
-        if (app != nullptr) {
-            app->RegisterViewForLayout(ptr_tmp_cast(this));
+        if (HasFlags(PViewFlag::IsAttachedToScreen)) {
+            GetApplication()->RegisterViewForLayout(ptr_tmp_cast(this));
         }
     }
 }
@@ -964,7 +970,7 @@ bool PView::RemoveThis()
         parent->RemoveChild(ptr_tmp_cast(this));
         return true;
     }
-    else if (m_ServerHandle != INVALID_HANDLE)
+    else if (HasFlags(PViewFlag::IsAttachedToScreen))
     {
         PApplication* app = GetApplication();
         if (app != nullptr)
@@ -1098,9 +1104,8 @@ bool PView::HitTest(const PPoint& position) const
 
 void PView::InvalidatePointerHitTest()
 {
-    PApplication* app = GetApplication();
-    if (app != nullptr) {
-        app->InvalidatePointerPaths();
+    if (HasFlags(PViewFlag::IsAttachedToScreen)) {
+        GetApplication()->InvalidatePointerPaths();
     }
 }
 
@@ -1169,7 +1174,7 @@ bool PView::HasPointerCapture(PPointerID pointerID) const
 void PView::SetKeyboardFocus(bool focus)
 {
     PApplication* app = GetApplication();
-    if (app != nullptr) {
+    if (m_ServerHandle != INVALID_HANDLE && app != nullptr) {
         app->SetKeyboardFocus(ptr_tmp_cast(this), focus, true);
     }
 }
@@ -1350,7 +1355,7 @@ Ptr<const PFont> PView::GetFont() const
 void PView::HandlePointerEvent(const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    if (app == nullptr) {
+    if (m_ServerHandle == INVALID_HANDLE || app == nullptr) {
         return;
     }
 
@@ -1459,7 +1464,7 @@ void PView::DrawString(const PString& string, const PPoint& pos, const PRect& ba
     if (m_Font == nullptr || GetDrawingMode() != PDrawingMode::Copy
         || m_Font->GetDescription().Rotation != 0.0f || m_Font->GetDescription().Shear != 90.0f)
     {
-        FillRect(background, GetBgColor());
+        FillBrushRect(background);
         DrawString(string, pos);
         return;
     }
@@ -1476,18 +1481,18 @@ void PView::DrawString(const PString& string, const PPoint& pos, const PRect& ba
 
     if (top >= bottom || left >= frame.right)
     {
-        FillRect(background, GetBgColor());
+        FillBrushRect(background);
     }
     else
     {
         if (top > frame.top) {
-            FillRect(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset, GetBgColor());
+            FillBrushRect(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset);
         }
         if (left > frame.left) {
-            FillRect(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset, GetBgColor());
+            FillBrushRect(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset);
         }
         if (bottom < frame.bottom) {
-            FillRect(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset, GetBgColor());
+            FillBrushRect(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset);
         }
     }
     DrawString(string, pos, float(frame.right - baseline.x), allowPartialCharacter);
@@ -1749,18 +1754,16 @@ void PView::HandleRemovedFromParent(Ptr<PView> parent)
         Show(true);
     }
     OnDetachedFromParent(parent);
-    PApplication* const app = GetApplication();
     if (HasFlags(PViewFlag::Eavesdropper))
     {
-        if (app != nullptr) {
-            app->InvalidatePointerPaths();
+        if (HasFlags(PViewFlag::IsAttachedToScreen)) {
+            GetApplication()->InvalidatePointerPaths();
         }
     }
     else
     {
-        if (app != nullptr)
-        {
-            app->RemoveView(ptr_tmp_cast(this));
+        if (HasFlags(PViewFlag::IsAttachedToScreen)) {
+            GetApplication()->RemoveView(ptr_tmp_cast(this));
         }
         UpdatePosition(PView::UpdatePositionNotifyServer::IfChanged);
     }

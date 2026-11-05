@@ -6,6 +6,7 @@
 ###############################################################################
 
 target_sources(PadOS_ApplicationServer PRIVATE
+	ServerBrush.h
 	ApplicationServer.h
 	DisplayDriver.h
 	DisplayDriverInvoker.h

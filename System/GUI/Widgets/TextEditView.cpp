@@ -42,6 +42,7 @@ PTextEditView::PTextEditView(PViewFactoryContext& context, const pugi::xml_node&
 void PTextEditView::Initialize()
 {
     m_Style = PTextBox::GetDefaultStyle();
+    m_BackgroundColorBrush = ptr_new<PBrush>(m_Style->BackgroundColor, GetApplication());
     m_CursorTimer.Set(TimeValNanos::FromSeconds(0.8));
     m_CursorTimer.SignalTrigged.Connect(this, &PTextEditView::SlotCursorTimer);
 
@@ -124,23 +125,28 @@ PPoint PTextEditView::CalculateContentSize() const
 
 void PTextEditView::OnPaint(const PRect& updateRect)
 {
+    PColor backgroundColor;
     if (!IsEnabled())
     {
-        SetBgColor(m_Style->DisabledBackgroundColor);
+        backgroundColor = m_Style->DisabledBackgroundColor;
         SetFgColor(m_Style->DisabledTextColor);
     }
     else if (HasFlags(PTextBoxFlag::ReadOnly))
     {
-        SetBgColor(m_Style->ReadOnlyBackgroundColor);
+        backgroundColor = m_Style->ReadOnlyBackgroundColor;
         SetFgColor(m_Style->ReadOnlyTextColor);
     }
     else
     {
-        SetBgColor(m_Style->BackgroundColor);
+        backgroundColor = m_Style->BackgroundColor;
         SetFgColor(m_Style->TextColor);
     }
 
-    SetEraseColor(GetBgColor());
+    if (m_BackgroundColorBrush->GetDescription().Color != backgroundColor) {
+        m_BackgroundColorBrush->SetColor(backgroundColor);
+    }
+    SetBrush(m_BackgroundColorBrush);
+    SetBackgroundBrush(m_BackgroundColorBrush);
     DrawString(m_Text, PPoint(0.0f, GetFontHeight().ascender), GetBounds());
 
     if (m_CursorVisible) {

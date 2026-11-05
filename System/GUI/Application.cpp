@@ -104,6 +104,9 @@ PApplication::~PApplication()
         auto pendingView = m_ViewsNeedingLayout.extract(m_ViewsNeedingLayout.begin());
         pendingView.value()->m_IsLayoutPending = false;
     }
+    m_GUIStyle = nullptr;
+    m_StandardBrushes.fill(nullptr);
+    m_NamedBrushes.clear();
     Flush();
     if (m_ServerHandle != INVALID_HANDLE)
     {
@@ -120,6 +123,18 @@ PApplication::~PApplication()
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::SetGUIStyle(Ptr<const PGUIStyle> style)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (m_StyleSelectionClosed) {
+        PERROR_THROW_CODE(PErrorCode::BUSY);
+    }
+    if (style == nullptr) {
+        style = ptr_new<PDefaultGUIStyle>();
+    }
+    m_GUIStyle = std::move(style);
+}
 
 void PApplication::Idle()
 {
@@ -164,6 +179,7 @@ bool PApplication::AddView(Ptr<PView> view, PViewDockType dockType, size_t index
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'");
         return false;
     }
+    m_StyleSelectionClosed = true;
     view->HandlePreAttachToScreen(this);
 
     Ptr<PView>   parent       = view->GetParent();
@@ -417,6 +433,65 @@ void PApplication::DeleteBitmap(handle_id bitmapHandle)
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+Ptr<const PBrush> PApplication::GetStandardBrush(PStandardColorID color)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    const size_t index = size_t(std::to_underlying(color));
+    if (index >= m_StandardBrushes.size()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    Ptr<PBrush>& brush = m_StandardBrushes[index];
+    const PColor value = pget_standard_color(color);
+    if (brush == nullptr) {
+        brush = ptr_new<PBrush>(value, this);
+    } else {
+        brush->SetColor(value);
+    }
+    return brush;
+}
+
+Ptr<const PBrush> PApplication::GetStandardBrush(PNamedColors color)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    Ptr<PBrush>& brush = m_NamedBrushes[color];
+    if (brush == nullptr) {
+        brush = ptr_new<PBrush>(PColor(color), this);
+    }
+    return brush;
+}
+
+handle_id PApplication::CreateBrush(const PBrushDescription& description, handle_id bitmapHandle)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (m_ServerHandle == INVALID_HANDLE) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    Post<ASCreateBrush>(m_ReplyPort.GetHandle(), description, bitmapHandle);
+    Flush();
+    MsgCreateBrushReply reply;
+    ReceiveReply(PAppserverProtocol::CREATE_BRUSH_REPLY, &reply, sizeof(reply));
+    PERROR_ERRORCODE_THROW_ON_FAIL(reply.Error);
+    return reply.BrushHandle;
+}
+
+void PApplication::DeleteBrush(handle_id brushHandle)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    Post<ASDeleteBrush>(brushHandle);
+}
+
+void PApplication::UpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    Post<ASUpdateBrush>(brushHandle, description, bitmapHandle);
+}
+
+void PApplication::SetBrushColor(handle_id brushHandle, PColor color)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    Post<ASSetBrushColor>(brushHandle, color);
+}
 
 handle_id PApplication::CreateFont(const PFontDescription& description, PFontHeight& outHeight)
 {
@@ -721,6 +796,10 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
     if (view->m_Font->GetApplication() != this) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Font belongs to another application");
     }
+    if ((view->m_BackgroundBrush.Brush != nullptr && view->m_BackgroundBrush.Brush->GetApplication() != this)
+        || (view->m_DrawingBrush.Brush != nullptr && view->m_DrawingBrush.Brush->GetApplication() != this)) {
+        PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Brush belongs to another application");
+    }
     Post<ASCreateView>(m_ReplyPort.GetHandle()
         , view->GetHandle()
         , parentHandle
@@ -741,8 +820,8 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         , view->m_DashPattern
         , view->m_DashOffset
         , view->m_Font->GetHandle()
-        , view->m_EraseColor
-        , view->m_BgColor
+        , (view->m_BackgroundBrush.Brush != nullptr) ? view->m_BackgroundBrush.Brush->GetHandle() : INVALID_HANDLE
+        , (view->m_DrawingBrush.Brush != nullptr) ? view->m_DrawingBrush.Brush->GetHandle() : INVALID_HANDLE
         , view->m_FgColor
         );
     Flush();
@@ -757,6 +836,12 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             {
                 view->SetServerHandle(reply.m_ViewHandle);
                 view->HandleScreenPositionChanged(reply.m_ScreenPosition);
+                if (!view->m_BackgroundBrush.AutomaticBounds) {
+                    view->SendBrush(true);
+                }
+                if (!view->m_DrawingBrush.AutomaticBounds) {
+                    view->SendBrush(false);
+                }
                 InvalidatePointerPaths();
                 break;
             }

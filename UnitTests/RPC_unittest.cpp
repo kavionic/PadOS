@@ -88,7 +88,7 @@ struct PolygonReceiver
     size_t ClipCount = 0;
     size_t PointCount = 0;
 
-    void Receive(std::span<const std::byte> payload, PDisplayBitmap, size_t clipCount, size_t pointCount, PDrawingMode)
+    void Receive(std::span<const std::byte> payload, PDriverResourceID, size_t clipCount, size_t pointCount, PDrawingMode)
     {
         Payload = payload;
         ClipCount = clipCount;
@@ -355,7 +355,7 @@ TEST(RPC, GeometryPayloadIsAlignedAndReservedInPlace)
     EXPECT_EQ(uintptr_t(payload) % alignof(PIRect), 0u);
     EXPECT_EQ(uintptr_t(payload + sizeof(PIRect)) % alignof(PPoint), 0u);
     std::memset(payload, 0x5a, payloadSize);
-    invoke(storage, PDisplayBitmap(), size_t(1), size_t(3), PDrawingMode());
+    invoke(storage, PDriverResourceID(7), size_t(1), size_t(3), PDrawingMode());
     EXPECT_EQ(buffer.Allocations, 1u);
     EXPECT_EQ(buffer.Length, invoke.GetFixedSize() + payloadSize);
     for (size_t index = 0; index < payloadSize; ++index) {

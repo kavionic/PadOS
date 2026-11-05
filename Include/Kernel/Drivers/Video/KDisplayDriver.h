@@ -17,6 +17,8 @@
 #include <Kernel/Drivers/Video/KDisplayText.h>
 #include <RPC/RPCDispatcher.h>
 #include <DeviceControl/Display.h>
+#include <Kernel/Drivers/Video/KDisplayBrush.h>
+#include <Kernel/Drivers/Video/KDisplayResources.h>
 
 #define RAS_OFFSET8( ptr, x, y, bpl) (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
 #define RAS_OFFSET16(ptr, x, y, bpl) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
@@ -151,6 +153,8 @@ public:
         PDrawingMode mode,
         float width = std::numeric_limits<float>::infinity());
 
+    void FillBrushRect(PDisplayBitmap* bitmap, const PIRect& bounds);
+    virtual void WriteBrushBlock(PDisplayBitmap* bitmap, const PIRect& bounds, std::span<const PColor> pixels);
     static PColor   GetPaletteEntry(uint8_t index);
 
 protected:
@@ -160,7 +164,23 @@ protected:
         PColor background,
         PColor foreground,
         std::optional<uint32_t> colorKey = std::nullopt);
+    void WriteBrushString(
+        PDisplayBitmap* bitmap,
+        const PIPoint& position,
+        std::string_view text,
+        const PDisplayFontCache& font,
+        std::span<const int32_t> kernings,
+        std::span<const PIRect> clipRects,
+        PColor foreground,
+        PPoint advance,
+        PDrawingMode mode,
+        float width);
+    void DrawBrushBitmap(PDisplayBitmap* destination, const PDisplayBrushLayer& source, const PIRect& bounds, PDrawingMode mode);
+
     KDisplayText m_FontText;
+    KDisplayBrush m_Brush;
+    std::array<PColor, DISPLAY_BRUSH_BLOCK_PIXELS> m_BrushPixels;
+    std::array<PColor, DISPLAY_BRUSH_BLOCK_PIXELS> m_SourcePixels;
 
     KMutex          m_Mutex;
     // A faulted driver must release client memory and allow Close() without waiting for stalled hardware.
@@ -174,9 +194,14 @@ private:
     bool HandleSetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate);
     bool HandleSetMouseCursorBitmap(const PMouseCursorBitmap& cursor);
 
-    void HandleWritePixel(PDisplayBitmap bitmap, PIPoint position, PColor color);
+    PDriverResourceID HandleCreateBitmap(PDisplayBitmap bitmap, bool writable);
+    void HandleDeleteBitmap(PDriverResourceID bitmap);
+    PDriverResourceID HandleCreateBrush(PDriverResourceID bitmap, const PBrushDescription& description);
+    void HandleDeleteBrush(PDriverResourceID brush);
+
+    void HandleWritePixel(PDriverResourceID bitmap, PIPoint position, PColor color);
     void HandleDrawLine(
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         PIRect clipRect,
         PIPoint position1,
         PIPoint position2,
@@ -184,12 +209,12 @@ private:
         PDrawingMode mode);
     void HandleFillPolygon(
         std::span<const std::byte> payload,
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         size_t clipCount,
         size_t pointCount,
         PDrawingMode mode);
     void HandleFillTriangle(
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         PIRect clipRect,
         PIPoint position1,
         PIPoint position2,
@@ -197,28 +222,28 @@ private:
         PDrawingMode mode);
     void HandleFillTriangleFan(
         std::span<const std::byte> payload,
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         size_t clipCount,
         size_t pointCount,
         PDrawingMode mode);
     void HandleFillTriangleStrip(
         std::span<const std::byte> payload,
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         size_t clipCount,
         size_t pointCount,
         PDrawingMode mode);
-    void HandleFillRect(PDisplayBitmap bitmap, PIRect rect);
+    void HandleFillRect(PDriverResourceID bitmap, PIRect rect);
     void HandleCopyRect(
-        PDisplayBitmap destination,
-        PDisplayBitmap source,
+        PDriverResourceID destination,
+        PDriverResourceID source,
         PColor background,
         PColor foreground,
         PIRect sourceRect,
         PIPoint position,
         PDrawingMode mode);
     void HandleScaleRect(
-        PDisplayBitmap destination,
-        PDisplayBitmap source,
+        PDriverResourceID destination,
+        PDriverResourceID source,
         PColor background,
         PColor foreground,
         PIRect sourceOriginal,
@@ -227,7 +252,7 @@ private:
         PIRect destinationRect,
         PDrawingMode mode);
     void HandleFillCircle(
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         PIRect clipRect,
         PIPoint center,
         int32_t radius,
@@ -235,7 +260,7 @@ private:
         PDrawingMode mode);
     void HandleWriteString(
         std::span<const std::byte> payload,
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         PIPoint position,
         const PDisplayFontCache* font,
         size_t stringLength,
@@ -247,7 +272,7 @@ private:
         PDrawingMode mode);
     void HandleWriteStringWidth(
         std::span<const std::byte> payload,
-        PDisplayBitmap bitmap,
+        PDriverResourceID bitmap,
         PIPoint position,
         const PDisplayFontCache* font,
         size_t stringLength,
@@ -259,6 +284,14 @@ private:
         PDrawingMode mode,
         float width);
 
+    void HandleSetBrush(std::span<const std::byte> payload, size_t layerCount);
+    void HandleFillBrushRect(PDriverResourceID bitmap, PIRect bounds);
+    void HandleUpdateBrush(PDriverResourceID brush, PDriverResourceID bitmap, const PBrushDescription& description);
+    void HandleSetBrushColor(PDriverResourceID brush, PColor color);
+    Ptr<KDisplayBitmapResource> ResolveBrushBitmap_pl(PDriverResourceID bitmap, const PBrushDescription& description) const;
+    void RefreshSelectedBrushLayers_pl(const Ptr<KDisplayBrushResource>& brush);
+    void RefreshBrushLayer_pl(size_t index);
+
     void ExecuteCommands_pl(const void* buffer, size_t length);
 
     void FillTriangleUnion(PDisplayBitmap* bitmap, const PIRect& clipRect,
@@ -268,6 +301,12 @@ private:
     void FillBlit16(uint16_t* dst, int nMod, int W, int H, uint16_t nColor);
     void FillBlit24(uint8_t* dst, int nMod, int W, int H, uint32_t nColor);
     void FillBlit32(uint32_t* dst, int nMod, int W, int H, uint32_t nColor);
+
+    KDisplayResourceTable<KDisplayBitmapResource> m_BitmapResources;
+    KDisplayResourceTable<KDisplayBrushResource> m_BrushResources;
+    std::vector<Ptr<KDisplayBrushResource>> m_SelectedBrushResources;
+    std::vector<PDisplayBrushLayer> m_BrushLayerBuffer;
+    PDriverResourceID m_ScreenBitmapDriverResourceID = DRIVER_INVALID_RESOURCE_ID;
 
     PRPCDispatcher  m_DeviceControlDispatcher;
     PRPCDispatcher  m_CommandDispatcher;

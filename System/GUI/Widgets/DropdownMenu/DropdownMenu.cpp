@@ -378,7 +378,7 @@ void PDropdownMenu::Initialize()
 void PDropdownMenu::OpenMenu()
 {
     PApplication* application = GetApplication();
-    if (application == nullptr || GetStyle() == nullptr) {
+    if (!HasFlags(PViewFlag::IsAttachedToScreen) || application == nullptr || GetStyle() == nullptr) {
         return;
     }
     Ptr<DropdownMenuPopupWindow> menuView = ptr_new<DropdownMenuPopupWindow>(m_DropdownMenuStyleData.Items, m_Selection);
@@ -402,9 +402,8 @@ void PDropdownMenu::CloseMenu()
 {
     if (m_MenuWindow != nullptr)
     {
-        PApplication* application = GetApplication();
-        if (application != nullptr) {
-            application->RemoveView(m_MenuWindow);
+        if (m_MenuWindow->HasFlags(PViewFlag::IsAttachedToScreen)) {
+            m_MenuWindow->GetApplication()->RemoveView(m_MenuWindow);
         }
         m_MenuWindow.Reset();
         m_DropdownMenuStyleData.IsOpen = false;

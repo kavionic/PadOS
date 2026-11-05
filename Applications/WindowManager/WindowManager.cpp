@@ -75,7 +75,7 @@ void WindowManager::ThreadStarted()
             m_DesktopView->SetFrame(m_TopView->GetBounds());
         }
         if (m_SidebarView != nullptr) {
-            m_SidebarView->SetEraseColor(100, 100, 100);
+            m_SidebarView->SetBackgroundBrush(PNamedColors::dimgray);
         }
         AddView(m_TopView, PViewDockType::RootLevelView);
     }

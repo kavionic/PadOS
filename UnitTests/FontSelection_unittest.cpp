@@ -295,7 +295,7 @@ TEST(FontSelection, UTF8CharactersStraddlingAMessageBoundaryRemainWhole)
     });
 }
 
-TEST(FontSelection, SliderGeometryUsesTheStyleAndHandlesMissingStyle)
+TEST(FontSelection, SliderGeometryUsesTheStyleBeforeAndAfterHandlerRegistration)
 {
     RunGUITest([](PApplication& application)
     {
@@ -305,17 +305,19 @@ TEST(FontSelection, SliderGeometryUsesTheStyleAndHandlesMissingStyle)
             slider->SetMinMax(10.0f, 30.0f);
             slider->SetValue(20.0f, false);
             slider->SetFrame(PRect(0.0f, 0.0f, 200.0f, 200.0f));
-            EXPECT_EQ(slider->GetStyle(), nullptr);
-            EXPECT_EQ(slider->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
-            EXPECT_FLOAT_EQ(slider->PosToVal(PPoint(50.0f, 50.0f)), 20.0f);
-            EXPECT_EQ(slider->ValToPos(20.0f), PPoint());
+            EXPECT_EQ(slider->GetStyle(), application.GetGUIStyle());
+            const PPoint detachedSize = slider->GetPreferredSize(PPrefSizeType::Smallest);
+            const PPoint detachedPosition = slider->ValToPos(20.0f);
+            EXPECT_GT(detachedSize.x, 0.0f);
+            EXPECT_GT(detachedSize.y, 0.0f);
+            EXPECT_FLOAT_EQ(slider->PosToVal(detachedPosition), 20.0f);
 
             ASSERT_TRUE(application.AddHandler(slider));
             PScopeExit removeSlider([&application, &slider] { application.RemoveHandler(slider); });
             slider->OnStyleChanged();
-            ASSERT_NE(slider->GetStyle(), nullptr);
-            EXPECT_GT(slider->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
-            EXPECT_GT(slider->GetPreferredSize(PPrefSizeType::Smallest).y, 0.0f);
+            EXPECT_EQ(slider->GetStyle(), application.GetGUIStyle());
+            EXPECT_EQ(slider->GetPreferredSize(PPrefSizeType::Smallest), detachedSize);
+            EXPECT_EQ(slider->ValToPos(20.0f), detachedPosition);
             const PPoint minimumPosition = slider->ValToPos(10.0f);
             const PPoint maximumPosition = slider->ValToPos(30.0f);
             EXPECT_FLOAT_EQ(slider->PosToVal(minimumPosition), 10.0f);

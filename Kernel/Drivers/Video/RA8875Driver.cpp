@@ -275,6 +275,7 @@ void RA8875GfxDriver::FillRect(PDisplayBitmap* bitmap, const PIRect& rect)
 {
     if (bitmap->VideoMemory)
     {
+        m_SolidFillPixelCount += uint64_t(rect.Width()) * uint64_t(rect.Height());
         SetHardwareFgColor(GetFgColor().GetColor16());
         UnsetWindow();
 
@@ -313,8 +314,15 @@ void RA8875GfxDriver::CopyRect(
     const PIPoint& dstPosIn,
     PDrawingMode mode)
 {
+    if (!m_Brush.IsEmpty() && !srcBitmap->VideoMemory)
+    {
+        KDisplayDriver::CopyRect(dstBitmap, srcBitmap, bgColor, fgColor, srcRect, dstPosIn, mode);
+        return;
+    }
+
     if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
+        m_CopiedPixelCount += uint64_t(srcRect.Width()) * uint64_t(srcRect.Height());
         WaitBlitter();
 
         uint8_t ctrl;
@@ -383,6 +391,12 @@ void RA8875GfxDriver::ScaleRect(
     const PIRect& dstRect,
     PDrawingMode mode)
 {
+    if (!m_Brush.IsEmpty() && !srcBitmap->VideoMemory)
+    {
+        KDisplayDriver::ScaleRect(dstBitmap, srcBitmap, bgColor, fgColor, srcOrigRect, dstOrigRect, srcRect, dstRect, mode);
+        return;
+    }
+
     if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
         WaitBlitter();
@@ -460,7 +474,7 @@ void RA8875GfxDriver::WriteString(
     if (mode == PDrawingMode::Overlay && foreground.GetAlpha() == 0) {
         return;
     }
-    if (!bitmap->VideoMemory)
+    if (!bitmap->VideoMemory || !m_Brush.IsEmpty())
     {
         KDisplayDriver::WriteString(
             bitmap,
@@ -528,6 +542,27 @@ void RA8875GfxDriver::WriteString(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void RA8875GfxDriver::WriteBrushBlock(PDisplayBitmap* bitmap, const PIRect& bounds, std::span<const PColor> pixels)
+{
+    if (!bitmap->VideoMemory)
+    {
+        KDisplayDriver::WriteBrushBlock(bitmap, bounds, pixels);
+        return;
+    }
+    const bool hasTransparency = std::any_of(pixels.begin(), pixels.end(), [](PColor color) { return color.GetAlpha() == 0; });
+    const uint16_t key = hasTransparency ? KDisplayBrush::FindTransparencyKey(pixels) : 0;
+    if (hasTransparency) {
+        SetHardwareFgColor(key);
+    }
+    auto producePixels = [pixels, key](auto writePixel)
+    {
+        for (PColor color : pixels) {
+            writePixel((color.GetAlpha() == 0) ? key : color.GetColor16());
+        }
+    };
+    WritePixelBlock(bounds, hasTransparency, producePixels);
+}
+
 void RA8875GfxDriver::WaitIdle()
 {
     // All client raster access is synchronous CPU I/O. A faulted BTE cannot retain references to client memory.
@@ -562,6 +597,8 @@ void RA8875GfxDriver::BeginTransparentWrite(const PIRect& bounds)
 template<typename PixelProducer>
 void RA8875GfxDriver::WritePixelBlock(const PIRect& bounds, bool useBTE, PixelProducer producePixels)
 {
+    m_UploadedPixelCount += uint64_t(bounds.Width()) * uint64_t(bounds.Height());
+    ++m_UploadBlockCount;
     PScopeExit finishWrite([this]
     {
         // A BTE timeout faults the controller, so skip the final memory wait.

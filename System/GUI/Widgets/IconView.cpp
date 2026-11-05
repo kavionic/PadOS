@@ -168,21 +168,21 @@ void PIconView::Construct()
 
 void PIconView::UpdateHighlightColor()
 {
-    PColor color;
-
+    Ptr<const PBrush> brush;
     if (m_IsSelected && m_IsHighlighted) {
-        color = PColor::FromColorID(PNamedColors::darkblue);
+        brush = GetStandardBrush(PNamedColors::darkblue);
     } else if (m_IsSelected) {
-        color = PColor::FromColorID(PNamedColors::royalblue);
+        brush = GetStandardBrush(PNamedColors::royalblue);
     } else if (m_IsHighlighted) {
-        color = PColor::FromColorID(PNamedColors::lightblue);
+        brush = GetStandardBrush(PNamedColors::lightblue);
     } else {
-        color = pget_standard_color(PStandardColorID::DefaultBackground);
+        brush = GetStandardBrush(PStandardColorID::DefaultBackground);
     }
-
-    m_IconView->SetBgColor(color);
-    m_LabelView->SetBgColor(color);
-    SetEraseColor(color);
+    SetBackgroundBrush(brush);
+    m_IconView->SetBackgroundBrush(nullptr);
+    m_IconView->SetBrush(nullptr);
+    m_LabelView->SetBackgroundBrush(nullptr);
+    m_LabelView->SetBrush(nullptr);
 
     m_IconView->Invalidate();
     m_LabelView->Invalidate();

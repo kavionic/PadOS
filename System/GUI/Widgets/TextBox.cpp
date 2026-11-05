@@ -50,6 +50,7 @@ PTextBox::PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
 void PTextBox::Initialize(const PString& text)
 {
     m_Editor = ptr_new<PTextEditView>("Editor", text, GetFlags<PTextBoxFlags>());
+    m_BackgroundColorBrush = ptr_new<PBrush>(GetStyle()->BackgroundColor, GetApplication());
     AddChild(m_Editor);
     m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
 
@@ -123,13 +124,18 @@ void PTextBox::OnFrameSized(const PPoint& delta)
 void PTextBox::OnPaint(const PRect& updateRect)
 {
     Ptr<const PTextBoxStyle> style = GetStyle();
+    PColor backgroundColor;
     if (!IsEnabled()) {
-        SetEraseColor(style->DisabledBackgroundColor);
+        backgroundColor = style->DisabledBackgroundColor;
     } else if (HasFlags(PTextBoxFlag::ReadOnly)) {
-        SetEraseColor(style->ReadOnlyBackgroundColor);
+        backgroundColor = style->ReadOnlyBackgroundColor;
     } else {
-        SetEraseColor(style->BackgroundColor);
+        backgroundColor = style->BackgroundColor;
     }
+    if (m_BackgroundColorBrush->GetDescription().Color != backgroundColor) {
+        m_BackgroundColorBrush->SetColor(backgroundColor);
+    }
+    SetBackgroundBrush(m_BackgroundColorBrush);
 
     PRect bounds = GetBounds();
     DrawFrame(bounds, HasFlags(PTextBoxFlag::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);

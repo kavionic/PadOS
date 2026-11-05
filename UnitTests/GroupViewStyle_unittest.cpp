@@ -62,7 +62,7 @@ TEST(GroupViewStyle, ChildLayoutAndSizeOverridesRemainEffective)
         group->AddChild(child);
         group->SetLayoutNode(ptr_new<PLayoutNode>());
         group->SetLabel("Group");
-        EXPECT_EQ(group->GetStyle(), nullptr);
+        EXPECT_EQ(group->GetStyle(), application.GetGUIStyle());
         EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint(360.0f, 140.0f));
         EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Greatest), PPoint(440.0f, 160.0f));
         ASSERT_TRUE(application.AddHandler(group));
@@ -81,7 +81,7 @@ TEST(GroupViewStyle, ChildLayoutAndSizeOverridesRemainEffective)
     });
 }
 
-TEST(GroupViewStyle, DetachedViewsRetainTheirLabelAndHandleMissingStyle)
+TEST(GroupViewStyle, DetachedViewsRetainTheirLabelAndApplicationStyle)
 {
     RunGUITest([](PApplication& application)
     {
@@ -89,15 +89,17 @@ TEST(GroupViewStyle, DetachedViewsRetainTheirLabelAndHandleMissingStyle)
         group->SetLabel("Detached group");
         group->SetFrame(PRect(0.0f, 0.0f, 200.0f, 100.0f));
         group->OnPaint(group->GetBounds());
-        EXPECT_EQ(group->GetStyle(), nullptr);
-        EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(group->GetStyle(), application.GetGUIStyle());
+        EXPECT_GT(group->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
+        EXPECT_GT(group->GetPreferredSize(PPrefSizeType::Smallest).y, 0.0f);
         ASSERT_TRUE(application.AddHandler(group));
         group->OnStyleChanged();
         EXPECT_GT(group->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
         application.RemoveHandler(group);
         group->OnStyleChanged();
-        EXPECT_EQ(group->GetStyle(), nullptr);
-        EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(group->GetStyle(), application.GetGUIStyle());
+        EXPECT_GT(group->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
+        EXPECT_GT(group->GetPreferredSize(PPrefSizeType::Smallest).y, 0.0f);
         EXPECT_EQ(group->GetLabel(), "Detached group");
     });
 }
@@ -106,7 +108,7 @@ TEST(GroupViewStyle, PaintingRestoresThePenWidth)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("group_paint_target");
+        Ptr<PView> target = ptr_new<PView>("group_paint_target", PViewFlag::WillDraw);
         target->SetFrame(PRect(0.0f, 0.0f, 200.0f, 100.0f));
         target->SetPenWidth(7.0f);
         PGroupViewStyleData data;

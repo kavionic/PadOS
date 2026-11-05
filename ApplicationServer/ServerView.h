@@ -12,6 +12,7 @@
 #include <span>
 
 #include <GUI/View.h>
+#include <ApplicationServer/ServerBrush.h>
 
 
 class PSrvBitmap;
@@ -39,8 +40,8 @@ public:
         const std::vector<float>& dashPattern,
         float                dashOffset,
         Ptr<PServerFontInstance> font,
-        PColor               eraseColor,
-        PColor               bgColor,
+        Ptr<PServerBrush>    backgroundBrush,
+        Ptr<PServerBrush>    drawingBrush,
         PColor               fgColor
     );
 
@@ -106,8 +107,7 @@ public:
 
     void        SetHitMode(PViewHitMode mode);
     void        SetDrawingMode(PDrawingMode mode) { m_DrawingMode = mode; }
-    void        SetEraseColor(PColor color) { m_EraseColor = color; }
-    void        SetBgColor(PColor color)    { m_BgColor = color; }
+    void SetBrush(bool background, PBrushSource source, Ptr<PServerBrush> brush, const PRect& bounds, bool automaticBounds);
     void        SetFgColor(PColor color)    { m_FgColor = color; }
 
     void        SetFont(Ptr<PServerFontInstance> font);
@@ -128,6 +128,7 @@ public:
     void        DrawPie(const PRect& rect, float startAngle, float spanAngle);
     
     void        FillRect(const PRect& rect, PColor color);
+    void EraseRect(const PRect& rect, bool drawingBackground);
     void        FillCircle(const PPoint& position, float radius);
     void        FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3);
     void        FillTriangleFan(std::span<const PPoint> points);
@@ -148,6 +149,35 @@ public:
 
 private:
     friend class PViewBase<PServerView>;
+
+    static uint64_t s_BackgroundGeneration;
+    mutable uint64_t m_BackgroundCacheGeneration = 0;
+    PServerBrushBinding m_BackgroundBrush;
+    PServerBrushBinding m_DrawingBrush;
+    mutable PServerBrushState m_BackgroundBrushState;
+    mutable PServerBrushState m_DrawingBrushState;
+    mutable uint64_t m_DrawingCacheGeneration = 0;
+    mutable uint64_t m_DrawingCacheRevision = 0;
+    std::vector<PServerBrushLayer> m_PreviousBackgroundLayers;
+    PColor m_PreviousBackgroundColor;
+    bool m_PreviousBackgroundIsSolid = true;
+    bool m_HasBackgroundBrushes = false;
+    bool m_HasBackgroundSnapshot = false;
+    bool m_IsScrolling = false;
+
+    const PServerBrushState& GetBackgroundBrushState() const;
+    const PServerBrushState& GetDrawingBrushState() const;
+    PColor GetDrawingColor() const;
+    bool BrushCoversView(const PServerBrushBinding& binding) const;
+    void ResolveBrushState(PServerBrushState& state, const PServerBrushBinding& binding, const PServerBrushState* base) const;
+    void BackgroundBrushChanged();
+    void MarkBackgroundBrushes();
+    void InvalidateBackgroundDependents(bool invalidateSelf);
+    void CaptureBackgrounds();
+    void ClearBackgroundSnapshots();
+    bool CanReuseBackground(const PIPoint& movement) const;
+    void ExcludeStableBackgrounds(PRegion& region, const PIPoint& movement) const;
+    void ExcludeChangedBackgrounds(PRegion& region, const PIPoint& movement);
 
     void UpdateClientRootState();
     void NotifyScreenPositionChanged();

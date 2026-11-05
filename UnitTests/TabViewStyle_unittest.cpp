@@ -261,7 +261,7 @@ TEST(TabViewStyle, SelectionAndDeletionHandleSharedAndMissingContents)
     });
 }
 
-TEST(TabViewStyle, DetachedViewsRetainTabsAndHandleMissingStyle)
+TEST(TabViewStyle, DetachedViewsRetainTabsAndApplicationStyle)
 {
     RunGUITest([](PApplication& application)
     {
@@ -271,9 +271,9 @@ TEST(TabViewStyle, DetachedViewsRetainTabsAndHandleMissingStyle)
         tabs->SetSelection(1, false);
         tabs->SetFrame(PRect(0.0f, 0.0f, 300.0f, 150.0f));
         tabs->OnPaint(tabs->GetBounds());
-        EXPECT_EQ(tabs->GetStyle(), nullptr);
-        EXPECT_EQ(tabs->GetClientFrame(), tabs->GetNormalizedBounds());
-        EXPECT_EQ(tabs->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(tabs->GetStyle(), application.GetGUIStyle());
+        EXPECT_GT(tabs->GetClientFrame().top, 0.0f);
+        EXPECT_GT(tabs->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
         ASSERT_TRUE(application.AddHandler(tabs));
         PScopeExit removeTabs([&application, &tabs] { application.RemoveHandler(tabs); });
         tabs->OnStyleChanged();
@@ -282,10 +282,10 @@ TEST(TabViewStyle, DetachedViewsRetainTabsAndHandleMissingStyle)
         application.RemoveHandler(tabs);
         removeTabs.release();
         tabs->OnStyleChanged();
-        EXPECT_EQ(tabs->GetStyle(), nullptr);
+        EXPECT_EQ(tabs->GetStyle(), application.GetGUIStyle());
         EXPECT_EQ(tabs->GetTabTitle(1), "Second");
         EXPECT_EQ(tabs->GetSelection(), 1u);
-        EXPECT_EQ(tabs->GetClientFrame(), tabs->GetNormalizedBounds());
+        EXPECT_GT(tabs->GetClientFrame().top, 0.0f);
     });
 }
 

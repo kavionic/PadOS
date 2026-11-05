@@ -115,7 +115,7 @@ void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isEna
 
     const PStandardColorID backgroundColor =
         (isEnabled && data.IsPointerOver) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::ButtonBackground;
-    target.SetEraseColor(backgroundColor);
+    target.SetBackgroundBrush(backgroundColor);
 
     if (isEnabled) {
         target.DrawFrame(frame, (data.IsPressed ? FRAME_RECESSED : FRAME_RAISED) | FRAME_TRANSPARENT);
@@ -130,7 +130,7 @@ void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isEna
 
     labelPosition.y += target.GetFontHeight().ascender;
     target.SetFgColor(isEnabled ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
-    target.SetBgColor(backgroundColor);
+    target.SetBrush(backgroundColor);
     target.DrawString(data.Label, labelPosition, frame.GetFloored().GetResized(2.0f, 2.0f, -2.0f, -2.0f));
 }
 
@@ -157,10 +157,10 @@ void PDefaultGUIStyle::CheckBoxPaint(PView& target, const PRect& frame, bool isE
     const PFontHeight fontHeight = target.GetFontHeight();
     const float baseline = frame.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender;
     target.SetFgColor(0, 0, 0);
-    target.SetBgColor(PStandardColorID::DefaultBackground);
+    target.SetBrush(PStandardColorID::DefaultBackground);
     target.DrawString(data.Label, PPoint(CHECK_BOX_SIZE + CHECK_BOX_LABEL_SPACING, baseline), frame);
 
-    target.SetEraseColor(backgroundColor);
+    target.SetBackgroundBrush(backgroundColor);
 
     const float buttonTop = (frame.Height() - CHECK_BOX_SIZE) * 0.5f;
     const PRect buttonFrame(0.0f, buttonTop, CHECK_BOX_SIZE, buttonTop + CHECK_BOX_SIZE);
@@ -212,7 +212,7 @@ void PDefaultGUIStyle::RadioButtonPaint(PView& target, const PRect& frame, bool 
         (isEnabled && data.IsPointerOver) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::DefaultBackground;
     const PRect buttonFrame = DrawRadioButtonLabel(target, frame, data);
 
-    target.SetEraseColor(PStandardColorID::DefaultBackground);
+    target.SetBackgroundBrush(PStandardColorID::DefaultBackground);
     target.SetFgColor(PStandardColorID::Shadow);
 
     float radius = std::floor(RADIO_BUTTON_SIZE * 0.5f);
@@ -265,7 +265,7 @@ void PDefaultGUIStyle::RadioButtonGetPreferredSize(const PView& target, PButtonS
 
 void PDefaultGUIStyle::SliderPaint(PView& target, const PRect& frame, const PSliderStyleData& data) const
 {
-    target.SetEraseColor(PStandardColorID::SliderTrackNormal);
+    target.SetBackgroundBrush(PStandardColorID::SliderTrackNormal);
 
     const PRect& bounds = frame;
 
@@ -319,7 +319,7 @@ void PDefaultGUIStyle::SliderPaint(PView& target, const PRect& frame, const PSli
     if (labelFrame.IsValid())
     {
         target.SetFgColor(0, 0, 0);
-        target.SetBgColor(target.GetEraseColor());
+        target.SetBrush(nullptr);
         target.DrawString(data.ValueLabel, labelFrame.TopLeft() + PPoint(0.0f, target.GetFontHeight().ascender), labelFrame);
     }
     if (!data.GetOrCreateStyleData<SliderStyleData>().HasVisualState) {
@@ -548,7 +548,7 @@ void PDefaultGUIStyle::DropdownMenuPaint(PView& target, const PRect& frame, cons
             target.GetApplication());
     }
     const PRect buttonFrame = GetDropdownMenuArrowFrame(frame);
-    target.SetEraseColor(PStandardColorID::DefaultBackground);
+    target.SetBackgroundBrush(PStandardColorID::DefaultBackground);
     target.DrawFrame(buttonFrame, data.IsOpen ? FRAME_RECESSED : FRAME_RAISED);
     const PPoint center = buttonFrame.Center().GetRounded();
     const PRect arrowFrame = PRect::FromSize(float(DROPDOWN_MENU_ARROW_WIDTH), float(DROPDOWN_MENU_ARROW_HEIGHT));
@@ -626,7 +626,7 @@ bool PDefaultGUIStyle::DropdownMenuHitTest(const PView& target, const PDropdownM
 
 void PDefaultGUIStyle::DropdownMenuPopupFramePaint(PView& target, const PRect& frame) const
 {
-    target.SetEraseColor(255, 255, 255);
+    target.SetBackgroundBrush(PStandardColorID::DropdownMenuBackground);
     target.DrawFrame(frame, FRAME_RECESSED);
 }
 
@@ -660,7 +660,7 @@ void PDefaultGUIStyle::DropdownMenuPopupPaint(PView& target, const PRect& update
 {
     UpdateDropdownMenuPopupMetrics(target, data);
     DropdownMenuPopupStyleData& state = *data.GetStyleData<DropdownMenuPopupStyleData>();
-    target.SetEraseColor(255, 255, 255);
+    target.SetBackgroundBrush(PStandardColorID::DropdownMenuBackground);
     const PRect bounds = target.GetBounds();
     if (bounds.top < 0.0f) {
         target.EraseRect(PRect(bounds.left, bounds.top, bounds.right, std::min(bounds.bottom, 0.0f)));
@@ -677,12 +677,12 @@ void PDefaultGUIStyle::DropdownMenuPopupPaint(PView& target, const PRect& update
             if (i == data.Selection || i == data.PressedItem)
             {
                 target.SetFgColor(255, 255, 255);
-                target.SetBgColor((i == data.Selection) ? PColor(0, 0, 0) : PColor(0, 0, 200));
+                target.SetBrush((i == data.Selection) ? PStandardColorID::DropdownMenuSelection : PStandardColorID::DropdownMenuPressed);
             }
             else
             {
                 target.SetFgColor(0, 0, 0);
-                target.SetBgColor(255, 255, 255);
+                target.SetBrush(PStandardColorID::DropdownMenuBackground);
             }
             const PRect itemFrame = DropdownMenuPopupGetItemFrame(target, data, i);
             const PPoint baseline(
@@ -794,7 +794,7 @@ void PDefaultGUIStyle::GroupViewPaint(PView& target, const PRect& updateRect, co
     const GroupViewStyleData& state = *data.GetStyleData<GroupViewStyleData>();
     if (!data.Label.empty())
     {
-        target.SetBgColor(target.GetEraseColor());
+        target.SetBrush(nullptr);
         target.SetFgColor(PStandardColorID::Shadow);
         target.DrawString(data.Label, PPoint(GROUP_VIEW_LABEL_OFFSET, state.LabelAscender), target.GetBounds());
     }
@@ -890,7 +890,7 @@ void PDefaultGUIStyle::ProgressBarPaint(PView& target, const PRect& frame, const
             target.FillRect(barFrame, PColor(0x66, 0x88, 0xbb));
         }
         if (restFrame.IsValid()) {
-            target.FillRect(restFrame, target.GetBgColor());
+            target.FillBrushRect(restFrame);
         }
     }
     data.GetOrCreateStyleData<ProgressBarStyleData>().PreviousFrame = frame;
@@ -1148,7 +1148,7 @@ PRect PDefaultGUIStyle::DrawRadioButtonLabel(PView& target, const PRect& frame, 
             }
         }
         target.SetFgColor(0, 0, 0);
-        target.SetBgColor(PStandardColorID::DefaultBackground);
+        target.SetBrush(PStandardColorID::DefaultBackground);
         target.DrawString(data.Label, target.GetPenPosition(), frame);
     }
     else
@@ -1612,10 +1612,12 @@ void PDefaultGUIStyle::DrawHorizontalSliderKnob(
         if (data.KnobPointUp)     y1 -= offset;
         if (data.KnobPointDown)   y2 += offset;
 
-        target.SetFgColor(target.GetEraseColor());
-        if (data.KnobPointUp)     target.DrawLine(x, knobFullFrame.top, x, y1 - 1.0f);
-        if (data.KnobPointDown)   target.DrawLine(x, y2 + 1.0f, x, knobFullFrame.bottom);
-        target.SetFgColor(knobColor);
+        if (data.KnobPointUp) {
+            target.EraseRect(PRect(x, knobFullFrame.top, x + 1.0f, y1));
+        }
+        if (data.KnobPointDown) {
+            target.EraseRect(PRect(x, y2 + 1.0f, x + 1.0f, knobFullFrame.bottom + 1.0f));
+        }
         target.DrawLine(x, y1, x, y2);
         if (direction > 0.0f && x >= center) {
             direction = -1.0f;
@@ -1669,10 +1671,12 @@ void PDefaultGUIStyle::DrawVerticalSliderKnob(
         if (data.KnobPointUp)  x1 -= offset;
         if (data.KnobPointDown) x2 += offset;
 
-        target.SetFgColor(target.GetEraseColor());
-        if (data.KnobPointUp)  target.DrawLine(knobFullFrame.left, y, x1 - 1.0f, y);
-        if (data.KnobPointDown) target.DrawLine(x2 + 1.0f, y, knobFullFrame.right, y);
-        target.SetFgColor(knobColor);
+        if (data.KnobPointUp) {
+            target.EraseRect(PRect(knobFullFrame.left, y, x1, y + 1.0f));
+        }
+        if (data.KnobPointDown) {
+            target.EraseRect(PRect(x2 + 1.0f, y, knobFullFrame.right + 1.0f, y + 1.0f));
+        }
         target.DrawLine(x1, y, x2, y);
         if (direction > 0.0f && y >= center) {
             direction = -1.0f;
@@ -1709,7 +1713,7 @@ void PDefaultGUIStyle::DrawSliderLabels(PView& target, const PRect& bounds, cons
     const PPoint         center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
     const PFontHeight    fontHeight = target.GetFontHeight();
 
-    target.SetBgColor(target.GetEraseColor());
+    target.SetBrush(nullptr);
     target.SetFgColor(0, 0, 0);
     if (data.Orientation == POrientation::Horizontal)
     {
@@ -1908,7 +1912,7 @@ void PDefaultGUIStyle::DrawScrollBarKnob(PView& target, const PRect& knobFrame, 
     if (!knobFrame.IsValid()) {
         return;
     }
-    target.SetEraseColor(PStandardColorID::ScrollBarKnob);
+    target.SetBackgroundBrush(PStandardColorID::ScrollBarKnob);
     target.DrawFrame(knobFrame, FRAME_RAISED);
     const bool isHorizontal = orientation == POrientation::Horizontal;
     const float length = isHorizontal ? knobFrame.Width() : knobFrame.Height();
@@ -1993,7 +1997,7 @@ void PDefaultGUIStyle::DrawScrollBarArrows(PView& target, const ScrollBarGeometr
         state.DecrementArrowBitmap = ptr_new<PBitmap>(width, height, PEColorSpace::MONO1, decrementRaster, sizeof(uint32_t));
         state.IncrementArrowBitmap = ptr_new<PBitmap>(width, height, PEColorSpace::MONO1, incrementRaster, sizeof(uint32_t));
     }
-    target.SetEraseColor(PStandardColorID::ScrollBarKnob);
+    target.SetBackgroundBrush(PStandardColorID::ScrollBarKnob);
     for (size_t i = 0; i < std::size(geometry.ArrowFrames); ++i)
     {
         const PRect& arrowFrame = geometry.ArrowFrames[i];
@@ -2402,7 +2406,7 @@ void PDefaultGUIStyle::DrawTabViewTitles(PView& target, const PTabViewStyleData&
     const float tabHeight = geometry.TabHeight;
     const float glyphHeight = state.GlyphHeight;
     float x = geometry.Overflow ? 0.0f : -TAB_VIEW_BORDER;
-    target.SetBgColor(PStandardColorID::DefaultBackground);
+    target.SetBrush(PStandardColorID::DefaultBackground);
     target.SetFgColor(0, 0, 0);
     PRect highlightedFrame;
     PPoint highlightedBaseline;
@@ -2418,7 +2422,7 @@ void PDefaultGUIStyle::DrawTabViewTitles(PView& target, const PTabViewStyleData&
         const PRect background(backgroundLeft, bounds.top, right, bounds.bottom);
         if (i == data.HighlightedTab)
         {
-            target.FillRect(background, target.GetBgColor());
+            target.FillBrushRect(background);
             highlightedFrame = PRect(x + 2.0f, 2.0f, x + width + 2.0f, tabHeight);
             highlightedBaseline = baseline;
         }
@@ -2430,7 +2434,7 @@ void PDefaultGUIStyle::DrawTabViewTitles(PView& target, const PTabViewStyleData&
         x += width;
     }
     if (backgroundLeft < bounds.right) {
-        target.FillRect(PRect(backgroundLeft, bounds.top, bounds.right, bounds.bottom), target.GetBgColor());
+        target.FillBrushRect(PRect(backgroundLeft, bounds.top, bounds.right, bounds.bottom));
     }
     if (data.HighlightedTab < data.Titles.size()) {
         DrawTabViewHighlight(target, data, highlightedFrame, highlightedBaseline);

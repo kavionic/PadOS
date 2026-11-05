@@ -39,20 +39,6 @@ static void ValidateDisplayPayloadEnd(std::span<const std::byte> payload)
     }
 }
 
-static void ValidateDisplayWriteBitmap(const PDisplayBitmap& bitmap)
-{
-    if (!bitmap.VideoMemory) {
-        validate_user_write_pointer_trw(bitmap.Raster, bitmap.BytesPerLine * size_t(bitmap.Size.y));
-    }
-}
-
-static void ValidateDisplayReadBitmap(const PDisplayBitmap& bitmap)
-{
-    if (!bitmap.VideoMemory) {
-        validate_user_read_pointer_trw(bitmap.Raster, bitmap.BytesPerLine * size_t(bitmap.Size.y));
-    }
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,13 +61,22 @@ Ptr<KFileNode> KDisplayDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode
 void KDisplayDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     CRITICAL_SCOPE(m_Mutex);
+    PScopeExit releaseResources([this]
+    {
+        m_Brush.Clear();
+        m_SelectedBrushResources.clear();
+        m_BrushLayerBuffer.clear();
+        m_BrushResources.Clear();
+        m_BitmapResources.Clear();
+        m_ScreenBitmapDriverResourceID = DRIVER_INVALID_RESOURCE_ID;
+        m_IsInitialized = false;
+        m_IsOpen = false;
+    });
     if (m_IsInitialized)
     {
         WaitIdle();
         Close();
-        m_IsInitialized = false;
     }
-    m_IsOpen = false;
     KFilesystemFileOps::CloseFile(volume, file);
 }
 
@@ -135,7 +130,10 @@ PDisplayInfo KDisplayDriver::HandleInitialize()
         SetBgColor(PColor(0));
         WaitIdle();
     }
-    return {*GetScreenBitmap(), GetScreenModeCount()};
+    if (m_ScreenBitmapDriverResourceID == DRIVER_INVALID_RESOURCE_ID) {
+        m_ScreenBitmapDriverResourceID = m_BitmapResources.Add(ptr_new<KDisplayBitmapResource>(*GetScreenBitmap(), true));
+    }
+    return {*GetScreenBitmap(), m_ScreenBitmapDriverResourceID, GetScreenModeCount()};
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,6 +144,12 @@ void KDisplayDriver::HandleSubmit(const void* buffer, size_t length)
 {
     kassert(m_Mutex.IsLocked());
     validate_user_read_pointer_trw(buffer, length);
+    PScopeFail clearBrush([this]
+    {
+        m_Brush.Clear();
+        m_SelectedBrushResources.clear();
+        m_BrushLayerBuffer.clear();
+    });
     // Drain explicitly: WaitIdle() can report EIO and must not throw from a scope-guard destructor.
     try
     {
@@ -182,6 +186,9 @@ bool KDisplayDriver::HandleSetScreenMode(const PIPoint& resolution, PEColorSpace
     WaitIdle();
     const bool accepted = SetScreenMode(resolution, colorSpace, refreshRate);
     WaitIdle();
+    if (accepted) {
+        *m_BitmapResources.Get(m_ScreenBitmapDriverResourceID)->GetBitmap(true) = *GetScreenBitmap();
+    }
     return accepted;
 }
 
@@ -200,11 +207,65 @@ bool KDisplayDriver::HandleSetMouseCursorBitmap(const PMouseCursorBitmap& cursor
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KDisplayDriver::HandleWritePixel(PDisplayBitmap bitmap, PIPoint position, PColor color)
+PDriverResourceID KDisplayDriver::HandleCreateBitmap(PDisplayBitmap bitmap, bool writable)
+{
+    if (bitmap.VideoMemory || bitmap.Size.x <= 0 || bitmap.Size.y <= 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    switch (bitmap.ColorSpace)
+    {
+        case PEColorSpace::MONO1:
+        case PEColorSpace::GRAY8:
+        case PEColorSpace::CMAP8:
+        case PEColorSpace::RGB15:
+        case PEColorSpace::RGBA15:
+        case PEColorSpace::RGB16:
+        case PEColorSpace::RGB24:
+        case PEColorSpace::RGB32:
+        case PEColorSpace::RGBA32:
+            break;
+        default:
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const size_t bitsPerPixel = size_t(BitsPerPixel(bitmap.ColorSpace));
+    const size_t alignment = (bitsPerPixel == 16 || bitsPerPixel == 32) ? bitsPerPixel / 8 : 1;
+    const uint64_t minimumStride = (uint64_t(bitmap.Size.x) * bitsPerPixel + 7) / 8;
+    if (bitmap.BytesPerLine < minimumStride || bitmap.BytesPerLine > std::numeric_limits<size_t>::max() / size_t(bitmap.Size.y)
+        || uintptr_t(bitmap.Raster) % alignment != 0 || bitmap.BytesPerLine % alignment != 0) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const size_t length = bitmap.BytesPerLine * size_t(bitmap.Size.y);
+    if (writable) {
+        validate_user_write_pointer_trw(bitmap.Raster, length);
+    } else {
+        validate_user_read_pointer_trw(bitmap.Raster, length);
+    }
+    return m_BitmapResources.Add(ptr_new<KDisplayBitmapResource>(bitmap, writable));
+}
+
+void KDisplayDriver::HandleDeleteBitmap(PDriverResourceID bitmap)
+{
+    if (bitmap == m_ScreenBitmapDriverResourceID) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    m_BitmapResources.Remove(bitmap);
+}
+
+PDriverResourceID KDisplayDriver::HandleCreateBrush(PDriverResourceID bitmapID, const PBrushDescription& description)
+{
+    return m_BrushResources.Add(ptr_new<KDisplayBrushResource>(ResolveBrushBitmap_pl(bitmapID, description), description));
+}
+
+void KDisplayDriver::HandleDeleteBrush(PDriverResourceID brush)
+{
+    m_BrushResources.Remove(brush);
+}
+
+void KDisplayDriver::HandleWritePixel(PDriverResourceID bitmapID, PIPoint position, PColor color)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
-    WritePixel(&bitmap, position, color);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
+    WritePixel(bitmap, position, color);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -212,7 +273,7 @@ void KDisplayDriver::HandleWritePixel(PDisplayBitmap bitmap, PIPoint position, P
 ///////////////////////////////////////////////////////////////////////////////
 
 void KDisplayDriver::HandleDrawLine(
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     PIRect clipRect,
     PIPoint position1,
     PIPoint position2,
@@ -220,8 +281,8 @@ void KDisplayDriver::HandleDrawLine(
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
-    DrawLine(&bitmap, clipRect, position1, position2, color, mode);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
+    DrawLine(bitmap, clipRect, position1, position2, color, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -230,17 +291,17 @@ void KDisplayDriver::HandleDrawLine(
 
 void KDisplayDriver::HandleFillPolygon(
     std::span<const std::byte> payload,
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     size_t clipCount,
     size_t pointCount,
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
     const std::span<const PIRect> clips = ReadDisplayArray<PIRect>(payload, clipCount);
     const std::span<const PPoint> points = ReadDisplayArray<PPoint>(payload, pointCount);
     ValidateDisplayPayloadEnd(payload);
-    FillPolygon(&bitmap, clips, points, mode);
+    FillPolygon(bitmap, clips, points, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -248,7 +309,7 @@ void KDisplayDriver::HandleFillPolygon(
 ///////////////////////////////////////////////////////////////////////////////
 
 void KDisplayDriver::HandleFillTriangle(
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     PIRect clipRect,
     PIPoint position1,
     PIPoint position2,
@@ -256,8 +317,8 @@ void KDisplayDriver::HandleFillTriangle(
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
-    FillTriangle(&bitmap, clipRect, position1, position2, position3, mode);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
+    FillTriangle(bitmap, clipRect, position1, position2, position3, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -266,18 +327,18 @@ void KDisplayDriver::HandleFillTriangle(
 
 void KDisplayDriver::HandleFillTriangleFan(
     std::span<const std::byte> payload,
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     size_t clipCount,
     size_t pointCount,
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
     const std::span<const PIRect> clips = ReadDisplayArray<PIRect>(payload, clipCount);
     const std::span<const PPoint> points = ReadDisplayArray<PPoint>(payload, pointCount);
     ValidateDisplayPayloadEnd(payload);
     for (const PIRect& clip : clips) {
-        FillTriangleFan(&bitmap, clip, points, mode);
+        FillTriangleFan(bitmap, clip, points, mode);
     }
 }
 
@@ -287,18 +348,18 @@ void KDisplayDriver::HandleFillTriangleFan(
 
 void KDisplayDriver::HandleFillTriangleStrip(
     std::span<const std::byte> payload,
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     size_t clipCount,
     size_t pointCount,
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
     const std::span<const PIRect> clips = ReadDisplayArray<PIRect>(payload, clipCount);
     const std::span<const PPoint> points = ReadDisplayArray<PPoint>(payload, pointCount);
     ValidateDisplayPayloadEnd(payload);
     for (const PIRect& clip : clips) {
-        FillTriangleStrip(&bitmap, clip, points, mode);
+        FillTriangleStrip(bitmap, clip, points, mode);
     }
 }
 
@@ -306,11 +367,11 @@ void KDisplayDriver::HandleFillTriangleStrip(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KDisplayDriver::HandleFillRect(PDisplayBitmap bitmap, PIRect rect)
+void KDisplayDriver::HandleFillRect(PDriverResourceID bitmapID, PIRect rect)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
-    FillRect(&bitmap, rect);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
+    FillRect(bitmap, rect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -318,8 +379,8 @@ void KDisplayDriver::HandleFillRect(PDisplayBitmap bitmap, PIRect rect)
 ///////////////////////////////////////////////////////////////////////////////
 
 void KDisplayDriver::HandleCopyRect(
-    PDisplayBitmap destination,
-    PDisplayBitmap source,
+    PDriverResourceID destinationID,
+    PDriverResourceID sourceID,
     PColor background,
     PColor foreground,
     PIRect sourceRect,
@@ -327,9 +388,9 @@ void KDisplayDriver::HandleCopyRect(
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayReadBitmap(source);
-    ValidateDisplayWriteBitmap(destination);
-    CopyRect(&destination, &source, background, foreground, sourceRect, position, mode);
+    PDisplayBitmap* source = m_BitmapResources.Get(sourceID)->GetBitmap(false);
+    PDisplayBitmap* destination = m_BitmapResources.Get(destinationID)->GetBitmap(true);
+    CopyRect(destination, source, background, foreground, sourceRect, position, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -337,8 +398,8 @@ void KDisplayDriver::HandleCopyRect(
 ///////////////////////////////////////////////////////////////////////////////
 
 void KDisplayDriver::HandleScaleRect(
-    PDisplayBitmap destination,
-    PDisplayBitmap source,
+    PDriverResourceID destinationID,
+    PDriverResourceID sourceID,
     PColor background,
     PColor foreground,
     PIRect sourceOriginal,
@@ -348,11 +409,11 @@ void KDisplayDriver::HandleScaleRect(
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayReadBitmap(source);
-    ValidateDisplayWriteBitmap(destination);
+    PDisplayBitmap* source = m_BitmapResources.Get(sourceID)->GetBitmap(false);
+    PDisplayBitmap* destination = m_BitmapResources.Get(destinationID)->GetBitmap(true);
     ScaleRect(
-        &destination,
-        &source,
+        destination,
+        source,
         background,
         foreground,
         sourceOriginal,
@@ -367,7 +428,7 @@ void KDisplayDriver::HandleScaleRect(
 ///////////////////////////////////////////////////////////////////////////////
 
 void KDisplayDriver::HandleFillCircle(
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     PIRect clipRect,
     PIPoint center,
     int32_t radius,
@@ -375,8 +436,8 @@ void KDisplayDriver::HandleFillCircle(
     PDrawingMode mode)
 {
     kassert(m_Mutex.IsLocked());
-    ValidateDisplayWriteBitmap(bitmap);
-    FillCircle(&bitmap, clipRect, center, radius, color, mode);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
+    FillCircle(bitmap, clipRect, center, radius, color, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -385,7 +446,7 @@ void KDisplayDriver::HandleFillCircle(
 
 void KDisplayDriver::HandleWriteString(
     std::span<const std::byte> payload,
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     PIPoint position,
     const PDisplayFontCache* font,
     size_t stringLength,
@@ -398,7 +459,7 @@ void KDisplayDriver::HandleWriteString(
 {
     HandleWriteStringWidth(
         payload,
-        bitmap,
+        bitmapID,
         position,
         font,
         stringLength,
@@ -413,7 +474,7 @@ void KDisplayDriver::HandleWriteString(
 
 void KDisplayDriver::HandleWriteStringWidth(
     std::span<const std::byte> payload,
-    PDisplayBitmap bitmap,
+    PDriverResourceID bitmapID,
     PIPoint position,
     const PDisplayFontCache* font,
     size_t stringLength,
@@ -435,24 +496,9 @@ void KDisplayDriver::HandleWriteStringWidth(
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     validate_user_read_pointer_trw(font->GetCharacters(), font->GetCharacterBucketCount() * sizeof(*font->GetCharacters()));
-    const size_t bytesPerPixel = size_t(BitsPerPixel(bitmap.ColorSpace)) / 8;
-    if (bitmap.Size.x < 0 || bitmap.Size.y < 0 || bytesPerPixel == 0
-        || size_t(bitmap.Size.x) > std::numeric_limits<size_t>::max() / bytesPerPixel
-        || bitmap.BytesPerLine < size_t(bitmap.Size.x) * bytesPerPixel
-        || (bitmap.Size.y != 0 && bitmap.BytesPerLine > std::numeric_limits<size_t>::max() / size_t(bitmap.Size.y))) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    if (bitmap.VideoMemory && bitmap.ColorSpace != GetColorSpace()) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    if (!bitmap.VideoMemory && (bitmap.ColorSpace == PEColorSpace::RGB15 || bitmap.ColorSpace == PEColorSpace::RGB16
-        || bitmap.ColorSpace == PEColorSpace::RGB32 || bitmap.ColorSpace == PEColorSpace::RGBA32)
-        && (uintptr_t(bitmap.Raster) % bytesPerPixel != 0 || bitmap.BytesPerLine % bytesPerPixel != 0)) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    ValidateDisplayWriteBitmap(bitmap);
+    PDisplayBitmap* bitmap = m_BitmapResources.Get(bitmapID)->GetBitmap(true);
     WriteString(
-        &bitmap,
+        bitmap,
         position,
         std::string_view(string.data(), string.size()),
         *font,
@@ -468,6 +514,106 @@ void KDisplayDriver::HandleWriteStringWidth(
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+void KDisplayDriver::HandleSetBrush(std::span<const std::byte> payload, size_t layerCount)
+{
+    const std::span<const PDisplayBrushBinding> bindings = ReadDisplayArray<PDisplayBrushBinding>(payload, layerCount);
+    ValidateDisplayPayloadEnd(payload);
+    m_Brush.Clear();
+    m_SelectedBrushResources.resize(layerCount);
+    m_BrushLayerBuffer.resize(layerCount);
+    for (size_t index = 0; index < layerCount; ++index)
+    {
+        const PDisplayBrushBinding& binding = bindings[index];
+        PDisplayBrushLayer& layer = m_BrushLayerBuffer[index];
+        layer = {};
+        layer.Bounds = binding.Bounds;
+        if (binding.DriverResourceID == DRIVER_INVALID_RESOURCE_ID)
+        {
+            m_SelectedBrushResources[index] = nullptr;
+            layer.Description.Color = binding.Color;
+            layer.Description.IsOpaque = binding.Color.GetAlpha() == 255;
+        }
+        else
+        {
+            const Ptr<KDisplayBrushResource>& brush = m_BrushResources.Get(binding.DriverResourceID);
+            m_SelectedBrushResources[index] = brush;
+            RefreshBrushLayer_pl(index);
+        }
+    }
+    m_Brush.SetLayers(m_BrushLayerBuffer);
+}
+
+void KDisplayDriver::HandleFillBrushRect(PDriverResourceID bitmap, PIRect bounds)
+{
+    FillBrushRect(m_BitmapResources.Get(bitmap)->GetBitmap(true), bounds);
+}
+
+// Updates are executed between the surrounding drawing commands. Rebuild only
+// selected samplers; raster access was validated when the bitmap was registered.
+void KDisplayDriver::HandleUpdateBrush(PDriverResourceID brushID, PDriverResourceID bitmapID, const PBrushDescription& description)
+{
+    const Ptr<KDisplayBrushResource>& brush = m_BrushResources.Get(brushID);
+    Ptr<KDisplayBitmapResource> bitmap = ResolveBrushBitmap_pl(bitmapID, description);
+    brush->SetProperties(std::move(bitmap), description);
+    RefreshSelectedBrushLayers_pl(brush);
+}
+
+// A color needs no bitmap lookup or metadata validation. Apply it at the same
+// queue position as a full update and refresh every selected use of the brush.
+void KDisplayDriver::HandleSetBrushColor(PDriverResourceID brushID, PColor color)
+{
+    const Ptr<KDisplayBrushResource>& brush = m_BrushResources.Get(brushID);
+    brush->SetColor(color);
+    RefreshSelectedBrushLayers_pl(brush);
+}
+
+Ptr<KDisplayBitmapResource> KDisplayDriver::ResolveBrushBitmap_pl(PDriverResourceID bitmapID, const PBrushDescription& description) const
+{
+    kassert(m_Mutex.IsLocked());
+    Ptr<KDisplayBitmapResource> resource;
+    if (bitmapID != DRIVER_INVALID_RESOURCE_ID) {
+        resource = m_BitmapResources.Get(bitmapID);
+    }
+    if (!PBrushUtils::IsValidResource(description, (resource != nullptr) ? resource->GetBitmap(false) : nullptr)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return resource;
+}
+
+void KDisplayDriver::RefreshSelectedBrushLayers_pl(const Ptr<KDisplayBrushResource>& brush)
+{
+    kassert(m_Mutex.IsLocked());
+    bool selected = false;
+    for (size_t index = 0; index < m_SelectedBrushResources.size(); ++index)
+    {
+        if (m_SelectedBrushResources[index] == brush)
+        {
+            RefreshBrushLayer_pl(index);
+            selected = true;
+        }
+    }
+    if (selected) {
+        m_Brush.SetLayers(m_BrushLayerBuffer);
+    }
+}
+
+void KDisplayDriver::RefreshBrushLayer_pl(size_t index)
+{
+    kassert(m_Mutex.IsLocked());
+    const Ptr<KDisplayBrushResource>& brush = m_SelectedBrushResources[index];
+    PDisplayBrushLayer& layer = m_BrushLayerBuffer[index];
+    layer.Description = brush->GetDescription();
+    layer.Bitmap = {};
+    if (brush->GetBitmap() != nullptr) {
+        layer.Bitmap = *brush->GetBitmap()->GetBitmap(false);
+    }
+    if (layer.Description.Type != PBrushType::Solid
+        && (layer.Bounds.left < -int(COORD_MAX) || layer.Bounds.top < -int(COORD_MAX)
+            || layer.Bounds.right > int(COORD_MAX) || layer.Bounds.bottom > int(COORD_MAX))) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+}
 
 void KDisplayDriver::ExecuteCommands_pl(const void* buffer, size_t length)
 {

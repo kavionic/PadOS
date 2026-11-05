@@ -6,6 +6,7 @@
 ###############################################################################
 
 target_sources(PadOS_Kernel PRIVATE
+	DisplayBrush.h
 	BME280.h
 	HID.h
 	InputDevice.h

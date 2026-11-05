@@ -53,6 +53,8 @@ public:
     virtual ~PBitmap();
 
     bool            IsValid() const;
+    PApplication* GetApplication() const noexcept { return m_Application; }
+    handle_id GetHandle() const noexcept { return m_Handle; }
 
     PEColorSpace     GetColorSpace() const;
     PIRect           GetBounds() const;
@@ -64,6 +66,7 @@ public:
     void            Sync();
     void            Flush();
 
+    const uint8_t*  GetRaster() const noexcept { return m_Raster; }
     uint8_t*        LockRaster() { return m_Raster; }
     void            UnlockRaster() {}
 

@@ -25,6 +25,12 @@ TEST(ProgressBarStyle, PreferredSizesFollowTheConstructorAndXmlOrientations)
         xmlData.append_attribute("orientation") = "vertical";
         PViewFactoryContext context;
         Ptr<PProgressBar> xmlVertical = ptr_new<PProgressBar>(context, xmlData);
+        EXPECT_EQ(horizontal->GetPreferredSize(PPrefSizeType::Smallest), PPoint(50.0f, 24.0f));
+        EXPECT_EQ(horizontal->GetPreferredSize(PPrefSizeType::Greatest), PPoint(LAYOUT_MAX_SIZE, 24.0f));
+        EXPECT_EQ(vertical->GetPreferredSize(PPrefSizeType::Smallest), PPoint(24.0f, 50.0f));
+        EXPECT_EQ(vertical->GetPreferredSize(PPrefSizeType::Greatest), PPoint(24.0f, LAYOUT_MAX_SIZE));
+        EXPECT_EQ(xmlVertical->GetPreferredSize(PPrefSizeType::Smallest), vertical->GetPreferredSize(PPrefSizeType::Smallest));
+        EXPECT_EQ(xmlVertical->GetPreferredSize(PPrefSizeType::Greatest), vertical->GetPreferredSize(PPrefSizeType::Greatest));
         ASSERT_TRUE(application.AddHandler(horizontal));
         PScopeExit removeHorizontal([&application, &horizontal] { application.RemoveHandler(horizontal); });
         ASSERT_TRUE(application.AddHandler(vertical));
@@ -64,7 +70,7 @@ TEST(ProgressBarStyle, StyleChangesPreserveProgressAndManagedSizeOverrides)
     });
 }
 
-TEST(ProgressBarStyle, DetachedViewsKeepUnclampedValuesAndHandleMissingStyle)
+TEST(ProgressBarStyle, DetachedViewsKeepUnclampedValuesAndApplicationStyle)
 {
     RunGUITest([](PApplication& application)
     {
@@ -74,8 +80,8 @@ TEST(ProgressBarStyle, DetachedViewsKeepUnclampedValuesAndHandleMissingStyle)
         progressBar->SetProgress(1.5f);
         progressBar->SetFrame(PRect(0.0f, 0.0f, 100.0f, 24.0f));
         progressBar->OnPaint(progressBar->GetBounds());
-        EXPECT_EQ(progressBar->GetStyle(), nullptr);
-        EXPECT_EQ(progressBar->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(progressBar->GetStyle(), application.GetGUIStyle());
+        EXPECT_EQ(progressBar->GetPreferredSize(PPrefSizeType::Smallest), PPoint(50.0f, 24.0f));
         ASSERT_TRUE(application.AddHandler(progressBar));
         PScopeExit removeProgressBar([&application, &progressBar] { application.RemoveHandler(progressBar); });
         progressBar->OnStyleChanged();
@@ -85,8 +91,8 @@ TEST(ProgressBarStyle, DetachedViewsKeepUnclampedValuesAndHandleMissingStyle)
         application.RemoveHandler(progressBar);
         removeProgressBar.release();
         progressBar->OnStyleChanged();
-        EXPECT_EQ(progressBar->GetStyle(), nullptr);
-        EXPECT_EQ(progressBar->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(progressBar->GetStyle(), application.GetGUIStyle());
+        EXPECT_EQ(progressBar->GetPreferredSize(PPrefSizeType::Smallest), PPoint(50.0f, 24.0f));
         EXPECT_FLOAT_EQ(progressBar->GetProgress(), 1.5f);
     });
 }

@@ -41,6 +41,7 @@ PSlider::PSlider(const PString& name, PSliderFlags flags, int tickCount, POrient
     m_SliderStyleData.SliderColor2 = m_SliderStyleData.SliderColor1;
     m_SliderStyleData.IsEnabled = IsEnabled();
     m_SliderStyleData.Value = GetRelativeValue(m_Value);
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -540,7 +541,7 @@ void PSlider::AttachedToScreen()
 {
     Ptr<PView> parent = GetParent();
     if (parent != nullptr) {
-        SetEraseColor(parent->GetEraseColor());
+        SetBackgroundBrush(nullptr);
     }
 }
 

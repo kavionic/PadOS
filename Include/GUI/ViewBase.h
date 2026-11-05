@@ -27,8 +27,6 @@ public:
         PViewHitMode hitMode,
         int32_t hideCount,
         float penWidth,
-        PColor eraseColor,
-        PColor bgColor,
         PColor fgColor,
         PCapStyle capStyle = PCapStyle::Flat,
         PJointStyle jointStyle = PJointStyle::Bevel,
@@ -47,8 +45,6 @@ public:
         , m_DashPattern(dashPattern)
         , m_DashOffset(dashOffset)
         , m_HideCount(hideCount)
-        , m_EraseColor(eraseColor)
-        , m_BgColor(bgColor)
         , m_FgColor(fgColor) {}
 
     Ptr<ViewType>       GetParent()       { return m_Parent.Lock(); }
@@ -228,8 +224,6 @@ public:
     PPoint      GetScrollOffset() const { return m_ScrollOffset; }
 
     PColor	    GetFgColor() const { return m_FgColor; }
-    PColor	    GetBgColor() const { return m_BgColor; }
-    PColor	    GetEraseColor() const { return m_EraseColor; }
 
     
       // Coordinate conversions:
@@ -322,8 +316,6 @@ protected:
     int         m_HideCount = 0;
     int         m_Level = 0;
 
-    PColor       m_EraseColor   = PColor::FromRGB32A(255, 255, 255);
-    PColor       m_BgColor      = PColor::FromRGB32A(255, 255, 255);
     PColor       m_FgColor      = PColor::FromRGB32A(0, 0, 0);
     
     PViewBase(const PViewBase&) = delete;

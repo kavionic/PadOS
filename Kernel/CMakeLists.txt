@@ -35,7 +35,6 @@ target_sources(PadOS_Kernel PRIVATE
 	KNamedObject.cpp
 	KObjectWaitGroup.cpp
 	KPowerManager.cpp
-	KProcess.cpp
 	KSemaphore.cpp
 	KThread.cpp
 	KThreadCB.cpp
@@ -53,6 +52,7 @@ target_link_options(PadOS_Kernel_Unconditional INTERFACE "LINKER:--undefined=_ke
 
 target_sources(PadOS_KernelExt PRIVATE
 	KPIDNode.cpp
+	KProcess.cpp
 	KProcessGroup.cpp
 	KProcessGroups.cpp
 	KProcessSession.cpp

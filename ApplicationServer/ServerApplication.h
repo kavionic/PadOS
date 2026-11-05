@@ -29,6 +29,7 @@ public:
     port_id         GetClientPort() const { return m_ClientPort; }
 
     Ptr<PSrvBitmap> GetBitmap(handle_id bitmapHandle) const;
+    Ptr<PServerBrush> GetBrush(handle_id brushHandle) const;
     Ptr<PServerFontInstance> GetFont(handle_id fontHandle) const;
     void SetPointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
     void ReleasePointerCapture(PPointerID pointerID, PPointerCaptureID captureID);
@@ -36,6 +37,7 @@ public:
     void HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
 
 private:
+    handle_id AllocateBrushHandle();
     handle_id AllocateFontHandle();
 
     void ProcessMessage(int32_t code, const void* data, size_t length);
@@ -64,8 +66,8 @@ private:
                         const std::vector<float>& dashPattern,
                         float        dashOffset,
                         handle_id    fontHandle,
-                        PColor eraseColor,
-                        PColor bgColor,
+                        handle_id backgroundBrush,
+                        handle_id drawingBrush,
                         PColor fgColor);
     void SlotDeleteView(handler_id clientHandle);
     void SlotSetPointerCapture(handler_id rootViewHandle, PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
@@ -73,6 +75,10 @@ private:
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
+    void SlotCreateBrush(port_id replyPort, const PBrushDescription& description, handle_id bitmapHandle);
+    void SlotDeleteBrush(handle_id brushHandle);
+    void SlotUpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle);
+    void SlotSetBrushColor(handle_id brushHandle, PColor color);
     void SlotCreateFont(port_id replyPort, const PFontDescription& description);
     void SlotDeleteFont(handle_id fontHandle);
     void SlotMeasureFont(
@@ -94,8 +100,6 @@ private:
     void SlotViewShow(handler_id viewHandle, bool show);
     void SlotViewSetHitMode(handler_id viewHandle, PViewHitMode mode)                       { ForwardToView(viewHandle, &PServerView::SetHitMode, mode); }
     void SlotViewSetFgColor(handler_id viewHandle, PColor color)                             { ForwardToView(viewHandle, &PServerView::SetFgColor, color); }
-    void SlotViewSetBgColor(handler_id viewHandle, PColor color)                             { ForwardToView(viewHandle, &PServerView::SetBgColor, color); }
-    void SlotViewSetEraseColor(handler_id viewHandle, PColor color)                          { ForwardToView(viewHandle, &PServerView::SetEraseColor, color); }
     void SlotViewSetFocusKeyboardMode(handler_id viewHandle, PFocusKeyboardMode mode)        { ForwardToView(viewHandle, &PServerView::SetFocusKeyboardMode, mode); }
     void SlotViewSetDrawingMode(handler_id viewHandle, PDrawingMode mode)                    { ForwardToView(viewHandle, &PServerView::SetDrawingMode, mode); }
     void SlotViewSetFont(handler_id viewHandle, handle_id fontHandle);
@@ -133,6 +137,22 @@ private:
     void SlotViewDrawScaledBitmap(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PRect& dstRect)  { ForwardToView(viewHandle, &PServerView::DrawScaledBitmap, GetBitmap(bitmapHandle), srcRect, dstRect); }
     void SlotViewDebugDraw(handler_id viewHandle, PColor color, uint32_t drawFlags)          { ForwardToView(viewHandle, &PServerView::DebugDraw, color, drawFlags); }
 
+    void SlotViewSetBrush(
+        handler_id viewHandle,
+        bool background,
+        PBrushSource source,
+        handle_id brush,
+        const PRect& bounds,
+        bool automaticBounds)
+    {
+        ForwardToView(viewHandle, &PServerView::SetBrush, background, source,
+            (brush != INVALID_HANDLE) ? GetBrush(brush) : nullptr, bounds, automaticBounds);
+    }
+    void SlotViewEraseRect(handler_id viewHandle, const PRect& rect, bool drawingBackground)
+    {
+        ForwardToView(viewHandle, &PServerView::EraseRect, rect, drawingBackground);
+    }
+
     template<typename CB, typename... ARGS>
     void ForwardToView(handler_id viewHandle, CB callback, ARGS&&... args)
     {
@@ -152,6 +172,8 @@ private:
 
     handle_id                           m_NextBitmapHandle = 1;
     std::map<handle_id, Ptr<PSrvBitmap>> m_BitmapMap;
+    handle_id m_NextBrushHandle = 1;
+    std::map<handle_id, Ptr<PServerBrush>> m_BrushMap;
     std::map<handle_id, Ptr<PServerFontInstance>> m_FontMap;
 
     // Accessed only by the application-server looper.
@@ -165,6 +187,10 @@ private:
     ASSetKeyboardFocus          RSSetKeyboardFocus;
     ASCreateBitmap              RSCreateBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
+    ASCreateBrush m_RSCreateBrush;
+    ASDeleteBrush m_RSDeleteBrush;
+    ASUpdateBrush m_RSUpdateBrush;
+    ASSetBrushColor m_RSSetBrushColor;
     ASCreateFont                m_RSCreateFont;
     ASDeleteFont                m_RSDeleteFont;
     ASMeasureFont               m_RSMeasureFont;
@@ -179,8 +205,8 @@ private:
     ASViewShow                  RSViewShow;
     ASViewSetHitMode            RSViewSetHitMode;
     ASViewSetFgColor            RSViewSetFgColor;
-    ASViewSetBgColor            RSViewSetBgColor;
-    ASViewSetEraseColor         RSViewSetEraseColor;
+    ASViewSetBrush m_RSViewSetBrush;
+    ASViewEraseRect m_RSViewEraseRect;
     ASViewSetFocusKeyboardMode  RSViewSetFocusKeyboardMode;
     ASViewSetDrawingMode        RSViewSetDrawingMode;
     ASViewSetFont               m_RSViewSetFont;

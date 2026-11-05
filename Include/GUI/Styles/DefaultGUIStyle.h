@@ -123,6 +123,9 @@ public:
         const PTabViewStyleData& data,
         const PPoint& position) const override;
 
+protected:
+    static void UpdateButtonMetrics(const PView& target, PButtonStyleData& data);
+
 private:
     struct SliderStyleData;
     struct ScrollBarStyleData;
@@ -226,7 +229,6 @@ private:
         SquareFrame
     };
 
-    static void     UpdateButtonMetrics(const PView& target, PButtonStyleData& data);
     static PRect    DrawRadioButtonLabel(PView& target, const PRect& frame, PButtonStyleData& data);
     static void     UpdateSliderMetrics(const PView& target, const PSliderStyleData& data);
     static void     UpdateSliderDamage(PView& target, const PSliderStyleData& data, PSliderProperties properties, bool invalidate);

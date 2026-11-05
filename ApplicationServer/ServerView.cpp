@@ -353,17 +353,22 @@ PServerView::PServerView(
     const std::vector<float>&   dashPattern,
     float                       dashOffset,
     Ptr<PServerFontInstance>    font,
-    PColor                      eraseColor,
-    PColor                      bgColor,
+    Ptr<PServerBrush>           backgroundBrush,
+    Ptr<PServerBrush>           drawingBrush,
     PColor                      fgColor
 )
-    : PViewBase(name, frame, scrollOffset, flags, hitMode, hideCount, penWidth, eraseColor, bgColor, fgColor, capStyle, jointStyle, miterLimit, dashPattern, dashOffset)
+    : PViewBase(name, frame, scrollOffset, flags, hitMode, hideCount, penWidth, fgColor, capStyle, jointStyle, miterLimit, dashPattern, dashOffset)
     , m_Bitmap(bitmap)
     , m_DockType(dockType)
     , m_FocusKeyboardMode(focusKeyboardMode)
     , m_DrawingMode(drawingMode)
     , m_Font(std::move(font))
 {
+    SetBrush(true, (backgroundBrush != nullptr) ? PBrushSource::Brush : PBrushSource::Inherit, backgroundBrush, PRect(), true);
+    SetBrush(false, (drawingBrush != nullptr) ? PBrushSource::Brush : PBrushSource::Inherit, drawingBrush, PRect(), true);
+    if (backgroundBrush == nullptr) {
+        MarkBackgroundBrushes();
+    }
     g_ServerViewCount++;
 }
 
@@ -373,6 +378,9 @@ PServerView::PServerView(
 
 PServerView::~PServerView()
 {
+    if (m_BackgroundBrush.Brush != nullptr) {
+        m_BackgroundBrush.Brush->SignalChanged.Disconnect(this, &PServerView::BackgroundBrushChanged);
+    }
     g_ServerViewCount--;
 
     while (!m_ChildrenList.empty())
@@ -412,6 +420,11 @@ port_id PServerView::GetClientPort() const
 
 void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 {
+    ++s_BackgroundGeneration;
+    if (m_HasBackgroundBrushes) {
+        MarkBackgroundBrushes();
+    }
+
     UpdateClientRootState();
     if (m_IsClientRoot) {
         NotifyScreenPositionChanged();
@@ -431,6 +444,11 @@ void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 
 void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 {
+    ++s_BackgroundGeneration;
+    if (m_HasBackgroundBrushes) {
+        MarkBackgroundBrushes();
+    }
+
     UpdateClientRootState();
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr)
@@ -573,8 +591,13 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
     const PIRect intFrame(rect);
     const PIRect prevIFrame = GetIFrame();
 
+    CaptureBackgrounds();
     m_Frame = rect;
+    ++s_BackgroundGeneration;
     UpdateScreenPos();
+    if (m_HasBackgroundBrushes && intFrame.Size() != prevIFrame.Size()) {
+        InvalidateBackgroundDependents(true);
+    }
 
     if (intFrame == prevIFrame) {
         return;
@@ -868,6 +891,7 @@ void PServerView::MoveChilds()
                 assert(clip.IsValid());
             }
 
+            child->ExcludeChangedBackgrounds(*region, cChildMove);
             std::vector<PIRect*> clipList;
             clipList.reserve(region->m_Rects.size());
 
@@ -875,9 +899,10 @@ void PServerView::MoveChilds()
                 clipList.push_back(&clip);
             }
             std::sort(clipList.begin(), clipList.end(), BlitSortCompare(cChildMove));
+            m_Bitmap->m_Driver->ClearBrush();
 
             for (const PIRect* clip : clipList) {
-                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - cChildMove, clip->TopLeft(), PDrawingMode::Copy);
+                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, PColor(), m_FgColor, *clip - cChildMove, clip->TopLeft(), PDrawingMode::Copy);
             }
         }
 
@@ -1076,6 +1101,7 @@ void PServerView::UpdateRegions(bool requestPaint)
         FlushPendingDamage();
     }
     ClearDirtyRegFlags();
+    ClearBackgroundSnapshots();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1092,11 +1118,17 @@ void PServerView::FlushPendingDamage()
             PRegion cDrawReg(*m_VisibleReg);
             cDrawReg.Intersect(*m_DamageReg);
         
-            m_Bitmap->m_Driver->SetFgColor(m_EraseColor);
-
+            const PServerBrushState& background = GetBackgroundBrushState();
+            m_Bitmap->m_Driver->SetFgColor(background.Color);
+            m_Bitmap->m_Driver->SetBrush(background.Layers);
             const PIPoint screenPos(m_ScreenPos);
-            for (const PIRect& clip : cDrawReg.m_Rects) {
-                m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos);
+            for (const PIRect& clip : cDrawReg.m_Rects)
+            {
+                if (background.IsSolid) {
+                    m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos);
+                } else {
+                    m_Bitmap->m_Driver->FillBrushRect(m_Bitmap, clip + screenPos);
+                }
             }
         }
         m_DamageReg = nullptr;
@@ -1262,7 +1294,7 @@ void PServerView::RequestPaintIfNeeded()
     //      return;
     //    }
     
-    if (m_DamageReg != nullptr && m_ActiveDamageReg == nullptr)
+    if (m_DamageReg != nullptr && m_ActiveDamageReg == nullptr && !m_IsUpdating)
     {
         m_ActiveDamageReg = m_DamageReg;
         m_DamageReg = nullptr;
@@ -1490,7 +1522,8 @@ void PServerView::DrawEllipse(const PRect& rect)
     const float radiusY = rect.Height() * 0.5f;
     const PPoint center((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
     const float penWidth = std::max(m_PenWidth, 0.0f);
-    const bool shouldFill = m_BgColor.GetAlpha() != 0;
+    const PColor fillColor = GetDrawingColor();
+    const bool shouldFill = fillColor.GetAlpha() != 0;
     const bool shouldDrawOutline = m_FgColor.GetAlpha() != 0 && penWidth > 0.0f;
 
     if (!shouldFill && !shouldDrawOutline) {
@@ -1510,7 +1543,7 @@ void PServerView::DrawEllipse(const PRect& rect)
         fillPoints.reserve(size_t(segmentCount) + 1);
         AppendEllipseArcPoints(fillPoints, center, radiusX, radiusY, 0.0f, FULL_CIRCLE_RADIANS, segmentCount);
 
-        FillPolygon(fillPoints, m_BgColor);
+        FillPolygon(fillPoints, fillColor);
     }
 
     if (shouldDrawOutline)
@@ -1546,7 +1579,8 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
     const float radiusY = rect.Height() * 0.5f;
     const PPoint center((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
     const float penWidth = std::max(m_PenWidth, 0.0f);
-    const bool shouldFill = m_BgColor.GetAlpha() != 0;
+    const PColor fillColor = GetDrawingColor();
+    const bool shouldFill = fillColor.GetAlpha() != 0;
     const bool shouldDrawOutline = m_FgColor.GetAlpha() != 0 && penWidth > 0.0f;
 
     if (!shouldFill && !shouldDrawOutline) {
@@ -1571,7 +1605,7 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
         fillPoints.push_back(center);
         fillPoints.insert(fillPoints.end(), innerArcPoints.begin(), innerArcPoints.end());
 
-        FillPolygon(fillPoints, m_BgColor);
+        FillPolygon(fillPoints, fillColor);
     }
 
     if (shouldDrawOutline)
@@ -2106,7 +2140,7 @@ void PServerView::RenderDashedPolyline(std::span<const PPoint> points)
         else if (m_DrawingMode == PDrawingMode::Copy)
         {
             const PColor savedFgColor = m_FgColor;
-            m_FgColor = m_BgColor;
+            m_FgColor = GetDrawingColor();
             RenderClippedPolylineElement(segs, joints, halfWidth,
                                          arcStart, arcEnd, totalLen);
             m_FgColor = savedFgColor;
@@ -2179,7 +2213,7 @@ void PServerView::RenderDashedThinPolyline(std::span<const PPoint> points)
                 DrawThinLine(dashStart, dashEnd);
             } else if (m_DrawingMode == PDrawingMode::Copy) {
                 const PColor savedFgColor = m_FgColor;
-                m_FgColor = m_BgColor;
+                m_FgColor = GetDrawingColor();
                 DrawThinLine(dashStart, dashEnd);
                 m_FgColor = savedFgColor;
             }
@@ -3198,13 +3232,15 @@ void PServerView::DrawString(const PString& string, float width, bool allowParti
         for (const PIRect& clip : region->m_Rects) {
             m_TextClipRects.push_back(clip + screenPosition);
         }
+        const PServerBrushState& background = GetDrawingBrushState();
+        m_Bitmap->m_Driver->SetBrush(background.Layers);
         const PFontTextMetrics metrics = m_Bitmap->m_Driver->DrawString(
             m_Bitmap,
             baseline,
             std::string_view(string.data(), string.size()),
             *m_Font,
             m_TextClipRects,
-            m_BgColor,
+            background.Color,
             m_FgColor,
             m_DrawingMode,
             width,
@@ -3274,12 +3310,13 @@ void PServerView::CopyRect(const PRect& srcRect, const PPoint& dstPos)
         clipList.push_back(&clip);
     }
     std::sort(clipList.begin(), clipList.end(), BlitSortCompare(delta));
+    m_Bitmap->m_Driver->ClearBrush();
 
     const PIPoint screenPos(m_ScreenPos);
     for (PIRect* clip : clipList)
     {
         *clip += screenPos; // Convert into screen space
-        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - delta, clip->TopLeft(), m_DrawingMode);
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, PColor(), m_FgColor, *clip - delta, clip->TopLeft(), m_DrawingMode);
     }
     if (m_DamageReg != nullptr)
     {
@@ -3334,6 +3371,8 @@ void PServerView::DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const
         return;
     }
 
+    const PServerBrushState& background = GetDrawingBrushState();
+    m_Bitmap->m_Driver->SetBrush(background.Layers);
     const PIPoint screenPos(m_ScreenPos);
 
     const PIRect  intSrcRect(srcRect);
@@ -3354,7 +3393,7 @@ void PServerView::DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const
             const PIPoint cDst = rect.TopLeft() + screenPos;
             const PIRect  cSrc = rect - intDstPos + srcPos;
 
-            m_Bitmap->m_Driver->CopyRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, cSrc, cDst, m_DrawingMode);
+            m_Bitmap->m_Driver->CopyRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), background.Color, m_FgColor, cSrc, cDst, m_DrawingMode);
         }
     }
 }
@@ -3373,9 +3412,11 @@ void PServerView::DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect,
     if (region == nullptr) {
         return;
     }
+    const PServerBrushState& background = GetDrawingBrushState();
+    m_Bitmap->m_Driver->SetBrush(background.Layers);
     const PIPoint screenPos(m_ScreenPos);
     const PIRect snappedSrcRect(srcRect.GetFloored());
-    const PIRect snappedDstRect(inDstRect.GetFloored());
+    const PIRect snappedDstRect((inDstRect + m_ScrollOffset).GetFloored());
     const PIRect clippedSrcRect = snappedSrcRect & PIRect(PIPoint(0, 0), bitmap->m_Size);
 
     if (!clippedSrcRect.IsValid() || !snappedDstRect.IsValid()) {
@@ -3384,8 +3425,12 @@ void PServerView::DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect,
 
     // Keep the original transform. Clip integer destination samples whose source lies outside the bitmap.
     // Only partially clipped axes use this division; a one-pixel axis is either wholly inside or wholly outside.
-    auto mapSourceBoundary = [](int32_t offset, int32_t sourceSize, int32_t destinationSize)
+    const bool brushSampling = !background.IsSolid;
+    auto mapSourceBoundary = [brushSampling](int32_t offset, int32_t sourceSize, int32_t destinationSize)
     {
+        if (brushSampling) {
+            return PBrushUtils::MapBitmapSourceBoundary(offset, sourceSize, destinationSize);
+        }
         return int32_t((int64_t(offset) * destinationSize + sourceSize - 2) / (sourceSize - 1));
     };
     PIRect clippedDstRect = snappedDstRect;
@@ -3437,7 +3482,7 @@ void PServerView::DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect,
             m_Bitmap->m_Driver->ScaleRect(
                 m_Bitmap,
                 ptr_raw_pointer_cast(bitmap),
-                m_BgColor,
+                background.Color,
                 m_FgColor,
                 snappedSrcRect,
                 snappedDstRect + screenPos,
@@ -3505,8 +3550,16 @@ void PServerView::ScrollBy(const PPoint& offset)
     }
     const PIPoint screenPos(m_ScreenPos);
 
+    CaptureBackgrounds();
+    m_IsScrolling = true;
+    PScopeExit finishScroll([this]
+    {
+        m_IsScrolling = false;
+        ClearBackgroundSnapshots();
+    });
     const PIPoint oldOffset(m_ScrollOffset);
     m_ScrollOffset += offset;
+    ++s_BackgroundGeneration;
     const PIPoint newOffset(m_ScrollOffset);
     
     if (newOffset == oldOffset) {
@@ -3568,6 +3621,18 @@ void PServerView::ScrollBy(const PPoint& offset)
         }
     }
   
+    if (m_HasBackgroundBrushes)
+    {
+        PRegion reusable;
+        for (const PIRect& clip : bltList) {
+            reusable.Include(clip + screenPos);
+        }
+        ExcludeChangedBackgrounds(reusable, intOffset);
+        bltList.clear();
+        for (const PIRect& clip : reusable.m_Rects) {
+            bltList.push_back(clip - screenPos);
+        }
+    }
     if (bltList.empty())
     {
         Invalidate(bounds);
@@ -3582,6 +3647,7 @@ void PServerView::ScrollBy(const PPoint& offset)
         clipList.push_back(&clip);
     }
     std::sort(clipList.begin(), clipList.end(), BlitSortCompare(intOffset));
+    m_Bitmap->m_Driver->ClearBrush();
 
     for (size_t i = 0 ; i < clipList.size() ; ++i)
     {
@@ -3589,7 +3655,7 @@ void PServerView::ScrollBy(const PPoint& offset)
 
         *clip += screenPos; // Convert into screen space
 
-        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - intOffset, clip->TopLeft(), PDrawingMode::Copy);
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, PColor(), m_FgColor, *clip - intOffset, clip->TopLeft(), PDrawingMode::Copy);
     }
 
     for (const PIRect& dstClip : damage.m_Rects) {

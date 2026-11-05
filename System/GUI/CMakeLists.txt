@@ -6,6 +6,8 @@
 ###############################################################################
 
 target_sources(PadOS_GUI PRIVATE
+	ViewBrush.cpp
+	Brush.cpp
 	Application.cpp
 	Bitmap.cpp
 	Color.cpp

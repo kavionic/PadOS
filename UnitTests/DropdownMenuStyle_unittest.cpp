@@ -45,7 +45,7 @@ TEST(DropdownMenuStyle, ItemAndTextChangesRefreshPreferredSizes)
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("dropdown_style_target");
+        Ptr<PView> target = ptr_new<PView>("dropdown_style_target", PViewFlag::WillDraw);
         PDropdownMenuStyleData data;
         data.EditorSize = PPoint(8.0f, 38.0f);
         data.Items.push_back("i");
@@ -81,8 +81,9 @@ TEST(DropdownMenuStyle, WidgetUsesTheStyleAndUpdatesItsEditorFont)
         menu->AppendItem("First item");
         menu->AppendItem("A longer second item");
         menu->SetSelection(1, false);
-        EXPECT_EQ(menu->GetStyle(), nullptr);
-        EXPECT_EQ(menu->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
+        EXPECT_EQ(menu->GetStyle(), application.GetGUIStyle());
+        EXPECT_GT(menu->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
+        EXPECT_GT(menu->GetPreferredSize(PPrefSizeType::Smallest).y, 0.0f);
         EXPECT_EQ(menu->GetCurrentString(), "A longer second item");
         const PPointerEvent event;
         menu->OnPointerDown(1, PPoint(190.0f, 20.0f), event, PEventPhase::Target);
@@ -121,7 +122,7 @@ TEST(DropdownMenuStyle, PopupRowGeometryTracksFontsAndHandlesAnEmptyList)
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("dropdown_popup_target");
+        Ptr<PView> target = ptr_new<PView>("dropdown_popup_target", PViewFlag::WillDraw);
         target->SetFrame(PRect(0.0f, 0.0f, 150.0f, 100.0f));
         Ptr<PFont> font = ptr_new<PFont>(PFontID::e_FontSmall);
         target->SetFont(font);
@@ -156,22 +157,25 @@ TEST(DropdownMenuStyle, PopupRowGeometryTracksFontsAndHandlesAnEmptyList)
     });
 }
 
-TEST(DropdownMenuStyle, PopupViewsAcquireGeometryWhenTheyGainAnApplication)
+TEST(DropdownMenuStyle, PopupGeometryIsAvailableBeforeHandlerRegistration)
 {
     RunGUITest([](PApplication& application)
     {
         const std::vector<PString> items{"First", "Second", "Third"};
         Ptr<osi::DropdownMenuPopupWindow> popup = ptr_new<osi::DropdownMenuPopupWindow>(items, 1);
-        EXPECT_EQ(popup->GetPreferredSize(PPrefSizeType::Smallest), PPoint());
-        Ptr<PView> content = popup->GetChildAt(size_t(0));
-        ASSERT_NE(content, nullptr);
-        EXPECT_EQ(content->GetContentSize(), PPoint());
-        ASSERT_TRUE(application.AddHandler(popup));
-        PScopeExit removePopup([&application, &popup] { application.RemoveHandler(popup); });
-        popup->OnStyleChanged();
         const PPoint popupSize = popup->GetPreferredSize(PPrefSizeType::Smallest);
         EXPECT_GT(popupSize.x, 0.0f);
         EXPECT_GT(popupSize.y, 0.0f);
+        Ptr<PView> content = popup->GetChildAt(size_t(0));
+        ASSERT_NE(content, nullptr);
+        EXPECT_GT(content->GetContentSize().x, 0.0f);
+        EXPECT_GT(content->GetContentSize().y, 0.0f);
+        EXPECT_EQ(content->GetPreferredSize(PPrefSizeType::Smallest), content->GetContentSize());
+        EXPECT_EQ(content->GetContentSize() + PPoint(4.0f, 8.0f), popupSize);
+        ASSERT_TRUE(application.AddHandler(popup));
+        PScopeExit removePopup([&application, &popup] { application.RemoveHandler(popup); });
+        popup->OnStyleChanged();
+        EXPECT_EQ(popup->GetPreferredSize(PPrefSizeType::Smallest), popupSize);
         popup->SetFrame(PRect::FromSize(popupSize));
         EXPECT_EQ(content->GetFrame(), PRect(2.0f, 4.0f, popupSize.x - 2.0f, popupSize.y - 4.0f));
         EXPECT_EQ(content->GetContentSize() + PPoint(4.0f, 8.0f), popupSize);

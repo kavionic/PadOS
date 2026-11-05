@@ -457,6 +457,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
         PERROR_THROW_CODE(PErrorCode::NODEV);
     }
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
+    const Ptr<PServerBrush> rootBackground = ptr_new<PServerBrush>(*s_DisplayDriver, PBrushDescription(), nullptr);
     m_TopView = ptr_new<PServerView>(
         ptr_raw_pointer_cast(s_ScreenBitmap),
         "::topview::",
@@ -475,8 +476,8 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
         std::vector<float>{},     // Dash pattern
         0.0f,   // Dash offset
         nullptr,
-        PColor(0xffffffff),
-        PColor(0xffffffff),
+        rootBackground,
+        rootBackground,
         PColor(0)
     );
 

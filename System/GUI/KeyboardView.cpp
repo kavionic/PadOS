@@ -160,9 +160,9 @@ PKeyboardView::PKeyboardView(const PString& name, PKeyboardViewFlags flags)
 
     m_KeysBitmap = ptr_new<PBitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, PEColorSpace::MONO1, PBitmap::SHARE_FRAMEBUFFER);
 
-    uint8_t* raster = m_KeysBitmap->LockRaster();
-    if (raster != nullptr)
+    if (PBitmapRasterRW bitmapRaster = m_KeysBitmap->LockRaster(); bitmapRaster != nullptr)
     {
+        uint8_t* raster = bitmapRaster.Get();
         for (int y = 0; y < KEY_BM_FRAME_BACKSPACE.Height(); ++y)
         {
             memcpy(raster, &g_BackspaceRaster[y], sizeof(g_BackspaceRaster[y]));
@@ -183,7 +183,6 @@ PKeyboardView::PKeyboardView(const PString& name, PKeyboardViewFlags flags)
             memcpy(raster, &g_SpaceRaster[y], sizeof(g_SpaceRaster[y]));
             raster = add_bytes_to_pointer(raster, m_KeysBitmap->GetBytesPerRow());
         }
-        m_KeysBitmap->UnlockRaster();
     }
 
     PString selectedKeyboard = "English";

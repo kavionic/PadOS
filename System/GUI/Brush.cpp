@@ -96,6 +96,11 @@ PBrushDescription PBrush::DescribeBitmap(const PBitmap& bitmap, const PIRect& so
     description.Type = type;
     if (colorSpace == PEColorSpace::RGBA32)
     {
+        const PBitmapRasterRO raster = bitmap.LockRaster();
+        if (raster == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        const size_t bytesPerRow = size_t(bitmap.GetBytesPerRow());
         description.OpaqueSlices = 0;
         const size_t sliceCount = (type == PBrushType::NineSlice) ? 9 : 1;
         const std::array<int32_t, 4> horizontal = PBrushUtils::SliceAxis(sourceRect.Width(), borders.Left, borders.Right);
@@ -109,7 +114,7 @@ PBrushDescription PBrush::DescribeBitmap(const PBitmap& bitmap, const PIRect& so
             bool opaque = true;
             for (int32_t y = slice.top; y < slice.bottom && opaque; ++y)
             {
-                const uint32_t* pixels = reinterpret_cast<const uint32_t*>(bitmap.GetRaster() + size_t(y) * bitmap.GetBytesPerRow());
+                const uint32_t* pixels = reinterpret_cast<const uint32_t*>(raster.Get() + size_t(y) * bytesPerRow);
                 for (int32_t x = slice.left; x < slice.right; ++x)
                 {
                     if (PColor::FromRGB32A(pixels[x]).GetAlpha() != 255)

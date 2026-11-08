@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <utility>
+
 #include <GUI/GUIDefines.h>
 #include <Math/Rect.h>
 #include <Ptr/PtrTarget.h>
@@ -14,6 +17,43 @@
 class PApplication;
 class PWindow;
 class PView;
+
+
+// Scoped raster access. The bitmap must outlive the handle.
+// Moving transfers access; raw pointers remain valid only while it is held.
+// Destruction currently performs no work.
+template<class ByteType>
+class PBitmapRaster
+{
+public:
+    PBitmapRaster() noexcept = default;
+    explicit PBitmapRaster(ByteType* raster) noexcept : m_Raster(raster) {}
+    PBitmapRaster(const PBitmapRaster&) = delete;
+    PBitmapRaster(PBitmapRaster&& other) noexcept : m_Raster(std::exchange(other.m_Raster, nullptr)) {}
+    ~PBitmapRaster() = default;
+
+    PBitmapRaster& operator=(const PBitmapRaster&) = delete;
+    PBitmapRaster& operator=(PBitmapRaster&& other) noexcept
+    {
+        if (this != &other) {
+            m_Raster = std::exchange(other.m_Raster, nullptr);
+        }
+        return *this;
+    }
+
+    ByteType* Get() const noexcept { return m_Raster; }
+    ByteType& operator*() const noexcept { return *m_Raster; }
+    ByteType& operator[](size_t index) const noexcept { return m_Raster[index]; }
+
+    bool operator==(std::nullptr_t) const noexcept { return m_Raster == nullptr; }
+    bool operator!=(std::nullptr_t) const noexcept { return m_Raster != nullptr; }
+
+private:
+    ByteType* m_Raster = nullptr;
+};
+
+using PBitmapRasterRW = PBitmapRaster<uint8_t>;
+using PBitmapRasterRO = PBitmapRaster<const uint8_t>;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,19 +96,19 @@ public:
     PApplication* GetApplication() const noexcept { return m_Application; }
     handle_id GetHandle() const noexcept { return m_Handle; }
 
-    PEColorSpace     GetColorSpace() const;
-    PIRect           GetBounds() const;
+    PEColorSpace    GetColorSpace() const;
+    PIRect          GetBounds() const;
     int             GetBytesPerRow() const;
     virtual void    AddChild(PView* view);
     virtual bool    RemoveChild(PView* view);
-    PView*           FindView(const char* name) const;
+    PView*          FindView(const char* name) const;
 
     void            Sync();
     void            Flush();
 
-    const uint8_t*  GetRaster() const noexcept { return m_Raster; }
-    uint8_t*        LockRaster() { return m_Raster; }
-    void            UnlockRaster() {}
+    // Keep the returned handle alive for the duration of raster access.
+    [[nodiscard]] PBitmapRasterRW LockRaster() { return PBitmapRasterRW(m_Raster); }
+    [[nodiscard]] PBitmapRasterRO LockRaster() const { return PBitmapRasterRO(m_Raster); }
 
 private:
     void Initialize(int width, int height, PEColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, PApplication* application);

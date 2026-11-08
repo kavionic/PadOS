@@ -233,7 +233,7 @@ bool PBitmapView::SlotImageDataReady(const void* data, size_t length, bool isFin
         memcpy(&bmHeader, data, sizeof(bmHeader));
 
         m_Bitmap = ptr_new<PBitmap>(bmHeader.Bounds.Width(), bmHeader.Bounds.Height(), bmHeader.ColorSpace);
-        memset(m_Bitmap->LockRaster(), -1, m_Bitmap->GetBytesPerRow() * m_Bitmap->GetBounds().Height());
+        memset(m_Bitmap->LockRaster().Get(), -1, m_Bitmap->GetBytesPerRow() * m_Bitmap->GetBounds().Height());
 
         UpdateIsScaled();
         PreferredSizeChanged();
@@ -252,14 +252,14 @@ bool PBitmapView::SlotImageDataReady(const void* data, size_t length, bool isFin
     }
     else
     {
-        uint8_t* const dstRaster = m_Bitmap->LockRaster();
+        const PBitmapRasterRW destinationRaster = m_Bitmap->LockRaster();
 
         size_t bytesInBuffer = std::min(length, m_CurrentFrameByteSize - m_BytesAddedToFrame);
 
         while (bytesInBuffer > 0)
         {
             const size_t rowBytes = std::min(bytesInBuffer, m_CurrentFrame.BytesPerRow - m_BytesAddedToRow);
-            memcpy(dstRaster + m_BytesAddedToFrame + m_BytesAddedToRow, data, rowBytes);
+            memcpy(destinationRaster.Get() + m_BytesAddedToFrame + m_BytesAddedToRow, data, rowBytes);
             m_BytesAddedToRow += rowBytes;
             bytesInBuffer -= rowBytes;
             if (m_BytesAddedToRow == m_CurrentFrame.BytesPerRow)

@@ -99,8 +99,7 @@ TEST(SkinnableGUIStyle, SliceBordersParticipateInSizeAndStandardBrushesResetBind
     RunGUITest([](PApplication& application)
     {
         Ptr<PBitmap> bitmap = ptr_new<PBitmap>(32, 24, PEColorSpace::RGB32);
-        std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster()), 32 * 24, PColor(80, 120, 160).GetColor32());
-        bitmap->UnlockRaster();
+        std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 24, PColor(80, 120, 160).GetColor32());
         PButtonSkin skin;
         skin.LabelPadding = PRect(1.0f);
         skin.States[0].Background = ptr_new<PBrush>(PColor(0, 0, 0));
@@ -201,8 +200,7 @@ TEST(Brush, PropertyChangesPreserveHandlesAndValidateBeforePublishing)
     RunGUITest([](PApplication& application)
     {
         Ptr<PBitmap> bitmap = ptr_new<PBitmap>(4, 4, PEColorSpace::RGBA32);
-        std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster()), 16, PColor(20, 40, 60, 128).GetColor32());
-        bitmap->UnlockRaster();
+        std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 16, PColor(20, 40, 60, 128).GetColor32());
         Ptr<PBrush> brush = ptr_new<PBrush>(PColor(10, 20, 30));
         const handle_id handle = brush->GetHandle();
         brush->SetBitmap(bitmap, bitmap->GetBounds(), PBrushType::NineSlice, PBrushBorders{1, 1, 1, 1});

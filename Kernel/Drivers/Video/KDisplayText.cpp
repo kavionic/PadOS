@@ -103,7 +103,7 @@ std::span<const uint8_t*> KDisplayText::GetRowSources(int x, int y)
         const KDisplayTextGlyph& glyph = m_Glyphs[index];
         if (glyph.Bounds.DoIntersect(PIPoint(x, y)))
         {
-            const size_t offset = size_t(y - glyph.Bounds.top) * size_t(glyph.Bounds.Width()) + size_t(x - glyph.Bounds.left);
+            const size_t offset = size_t(y - glyph.Bounds.top) * glyph.Bounds.Width() + (x - glyph.Bounds.left);
             m_RowSources.push_back(glyph.Glyph->Raster + offset);
         }
     }
@@ -254,13 +254,14 @@ bool KDisplayText::AppendGlyph(const PDisplayFontGlyph& glyph, PPoint position)
         || bounds.right > INTEGER_LIMIT || bounds.bottom > INTEGER_LIMIT) {
         PERROR_THROW_CODE(PErrorCode::OVERFLOW);
     }
-    const int64_t width = int64_t(glyph.Bounds.right) - glyph.Bounds.left;
-    const int64_t height = int64_t(glyph.Bounds.bottom) - glyph.Bounds.top;
+    const size_t width = size_t(glyph.Bounds.right) - glyph.Bounds.left;
+    const size_t height = size_t(glyph.Bounds.bottom) - glyph.Bounds.top;
+    size_t rasterSize;
     if (width > std::numeric_limits<int>::max() || height > std::numeric_limits<int>::max()
-        || uint64_t(width) * uint64_t(height) > std::numeric_limits<size_t>::max()) {
+        || __builtin_mul_overflow(width, height, &rasterSize)) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    validate_user_read_pointer_trw(glyph.Raster, size_t(width) * size_t(height));
+    validate_user_read_pointer_trw(glyph.Raster, rasterSize);
     const PIRect integerBounds(int(bounds.left), int(bounds.top), int(bounds.right), int(bounds.bottom));
     const bool sorted = m_Glyphs.empty() || GetStart(m_Glyphs.back().Bounds) <= GetStart(integerBounds);
     m_GlyphOrder.push_back(m_Glyphs.size());

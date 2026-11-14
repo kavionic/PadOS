@@ -48,7 +48,7 @@ Ptr<T>::Ptr(Ptr&& ptr) noexcept
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T>
-template <class Y> inline
+template <class Y> requires std::is_convertible_v<Y*, T*> inline
 Ptr<T>::Ptr(const Ptr<Y>& ptr) noexcept
 {
     Set(ptr.m_Object);

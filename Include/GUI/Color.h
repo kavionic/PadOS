@@ -142,13 +142,13 @@ struct PColor
     static           PColor FromColorName(const char* name)      { return FromColorID(PNamedColors(PString::hash_string_literal_nocase(name))); }
     static           PColor FromColorName(const PString& name)   { return FromColorName(name.c_str()); }
 
-    constexpr PALWAYS_INLINE PColor() : m_Color(0) {}
-    constexpr PALWAYS_INLINE PColor(const PColor& color)  : m_Color(color.m_Color) {}
-    explicit constexpr PALWAYS_INLINE PColor(uint32_t color32) : m_Color(color32) {}
-    constexpr PALWAYS_INLINE PColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
+    constexpr PALWAYS_INLINE PColor() noexcept : m_Color(0) {}
+    constexpr PALWAYS_INLINE PColor(const PColor& color) noexcept : m_Color(color.m_Color) {}
+    explicit constexpr PALWAYS_INLINE PColor(uint32_t color32) noexcept : m_Color(color32) {}
+    constexpr PALWAYS_INLINE PColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) noexcept : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
     
-    PColor(PNamedColors colorID);
-    PColor(const PString& name);
+    PColor(PNamedColors colorID) noexcept;
+    PColor(const PString& name) noexcept;
 
     std::strong_ordering operator<=>(const PColor& rhs) const = default;
 
@@ -236,14 +236,14 @@ struct PColor
 class PDynamicColor : public PColor
 {
 public:
-    constexpr PDynamicColor() {}
-    constexpr PDynamicColor(const PDynamicColor& color) : PColor(color.m_Color) {}
-    explicit constexpr PDynamicColor(const PColor& color) : PColor(color.m_Color) {}
-    explicit constexpr PDynamicColor(uint32_t color32) : PColor(color32) {}
-    constexpr PDynamicColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : PColor(r, g, b, a) {}
+    constexpr PDynamicColor() noexcept {}
+    constexpr PDynamicColor(const PDynamicColor& color) noexcept : PColor(color.m_Color) {}
+    explicit constexpr PDynamicColor(const PColor& color) noexcept : PColor(color.m_Color) {}
+    explicit constexpr PDynamicColor(uint32_t color32) noexcept : PColor(color32) {}
+    constexpr PDynamicColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) noexcept : PColor(r, g, b, a) {}
 
-    PDynamicColor(PNamedColors colorID) : PColor(colorID) {}
-    PDynamicColor(const PString& name) : PColor(name) {}
+    PDynamicColor(PNamedColors colorID) noexcept : PColor(colorID) {}
+    PDynamicColor(const PString& name) noexcept : PColor(name) {}
 
-    PDynamicColor(PStandardColorID colorID);
+    PDynamicColor(PStandardColorID colorID) noexcept;
 };

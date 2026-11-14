@@ -28,6 +28,14 @@ struct KDisplayBrushAxisMapping
     bool Direct;
 };
 
+struct KDisplayBrushSlice
+{
+    KDisplayBrushAxisMapping Horizontal{};
+    KDisplayBrushAxisMapping Vertical{};
+    PIRect Bounds;
+    PIPoint Repeat = PIPoint(0, 0);
+};
+
 class KDisplayBrushSampler
 {
 public:
@@ -39,9 +47,10 @@ private:
     void SampleBitmapSpan(int32_t x, int32_t y, std::span<PColor> pixels) const;
 
     PDisplayBrushLayer m_Layer;
-    std::array<KDisplayBrushAxisMapping, 3> m_HorizontalMappings{};
-    std::array<KDisplayBrushAxisMapping, 3> m_VerticalMappings{};
-    size_t m_AxisCount;
+    std::array<KDisplayBrushSlice, 9> m_Slices;
+    std::array<int32_t, 4> m_HorizontalBoundaries{};
+    std::array<int32_t, 4> m_VerticalBoundaries{};
+    bool m_DirectBitmap = false;
 };
 
 class KDisplayBrush

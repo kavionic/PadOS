@@ -1466,10 +1466,13 @@ void KDisplayDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitm
     {
         PDisplayBrushLayer source;
         source.Bitmap = *srcBitmap;
-        source.Description.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
-        source.Description.OpaqueSlices = 0;
-        source.Description.Type = PBrushType::BitmapTile;
-        source.Description.SourceRect = srcRect;
+        source.Description.Image.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
+        source.Description.Image.OpaqueSlices = 0;
+        source.Description.Type = PBrushType::Bitmap;
+        source.Description.Style = PBrushStyle::TexturePattern;
+        source.Description.Image.SourceRect = srcRect;
+        source.Description.Image.SliceRect = PRect(srcRect);
+        source.Description.Image.LayoutSize = PPoint(srcRect.Size());
         source.Bounds = PIRect(dstPos, dstPos + srcRect.Size());
         DrawBrushBitmap(dstBitmap, source, source.Bounds, mode);
         return;
@@ -1519,10 +1522,13 @@ void KDisplayDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBit
     {
         PDisplayBrushLayer source;
         source.Bitmap = *srcBitmap;
-        source.Description.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
-        source.Description.OpaqueSlices = 0;
-        source.Description.Type = PBrushType::BitmapStretch;
-        source.Description.SourceRect = srcOrigRect;
+        source.Description.Image.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
+        source.Description.Image.OpaqueSlices = 0;
+        source.Description.Type = PBrushType::Image;
+        source.Description.Style = PBrushStyle::TexturePattern;
+        source.Description.Image.SourceRect = srcOrigRect;
+        source.Description.Image.SliceRect = PRect(srcOrigRect);
+        source.Description.Image.LayoutSize = PPoint(dstOrigRect.Size());
         source.Bounds = dstOrigRect;
         DrawBrushBitmap(dstBitmap, source, dstRect, mode);
         return;

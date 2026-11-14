@@ -11,31 +11,45 @@
 
 PBrush::PBrush(PColor color, PApplication* application)
 {
-    if (application == nullptr) {
-        application = PApplication::GetCurrentApplication();
-    }
-    if (application == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NOENT);
-    }
-    m_Application = ptr_weak_cast(application);
     m_Description.Color = color;
-    m_Description.IsOpaque = color.GetAlpha() == 255;
-    m_Handle = application->CreateBrush(m_Description, INVALID_HANDLE);
+    Create(application);
 }
 
-PBrush::PBrush(Ptr<const PBitmap> bitmap, const PIRect& sourceRect, PBrushType type, PBrushBorders borders)
-    : m_Bitmap(std::move(bitmap))
+PBrush::PBrush(PBrushStyle style, PApplication* application)
+{
+    if (style != PBrushStyle::None && style != PBrushStyle::SolidPattern) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    m_Description.Style = style;
+    Create(application);
+}
+
+PBrush::PBrush(Ptr<const PBitmap> bitmap) : PBrush(bitmap, (bitmap != nullptr) ? bitmap->GetBounds() : PIRect())
+{
+}
+
+PBrush::PBrush(Ptr<const PBitmap> bitmap, const PIRect& sourceRect) : m_Bitmap(std::move(bitmap))
 {
     if (m_Bitmap == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    m_Description = DescribeBitmap(*m_Bitmap, sourceRect, type, borders);
-    PApplication* application = m_Bitmap->GetApplication();
-    if (application == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NOENT);
+    m_Description.Image = PImage::DescribeBitmap(*m_Bitmap, sourceRect);
+    m_Description.Type = PBrushType::Bitmap;
+    m_Description.Style = PBrushStyle::TexturePattern;
+    Create(m_Bitmap->GetApplication());
+}
+
+PBrush::PBrush(Ptr<const PImage> image) : m_Image(std::move(image))
+{
+    if (m_Image == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    m_Application = ptr_weak_cast(application);
-    m_Handle = application->CreateBrush(m_Description, m_Bitmap->GetHandle());
+    m_Bitmap = m_Image->GetBitmap();
+    m_Description.Image = m_Image->GetDescription();
+    m_Description.Type = PBrushType::Image;
+    m_Description.Style = PBrushStyle::TexturePattern;
+    m_Image->SignalChanged.Connect(this, &PBrush::ImageChanged);
+    Create(m_Image->GetApplication());
 }
 
 PBrush::~PBrush()
@@ -57,92 +71,123 @@ void PBrush::SetColor(PColor color)
     if (application == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
-    if (m_Description.Type != PBrushType::Solid || m_Description.Color != color)
+    if (m_Description.Type != PBrushType::Solid || m_Description.Style != PBrushStyle::SolidPattern || m_Description.Color != color)
     {
         application->SetBrushColor(m_Handle, color);
+        if (m_Image != nullptr) {
+            m_Image->SignalChanged.Disconnect(this, &PBrush::ImageChanged);
+        }
         m_Description.SetColor(color);
+        m_Image = nullptr;
         m_Bitmap = nullptr;
     }
 }
 
-void PBrush::SetBitmap(Ptr<const PBitmap> bitmap, const PIRect& sourceRect, PBrushType type, PBrushBorders borders)
+void PBrush::SetBitmap(Ptr<const PBitmap> bitmap)
+{
+    SetBitmap(bitmap, (bitmap != nullptr) ? bitmap->GetBounds() : PIRect());
+}
+
+void PBrush::SetBitmap(Ptr<const PBitmap> bitmap, const PIRect& sourceRect)
 {
     if (bitmap == nullptr || bitmap->GetApplication() != GetApplication()) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    const PBrushDescription description = DescribeBitmap(*bitmap, sourceRect, type, borders);
-    SetProperties(description, std::move(bitmap));
+    PBrushDescription description = m_Description;
+    description.Image = PImage::DescribeBitmap(*bitmap, sourceRect);
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    SetProperties(description, std::move(bitmap), nullptr);
 }
 
-// Validate and classify artwork once when its properties change. Drawing never
-// rescans alpha values or repeats the source-rectangle validation.
-PBrushDescription PBrush::DescribeBitmap(const PBitmap& bitmap, const PIRect& sourceRect, PBrushType type, PBrushBorders borders)
+void PBrush::SetImage(Ptr<const PImage> image)
 {
-    PBrushDescription description;
-    if (!bitmap.IsValid() || !sourceRect.IsValid() || (sourceRect & bitmap.GetBounds()) != sourceRect
-        || (type != PBrushType::BitmapStretch && type != PBrushType::BitmapTile && type != PBrushType::NineSlice)) {
+    if (image == nullptr || image->GetApplication() != GetApplication()) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    const PEColorSpace colorSpace = bitmap.GetColorSpace();
-    if (colorSpace != PEColorSpace::RGB16 && colorSpace != PEColorSpace::RGB32 && colorSpace != PEColorSpace::RGBA32) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    if (borders.Left < 0 || borders.Top < 0 || borders.Right < 0 || borders.Bottom < 0
-        || int64_t(borders.Left) + borders.Right >= sourceRect.Width() || int64_t(borders.Top) + borders.Bottom >= sourceRect.Height()) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    description.SourceRect = sourceRect;
-    description.Borders = borders;
-    description.Type = type;
-    if (colorSpace == PEColorSpace::RGBA32)
-    {
-        const PBitmapRasterRO raster = bitmap.LockRaster();
-        if (raster == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-        }
-        const size_t bytesPerRow = size_t(bitmap.GetBytesPerRow());
-        description.OpaqueSlices = 0;
-        const size_t sliceCount = (type == PBrushType::NineSlice) ? 9 : 1;
-        const std::array<int32_t, 4> horizontal = PBrushUtils::SliceAxis(sourceRect.Width(), borders.Left, borders.Right);
-        const std::array<int32_t, 4> vertical = PBrushUtils::SliceAxis(sourceRect.Height(), borders.Top, borders.Bottom);
-        for (size_t index = 0; index < sliceCount; ++index)
-        {
-            const size_t column = index % 3;
-            const size_t row = index / 3;
-            const PIRect slice = (type == PBrushType::NineSlice)
-                ? PIRect(horizontal[column], vertical[row], horizontal[column + 1], vertical[row + 1]) + sourceRect.TopLeft() : sourceRect;
-            bool opaque = true;
-            for (int32_t y = slice.top; y < slice.bottom && opaque; ++y)
-            {
-                const uint32_t* pixels = reinterpret_cast<const uint32_t*>(raster.Get() + size_t(y) * bytesPerRow);
-                for (int32_t x = slice.left; x < slice.right; ++x)
-                {
-                    if (PColor::FromRGB32A(pixels[x]).GetAlpha() != 255)
-                    {
-                        opaque = false;
-                        break;
-                    }
-                }
-            }
-            if (opaque) {
-                description.OpaqueSlices |= uint16_t(0x01 << index);
-            }
-        }
-        description.IsOpaque = description.OpaqueSlices == ((type == PBrushType::NineSlice) ? 0x01ff : 0x01);
-    }
-    return description;
+    PBrushDescription description = m_Description;
+    description.Image = image->GetDescription();
+    description.Type = PBrushType::Image;
+    description.Style = PBrushStyle::TexturePattern;
+    Ptr<const PBitmap> bitmap = image->GetBitmap();
+    SetProperties(description, std::move(bitmap), std::move(image));
 }
 
-void PBrush::SetProperties(const PBrushDescription& description, Ptr<const PBitmap> bitmap)
+void PBrush::SetStyle(PBrushStyle style)
+{
+    switch (style)
+    {
+        case PBrushStyle::None:
+        case PBrushStyle::SolidPattern:
+            break;
+        case PBrushStyle::TexturePattern:
+            if (m_Bitmap == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            break;
+        default:
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    PBrushDescription description = m_Description;
+    description.Style = style;
+    SetProperties(description, m_Bitmap, m_Image);
+}
+
+void PBrush::SetScale(const PPoint& scale)
+{
+    PBrushDescription description = m_Description;
+    description.Scale = scale;
+    SetProperties(description, m_Bitmap, m_Image);
+}
+
+void PBrush::Create(PApplication* application)
+{
+    if (application == nullptr) {
+        application = PApplication::GetCurrentApplication();
+    }
+    if (application == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    m_Application = ptr_weak_cast(application);
+    m_Handle = application->CreateBrush(m_Description, (m_Bitmap != nullptr) ? m_Bitmap->GetHandle() : INVALID_HANDLE);
+}
+
+// Publish image metadata only when the shared image changes. Existing brush
+// handles remain valid, and the server invalidates their background dependents.
+void PBrush::ImageChanged()
+{
+    PBrushDescription description = m_Description;
+    description.Image = m_Image->GetDescription();
+    SetProperties(description, m_Bitmap, m_Image);
+}
+
+void PBrush::SetProperties(const PBrushDescription& description, Ptr<const PBitmap> bitmap, Ptr<const PImage> image)
 {
     PApplication* application = GetApplication();
     if (application == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
-    if (description != m_Description || bitmap != m_Bitmap)
+    if (!PBrushUtils::IsValidScale(description)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (description != m_Description || bitmap != m_Bitmap || image != m_Image)
     {
+        const bool connectImage = image != nullptr && image != m_Image;
+        if (connectImage) {
+            image->SignalChanged.Connect(this, &PBrush::ImageChanged);
+        }
+        PScopeFail disconnectImage([this, &image, connectImage]
+        {
+            if (connectImage) {
+                image->SignalChanged.Disconnect(this, &PBrush::ImageChanged);
+            }
+        });
         application->UpdateBrush(m_Handle, description, (bitmap != nullptr) ? bitmap->GetHandle() : INVALID_HANDLE);
+        if (m_Image != nullptr && image != m_Image) {
+            m_Image->SignalChanged.Disconnect(this, &PBrush::ImageChanged);
+        }
         m_Description = description;
         m_Bitmap = std::move(bitmap);
+        m_Image = std::move(image);
     }
 }

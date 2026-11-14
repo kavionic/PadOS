@@ -17,15 +17,19 @@ struct PDisplayBrushLayer
     PDisplayBitmap Bitmap;
     PBrushDescription Description;
     PIRect Bounds;
+    PIPoint ReferenceSize;
 };
 
 // An invalid brush ID supplies a constant layer produced by composition.
 // Resource descriptions are transferred only at creation or explicit updates.
+// Retain the selecting view's size so queued image changes can resolve again;
+// the driver calculates tile bounds from this size and the current resource.
 struct PDisplayBrushBinding
 {
     PDriverResourceID DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
     PColor Color;
-    PIRect Bounds;
+    PIPoint Origin;
+    PIPoint ReferenceSize;
 
     bool operator==(const PDisplayBrushBinding&) const = default;
 };
@@ -34,22 +38,26 @@ static constexpr size_t DISPLAY_BRUSH_BLOCK_PIXELS = 1024;
 
 namespace PBrushUtils
 {
-// Creation and property updates share metadata validation. Raster access rights
-// are checked separately, once when the backing bitmap is registered.
+// Validate only the selected sampler's inputs. Raster access rights are checked
+// once when the backing bitmap is registered.
 inline bool IsValidResource(const PBrushDescription& description, const PDisplayBitmap* bitmap)
 {
-    if (description.Type == PBrushType::Solid) {
-        return bitmap == nullptr;
+    switch (description.Style)
+    {
+        case PBrushStyle::None:
+        case PBrushStyle::SolidPattern:
+            return true;
+        case PBrushStyle::TexturePattern:
+            break;
+        default:
+            return false;
     }
     if (bitmap == nullptr || bitmap->VideoMemory
-        || (bitmap->ColorSpace != PEColorSpace::RGB16 && bitmap->ColorSpace != PEColorSpace::RGB32 && bitmap->ColorSpace != PEColorSpace::RGBA32)
-        || std::to_underlying(description.Type) > std::to_underlying(PBrushType::NineSlice)) {
+        || (bitmap->ColorSpace != PEColorSpace::RGB16 && bitmap->ColorSpace != PEColorSpace::RGB32 && bitmap->ColorSpace != PEColorSpace::RGBA32)) {
         return false;
     }
-    const PIRect& source = description.SourceRect;
-    const PBrushBorders& borders = description.Borders;
-    return source.IsValid() && source.left >= 0 && source.top >= 0 && source.right <= bitmap->Size.x && source.bottom <= bitmap->Size.y
-        && borders.Left >= 0 && borders.Right >= 0 && borders.Top >= 0 && borders.Bottom >= 0
-        && int64_t(borders.Left) + borders.Right < source.Width() && int64_t(borders.Top) + borders.Bottom < source.Height();
+    const PIRect& source = description.Image.SourceRect;
+    return source.left >= 0 && source.top >= 0 && source.right <= bitmap->Size.x && source.bottom <= bitmap->Size.y
+        && PImageUtils::IsValid(description.Image) && IsValidScale(description);
 }
 }

@@ -1005,19 +1005,19 @@ void PListViewScrolledView::OnPaint(const PRect& updateRect)
         const PRect lastCol = GetColumn(m_ColumnMap.size() - 1)->GetFrame();
         frame.left = lastCol.right;
     }
-    SetFgColor(255, 255, 255);
-    FillRect(frame);
+    FillRect(frame, PNamedColors::white);
 
+    PColor overscrollColor(PNamedColors::white);
     if (m_InertialScroller.GetState() == PInertialScroller::State::Dragging) {
-        SetFgColor(PStandardColorID::DefaultBackground);
+        overscrollColor = pget_standard_color(PStandardColorID::DefaultBackground);
     }
     frame = GetBounds();
 
     if (frame.top < 0.0f) {
-        FillRect(PRect(frame.left, frame.top, frame.right, 0.0f));
+        FillRect(PRect(frame.left, frame.top, frame.right, 0.0f), overscrollColor);
     }
     if (frame.bottom > m_ContentHeight) {
-        FillRect(PRect(frame.left, m_ContentHeight, frame.right, frame.bottom));
+        FillRect(PRect(frame.left, m_ContentHeight, frame.right, frame.bottom), overscrollColor);
     }
 }
 

@@ -48,10 +48,14 @@ void PWindow::OnPaint(const PRect& updateRect)
 
     DrawFrame(innerFrame, FRAME_RECESSED | FRAME_TRANSPARENT);
 
-    SetFgColor(PStandardColorID::WindowBorderActive);
-    FillRect(PRect(outerFrame.left + 2.0f, innerFrame.top, innerFrame.left, innerFrame.bottom));                     // Left edge.
-    FillRect(PRect(innerFrame.right, innerFrame.top, outerFrame.right - 2.0f, innerFrame.bottom));                   // Right edge.
-    FillRect(PRect(outerFrame.left + 2.0f, innerFrame.bottom, outerFrame.right - 2.0f, outerFrame.bottom - 2.0f));   // Bottom edge.
+    // Left edge.
+    FillRect(PRect(outerFrame.left + 2.0f, innerFrame.top, innerFrame.left, innerFrame.bottom), PStandardColorID::WindowBorderActive);
+    // Right edge.
+    FillRect(PRect(innerFrame.right, innerFrame.top, outerFrame.right - 2.0f, innerFrame.bottom), PStandardColorID::WindowBorderActive);
+    // Bottom edge.
+    FillRect(
+        PRect(outerFrame.left + 2.0f, innerFrame.bottom, outerFrame.right - 2.0f, outerFrame.bottom - 2.0f),
+        PStandardColorID::WindowBorderActive);
 
     SetFgColor(PNamedColors::black);
     SetBrush(PStandardColorID::WindowBorderActive);
@@ -61,10 +65,8 @@ void PWindow::OnPaint(const PRect& updateRect)
         PPoint(10.0f, 4.0f + GetFontHeight().ascender),
         PRect(outerFrame.left + 2.0f, outerFrame.top + 2.0f, outerFrame.right - 2.0f, innerFrame.top));
 
-    SetFgColor(PStandardColorID::DefaultBackground);
-
     innerFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
-    FillRect(innerFrame);
+    FillRect(innerFrame, PStandardColorID::DefaultBackground);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

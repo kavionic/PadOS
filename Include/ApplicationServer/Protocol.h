@@ -90,9 +90,16 @@ namespace PAppserverProtocol
         VIEW_SET_FONT,
         VIEW_MOVE_PEN_TO,
         VIEW_SET_PEN_WIDTH,
+        VIEW_SET_BRUSH,
+        VIEW_SET_BRUSH_ORIGIN,
+        VIEW_SET_BACKGROUND_BRUSH,
+        VIEW_SET_BACKGROUND_BRUSH_ORIGIN,
         VIEW_DRAW_LINE1,
         VIEW_DRAW_LINE2,
+        VIEW_DRAW_RECT,
         VIEW_FILL_RECT,
+        VIEW_FILL_RECT_BRUSH,
+        VIEW_ERASE_RECT,
         VIEW_FILL_CIRCLE,
         VIEW_DRAW_ELLIPSE,
         VIEW_DRAW_PIE,
@@ -145,13 +152,11 @@ namespace PAppserverProtocol
         SET_KEYBOARD_CONFIGURATION,
         KEYBOARD_LAYOUTS_REPLY,
         KEYBOARD_CONFIGURATION_REPLY,
-        VIEW_SET_BRUSH,
-        VIEW_ERASE_RECT,
         CREATE_BRUSH,
         DELETE_BRUSH,
         CREATE_BRUSH_REPLY,
         UPDATE_BRUSH,
-        SET_BRUSH_COLOR
+        SET_BRUSH_COLOR,
     };
 }
 
@@ -218,7 +223,9 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         handle_id          fontHandle,
         handle_id          backgroundBrush,
         handle_id          drawingBrush,
-        PColor             fgColor
+        PColor             fgColor,
+        const PPoint&      backgroundBrushOrigin,
+        const PPoint&      drawingBrushOrigin
     )
 >;
 
@@ -263,17 +270,12 @@ using ASDeleteBrush = PRemoteSignal<PAppserverProtocol::DELETE_BRUSH, void(handl
 using ASUpdateBrush = PRemoteSignal<PAppserverProtocol::UPDATE_BRUSH,
     void(handle_id brush, const PBrushDescription& description, handle_id bitmap)>;
 using ASSetBrushColor = PRemoteSignal<PAppserverProtocol::SET_BRUSH_COLOR, void(handle_id brush, PColor color)>;
-using ASViewSetBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH,
-    void(
-        handler_id viewHandle,
-        bool background,
-        PBrushSource source,
-        handle_id brush,
-        const PRect& bounds,
-        bool automaticBounds
-        )
->;
-using ASViewEraseRect = PRemoteSignal<PAppserverProtocol::VIEW_ERASE_RECT, void(handler_id viewHandle, const PRect& rect, bool drawingBackground)>;
+using ASViewSetBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH, void(handler_id viewHandle, handle_id brush)>;
+using ASViewSetBrushOrigin = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH_ORIGIN, void(handler_id viewHandle, const PPoint& origin)>;
+using ASViewSetBackgroundBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BACKGROUND_BRUSH, void(handler_id viewHandle, handle_id brush)>;
+using ASViewSetBackgroundBrushOrigin = PRemoteSignal<PAppserverProtocol::VIEW_SET_BACKGROUND_BRUSH_ORIGIN,
+    void(handler_id viewHandle, const PPoint& origin)>;
+using ASViewEraseRect = PRemoteSignal<PAppserverProtocol::VIEW_ERASE_RECT, void(handler_id viewHandle, const PRect& rect)>;
 
 using ASViewSetFrame        = PRemoteSignal<PAppserverProtocol::VIEW_SET_FRAME,       void(handler_id viewHandle, const PRect& frame, handler_id requestingClient)>;
 using ASViewInvalidate      = PRemoteSignal<PAppserverProtocol::VIEW_INVALIDATE,      void(handler_id viewHandle, const PIRect& frame)>;
@@ -292,7 +294,9 @@ using ASViewSetPenWidth     = PRemoteSignal<PAppserverProtocol::VIEW_SET_PEN_WID
 
 using ASViewDrawLine1       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE1,          void(handler_id viewHandle, const PPoint& position)>;
 using ASViewDrawLine2       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE2,          void(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2)>;
+using ASViewDrawRect = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_RECT, void(handler_id viewHandle, const PRect& rect)>;
 using ASViewFillRect        = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT,           void(handler_id viewHandle, const PRect& rect, PColor color)>;
+using ASViewFillRectBrush = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT_BRUSH, void(handler_id viewHandle, const PRect& rect, handle_id brush)>;
 using ASViewFillCircle      = PRemoteSignal<PAppserverProtocol::VIEW_FILL_CIRCLE,         void(handler_id viewHandle, const PPoint& position, float radius)>;
 using ASViewDrawEllipse     = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_ELLIPSE,        void(handler_id viewHandle, const PRect& rect)>;
 using ASViewDrawPie         = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_PIE,            void(handler_id viewHandle, const PRect& rect, float startAngle, float spanAngle)>;

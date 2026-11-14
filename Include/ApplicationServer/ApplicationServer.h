@@ -39,7 +39,7 @@ public:
     ~ApplicationServer();
 
     virtual void Idle() override;
-    // Log failed display operations and reopen on EIO. Only a failed reopen propagates.
+    // Reopen closed or I/O-faulted display sessions. Only a failed reopen propagates.
     void HandleDisplayDriverError(PErrorCode error);
 
     static PRect             GetScreenFrame();

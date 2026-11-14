@@ -275,7 +275,7 @@ void RA8875GfxDriver::FillRect(PDisplayBitmap* bitmap, const PIRect& rect)
 {
     if (bitmap->VideoMemory)
     {
-        m_SolidFillPixelCount += uint64_t(rect.Width()) * uint64_t(rect.Height());
+        m_SolidFillPixelCount += rect.Width() * rect.Height();
         SetHardwareFgColor(GetFgColor().GetColor16());
         UnsetWindow();
 
@@ -322,7 +322,7 @@ void RA8875GfxDriver::CopyRect(
 
     if (dstBitmap->VideoMemory && srcBitmap->VideoMemory)
     {
-        m_CopiedPixelCount += uint64_t(srcRect.Width()) * uint64_t(srcRect.Height());
+        m_CopiedPixelCount += srcRect.Width() * srcRect.Height();
         WaitBlitter();
 
         uint8_t ctrl;
@@ -597,7 +597,7 @@ void RA8875GfxDriver::BeginTransparentWrite(const PIRect& bounds)
 template<typename PixelProducer>
 void RA8875GfxDriver::WritePixelBlock(const PIRect& bounds, bool useBTE, PixelProducer producePixels)
 {
-    m_UploadedPixelCount += uint64_t(bounds.Width()) * uint64_t(bounds.Height());
+    m_UploadedPixelCount += bounds.Width() * bounds.Height();
     ++m_UploadBlockCount;
     PScopeExit finishWrite([this]
     {

@@ -796,8 +796,8 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
     if (view->m_Font->GetApplication() != this) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Font belongs to another application");
     }
-    if ((view->m_BackgroundBrush.Brush != nullptr && view->m_BackgroundBrush.Brush->GetApplication() != this)
-        || (view->m_DrawingBrush.Brush != nullptr && view->m_DrawingBrush.Brush->GetApplication() != this)) {
+    if ((view->m_BackgroundBrush != nullptr && view->m_BackgroundBrush->GetApplication() != this)
+        || (view->m_DrawingBrush != nullptr && view->m_DrawingBrush->GetApplication() != this)) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Brush belongs to another application");
     }
     Post<ASCreateView>(m_ReplyPort.GetHandle()
@@ -820,9 +820,11 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         , view->m_DashPattern
         , view->m_DashOffset
         , view->m_Font->GetHandle()
-        , (view->m_BackgroundBrush.Brush != nullptr) ? view->m_BackgroundBrush.Brush->GetHandle() : INVALID_HANDLE
-        , (view->m_DrawingBrush.Brush != nullptr) ? view->m_DrawingBrush.Brush->GetHandle() : INVALID_HANDLE
+        , (view->m_BackgroundBrush != nullptr) ? view->m_BackgroundBrush->GetHandle() : INVALID_HANDLE
+        , (view->m_DrawingBrush != nullptr) ? view->m_DrawingBrush->GetHandle() : INVALID_HANDLE
         , view->m_FgColor
+        , view->m_BackgroundBrushOrigin
+        , view->m_DrawingBrushOrigin
         );
     Flush();
 
@@ -836,12 +838,6 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             {
                 view->SetServerHandle(reply.m_ViewHandle);
                 view->HandleScreenPositionChanged(reply.m_ScreenPosition);
-                if (!view->m_BackgroundBrush.AutomaticBounds) {
-                    view->SendBrush(true);
-                }
-                if (!view->m_DrawingBrush.AutomaticBounds) {
-                    view->SendBrush(false);
-                }
                 InvalidatePointerPaths();
                 break;
             }

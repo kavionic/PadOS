@@ -109,7 +109,7 @@ struct PDefaultGUIStyle::TabViewGeometry
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const
+void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const
 {
     UpdateButtonMetrics(target, data);
 
@@ -118,11 +118,11 @@ void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isEna
     target.SetBackgroundBrush(backgroundColor);
 
     if (isEnabled) {
-        target.DrawFrame(frame, (data.IsPressed ? FRAME_RECESSED : FRAME_RAISED) | FRAME_TRANSPARENT);
+        target.DrawFrame(bounds, (data.IsPressed ? FRAME_RECESSED : FRAME_RAISED) | FRAME_TRANSPARENT);
     } else {
-        target.DrawFrame(frame, FRAME_DISABLED | FRAME_TRANSPARENT);
+        target.DrawFrame(bounds, FRAME_DISABLED | FRAME_TRANSPARENT);
     }
-    PPoint labelPosition(std::round((frame.Width() - data.LabelSize.x) * 0.5f), std::round((frame.Height() - data.LabelSize.y) * 0.5f));
+    PPoint labelPosition(std::round((bounds.Width() - data.LabelSize.x) * 0.5f), std::round((bounds.Height() - data.LabelSize.y) * 0.5f));
 
     if (data.IsPressed) {
         labelPosition += PPoint(1.0f, 1.0f);
@@ -131,7 +131,7 @@ void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isEna
     labelPosition.y += target.GetFontHeight().ascender;
     target.SetFgColor(isEnabled ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
     target.SetBrush(backgroundColor);
-    target.DrawString(data.Label, labelPosition, frame.GetFloored().GetResized(2.0f, 2.0f, -2.0f, -2.0f));
+    target.DrawString(data.Label, labelPosition, bounds.GetFloored().GetResized(2.0f, 2.0f, -2.0f, -2.0f));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -890,7 +890,7 @@ void PDefaultGUIStyle::ProgressBarPaint(PView& target, const PRect& frame, const
             target.FillRect(barFrame, PColor(0x66, 0x88, 0xbb));
         }
         if (restFrame.IsValid()) {
-            target.FillBrushRect(restFrame);
+            target.FillRect(restFrame, target.GetBrush());
         }
     }
     data.GetOrCreateStyleData<ProgressBarStyleData>().PreviousFrame = frame;
@@ -1153,7 +1153,7 @@ PRect PDefaultGUIStyle::DrawRadioButtonLabel(PView& target, const PRect& frame, 
     }
     else
     {
-        target.FillRect(frame, pget_standard_color(PStandardColorID::DefaultBackground));
+        target.FillRect(frame, PStandardColorID::DefaultBackground);
     }
     return buttonFrame;
 }
@@ -1569,7 +1569,7 @@ void PDefaultGUIStyle::DrawSliderKnob(
         target.SetFgColor(PStandardColorID::Shadow);
         target.DrawLine(knobFrame.BottomRight());
         target.DrawLine(knobFrame.BottomLeft() + PPoint(1.0f, 0.0f));
-        target.FillRect(center, pget_standard_color(knobColor));
+        target.FillRect(center, knobColor);
     }
     else
     {
@@ -1959,12 +1959,11 @@ void PDefaultGUIStyle::DrawScrollBarTrack(PView& target, const ScrollBarGeometry
         beforeKnob.bottom = geometry.KnobFrame.top;
         afterKnob.top = geometry.KnobFrame.bottom;
     }
-    target.SetFgColor(PStandardColorID::ScrollBarBackground);
     if (beforeKnob.IsValid()) {
-        target.FillRect(beforeKnob);
+        target.FillRect(beforeKnob, PStandardColorID::ScrollBarBackground);
     }
     if (afterKnob.IsValid()) {
-        target.FillRect(afterKnob);
+        target.FillRect(afterKnob, PStandardColorID::ScrollBarBackground);
     }
     target.SetFgColor(GetScrollBarTint(pget_standard_color(PStandardColorID::Shadow), 0.5f));
     if (isHorizontal) {
@@ -2289,9 +2288,8 @@ void PDefaultGUIStyle::DrawTabViewSelection(PView& target, const PView& tabsTarg
     }
     if (!geometry.Overflow)
     {
-        target.SetFgColor(PStandardColorID::DefaultBackground);
-        target.FillRect(PRect(0.0f, 0.0f, 2.0f, geometry.TabHeight - 2.0f));
-        target.FillRect(PRect(tabRect.right - 2.0f, 0.0f, tabRect.right, geometry.TabHeight - 2.0f));
+        target.FillRect(PRect(0.0f, 0.0f, 2.0f, geometry.TabHeight - 2.0f), PStandardColorID::DefaultBackground);
+        target.FillRect(PRect(tabRect.right - 2.0f, 0.0f, tabRect.right, geometry.TabHeight - 2.0f), PStandardColorID::DefaultBackground);
     }
 
     for (size_t i = 0; i < data.Titles.size(); ++i)
@@ -2370,9 +2368,10 @@ void PDefaultGUIStyle::DrawTabViewArrows(PView& target, const TabViewGeometry& g
 
     const PColor fgShadowColor = GetTabViewTint(fgColor, 0.9f);
 
-    target.SetFgColor(PStandardColorID::DefaultBackground);
-    target.FillRect(PRect(0.0f, 0.0f, TAB_VIEW_ARROW_SPACE, geometry.TabHeight - 2.0f));
-    target.FillRect(PRect(tabRect.right - TAB_VIEW_ARROW_SPACE, 0.0f, tabRect.right, geometry.TabHeight - 2.0f));
+    target.FillRect(PRect(0.0f, 0.0f, TAB_VIEW_ARROW_SPACE, geometry.TabHeight - 2.0f), PStandardColorID::DefaultBackground);
+    target.FillRect(
+        PRect(tabRect.right - TAB_VIEW_ARROW_SPACE, 0.0f, tabRect.right, geometry.TabHeight - 2.0f),
+        PStandardColorID::DefaultBackground);
     target.SetFgColor(bgColor);
     for (float x = 2.0f; x < TAB_VIEW_ARROW_SPACE - 2.0f; x += 1.0f)
     {
@@ -2422,7 +2421,7 @@ void PDefaultGUIStyle::DrawTabViewTitles(PView& target, const PTabViewStyleData&
         const PRect background(backgroundLeft, bounds.top, right, bounds.bottom);
         if (i == data.HighlightedTab)
         {
-            target.FillBrushRect(background);
+            target.FillRect(background, target.GetBrush());
             highlightedFrame = PRect(x + 2.0f, 2.0f, x + width + 2.0f, tabHeight);
             highlightedBaseline = baseline;
         }
@@ -2434,7 +2433,7 @@ void PDefaultGUIStyle::DrawTabViewTitles(PView& target, const PTabViewStyleData&
         x += width;
     }
     if (backgroundLeft < bounds.right) {
-        target.FillBrushRect(PRect(backgroundLeft, bounds.top, bounds.right, bounds.bottom));
+        target.FillRect(PRect(backgroundLeft, bounds.top, bounds.right, bounds.bottom), target.GetBrush());
     }
     if (data.HighlightedTab < data.Titles.size()) {
         DrawTabViewHighlight(target, data, highlightedFrame, highlightedBaseline);
@@ -2475,8 +2474,8 @@ void PDefaultGUIStyle::DrawTabViewHighlight(PView& target, const PTabViewStyleDa
     const float cornerRight = std::min(frame.left + cornerSize, frame.right);
     const float cornerBottom = frame.top + cornerSize;
     const float cornerTop = cornerBottom - (cornerRight - frame.left);
-    target.FillRect(PRect(cornerRight, frame.top, frame.right, frame.bottom));
-    target.FillRect(PRect(frame.left, cornerBottom, cornerRight, frame.bottom));
+    target.FillRect(PRect(cornerRight, frame.top, frame.right, frame.bottom), PStandardColorID::ButtonBackgroundHover);
+    target.FillRect(PRect(frame.left, cornerBottom, cornerRight, frame.bottom), PStandardColorID::ButtonBackgroundHover);
     target.FillTriangle(PPoint(frame.left, cornerBottom), PPoint(cornerRight, cornerTop), PPoint(cornerRight, cornerBottom));
 
     const PDrawingMode previousMode = target.GetDrawingMode();

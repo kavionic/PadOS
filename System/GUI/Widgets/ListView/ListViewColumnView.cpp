@@ -45,8 +45,7 @@ void PListViewColumnView::Refresh(const PRect& updateRect)
 
     if (parent->m_Rows.empty())
     {
-        SetFgColor(255, 255, 255);
-        FillRect(updateRect);
+        FillRect(updateRect, PNamedColors::white);
         return;
     }
 //    const Rect bounds = GetBounds();
@@ -54,8 +53,7 @@ void PListViewColumnView::Refresh(const PRect& updateRect)
     Ptr<PListViewRow> lastRow = parent->m_Rows[parent->m_Rows.size() - 1];
     if (updateRect.top > lastRow->m_YPos + lastRow->m_Height + parent->m_VSpacing)
     {
-        SetFgColor(255, 255, 255);
-        FillRect(updateRect);
+        FillRect(updateRect, PNamedColors::white);
         return;
     }
 
@@ -87,8 +85,7 @@ void PListViewColumnView::Refresh(const PRect& updateRect)
         // Clear area below last row.
         frame.top = frame.bottom;
         frame.bottom = updateRect.bottom;
-        SetFgColor(255, 255, 255);
-        FillRect(frame);
+        FillRect(frame, PNamedColors::white);
     }
 }
 

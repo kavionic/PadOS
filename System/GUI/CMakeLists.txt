@@ -8,6 +8,7 @@
 target_sources(PadOS_GUI PRIVATE
 	ViewBrush.cpp
 	Brush.cpp
+	Image.cpp
 	Application.cpp
 	Bitmap.cpp
 	Color.cpp

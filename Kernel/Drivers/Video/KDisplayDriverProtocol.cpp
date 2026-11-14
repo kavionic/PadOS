@@ -227,14 +227,20 @@ PDriverResourceID KDisplayDriver::HandleCreateBitmap(PDisplayBitmap bitmap, bool
         default:
             PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    const size_t bitsPerPixel = size_t(BitsPerPixel(bitmap.ColorSpace));
+    const size_t width = bitmap.Size.x;
+    const size_t bitsPerPixel = BitsPerPixel(bitmap.ColorSpace);
     const size_t alignment = (bitsPerPixel == 16 || bitsPerPixel == 32) ? bitsPerPixel / 8 : 1;
-    const uint64_t minimumStride = (uint64_t(bitmap.Size.x) * bitsPerPixel + 7) / 8;
-    if (bitmap.BytesPerLine < minimumStride || bitmap.BytesPerLine > std::numeric_limits<size_t>::max() / size_t(bitmap.Size.y)
+    size_t minimumStride;
+    if (bitsPerPixel == 1) {
+        minimumStride = (width + 7) / 8;
+    } else if (__builtin_mul_overflow(width, bitsPerPixel / 8, &minimumStride)) {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    size_t length;
+    if (bitmap.BytesPerLine < minimumStride || __builtin_mul_overflow(bitmap.BytesPerLine, bitmap.Size.y, &length)
         || uintptr_t(bitmap.Raster) % alignment != 0 || bitmap.BytesPerLine % alignment != 0) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    const size_t length = bitmap.BytesPerLine * size_t(bitmap.Size.y);
     if (writable) {
         validate_user_write_pointer_trw(bitmap.Raster, length);
     } else {
@@ -527,12 +533,15 @@ void KDisplayDriver::HandleSetBrush(std::span<const std::byte> payload, size_t l
         const PDisplayBrushBinding& binding = bindings[index];
         PDisplayBrushLayer& layer = m_BrushLayerBuffer[index];
         layer = {};
-        layer.Bounds = binding.Bounds;
+        layer.Bounds = PIRect(binding.Origin, binding.Origin);
+        layer.ReferenceSize = binding.ReferenceSize;
+        if (binding.ReferenceSize.x < 0 || binding.ReferenceSize.y < 0) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
         if (binding.DriverResourceID == DRIVER_INVALID_RESOURCE_ID)
         {
             m_SelectedBrushResources[index] = nullptr;
             layer.Description.Color = binding.Color;
-            layer.Description.IsOpaque = binding.Color.GetAlpha() == 255;
         }
         else
         {
@@ -608,10 +617,10 @@ void KDisplayDriver::RefreshBrushLayer_pl(size_t index)
     if (brush->GetBitmap() != nullptr) {
         layer.Bitmap = *brush->GetBitmap()->GetBitmap(false);
     }
-    if (layer.Description.Type != PBrushType::Solid
-        && (layer.Bounds.left < -int(COORD_MAX) || layer.Bounds.top < -int(COORD_MAX)
-            || layer.Bounds.right > int(COORD_MAX) || layer.Bounds.bottom > int(COORD_MAX))) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
+    if (layer.Description.Style == PBrushStyle::TexturePattern)
+    {
+        const PIPoint size = PBrushUtils::TileSize(layer.Description, layer.ReferenceSize);
+        layer.Bounds = PBrushUtils::TileBounds(layer.Bounds.TopLeft(), size);
     }
 }
 

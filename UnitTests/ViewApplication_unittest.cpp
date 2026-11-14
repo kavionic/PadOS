@@ -45,8 +45,8 @@ TEST(ViewApplication, DetachedViewsUseTheCurrentApplicationForStylesAndBrushes)
         EXPECT_EQ(view->GetStandardBrush(PNamedColors::white), application.GetStandardBrush(PNamedColors::white));
         view->SetBrush(ptr_new<PBrush>(PColor(20, 40, 60), view->GetApplication()));
         view->SetBackgroundBrush(ptr_new<PBrush>(PColor(60, 40, 20), view->GetApplication()));
-        EXPECT_EQ(view->GetBrushBinding().Brush->GetApplication(), &application);
-        EXPECT_EQ(view->GetBackgroundBrushBinding().Brush->GetApplication(), &application);
+        EXPECT_EQ(view->GetBrush()->GetApplication(), &application);
+        EXPECT_EQ(view->GetBackgroundBrush()->GetApplication(), &application);
     });
 }
 
@@ -130,5 +130,41 @@ TEST(ViewApplication, AttachedLayoutOnlyChildrenDoNotNeedAServerHandle)
         EXPECT_EQ(child->GetLooper(), nullptr);
         EXPECT_EQ(child->GetApplication(), &application);
         EXPECT_EQ(child->GetStyle(), application.GetGUIStyle());
+    });
+}
+
+TEST(ViewApplication, ExplicitRectangleFillsPreserveDrawingState)
+{
+    RunGUITest([](PApplication& application)
+    {
+        Ptr<PView> view = ptr_new<PView>("rectangle_fills", PViewFlag::WillDraw);
+        view->SetFrame(PRect::FromSize(64.0f, 64.0f));
+        view->SetBackgroundBrush(PNamedColors::black);
+        view->SetBrush(PNamedColors::red);
+        view->SetBrushOrigin(PPoint(3.0f, 5.0f));
+        view->SetFgColor(PNamedColors::white);
+        view->SetPenWidth(3.0f);
+        const Ptr<const PBrush> drawingBrush = view->GetBrush();
+        const Ptr<const PBrush> backgroundBrush = view->GetBackgroundBrush();
+        const Ptr<PBrush> explicitBrush = ptr_new<PBrush>(PColor(PNamedColors::blue), &application);
+        const Ptr<PBrush> noFill = ptr_new<PBrush>(PBrushStyle::None, &application);
+        ASSERT_TRUE(application.AddView(view, PViewDockType::TopLevelView));
+        PScopeExit removeView([&application, &view] { application.RemoveView(view); });
+
+        const PRect rect(8.0f, 8.0f, 56.0f, 56.0f);
+        view->FillRect(rect, explicitBrush);
+        view->FillRect(rect, PColor(10, 20, 30));
+        view->FillRect(rect, PStandardColorID::DefaultBackground);
+        view->FillRect(rect, PNamedColors::green);
+        view->FillRect(rect, nullptr);
+        view->FillRect(rect, noFill);
+        view->DrawRect(rect);
+        application.Sync();
+
+        EXPECT_EQ(view->GetBrush(), drawingBrush);
+        EXPECT_EQ(view->GetBackgroundBrush(), backgroundBrush);
+        EXPECT_EQ(view->GetDrawingBrushOrigin(), PPoint(3.0f, 5.0f));
+        EXPECT_EQ(view->GetFgColor(), PColor(PNamedColors::white));
+        EXPECT_EQ(view->GetPenWidth(), 3.0f);
     });
 }

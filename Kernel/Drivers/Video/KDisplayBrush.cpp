@@ -72,40 +72,6 @@ static KDisplayBrushAxisMapping MakeBrushAxisMapping(
     return mapping;
 }
 
-static std::array<KDisplayBrushAxisMapping, 3> MakeBrushAxisMappings(
-    PBrushType type,
-    int32_t destinationStart,
-    int32_t destinationSize,
-    int32_t sourceStart,
-    int32_t sourceSize,
-    int32_t leading,
-    int32_t trailing,
-    int32_t bitmapSize)
-{
-    if (type != PBrushType::NineSlice) {
-        return {MakeBrushAxisMapping(destinationStart, destinationSize, sourceStart, sourceSize, bitmapSize), {}, {}};
-    }
-    const std::array<int32_t, 4> boundaries = PBrushUtils::SliceAxis(destinationSize, leading, trailing);
-    const int32_t destinationLeading = boundaries[1];
-    const int32_t destinationTrailing = destinationSize - boundaries[2];
-    return
-    {
-        MakeBrushAxisMapping(destinationStart, destinationLeading, sourceStart, leading, bitmapSize),
-        MakeBrushAxisMapping(
-            destinationStart + destinationLeading,
-            destinationSize - destinationLeading - destinationTrailing,
-            sourceStart + leading,
-            sourceSize - leading - trailing,
-            bitmapSize),
-        MakeBrushAxisMapping(
-            destinationStart + destinationSize - destinationTrailing,
-            destinationTrailing,
-            sourceStart + sourceSize - trailing,
-            trailing,
-            bitmapSize)
-    };
-}
-
 static KBrushAxisSample GetBrushRowSample(const KDisplayBrushAxisMapping& mapping, int32_t position)
 {
     const float clamped = std::clamp(GetBrushCoordinate(mapping, position), float(mapping.SampleMinimum), float(mapping.SampleMaximum));
@@ -311,9 +277,9 @@ static void DispatchBrushRun(
 template<PEColorSpace COLOR_SPACE>
 static void SampleTiledBrushSpan(const PDisplayBrushLayer& layer, int32_t x, int32_t y, std::span<PColor> pixels)
 {
-    const PIRect& source = layer.Description.SourceRect;
-    const int32_t sourceY = source.top + ((y - layer.Bounds.top) % source.Height() + source.Height()) % source.Height();
-    int32_t sourceX = source.left + ((x - layer.Bounds.left) % source.Width() + source.Width()) % source.Width();
+    const PIRect& source = layer.Description.Image.SourceRect;
+    const int32_t sourceY = source.top + PBrushUtils::WrapCoordinate(y - layer.Bounds.top, source.Height());
+    int32_t sourceX = source.left + PBrushUtils::WrapCoordinate(x - layer.Bounds.left, source.Width());
     const uint8_t* raster = layer.Bitmap.Raster + size_t(sourceY) * layer.Bitmap.BytesPerLine;
     const KBrushRasterPixel<COLOR_SPACE>* row = reinterpret_cast<const KBrushRasterPixel<COLOR_SPACE>*>(raster);
     while (!pixels.empty())
@@ -327,37 +293,84 @@ static void SampleTiledBrushSpan(const PDisplayBrushLayer& layer, int32_t x, int
     }
 }
 
-KDisplayBrushSampler::KDisplayBrushSampler(const PDisplayBrushLayer& layer)
-    : m_Layer(layer), m_AxisCount((layer.Description.Type == PBrushType::NineSlice) ? 3 : 1)
+// Prepare every slice's stretch or tile mapping once. Repetition is split into
+// contiguous runs, preserving the existing direct and bilinear inner loops.
+KDisplayBrushSampler::KDisplayBrushSampler(const PDisplayBrushLayer& layer) : m_Layer(layer)
 {
-    if ((layer.Description.Type == PBrushType::BitmapStretch || layer.Description.Type == PBrushType::NineSlice) && layer.Bounds.IsValid())
+    if (layer.Description.Style != PBrushStyle::TexturePattern) {
+        return;
+    }
+    const PImageDescription& image = layer.Description.Image;
+    const PIRect& source = image.SourceRect;
+    const PRect& slice = image.SliceRect;
+    const PIPoint size = PBrushUtils::TileSize(layer.Description, layer.ReferenceSize);
+    m_Layer.Bounds = PIRect(layer.Bounds.TopLeft(), layer.Bounds.TopLeft() + size);
+    m_DirectBitmap = slice == PRect(source) && size == source.Size()
+        && (!image.Tiling.Has(PImageTilingFlag::CenterHorizontal) || layer.Description.Scale.x == 1.0f)
+        && (!image.Tiling.Has(PImageTilingFlag::CenterVertical) || layer.Description.Scale.y == 1.0f)
+        && (source & PIRect(PIPoint(0, 0), layer.Bitmap.Size)) == source;
+    if (m_DirectBitmap) {
+        return;
+    }
+    const PPoint layoutSize = PBrushUtils::LayoutSize(layer.Description, size);
+    const std::array<int32_t, 4> sourceHorizontal = PImageUtils::SourceAxis(source.left, source.right, slice.left, slice.right);
+    const std::array<int32_t, 4> sourceVertical = PImageUtils::SourceAxis(source.top, source.bottom, slice.top, slice.bottom);
+    m_HorizontalBoundaries = PImageUtils::LayoutAxis(
+        layoutSize.x,
+        size.x,
+        int32_t(slice.left) - source.left,
+        source.right - int32_t(slice.right));
+    m_VerticalBoundaries = PImageUtils::LayoutAxis(
+        layoutSize.y,
+        size.y,
+        int32_t(slice.top) - source.top,
+        source.bottom - int32_t(slice.bottom));
+    for (size_t index = 0; index < m_Slices.size(); ++index)
     {
-        const PIRect& source = layer.Description.SourceRect;
-        const PBrushBorders& borders = layer.Description.Borders;
-        m_HorizontalMappings = MakeBrushAxisMappings(
-            layer.Description.Type,
-            layer.Bounds.left,
-            layer.Bounds.Width(),
-            source.left,
-            source.Width(),
-            borders.Left,
-            borders.Right,
+        const size_t column = index % 3;
+        const size_t row = index / 3;
+        KDisplayBrushSlice& mapping = m_Slices[index];
+        mapping.Bounds = PIRect(
+            m_HorizontalBoundaries[column],
+            m_VerticalBoundaries[row],
+            m_HorizontalBoundaries[column + 1],
+            m_VerticalBoundaries[row + 1]);
+        if (!mapping.Bounds.IsValid()) {
+            continue;
+        }
+        const int32_t sourceWidth = sourceHorizontal[column + 1] - sourceHorizontal[column];
+        const int32_t sourceHeight = sourceVertical[row + 1] - sourceVertical[row];
+        const bool tileHorizontal = PImageUtils::TileHorizontal(image.Tiling, row, column);
+        const bool tileVertical = PImageUtils::TileVertical(image.Tiling, row, column);
+        if (tileHorizontal) {
+            mapping.Repeat.x = std::max<int32_t>(1, int32_t(std::round(float(sourceWidth) * layer.Description.Scale.x)));
+        }
+        if (tileVertical) {
+            mapping.Repeat.y = std::max<int32_t>(1, int32_t(std::round(float(sourceHeight) * layer.Description.Scale.y)));
+        }
+        mapping.Horizontal = MakeBrushAxisMapping(
+            mapping.Bounds.left,
+            tileHorizontal ? mapping.Repeat.x : mapping.Bounds.Width(),
+            sourceHorizontal[column],
+            sourceWidth,
             layer.Bitmap.Size.x);
-        m_VerticalMappings = MakeBrushAxisMappings(
-            layer.Description.Type,
-            layer.Bounds.top,
-            layer.Bounds.Height(),
-            source.top,
-            source.Height(),
-            borders.Top,
-            borders.Bottom,
+        mapping.Vertical = MakeBrushAxisMapping(
+            mapping.Bounds.top,
+            tileVertical ? mapping.Repeat.y : mapping.Bounds.Height(),
+            sourceVertical[row],
+            sourceHeight,
             layer.Bitmap.Size.y);
     }
 }
 
 void KDisplayBrushSampler::SampleSpan(int32_t x, int32_t y, std::span<PColor> pixels) const
 {
-    if (m_Layer.Description.Type == PBrushType::Solid)
+    if (m_Layer.Description.Style == PBrushStyle::None)
+    {
+        std::fill(pixels.begin(), pixels.end(), PColor(0, 0, 0, 0));
+        return;
+    }
+    if (m_Layer.Description.Style == PBrushStyle::SolidPattern)
     {
         std::fill(pixels.begin(), pixels.end(), m_Layer.Description.Color);
         return;
@@ -381,50 +394,59 @@ void KDisplayBrushSampler::SampleSpan(int32_t x, int32_t y, std::span<PColor> pi
 template<PEColorSpace COLOR_SPACE>
 void KDisplayBrushSampler::SampleBitmapSpan(int32_t x, int32_t y, std::span<PColor> pixels) const
 {
-    const PIRect& bounds = m_Layer.Bounds;
-    if (m_Layer.Description.Type == PBrushType::BitmapTile)
+    if (m_DirectBitmap)
     {
         SampleTiledBrushSpan<COLOR_SPACE>(m_Layer, x, y, pixels);
         return;
     }
-    const int32_t first = std::max<int32_t>(x, bounds.left);
-    const int32_t last = std::min<int32_t>(x + int32_t(pixels.size()), bounds.right);
-    if (!bounds.IsValid() || y < bounds.top || y >= bounds.bottom || first >= last)
-    {
-        std::fill(pixels.begin(), pixels.end(), PColor(0, 0, 0, 0));
-        return;
+    const PIRect& bounds = m_Layer.Bounds;
+    const int32_t localY = PBrushUtils::WrapCoordinate(y - bounds.top, bounds.Height());
+    int32_t localX = PBrushUtils::WrapCoordinate(x - bounds.left, bounds.Width());
+    size_t row = 0;
+    while (row < 2 && localY >= m_VerticalBoundaries[row + 1]) {
+        ++row;
     }
-    std::fill(pixels.begin(), pixels.begin() + (first - x), PColor(0, 0, 0, 0));
-    std::fill(pixels.begin() + (last - x), pixels.end(), PColor(0, 0, 0, 0));
-    size_t verticalIndex = 0;
-    while (verticalIndex + 1 < m_AxisCount && y >= m_VerticalMappings[verticalIndex].DestinationEnd) {
-        ++verticalIndex;
-    }
-    const KBrushAxisSample vertical = GetBrushRowSample(m_VerticalMappings[verticalIndex], y);
-    const uint8_t* firstRow = m_Layer.Bitmap.Raster + size_t(vertical.First) * m_Layer.Bitmap.BytesPerLine;
-    const uint8_t* secondRow = m_Layer.Bitmap.Raster + size_t(vertical.Second) * m_Layer.Bitmap.BytesPerLine;
-    for (size_t column = 0; column < m_AxisCount; ++column)
+    while (!pixels.empty())
     {
-        const KDisplayBrushAxisMapping& mapping = m_HorizontalMappings[column];
-        const int32_t start = std::max(first, mapping.DestinationStart);
-        const int32_t end = std::min(last, mapping.DestinationEnd);
-        if (start >= end) {
-            continue;
+        size_t column = 0;
+        while (column < 2 && localX >= m_HorizontalBoundaries[column + 1]) {
+            ++column;
         }
-        const std::span<PColor> run = pixels.subspan(size_t(start - x), size_t(end - start));
+        const size_t index = row * 3 + column;
+        const KDisplayBrushSlice& mapping = m_Slices[index];
+        int32_t sampleX = localX;
+        int32_t sampleY = localY;
+        size_t count = std::min(pixels.size(), size_t(mapping.Bounds.right - localX));
+        if (mapping.Repeat.x > 0)
+        {
+            sampleX = mapping.Bounds.left + (localX - mapping.Bounds.left) % mapping.Repeat.x;
+            count = std::min(count, size_t(mapping.Horizontal.DestinationEnd - sampleX));
+        }
+        if (mapping.Repeat.y > 0) {
+            sampleY = mapping.Bounds.top + (localY - mapping.Bounds.top) % mapping.Repeat.y;
+        }
+        const KBrushAxisSample vertical = GetBrushRowSample(mapping.Vertical, sampleY);
+        const uint8_t* firstRow = m_Layer.Bitmap.Raster + size_t(vertical.First) * m_Layer.Bitmap.BytesPerLine;
+        const uint8_t* secondRow = m_Layer.Bitmap.Raster + size_t(vertical.Second) * m_Layer.Bitmap.BytesPerLine;
+        const std::span<PColor> run = pixels.first(count);
         if constexpr (COLOR_SPACE == PEColorSpace::RGBA32)
         {
-            const size_t slice = verticalIndex * m_AxisCount + column;
-            const bool opaque = m_Layer.Description.IsOpaque || (m_Layer.Description.OpaqueSlices & (0x01 << slice)) != 0;
+            const PImageDescription& image = m_Layer.Description.Image;
+            const bool opaque = image.IsOpaque || (image.OpaqueSlices & (0x01 << index)) != 0;
             if (opaque) {
-                DispatchBrushRun<PEColorSpace::RGB32>(mapping, firstRow, secondRow, vertical.Fraction, start, run);
+                DispatchBrushRun<PEColorSpace::RGB32>(mapping.Horizontal, firstRow, secondRow, vertical.Fraction, sampleX, run);
             } else {
-                DispatchBrushRun<COLOR_SPACE>(mapping, firstRow, secondRow, vertical.Fraction, start, run);
+                DispatchBrushRun<COLOR_SPACE>(mapping.Horizontal, firstRow, secondRow, vertical.Fraction, sampleX, run);
             }
         }
         else
         {
-            DispatchBrushRun<COLOR_SPACE>(mapping, firstRow, secondRow, vertical.Fraction, start, run);
+            DispatchBrushRun<COLOR_SPACE>(mapping.Horizontal, firstRow, secondRow, vertical.Fraction, sampleX, run);
+        }
+        pixels = pixels.subspan(count);
+        localX += int32_t(count);
+        if (localX == bounds.Width()) {
+            localX = 0;
         }
     }
 }

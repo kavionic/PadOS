@@ -33,7 +33,7 @@ PColor PColor::FromColorID(PNamedColors colorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PColor::PColor(PNamedColors colorID)
+PColor::PColor(PNamedColors colorID) noexcept
 {
     m_Color = FromColorID(colorID).m_Color;
 }
@@ -42,7 +42,7 @@ PColor::PColor(PNamedColors colorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PColor::PColor(const PString& name)
+PColor::PColor(const PString& name) noexcept
 {
     m_Color = FromColorName(name).m_Color;
 }
@@ -61,6 +61,6 @@ PColor& PColor::operator*=(float rhs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PDynamicColor::PDynamicColor(PStandardColorID colorID) : PColor(pget_standard_color(colorID))
+PDynamicColor::PDynamicColor(PStandardColorID colorID) noexcept : PColor(pget_standard_color(colorID))
 {
 }

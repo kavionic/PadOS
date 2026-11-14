@@ -57,6 +57,7 @@ target_sources(PadOS_KernelExt PRIVATE
 	KProcessGroups.cpp
 	KProcessSession.cpp
 	KThreadExitTrampoline.cpp
+	KThreadInfo.cpp
 )
 
 if(PADOS_MODULE_POSIX_SIGNALS)

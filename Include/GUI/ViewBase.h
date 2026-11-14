@@ -38,9 +38,9 @@ public:
         , m_ScrollOffset(scrollOffset)
         , m_Flags(flags)
         , m_HitMode(hitMode)
-        , m_PenWidth(penWidth)
         , m_CapStyle(capStyle)
         , m_JointStyle(jointStyle)
+        , m_PenWidth(penWidth)
         , m_MiterLimit(miterLimit)
         , m_DashPattern(dashPattern)
         , m_DashOffset(dashOffset)
@@ -298,6 +298,8 @@ protected:
     PPoint          m_ScrollOffset;
     PViewFlags      m_Flags = PViewFlags::zero;    
     PViewHitMode    m_HitMode = PViewHitMode::HitTest;
+    PCapStyle       m_CapStyle = PCapStyle::Flat;
+    PJointStyle     m_JointStyle = PJointStyle::Bevel;
 
     PPoint          m_ScreenPos = PPoint(0.0f, 0.0f);
 
@@ -307,8 +309,6 @@ protected:
     PPoint      m_PenPosition;
     float       m_PenWidth   = 1.0f;
 
-    PCapStyle           m_CapStyle   = PCapStyle::Flat;
-    PJointStyle         m_JointStyle = PJointStyle::Bevel;
     float               m_MiterLimit = 4.0f;
     std::vector<float>  m_DashPattern;
     float               m_DashOffset = 0.0f;

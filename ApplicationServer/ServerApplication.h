@@ -10,6 +10,7 @@
 
 
 #include <limits>
+#include <System/ExceptionHandling.h>
 #include "Threads/EventHandler.h"
 #include "Utils/MessagePort.h"
 #include "Math/Rect.h"
@@ -68,7 +69,9 @@ private:
                         handle_id    fontHandle,
                         handle_id backgroundBrush,
                         handle_id drawingBrush,
-                        PColor fgColor);
+                        PColor fgColor,
+                        const PPoint& backgroundBrushOrigin,
+                        const PPoint& drawingBrushOrigin);
     void SlotDeleteView(handler_id clientHandle);
     void SlotSetPointerCapture(handler_id rootViewHandle, PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
     void SlotReleasePointerCapture(PPointerID pointerID, PPointerCaptureID captureID);
@@ -115,7 +118,21 @@ private:
     void SlotViewMovePenTo(handler_id viewHandle, const PPoint& pos)                         { ForwardToView(viewHandle, &PServerView::MovePenTo, pos); }
     void SlotViewDrawLine1(handler_id viewHandle, const PPoint& toPoint)                     { ForwardToView(viewHandle, &PServerView::DrawLineTo, toPoint); }
     void SlotViewDrawLine2(handler_id viewHandle, const PPoint& fromPnt, const PPoint& toPnt) { ForwardToView(viewHandle, &PServerView::DrawLine, fromPnt, toPnt); }
-    void SlotViewFillRect(handler_id viewHandle, const PRect& rect, PColor color)             { ForwardToView(viewHandle, &PServerView::FillRect, rect, color); }
+    void SlotViewDrawRect(handler_id viewHandle, const PRect& rect) { ForwardToView(viewHandle, &PServerView::DrawRect, rect); }
+    void SlotViewFillRect(handler_id viewHandle, const PRect& rect, PColor color)
+    {
+        const auto callback = static_cast<void (PServerView::*)(const PRect&, PColor)>(&PServerView::FillRect);
+        ForwardToView(viewHandle, callback, rect, color);
+    }
+    void SlotViewFillRectBrush(handler_id viewHandle, const PRect& rect, handle_id brush)
+    {
+        Ptr<PServerBrush> resource = GetBrush(brush);
+        if (resource == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        const auto callback = static_cast<void (PServerView::*)(const PRect&, Ptr<PServerBrush>)>(&PServerView::FillRect);
+        ForwardToView(viewHandle, callback, rect, resource);
+    }
     void SlotViewFillCircle(handler_id viewHandle, const PPoint& position, float radius)     { ForwardToView(viewHandle, &PServerView::FillCircle, position, radius); }
     void SlotViewDrawEllipse(handler_id viewHandle, const PRect& rect)                       { ForwardToView(viewHandle, &PServerView::DrawEllipse, rect); }
     void SlotViewDrawPie(handler_id viewHandle, const PRect& rect, float startAngle, float spanAngle) { ForwardToView(viewHandle, &PServerView::DrawPie, rect, startAngle, spanAngle); }
@@ -137,20 +154,33 @@ private:
     void SlotViewDrawScaledBitmap(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PRect& dstRect)  { ForwardToView(viewHandle, &PServerView::DrawScaledBitmap, GetBitmap(bitmapHandle), srcRect, dstRect); }
     void SlotViewDebugDraw(handler_id viewHandle, PColor color, uint32_t drawFlags)          { ForwardToView(viewHandle, &PServerView::DebugDraw, color, drawFlags); }
 
-    void SlotViewSetBrush(
-        handler_id viewHandle,
-        bool background,
-        PBrushSource source,
-        handle_id brush,
-        const PRect& bounds,
-        bool automaticBounds)
+    void SlotViewSetBrush(handler_id viewHandle, handle_id brush)
     {
-        ForwardToView(viewHandle, &PServerView::SetBrush, background, source,
-            (brush != INVALID_HANDLE) ? GetBrush(brush) : nullptr, bounds, automaticBounds);
+        Ptr<PServerBrush> resource = (brush != INVALID_HANDLE) ? GetBrush(brush) : nullptr;
+        if (brush != INVALID_HANDLE && resource == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        ForwardToView(viewHandle, &PServerView::SetBrush, resource);
     }
-    void SlotViewEraseRect(handler_id viewHandle, const PRect& rect, bool drawingBackground)
+    void SlotViewSetBrushOrigin(handler_id viewHandle, const PPoint& origin)
     {
-        ForwardToView(viewHandle, &PServerView::EraseRect, rect, drawingBackground);
+        ForwardToView(viewHandle, &PServerView::SetBrushOrigin, origin);
+    }
+    void SlotViewSetBackgroundBrush(handler_id viewHandle, handle_id brush)
+    {
+        Ptr<PServerBrush> resource = (brush != INVALID_HANDLE) ? GetBrush(brush) : nullptr;
+        if (brush != INVALID_HANDLE && resource == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        ForwardToView(viewHandle, &PServerView::SetBackgroundBrush, resource);
+    }
+    void SlotViewSetBackgroundBrushOrigin(handler_id viewHandle, const PPoint& origin)
+    {
+        ForwardToView(viewHandle, &PServerView::SetBackgroundBrushOrigin, origin);
+    }
+    void SlotViewEraseRect(handler_id viewHandle, const PRect& rect)
+    {
+        ForwardToView(viewHandle, &PServerView::EraseRect, rect);
     }
 
     template<typename CB, typename... ARGS>
@@ -187,13 +217,13 @@ private:
     ASSetKeyboardFocus          RSSetKeyboardFocus;
     ASCreateBitmap              RSCreateBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
-    ASCreateBrush m_RSCreateBrush;
-    ASDeleteBrush m_RSDeleteBrush;
-    ASUpdateBrush m_RSUpdateBrush;
-    ASSetBrushColor m_RSSetBrushColor;
-    ASCreateFont                m_RSCreateFont;
-    ASDeleteFont                m_RSDeleteFont;
-    ASMeasureFont               m_RSMeasureFont;
+    ASCreateBrush RSCreateBrush;
+    ASDeleteBrush RSDeleteBrush;
+    ASUpdateBrush RSUpdateBrush;
+    ASSetBrushColor RSSetBrushColor;
+    ASCreateFont                RSCreateFont;
+    ASDeleteFont                RSDeleteFont;
+    ASMeasureFont               RSMeasureFont;
     ASPushMouseCursor           RSPushMouseCursor;
     ASPopMouseCursor            RSPopMouseCursor;
     ASViewSetFrame              RSViewSetFrame;
@@ -205,11 +235,14 @@ private:
     ASViewShow                  RSViewShow;
     ASViewSetHitMode            RSViewSetHitMode;
     ASViewSetFgColor            RSViewSetFgColor;
-    ASViewSetBrush m_RSViewSetBrush;
-    ASViewEraseRect m_RSViewEraseRect;
+    ASViewSetBrush              RSViewSetBrush;
+    ASViewSetBrushOrigin        RSViewSetBrushOrigin;
+    ASViewSetBackgroundBrush    RSViewSetBackgroundBrush;
+    ASViewSetBackgroundBrushOrigin RSViewSetBackgroundBrushOrigin;
+    ASViewEraseRect RSViewEraseRect;
     ASViewSetFocusKeyboardMode  RSViewSetFocusKeyboardMode;
     ASViewSetDrawingMode        RSViewSetDrawingMode;
-    ASViewSetFont               m_RSViewSetFont;
+    ASViewSetFont               RSViewSetFont;
     ASViewSetPenWidth           RSViewSetPenWidth;
     ASViewSetCapStyle           RSViewSetCapStyle;
     ASViewSetJointStyle         RSViewSetJointStyle;
@@ -222,7 +255,9 @@ private:
     ASViewMovePenTo             RSViewMovePenTo;
     ASViewDrawLine1             RSViewDrawLine1;
     ASViewDrawLine2             RSViewDrawLine2;
+    ASViewDrawRect              RSViewDrawRect;
     ASViewFillRect              RSViewFillRect;
+    ASViewFillRectBrush         RSViewFillRectBrush;
     ASViewFillCircle            RSViewFillCircle;
     ASViewDrawEllipse           RSViewDrawEllipse;
     ASViewDrawPie               RSViewDrawPie;
@@ -231,7 +266,7 @@ private:
     ASViewAddTriangle           RSViewAddTriangle;
     ASViewEndTriangles          RSViewEndTriangles;
     ASViewDrawString            RSViewDrawString;
-    ASViewDrawStringWidth       m_RSViewDrawStringWidth;
+    ASViewDrawStringWidth       RSViewDrawStringWidth;
     ASViewScrollBy              RSViewScrollBy;
     ASViewCopyRect              RSViewCopyRect;
     ASViewDrawBitmap            RSViewDrawBitmap;

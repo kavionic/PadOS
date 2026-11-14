@@ -7,6 +7,8 @@
 
 target_sources(PadOS_GUI PRIVATE
 	Brush.h
+	Image.h
+	ImageTypes.h
 	BrushTypes.h
 	Bitmap.h
 	Color.h

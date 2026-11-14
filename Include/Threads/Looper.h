@@ -53,6 +53,8 @@ public:
     bool RemoveTimer(PEventTimer* timer);
 
     Ptr<PEventHandler> FindHandler(handler_id handle) const;
+    // Inspect on the owning looper or with its mutex held. Do not mutate registration while iterating.
+    const std::map<handler_id, Ptr<PEventHandler>>& GetHandlers() const noexcept { return m_HandlerMap; }
 
     template<typename SIGNAL, typename CALLBACK>
     void RegisterRemoteSignal(SIGNAL* signal, CALLBACK callback)

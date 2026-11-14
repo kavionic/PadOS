@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstring>
+#include <limits>
 #include <gtest/gtest.h>
 #include <Kernel/Drivers/Video/KDisplayDriver.h>
 
@@ -152,21 +153,116 @@ TEST_F(DisplayResourceTest, ValidatesRasterAndBrushPropertiesAtCreation)
     EXPECT_THROW(m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(invalid, false), std::system_error);
     const PDriverResourceID source = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
     PBrushDescription description;
-    description.Type = PBrushType::BitmapStretch;
-    description.SourceRect = PIRect(0, 0, 3, 2);
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 3, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(description.Image.SourceRect.Size());
     EXPECT_THROW(m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description), std::system_error);
-    description.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(description.Image.SourceRect.Size());
     EXPECT_NO_THROW(m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description));
+    EXPECT_THROW(m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(DRIVER_INVALID_RESOURCE_ID, description), std::system_error);
+    description.Type = PBrushType::Solid;
+    description.Scale.x = 0.0f;
+    EXPECT_THROW(m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description), std::system_error);
+    description.Scale.x = 1.0f;
+    description.Style = PBrushStyle(0xff);
+    EXPECT_THROW(m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description), std::system_error);
+}
+
+TEST_F(DisplayResourceTest, TextureSamplingUsesImageMetadataRegardlessOfBrushType)
+{
+    m_Pixels = {PColor(10, 20, 30).GetColor32(), PColor(40, 50, 60).GetColor32(),
+        PColor(70, 80, 90).GetColor32(), PColor(100, 110, 120).GetColor32()};
+    const PDriverResourceID source = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
+    PBrushDescription description;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(1, 1, 2, 2);
+    description.Image.LayoutSize = PPoint(1, 1);
+    description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
+    for (PBrushType type : {PBrushType::Solid, PBrushType::Bitmap, PBrushType::Image, PBrushType(0xff)})
+    {
+        description.Type = type;
+        const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description);
+        const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
+        m_Driver->SelectBrush(std::span(&binding, 1));
+        m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 4));
+        m_Driver->Submit();
+        for (size_t row = 0; row < 4; ++row)
+        {
+            for (size_t column = 0; column < 4; ++column)
+            {
+                const size_t sourceIndex = ((row == 0) ? 0 : 2) + ((column == 0) ? 0 : 1);
+                EXPECT_EQ(m_Driver->GetPixels()[row * 4 + column], m_Pixels[sourceIndex]);
+            }
+        }
+    }
+}
+
+TEST_F(DisplayResourceTest, TextureOriginsBeyondLayoutMaximumPreserveTiling)
+{
+    m_Pixels = {PColor(10, 20, 30).GetColor32(), PColor(40, 50, 60).GetColor32(),
+        PColor(70, 80, 90).GetColor32(), PColor(100, 110, 120).GetColor32()};
+    const PDriverResourceID source = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
+    PBrushDescription description;
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(2, 2);
+    const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description);
+    const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(32000001, -64000001), PIPoint(4, 4)};
+    m_Driver->SelectBrush(std::span(&binding, 1));
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 4));
+    m_Driver->Submit();
+    for (size_t row = 0; row < 4; ++row)
+    {
+        for (size_t column = 0; column < 4; ++column) {
+            EXPECT_EQ(m_Driver->GetPixels()[row * 4 + column], m_Pixels[((row + 1) % 2) * 2 + (column + 1) % 2]);
+        }
+    }
+}
+
+TEST_F(DisplayResourceTest, NoneAndSolidStylesDoNotRequireTextureProperties)
+{
+    PBrushDescription description;
+    description.Type = PBrushType(0xff);
+    description.Color = PColor(30, 60, 90);
+    description.Scale = PPoint(std::numeric_limits<float>::quiet_NaN(), 0.0f);
+    const PColor background(100, 110, 120);
+    for (PBrushStyle style : {PBrushStyle::None, PBrushStyle::SolidPattern})
+    {
+        description.Style = style;
+        const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(DRIVER_INVALID_RESOURCE_ID, description);
+        const PDisplayBrushBinding layers[] =
+        {
+            {DRIVER_INVALID_RESOURCE_ID, background, PIPoint(0, 0), PIPoint(4, 4)},
+            {brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)}
+        };
+        m_Driver->SelectBrush(layers);
+        m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 4));
+        m_Driver->Submit();
+        const PColor expected = (style == PBrushStyle::None) ? background : description.Color;
+        for (uint32_t pixel : m_Driver->GetPixels()) {
+            EXPECT_EQ(pixel, expected.GetColor32());
+        }
+    }
 }
 
 TEST_F(DisplayResourceTest, CompositionPersistsAcrossBatchesAndRetainsItsResources)
 {
     const PDriverResourceID source = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
     PBrushDescription description;
-    description.Type = PBrushType::BitmapStretch;
-    description.SourceRect = PIRect(0, 0, 2, 2);
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(description.Image.SourceRect.Size());
     const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description);
-    const PDisplayBrushBinding binding{brush, PColor(0), PIRect(0, 0, 4, 4)};
+    const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
     m_Driver->SelectBrush(std::span(&binding, 1));
     m_Driver->Submit();
     // Removing IDs does not destroy resources still referenced by a composition.
@@ -192,16 +288,19 @@ TEST_F(DisplayResourceTest, TransparentBrushCompositionMatchesResolvedSampling)
     m_Pixels.fill(PColor(120, 40, 10, 128).GetColor32());
     const PDriverResourceID source = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
     PBrushDescription description;
-    description.Type = PBrushType::BitmapTile;
-    description.SourceRect = PIRect(0, 0, 2, 2);
-    description.IsOpaque = false;
-    description.OpaqueSlices = 0;
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(description.Image.SourceRect.Size());
+    description.Image.IsOpaque = false;
+    description.Image.OpaqueSlices = 0;
     const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(source, description);
     const PColor background(20, 60, 100);
     const PDisplayBrushBinding layers[] =
     {
-        {DRIVER_INVALID_RESOURCE_ID, background, {}},
-        {brush, PColor(0), PIRect(-1, -1, 3, 3)}
+        {DRIVER_INVALID_RESOURCE_ID, background, {}, {}},
+        {brush, PColor(0), PIPoint(-1, -1), PIPoint(4, 4)}
     };
     m_Driver->SelectBrush(layers);
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 4));
@@ -216,7 +315,7 @@ TEST_F(DisplayResourceTest, BrushColorUpdatesAreOrderedWithDrawingAndPersist)
 {
     PBrushDescription description;
     const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(DRIVER_INVALID_RESOURCE_ID, description);
-    const PDisplayBrushBinding binding{brush, PColor(0), PIRect(0, 0, 4, 4)};
+    const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
     m_Driver->Command<decltype(PDisplayCommands::SetBrushColor)>({}, brush, PColor(200, 40, 20));
     m_Driver->SelectBrush(std::span(&binding, 1));
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 1));
@@ -244,9 +343,9 @@ TEST_F(DisplayResourceTest, BrushColorChangesRefreshEverySelectedOccurrence)
     const PColor background(20, 60, 100);
     const PDisplayBrushBinding layers[] =
     {
-        {DRIVER_INVALID_RESOURCE_ID, background, {}},
-        {brush, PColor(0), PIRect(0, 0, 4, 4)},
-        {brush, PColor(0), PIRect(0, 0, 4, 4)}
+        {DRIVER_INVALID_RESOURCE_ID, background, {}, {}},
+        {brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)},
+        {brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)}
     };
     m_Driver->SelectBrush(layers);
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 1));
@@ -278,19 +377,22 @@ TEST_F(DisplayResourceTest, BitmapReplacementRefreshesEverySelectedOccurrence)
     secondBitmap.Raster = reinterpret_cast<uint8_t*>(replacement.data());
     const PDriverResourceID second = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(secondBitmap, false);
     PBrushDescription description;
-    description.Type = PBrushType::BitmapTile;
-    description.SourceRect = PIRect(0, 0, 2, 2);
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(description.Image.SourceRect.Size());
     const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(first, description);
     const PDisplayBrushBinding layers[] =
     {
-        {DRIVER_INVALID_RESOURCE_ID, PColor(10, 20, 30), {}},
-        {brush, PColor(0), PIRect(0, 0, 4, 4)},
-        {brush, PColor(0), PIRect(0, 0, 4, 4)}
+        {DRIVER_INVALID_RESOURCE_ID, PColor(10, 20, 30), {}, {}},
+        {brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)},
+        {brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)}
     };
     m_Driver->SelectBrush(layers);
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 1));
-    description.IsOpaque = false;
-    description.OpaqueSlices = 0;
+    description.Image.IsOpaque = false;
+    description.Image.OpaqueSlices = 0;
     m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, second, description);
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 1, 4, 3));
     m_Driver->Submit();
@@ -310,10 +412,13 @@ TEST_F(DisplayResourceTest, UnselectedUpdatesAndTypeChangesUseTheSameHandle)
     PBrushDescription description;
     const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(DRIVER_INVALID_RESOURCE_ID, description);
     const PDriverResourceID bitmap = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
-    description.Type = PBrushType::BitmapStretch;
-    description.SourceRect = PIRect(0, 0, 2, 2);
+    description.Type = PBrushType::Bitmap;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(description.Image.SourceRect.Size());
     m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
-    const PDisplayBrushBinding binding{brush, PColor(0), PIRect(0, 0, 4, 4)};
+    const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
     m_Driver->SelectBrush(std::span(&binding, 1));
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 2));
     description = PBrushDescription();
@@ -333,11 +438,18 @@ TEST_F(DisplayResourceTest, InvalidUpdatesLeaveTheResourcePropertiesIntact)
     const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(DRIVER_INVALID_RESOURCE_ID, original);
     const PDriverResourceID bitmap = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
     PBrushDescription invalid;
-    invalid.Type = PBrushType::BitmapStretch;
-    invalid.SourceRect = PIRect(0, 0, 3, 2);
+    invalid.Type = PBrushType::Bitmap;
+    invalid.Style = PBrushStyle::TexturePattern;
+    invalid.Image.SourceRect = PIRect(0, 0, 3, 2);
+    invalid.Image.SliceRect = PRect(invalid.Image.SourceRect);
+    invalid.Image.LayoutSize = PPoint(invalid.Image.SourceRect.Size());
     m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, invalid);
     EXPECT_THROW(m_Driver->Submit(), std::system_error);
-    const PDisplayBrushBinding binding{brush, PColor(0), PIRect(0, 0, 4, 4)};
+    invalid = original;
+    invalid.Style = PBrushStyle(0xff);
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, DRIVER_INVALID_RESOURCE_ID, invalid);
+    EXPECT_THROW(m_Driver->Submit(), std::system_error);
+    const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
     m_Driver->SelectBrush(std::span(&binding, 1));
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 4));
     m_Driver->Submit();
@@ -356,12 +468,133 @@ TEST_F(DisplayResourceTest, BrushColorUpdatesRejectStaleIDs)
     EXPECT_NE(stale, current);
     m_Driver->Command<decltype(PDisplayCommands::SetBrushColor)>({}, stale, PColor(160, 80, 40));
     EXPECT_THROW(m_Driver->Submit(), std::system_error);
-    const PDisplayBrushBinding binding{current, PColor(0), PIRect(0, 0, 4, 4)};
+    const PDisplayBrushBinding binding{current, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
     m_Driver->SelectBrush(std::span(&binding, 1));
     m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 4));
     m_Driver->Submit();
     for (uint32_t pixel : m_Driver->GetPixels()) {
         EXPECT_EQ(pixel, description.Color.GetColor32());
+    }
+}
+
+TEST_F(DisplayResourceTest, QueuedLayoutScaleAndStyleChangesRefreshTheSelectedBrush)
+{
+    m_Pixels = {PColor(0, 0, 0).GetColor32(), PColor(200, 100, 40).GetColor32(),
+        PColor(0, 0, 0).GetColor32(), PColor(200, 100, 40).GetColor32()};
+    const PDriverResourceID bitmap = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
+    PBrushDescription description;
+    description.Type = PBrushType::Image;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(0, 0, 2, 2);
+    description.Image.LayoutSize = PPoint(2, 2);
+    const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(bitmap, description);
+    const PColor background(10, 20, 30);
+    const PDisplayBrushBinding layers[] =
+    {
+        {DRIVER_INVALID_RESOURCE_ID, background, {}, {}},
+        {brush, PColor(0), PIPoint(1, 0), PIPoint(2, 2)}
+    };
+    m_Driver->SelectBrush(layers);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 1));
+    description.Image.LayoutSize.x = 4.0f;
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 1, 4, 2));
+    description.Scale.x = 0.5f;
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 2, 4, 3));
+    description.Style = PBrushStyle::None;
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Submit();
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 3, 4, 4));
+    m_Driver->Submit();
+    const std::array<PColor, 4> stretched = {PColor(200, 100, 40), PColor(0, 0, 0), PColor(50, 25, 10), PColor(150, 75, 30)};
+    for (size_t column = 0; column < 4; ++column)
+    {
+        EXPECT_EQ(m_Driver->GetPixels()[column], m_Pixels[(column + 1) % 2]);
+        EXPECT_EQ(m_Driver->GetPixels()[4 + column], stretched[column].GetColor32());
+        EXPECT_EQ(m_Driver->GetPixels()[8 + column], m_Pixels[(column + 1) % 2]);
+        EXPECT_EQ(m_Driver->GetPixels()[12 + column], background.GetColor32());
+    }
+}
+
+TEST_F(DisplayResourceTest, RelativeLayoutUpdatesRetainTheSelectedViewsSize)
+{
+    m_Pixels = {PColor(0, 0, 0).GetColor32(), PColor(200, 100, 40).GetColor32(),
+        PColor(0, 0, 0).GetColor32(), PColor(200, 100, 40).GetColor32()};
+    const PDriverResourceID bitmap = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
+    PBrushDescription description;
+    description.Type = PBrushType::Image;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(2, 2);
+    const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(bitmap, description);
+    const PDisplayBrushBinding binding{brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)};
+    m_Driver->SelectBrush(std::span(&binding, 1));
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 1));
+    description.Image.LayoutSize = PPoint(1, 1);
+    description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 1, 4, 2));
+    description.Scale = PPoint(2, 3);
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 2, 4, 3));
+    description.Image.LayoutSize = PPoint(0.5f, 0.5f);
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Submit();
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 3, 4, 4));
+    m_Driver->Submit();
+    const std::array<PColor, 4> stretched = {PColor(0, 0, 0), PColor(50, 25, 10), PColor(150, 75, 30), PColor(200, 100, 40)};
+    for (size_t column = 0; column < 4; ++column)
+    {
+        EXPECT_EQ(m_Driver->GetPixels()[column], m_Pixels[column % 2]);
+        EXPECT_EQ(m_Driver->GetPixels()[4 + column], stretched[column].GetColor32());
+        EXPECT_EQ(m_Driver->GetPixels()[8 + column], stretched[column].GetColor32());
+        EXPECT_EQ(m_Driver->GetPixels()[12 + column], m_Pixels[column % 2]);
+    }
+}
+
+TEST_F(DisplayResourceTest, SharedRelativeBrushKeepsEachSelectedOwnersReferenceSize)
+{
+    m_Source.ColorSpace = PEColorSpace::RGBA32;
+    m_Pixels = {PColor(0, 0, 0, 128).GetColor32(), PColor(200, 100, 40, 128).GetColor32(),
+        PColor(0, 0, 0, 128).GetColor32(), PColor(200, 100, 40, 128).GetColor32()};
+    const PDriverResourceID bitmap = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBitmap)>(m_Source, false);
+    PBrushDescription description;
+    description.Type = PBrushType::Image;
+    description.Style = PBrushStyle::TexturePattern;
+    description.Image.SourceRect = PIRect(0, 0, 2, 2);
+    description.Image.SliceRect = PRect(description.Image.SourceRect);
+    description.Image.LayoutSize = PPoint(1, 1);
+    description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
+    description.Image.IsOpaque = false;
+    description.Image.OpaqueSlices = 0;
+    const PDriverResourceID brush = m_Driver->Request<decltype(PDisplayDeviceControl::CreateBrush)>(bitmap, description);
+    const PColor background(20, 40, 60);
+    const PDisplayBrushBinding layers[] =
+    {
+        {DRIVER_INVALID_RESOURCE_ID, background, {}, {}},
+        {brush, PColor(0), PIPoint(0, 0), PIPoint(4, 4)},
+        {brush, PColor(0), PIPoint(0, 0), PIPoint(2, 4)}
+    };
+    m_Driver->SelectBrush(layers);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 0, 4, 1));
+    description.Scale = PPoint(3, 2);
+    m_Driver->Command<decltype(PDisplayCommands::UpdateBrush)>({}, brush, bitmap, description);
+    m_Driver->Command<decltype(PDisplayCommands::FillBrushRect)>({}, m_Info.ScreenBitmapDriverResourceID, PIRect(0, 1, 4, 2));
+    m_Driver->Submit();
+    const std::array<PColor, 4> stretched =
+    {
+        PColor(0, 0, 0, 128), PColor(50, 25, 10, 128), PColor(150, 75, 30, 128), PColor(200, 100, 40, 128)
+    };
+    for (size_t column = 0; column < 4; ++column)
+    {
+        const PColor expected = PBrushUtils::Composite(
+            PColor::FromRGB32A(m_Pixels[column % 2]),
+            PBrushUtils::Composite(stretched[column], background));
+        EXPECT_EQ(m_Driver->GetPixels()[column], expected.GetColor32());
+        EXPECT_EQ(m_Driver->GetPixels()[4 + column], expected.GetColor32());
     }
 }
 

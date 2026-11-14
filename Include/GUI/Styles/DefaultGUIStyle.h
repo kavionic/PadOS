@@ -14,7 +14,7 @@
 class PDefaultGUIStyle : public PGUIStyle
 {
 public:
-    void ButtonPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const override;
+    void ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const override;
     void ButtonGetPreferredSize(const PView& target, PButtonStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
 
     void CheckBoxPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const override;

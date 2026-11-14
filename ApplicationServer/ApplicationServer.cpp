@@ -537,6 +537,17 @@ void ApplicationServer::Idle()
             m_PointerEventQueue.pop();
         }
         RefreshPointerRoutes();
+    }
+    PERROR_CATCH([](PErrorCode error)
+    {
+        p_system_log<PLogSeverity::ERROR>(
+            LogCategoryAppServer,
+            "Input event handling failed: {} ({}).",
+            p_strerror(error),
+            std::to_underlying(error));
+    });
+    try
+    {
         s_DisplayDriver->Flush();
     }
     PERROR_CATCH([this](PErrorCode error) { HandleDisplayDriverError(error); });
@@ -554,7 +565,7 @@ void ApplicationServer::HandleDisplayDriverError(PErrorCode error)
         strerror(std::to_underlying(error)),
         std::to_underlying(error));
 
-    if (error == PErrorCode::IO)
+    if (!s_DisplayDriver->IsOpen() || error == PErrorCode::IO)
     {
         s_DisplayDriver->Close();
         try
@@ -638,6 +649,7 @@ Ptr<PServerView> ApplicationServer::GetTopView()
 
 bool ApplicationServer::RegisterView(Ptr<PServerView> view)
 {
+    view->InvalidateBrushCaches();
     return AddHandler(view);
 }
 

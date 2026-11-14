@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <span>
 
 #include <GUI/View.h>
@@ -42,7 +44,9 @@ public:
         Ptr<PServerFontInstance> font,
         Ptr<PServerBrush>    backgroundBrush,
         Ptr<PServerBrush>    drawingBrush,
-        PColor               fgColor
+        PColor               fgColor,
+        const PPoint& backgroundBrushOrigin = PPoint(0.0f, 0.0f),
+        const PPoint& drawingBrushOrigin = PPoint(0.0f, 0.0f)
     );
 
     virtual ~PServerView();
@@ -107,7 +111,12 @@ public:
 
     void        SetHitMode(PViewHitMode mode);
     void        SetDrawingMode(PDrawingMode mode) { m_DrawingMode = mode; }
-    void SetBrush(bool background, PBrushSource source, Ptr<PServerBrush> brush, const PRect& bounds, bool automaticBounds);
+    void        InvalidateBrushCaches(const PServerBrush* changedBrush = nullptr);
+    static void InvalidateAllBrushCaches(const PServerBrush* changedBrush = nullptr);
+    void        SetBrush(Ptr<PServerBrush> brush);
+    void        SetBackgroundBrush(Ptr<PServerBrush> brush);
+    void        SetBrushOrigin(const PPoint& origin);
+    void        SetBackgroundBrushOrigin(const PPoint& origin);
     void        SetFgColor(PColor color)    { m_FgColor = color; }
 
     void        SetFont(Ptr<PServerFontInstance> font);
@@ -123,12 +132,13 @@ public:
     void        DrawLineTo(const PPoint& toPoint);
     void        DrawLine(const PPoint& fromPnt, const PPoint& toPnt);
     void        DrawThinLine(const PPoint& fromPnt, const PPoint& toPnt);
-    void        DrawRect(const PRect& frame);        
+    void        DrawRect(const PRect& rect);
     void        DrawEllipse(const PRect& rect);
     void        DrawPie(const PRect& rect, float startAngle, float spanAngle);
     
     void        FillRect(const PRect& rect, PColor color);
-    void EraseRect(const PRect& rect, bool drawingBackground);
+    void        FillRect(const PRect& rect, Ptr<PServerBrush> brush);
+    void        EraseRect(const PRect& rect);
     void        FillCircle(const PPoint& position, float radius);
     void        FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3);
     void        FillTriangleFan(std::span<const PPoint> points);
@@ -150,40 +160,51 @@ public:
 private:
     friend class PViewBase<PServerView>;
 
-    static uint64_t s_BackgroundGeneration;
-    mutable uint64_t m_BackgroundCacheGeneration = 0;
-    PServerBrushBinding m_BackgroundBrush;
-    PServerBrushBinding m_DrawingBrush;
-    mutable PServerBrushState m_BackgroundBrushState;
-    mutable PServerBrushState m_DrawingBrushState;
-    mutable uint64_t m_DrawingCacheGeneration = 0;
-    mutable uint64_t m_DrawingCacheRevision = 0;
-    std::vector<PServerBrushLayer> m_PreviousBackgroundLayers;
-    PColor m_PreviousBackgroundColor;
-    bool m_PreviousBackgroundIsSolid = true;
-    bool m_HasBackgroundBrushes = false;
-    bool m_HasBackgroundSnapshot = false;
-    bool m_IsScrolling = false;
+    static uint32_t s_BackgroundGeneration;
 
-    const PServerBrushState& GetBackgroundBrushState() const;
-    const PServerBrushState& GetDrawingBrushState() const;
-    PColor GetDrawingColor() const;
-    bool BrushCoversView(const PServerBrushBinding& binding) const;
-    void ResolveBrushState(PServerBrushState& state, const PServerBrushBinding& binding, const PServerBrushState* base) const;
-    void BackgroundBrushChanged();
-    void MarkBackgroundBrushes();
-    void InvalidateBackgroundDependents(bool invalidateSelf);
-    void CaptureBackgrounds();
-    void ClearBackgroundSnapshots();
-    bool CanReuseBackground(const PIPoint& movement) const;
-    void ExcludeStableBackgrounds(PRegion& region, const PIPoint& movement) const;
-    void ExcludeChangedBackgrounds(PRegion& region, const PIPoint& movement);
+    mutable uint32_t                m_BackgroundCacheGeneration = 0;
+    PServerBrushBinding             m_BackgroundBrush;
+    PServerBrushBinding             m_DrawingBrush;
+    mutable PServerBrushState       m_BackgroundBrushState;
+    mutable PServerBrushState       m_DrawingBrushState;
+    mutable Ptr<PServerBrush>       m_DrawingCacheBrush;
+    mutable uint32_t                m_DrawingCacheGeneration = 0;
+    mutable uint32_t                m_DrawingCacheRevision = 0;
+    std::vector<PServerBrushLayer>  m_PreviousBackgroundLayers;
+    PColor                          m_PreviousBackgroundColor;
+    bool                            m_HasBackgroundBrushes = false;
+    bool                            m_HasBackgroundSnapshot = false;
+    bool                            m_IsScrolling = false;
 
-    void UpdateClientRootState();
-    void NotifyScreenPositionChanged();
-    void UpdateScreenPos();
-    void DebugDrawRect(const PIRect& frame, PColor color);
-    void FillPolygon(std::span<const PPoint> points, PColor fillColor);
+    // Remember relative drawing, including explicit fills, for resize damage.
+    mutable bool m_HasViewRelativeDrawingBrushes = false;
+
+    static void AdvanceBackgroundGeneration();
+
+    void                        FillResolvedRect(const PRect& rect, const PServerBrushState& state);
+    const PServerBrushState&    GetBackgroundBrushState() const;
+    const PServerBrushState&    GetDrawingBrushState() const;
+    const PServerBrushState&    GetDrawingBrushState(const Ptr<PServerBrush>& brush) const;
+    bool                        HasPen() const noexcept { return m_FgColor.GetAlpha() != 0; }
+    bool                        HasDrawingBrush() const;
+    PColor                      GetDrawingBrushColor() const;
+    bool                        BrushCoversView(const PServerBrushBinding& binding) const;
+    void                        ResolveBrushState(PServerBrushState& state, const PServerBrushBinding& binding, const PServerBrushState* base) const;
+    void                        BackgroundBrushChanged();
+    void                        MarkBackgroundBrushes();
+    void                        InvalidateBackgroundDependents(bool invalidateSelf);
+    void                        CaptureBackgrounds();
+    void                        ClearBackgroundSnapshots();
+    bool                        CanReuseBackground(const PIPoint& movement) const;
+    void                        ExcludeStableBackgrounds(PRegion& region, const PIPoint& movement) const;
+    void                        ExcludeChangedBackgrounds(PRegion& region, const PIPoint& movement);
+
+    void                        UpdateClientRootState();
+    void                        NotifyScreenPositionChanged();
+    void                        UpdateScreenPos();
+    void                        DebugDrawRect(const PIRect& frame, PColor color);
+    void                        FillPolygon(std::span<const PPoint> points, PColor fillColor);
+
     struct PolylineSegData
     {
         PPoint dir;
@@ -211,6 +232,16 @@ private:
         bool   isHairpin   = false;
     };
 
+    static constexpr size_t RECTANGLE_OUTLINE_SEGMENT_COUNT = 5;
+    // Resolve the pen to at least one device pixel for raster geometry.
+    float GetRasterPenWidth() const noexcept { return std::max(1.0f, m_PenWidth); }
+    void DrawRectOutline(const PIRect& bounds);
+    void BuildRectOutlineGeometry(
+        const PRect& rect,
+        std::array<PolylineSegData, RECTANGLE_OUTLINE_SEGMENT_COUNT>& segments,
+        std::array<PolylineJointData, RECTANGLE_OUTLINE_SEGMENT_COUNT>& joints) const;
+    void RenderDashedRectOutline(std::span<const PolylineSegData> segments, std::span<const PolylineJointData> joints, float totalLength);
+
     void RenderSolidPolyline(std::span<const PPoint> points);
     void RenderDashedPolyline(std::span<const PPoint> points);
     void RenderDashedThinPolyline(std::span<const PPoint> points);
@@ -225,10 +256,10 @@ private:
                               size_t lastSeg,  float lastT,
                               bool addStartCap, bool addEndCap,
                               std::vector<PPoint>& strip);
-    void RenderClippedPolylineElement(const std::vector<PolylineSegData>& segs,
-                                      const std::vector<PolylineJointData>& joints,
+    void RenderClippedPolylineElement(std::span<const PolylineSegData> segs,
+                                      std::span<const PolylineJointData> joints,
                                       float halfWidth, float arcStart, float arcEnd,
-                                      float totalLength);
+                                      float totalLength, bool addCaps = true);
     void FillClippedPolylineTriangle(const PPoint& point1, float point1Arc,
                                      const PPoint& point2, float point2Arc,
                                      const PPoint& point3, float point3Arc,
@@ -236,7 +267,7 @@ private:
     void FillClippedPolylinePolygon(std::span<const PPoint> points,
                                     std::span<const float> arcPositions,
                                     float arcStart, float arcEnd);
-    void RenderClippedPolylineJoint(const std::vector<PolylineSegData>& segs,
+    void RenderClippedPolylineJoint(std::span<const PolylineSegData> segs,
                                     const PolylineJointData& joint, size_t jointIndex,
                                     float halfWidth, float arcStart, float arcEnd);
     void RenderClippedPolylineCap(const PPoint& endpoint, const PPoint& lineDirection,

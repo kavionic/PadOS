@@ -355,7 +355,9 @@ PServerView::PServerView(
     Ptr<PServerFontInstance>    font,
     Ptr<PServerBrush>           backgroundBrush,
     Ptr<PServerBrush>           drawingBrush,
-    PColor                      fgColor
+    PColor                      fgColor,
+    const PPoint& backgroundBrushOrigin,
+    const PPoint& drawingBrushOrigin
 )
     : PViewBase(name, frame, scrollOffset, flags, hitMode, hideCount, penWidth, fgColor, capStyle, jointStyle, miterLimit, dashPattern, dashOffset)
     , m_Bitmap(bitmap)
@@ -364,8 +366,10 @@ PServerView::PServerView(
     , m_DrawingMode(drawingMode)
     , m_Font(std::move(font))
 {
-    SetBrush(true, (backgroundBrush != nullptr) ? PBrushSource::Brush : PBrushSource::Inherit, backgroundBrush, PRect(), true);
-    SetBrush(false, (drawingBrush != nullptr) ? PBrushSource::Brush : PBrushSource::Inherit, drawingBrush, PRect(), true);
+    SetBackgroundBrushOrigin(backgroundBrushOrigin);
+    SetBackgroundBrush(backgroundBrush);
+    SetBrushOrigin(drawingBrushOrigin);
+    SetBrush(drawingBrush);
     if (backgroundBrush == nullptr) {
         MarkBackgroundBrushes();
     }
@@ -420,7 +424,7 @@ port_id PServerView::GetClientPort() const
 
 void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 {
-    ++s_BackgroundGeneration;
+    AdvanceBackgroundGeneration();
     if (m_HasBackgroundBrushes) {
         MarkBackgroundBrushes();
     }
@@ -444,7 +448,7 @@ void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 
 void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 {
-    ++s_BackgroundGeneration;
+    AdvanceBackgroundGeneration();
     if (m_HasBackgroundBrushes) {
         MarkBackgroundBrushes();
     }
@@ -593,10 +597,15 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
 
     CaptureBackgrounds();
     m_Frame = rect;
-    ++s_BackgroundGeneration;
+    AdvanceBackgroundGeneration();
     UpdateScreenPos();
-    if (m_HasBackgroundBrushes && intFrame.Size() != prevIFrame.Size()) {
-        InvalidateBackgroundDependents(true);
+    if (intFrame.Size() != prevIFrame.Size())
+    {
+        if (m_HasBackgroundBrushes) {
+            InvalidateBackgroundDependents(true);
+        } else if (m_HasViewRelativeDrawingBrushes) {
+            Invalidate();
+        }
     }
 
     if (intFrame == prevIFrame) {
@@ -1124,7 +1133,7 @@ void PServerView::FlushPendingDamage()
             const PIPoint screenPos(m_ScreenPos);
             for (const PIRect& clip : cDrawReg.m_Rects)
             {
-                if (background.IsSolid) {
+                if (background.IsSolid()) {
                     m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos);
                 } else {
                     m_Bitmap->m_Driver->FillBrushRect(m_Bitmap, clip + screenPos);
@@ -1500,12 +1509,18 @@ void PServerView::DrawThinLine(const PPoint& fromPnt, const PPoint& toPnt )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::DrawRect(const PRect& frame)
+void PServerView::DrawRect(const PRect& rect)
 {
-    DrawLine(PPoint(frame.left, frame.top), PPoint(frame.right - 1.0f, frame.top));
-    DrawLine(PPoint(frame.right - 1.0f, frame.top), PPoint(frame.right - 1.0f, frame.bottom - 1.0f));
-    DrawLine(PPoint(frame.right - 1.0f, frame.bottom - 1.0f), PPoint(frame.left, frame.bottom - 1.0f));
-    DrawLine(PPoint(frame.left, frame.bottom - 1.0f), PPoint(frame.left, frame.top));
+    const PIRect bounds(rect + m_ScrollOffset);
+    if (!bounds.IsValid()) {
+        return;
+    }
+    if (HasDrawingBrush()) {
+        FillResolvedRect(rect, GetDrawingBrushState());
+    }
+    if (HasPen()) {
+        DrawRectOutline(bounds);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1521,10 +1536,10 @@ void PServerView::DrawEllipse(const PRect& rect)
     const float radiusX = rect.Width() * 0.5f;
     const float radiusY = rect.Height() * 0.5f;
     const PPoint center((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
-    const float penWidth = std::max(m_PenWidth, 0.0f);
-    const PColor fillColor = GetDrawingColor();
+    const float penWidth = GetRasterPenWidth();
+    const PColor fillColor = GetDrawingBrushColor();
     const bool shouldFill = fillColor.GetAlpha() != 0;
-    const bool shouldDrawOutline = m_FgColor.GetAlpha() != 0 && penWidth > 0.0f;
+    const bool shouldDrawOutline = HasPen();
 
     if (!shouldFill && !shouldDrawOutline) {
         return;
@@ -1578,10 +1593,10 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
     const float radiusX = rect.Width() * 0.5f;
     const float radiusY = rect.Height() * 0.5f;
     const PPoint center((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
-    const float penWidth = std::max(m_PenWidth, 0.0f);
-    const PColor fillColor = GetDrawingColor();
+    const float penWidth = GetRasterPenWidth();
+    const PColor fillColor = GetDrawingBrushColor();
     const bool shouldFill = fillColor.GetAlpha() != 0;
-    const bool shouldDrawOutline = m_FgColor.GetAlpha() != 0 && penWidth > 0.0f;
+    const bool shouldDrawOutline = HasPen();
 
     if (!shouldFill && !shouldDrawOutline) {
         return;
@@ -2054,6 +2069,153 @@ void PServerView::EndPolyline()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// The fill's raster bounds are also the outline's inner boundary. Common
+/// solid miter borders use four nonoverlapping hardware fills. Other borders
+/// reuse the polyline polygon clipping and corner rendering.
+///
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::DrawRectOutline(const PIRect& bounds)
+{
+    const float penWidth = GetRasterPenWidth();
+    const PRect rect = PRect(bounds) - m_ScrollOffset;
+    const bool solidPixelBorder = m_DashPattern.empty() && m_DrawingMode == PDrawingMode::Copy && penWidth == std::floor(penWidth);
+    if (solidPixelBorder)
+    {
+        const bool miterCorners = m_JointStyle == PJointStyle::Miter && m_MiterLimit >= std::sqrt(2.0f);
+        const PRect outer = rect.GetResized(-penWidth, -penWidth, penWidth, penWidth);
+        const float left = miterCorners ? outer.left : rect.left;
+        const float right = miterCorners ? outer.right : rect.right;
+        // Bias coordinates inside their integer bins, as for text backgrounds.
+        const PPoint rasterBias(0.5f, 0.5f);
+        FillRect(PRect(left, outer.top, right, rect.top) + rasterBias, m_FgColor);
+        FillRect(PRect(left, rect.bottom, right, outer.bottom) + rasterBias, m_FgColor);
+        FillRect(PRect(outer.left, rect.top, rect.left, rect.bottom) + rasterBias, m_FgColor);
+        FillRect(PRect(rect.right, rect.top, outer.right, rect.bottom) + rasterBias, m_FgColor);
+        if (miterCorners) {
+            return;
+        }
+    }
+    std::array<PolylineSegData, RECTANGLE_OUTLINE_SEGMENT_COUNT> segments;
+    std::array<PolylineJointData, RECTANGLE_OUTLINE_SEGMENT_COUNT> joints;
+    BuildRectOutlineGeometry(rect, segments, joints);
+    const float totalLength = segments.back().cumLen + segments.back().segLen;
+    if (solidPixelBorder)
+    {
+        for (size_t index = 1; index < joints.size(); ++index) {
+            RenderClippedPolylineJoint(segments, joints[index], index, penWidth, 0.0f, totalLength);
+        }
+    }
+    else if (m_DashPattern.empty())
+    {
+        RenderClippedPolylineElement(segments, joints, penWidth, 0.0f, totalLength, totalLength, false);
+    }
+    else
+    {
+        RenderDashedRectOutline(segments, joints, totalLength);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Build an outward stroke directly from the rectangle's inner boundary.
+/// Starting midway along the top edge puts the closed seam on a straight
+/// segment, so all four corners use ordinary polyline joins without end caps.
+///
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::BuildRectOutlineGeometry(
+    const PRect& rect,
+    std::array<PolylineSegData, RECTANGLE_OUTLINE_SEGMENT_COUNT>& segments,
+    std::array<PolylineJointData, RECTANGLE_OUTLINE_SEGMENT_COUNT>& joints) const
+{
+    const float penWidth = GetRasterPenWidth();
+    const PPoint start(rect.left + rect.Width() * 0.5f, rect.top);
+    const std::array<PPoint, RECTANGLE_OUTLINE_SEGMENT_COUNT + 1> points =
+    {
+        start, rect.TopRight(), rect.BottomRight(), rect.BottomLeft(), rect.TopLeft(), start
+    };
+    const std::array<PPoint, RECTANGLE_OUTLINE_SEGMENT_COUNT> directions =
+    {
+        PPoint(1.0f, 0.0f), PPoint(0.0f, 1.0f), PPoint(-1.0f, 0.0f), PPoint(0.0f, -1.0f), PPoint(1.0f, 0.0f)
+    };
+    float perimeter = 0.0f;
+    for (size_t index = 0; index < segments.size(); ++index)
+    {
+        PolylineSegData& segment = segments[index];
+        segment.dir = directions[index];
+        segment.norm = PPoint(-segment.dir.y, segment.dir.x);
+        const PPoint delta = points[index + 1] - points[index];
+        segment.segLen = std::abs(delta.x) + std::abs(delta.y);
+        segment.cumLen = perimeter;
+        segment.srcStart = points[index];
+        segment.startL = points[index] - segment.norm * penWidth;
+        segment.startR = points[index];
+        segment.endL = points[index + 1] - segment.norm * penWidth;
+        segment.endR = points[index + 1];
+        perimeter += segment.segLen;
+        if (index != 0)
+        {
+            PolylineJointData& joint = joints[index];
+            joint.vertex = points[index];
+            joint.innerPoint = joint.vertex;
+            joint.outerPrev = segments[index - 1].endL;
+            joint.outerNext = segment.startL;
+            joint.prevDir = segments[index - 1].dir;
+            joint.dir = segment.dir;
+            joint.crossZ = 1.0f;
+            joint.sign = -1.0f;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Continue dash phase around the entire closed outline. Spaces stay unwritten:
+/// the drawing brush belongs to the rectangle's interior, not its outer border.
+/// Dash clipping and corner geometry are shared with ordinary polylines.
+///
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderDashedRectOutline(
+    std::span<const PolylineSegData> segments,
+    std::span<const PolylineJointData> joints,
+    float totalLength)
+{
+    const float penWidth = GetRasterPenWidth();
+    float patternLength = 0.0f;
+    for (const float length : m_DashPattern) {
+        patternLength += length;
+    }
+    if (patternLength < 1e-6f) {
+        return;
+    }
+    size_t patternIndex = 0;
+    float patternPosition = std::fmod(m_DashOffset, patternLength);
+    if (patternPosition < 0.0f) {
+        patternPosition += patternLength;
+    }
+    while (patternPosition >= m_DashPattern[patternIndex])
+    {
+        patternPosition -= m_DashPattern[patternIndex];
+        patternIndex = (patternIndex + 1) % m_DashPattern.size();
+    }
+    float remaining = (m_DashPattern[patternIndex] - patternPosition) * penWidth;
+    float position = 0.0f;
+    while (position < totalLength)
+    {
+        const float end = std::min(position + remaining, totalLength);
+        if ((patternIndex % 2) == 0 && end > position) {
+            RenderClippedPolylineElement(segments, joints, penWidth, position, end, totalLength, false);
+        }
+        position = end;
+        patternIndex = (patternIndex + 1) % m_DashPattern.size();
+        remaining = m_DashPattern[patternIndex] * penWidth;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -2137,10 +2299,10 @@ void PServerView::RenderDashedPolyline(std::span<const PPoint> points)
             RenderClippedPolylineElement(segs, joints, halfWidth,
                                          arcStart, arcEnd, totalLen);
         }
-        else if (m_DrawingMode == PDrawingMode::Copy)
+        else if (m_DrawingMode == PDrawingMode::Copy && HasDrawingBrush())
         {
             const PColor savedFgColor = m_FgColor;
-            m_FgColor = GetDrawingColor();
+            m_FgColor = GetDrawingBrushColor();
             RenderClippedPolylineElement(segs, joints, halfWidth,
                                          arcStart, arcEnd, totalLen);
             m_FgColor = savedFgColor;
@@ -2211,9 +2373,9 @@ void PServerView::RenderDashedThinPolyline(std::span<const PPoint> points)
 
             if (isSolid) {
                 DrawThinLine(dashStart, dashEnd);
-            } else if (m_DrawingMode == PDrawingMode::Copy) {
+            } else if (m_DrawingMode == PDrawingMode::Copy && HasDrawingBrush()) {
                 const PColor savedFgColor = m_FgColor;
-                m_FgColor = GetDrawingColor();
+                m_FgColor = GetDrawingBrushColor();
                 DrawThinLine(dashStart, dashEnd);
                 m_FgColor = savedFgColor;
             }
@@ -2654,7 +2816,7 @@ void PServerView::FillClippedPolylinePolygon(std::span<const PPoint> points,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::RenderClippedPolylineJoint(const std::vector<PolylineSegData>& segs,
+void PServerView::RenderClippedPolylineJoint(std::span<const PolylineSegData> segs,
                                              const PolylineJointData& joint,
                                              size_t jointIndex,
                                              float halfWidth,
@@ -2710,7 +2872,7 @@ void PServerView::RenderClippedPolylineJoint(const std::vector<PolylineSegData>&
             const PPoint delta = joint.outerNext - joint.outerPrev;
             const float multiplier = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denominator;
             miterPoint = joint.outerPrev + joint.prevDir * multiplier;
-            useBevel = ((miterPoint - joint.vertex).LengthSqr() > PMath::square(m_MiterLimit * m_PenWidth));
+            useBevel = ((miterPoint - joint.vertex).LengthSqr() > PMath::square(m_MiterLimit * GetRasterPenWidth()));
         }
 
         if (useBevel)
@@ -2838,12 +3000,13 @@ void PServerView::RenderClippedPolylineCap(const PPoint& endpoint,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::RenderClippedPolylineElement(const std::vector<PolylineSegData>& segs,
-                                               const std::vector<PolylineJointData>& joints,
+void PServerView::RenderClippedPolylineElement(std::span<const PolylineSegData> segs,
+                                               std::span<const PolylineJointData> joints,
                                                float halfWidth,
                                                float arcStart,
                                                float arcEnd,
-                                               float totalLength)
+                                               float totalLength,
+                                               bool addCaps)
 {
     for (const PolylineSegData& segment : segs)
     {
@@ -2867,14 +3030,17 @@ void PServerView::RenderClippedPolylineElement(const std::vector<PolylineSegData
                                    halfWidth, arcStart, arcEnd);
     }
 
-    const PolylineSegData& firstSegment = segs.front();
-    RenderClippedPolylineCap(firstSegment.srcStart, firstSegment.dir,
-                             halfWidth, true, 0.0f, arcStart, arcEnd);
+    if (addCaps)
+    {
+        const PolylineSegData& firstSegment = segs.front();
+        RenderClippedPolylineCap(firstSegment.srcStart, firstSegment.dir,
+                                 halfWidth, true, 0.0f, arcStart, arcEnd);
 
-    const PolylineSegData& finalSegment = segs.back();
-    const PPoint finalPoint = finalSegment.srcStart + finalSegment.dir * finalSegment.segLen;
-    RenderClippedPolylineCap(finalPoint, finalSegment.dir,
-                             halfWidth, false, totalLength, arcStart, arcEnd);
+        const PolylineSegData& finalSegment = segs.back();
+        const PPoint finalPoint = finalSegment.srcStart + finalSegment.dir * finalSegment.segLen;
+        RenderClippedPolylineCap(finalPoint, finalSegment.dir,
+                                 halfWidth, false, totalLength, arcStart, arcEnd);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3425,13 +3591,13 @@ void PServerView::DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect,
 
     // Keep the original transform. Clip integer destination samples whose source lies outside the bitmap.
     // Only partially clipped axes use this division; a one-pixel axis is either wholly inside or wholly outside.
-    const bool brushSampling = !background.IsSolid;
+    const bool brushSampling = !background.IsSolid();
     auto mapSourceBoundary = [brushSampling](int32_t offset, int32_t sourceSize, int32_t destinationSize)
     {
         if (brushSampling) {
             return PBrushUtils::MapBitmapSourceBoundary(offset, sourceSize, destinationSize);
         }
-        return int32_t((int64_t(offset) * destinationSize + sourceSize - 2) / (sourceSize - 1));
+        return int32_t(std::ceil(double(offset) * destinationSize / (sourceSize - 1)));
     };
     PIRect clippedDstRect = snappedDstRect;
     if (clippedSrcRect.left != snappedSrcRect.left)
@@ -3559,7 +3725,7 @@ void PServerView::ScrollBy(const PPoint& offset)
     });
     const PIPoint oldOffset(m_ScrollOffset);
     m_ScrollOffset += offset;
-    ++s_BackgroundGeneration;
+    AdvanceBackgroundGeneration();
     const PIPoint newOffset(m_ScrollOffset);
     
     if (newOffset == oldOffset) {

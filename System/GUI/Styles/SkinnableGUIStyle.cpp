@@ -31,12 +31,12 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PButtonSkin& buttonSkin) : m_Button
     }
 }
 
-void PSkinnableGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const
+void PSkinnableGUIStyle::ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const
 {
     const Ptr<const PBrush> normal = m_ButtonSkin.States[std::to_underlying(PButtonSkinState::Normal)].Background;
     if (normal == nullptr)
     {
-        PDefaultGUIStyle::ButtonPaint(target, frame, isEnabled, data);
+        PDefaultGUIStyle::ButtonPaint(target, bounds, isEnabled, data);
         return;
     }
     UpdateButtonMetrics(target, data);
@@ -51,10 +51,11 @@ void PSkinnableGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isE
     const PButtonSkinAppearance& appearance = data.IsChecked
         ? m_ButtonSkin.CheckedStates[std::to_underlying(state)] : m_ButtonSkin.States[std::to_underlying(state)];
     target.SetBackgroundBrush((appearance.Background != nullptr) ? appearance.Background : normal);
+    target.SetBackgroundBrushOrigin(bounds.TopLeft());
     target.SetBrush(nullptr);
 
     const PRect padding = GetButtonLabelPadding();
-    const PRect labelFrame = frame.GetResized(padding.left, padding.top, -padding.right, -padding.bottom);
+    const PRect labelFrame = bounds.GetResized(padding.left, padding.top, -padding.right, -padding.bottom);
     PPoint position(
         std::round(labelFrame.left + (labelFrame.Width() - data.LabelSize.x) * 0.5f),
         std::round(labelFrame.top + (labelFrame.Height() - data.LabelSize.y) * 0.5f));
@@ -70,7 +71,7 @@ void PSkinnableGUIStyle::ButtonPaint(PView& target, const PRect& frame, bool isE
     target.SetFgColor(appearance.LabelColor);
     const PDrawingMode previousMode = target.GetDrawingMode();
     target.SetDrawingMode(PDrawingMode::Copy);
-    target.DrawString(data.Label, position, frame);
+    target.DrawString(data.Label, position, bounds);
     target.SetDrawingMode(previousMode);
 }
 
@@ -98,11 +99,18 @@ PRect PSkinnableGUIStyle::GetButtonLabelPadding() const
         {
             if (appearance.Background != nullptr)
             {
-                const PBrushBorders& borders = appearance.Background->GetDescription().Borders;
-                padding.left = std::max(padding.left, float(borders.Left));
-                padding.top = std::max(padding.top, float(borders.Top));
-                padding.right = std::max(padding.right, float(borders.Right));
-                padding.bottom = std::max(padding.bottom, float(borders.Bottom));
+                const Ptr<const PImage> image = appearance.Background->GetImage();
+                if (image != nullptr)
+                {
+                    const PImageDescription& description = image->GetDescription();
+                    const PRect& slice = description.SliceRect;
+                    const PIRect& source = description.SourceRect;
+                    const PPoint scale = appearance.Background->GetScale();
+                    padding.left = std::max(padding.left, (slice.left - float(source.left)) * scale.x);
+                    padding.top = std::max(padding.top, (slice.top - float(source.top)) * scale.y);
+                    padding.right = std::max(padding.right, (float(source.right) - slice.right) * scale.x);
+                    padding.bottom = std::max(padding.bottom, (float(source.bottom) - slice.bottom) * scale.y);
+                }
             }
         }
     }

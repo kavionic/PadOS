@@ -148,8 +148,7 @@ PView::PView(const PString& name, PViewFlags flags)
         1.0f,
         PColor(0, 0, 0))
 {
-    m_BackgroundBrush.Brush = GetStandardBrush(PStandardColorID::DefaultBackground);
-    m_BackgroundBrush.Source = PBrushSource::Brush;
+    m_BackgroundBrush = GetStandardBrush(PStandardColorID::DefaultBackground);
     m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
@@ -281,8 +280,7 @@ PView::PView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
 		}
 	}
 
-    m_BackgroundBrush.Brush = GetStandardBrush(PStandardColorID::DefaultBackground);
-    m_BackgroundBrush.Source = PBrushSource::Brush;
+    m_BackgroundBrush = GetStandardBrush(PStandardColorID::DefaultBackground);
     m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
@@ -303,8 +301,7 @@ PView::PView(handler_id serverHandle, const PString& name, const PRect& frame)
         PColor(0))
 {
     m_ServerHandle = serverHandle;
-    m_BackgroundBrush.Brush = GetStandardBrush(PNamedColors::white);
-    m_BackgroundBrush.Source = PBrushSource::Brush;
+    m_BackgroundBrush = GetStandardBrush(PNamedColors::white);
     m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
@@ -1464,7 +1461,7 @@ void PView::DrawString(const PString& string, const PPoint& pos, const PRect& ba
     if (m_Font == nullptr || GetDrawingMode() != PDrawingMode::Copy
         || m_Font->GetDescription().Rotation != 0.0f || m_Font->GetDescription().Shear != 90.0f)
     {
-        FillBrushRect(background);
+        FillTextBackground(background);
         DrawString(string, pos);
         return;
     }
@@ -1481,18 +1478,18 @@ void PView::DrawString(const PString& string, const PPoint& pos, const PRect& ba
 
     if (top >= bottom || left >= frame.right)
     {
-        FillBrushRect(background);
+        FillTextBackground(background);
     }
     else
     {
         if (top > frame.top) {
-            FillBrushRect(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset);
+            FillTextBackground(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset);
         }
         if (left > frame.left) {
-            FillBrushRect(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset);
+            FillTextBackground(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset);
         }
         if (bottom < frame.bottom) {
-            FillBrushRect(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset);
+            FillTextBackground(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset);
         }
     }
     DrawString(string, pos, float(frame.right - baseline.x), allowPartialCharacter);

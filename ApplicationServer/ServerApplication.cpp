@@ -38,13 +38,13 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
-    RegisterRemoteSignal(&m_RSCreateBrush, &ServerApplication::SlotCreateBrush);
-    RegisterRemoteSignal(&m_RSDeleteBrush, &ServerApplication::SlotDeleteBrush);
-    RegisterRemoteSignal(&m_RSUpdateBrush, &ServerApplication::SlotUpdateBrush);
-    RegisterRemoteSignal(&m_RSSetBrushColor, &ServerApplication::SlotSetBrushColor);
-    RegisterRemoteSignal(&m_RSCreateFont,       &ServerApplication::SlotCreateFont);
-    RegisterRemoteSignal(&m_RSDeleteFont,       &ServerApplication::SlotDeleteFont);
-    RegisterRemoteSignal(&m_RSMeasureFont,      &ServerApplication::SlotMeasureFont);
+    RegisterRemoteSignal(&RSCreateBrush, &ServerApplication::SlotCreateBrush);
+    RegisterRemoteSignal(&RSDeleteBrush, &ServerApplication::SlotDeleteBrush);
+    RegisterRemoteSignal(&RSUpdateBrush, &ServerApplication::SlotUpdateBrush);
+    RegisterRemoteSignal(&RSSetBrushColor, &ServerApplication::SlotSetBrushColor);
+    RegisterRemoteSignal(&RSCreateFont,       &ServerApplication::SlotCreateFont);
+    RegisterRemoteSignal(&RSDeleteFont,       &ServerApplication::SlotDeleteFont);
+    RegisterRemoteSignal(&RSMeasureFont,      &ServerApplication::SlotMeasureFont);
     RegisterRemoteSignal(&RSPushMouseCursor,    &ServerApplication::SlotPushMouseCursor);
     RegisterRemoteSignal(&RSPopMouseCursor,     &ServerApplication::SlotPopMouseCursor);
     RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
@@ -57,11 +57,14 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewShow,                   &ServerApplication::SlotViewShow);
     RegisterRemoteSignal(&RSViewSetHitMode,             &ServerApplication::SlotViewSetHitMode);
     RegisterRemoteSignal(&RSViewSetFgColor,             &ServerApplication::SlotViewSetFgColor);
-    RegisterRemoteSignal(&m_RSViewSetBrush, &ServerApplication::SlotViewSetBrush);
-    RegisterRemoteSignal(&m_RSViewEraseRect, &ServerApplication::SlotViewEraseRect);
+    RegisterRemoteSignal(&RSViewSetBrush, &ServerApplication::SlotViewSetBrush);
+    RegisterRemoteSignal(&RSViewSetBrushOrigin, &ServerApplication::SlotViewSetBrushOrigin);
+    RegisterRemoteSignal(&RSViewSetBackgroundBrush, &ServerApplication::SlotViewSetBackgroundBrush);
+    RegisterRemoteSignal(&RSViewSetBackgroundBrushOrigin, &ServerApplication::SlotViewSetBackgroundBrushOrigin);
+    RegisterRemoteSignal(&RSViewEraseRect, &ServerApplication::SlotViewEraseRect);
     RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
-    RegisterRemoteSignal(&m_RSViewSetFont,              &ServerApplication::SlotViewSetFont);
+    RegisterRemoteSignal(&RSViewSetFont,              &ServerApplication::SlotViewSetFont);
     RegisterRemoteSignal(&RSViewSetPenWidth,            &ServerApplication::SlotViewSetPenWidth);
     RegisterRemoteSignal(&RSViewSetCapStyle,            &ServerApplication::SlotViewSetCapStyle);
     RegisterRemoteSignal(&RSViewSetJointStyle,          &ServerApplication::SlotViewSetJointStyle);
@@ -74,7 +77,9 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewMovePenTo,              &ServerApplication::SlotViewMovePenTo);
     RegisterRemoteSignal(&RSViewDrawLine1,              &ServerApplication::SlotViewDrawLine1);
     RegisterRemoteSignal(&RSViewDrawLine2,              &ServerApplication::SlotViewDrawLine2);
+    RegisterRemoteSignal(&RSViewDrawRect,               &ServerApplication::SlotViewDrawRect);
     RegisterRemoteSignal(&RSViewFillRect,               &ServerApplication::SlotViewFillRect);
+    RegisterRemoteSignal(&RSViewFillRectBrush,          &ServerApplication::SlotViewFillRectBrush);
     RegisterRemoteSignal(&RSViewFillCircle,             &ServerApplication::SlotViewFillCircle);
     RegisterRemoteSignal(&RSViewDrawEllipse,            &ServerApplication::SlotViewDrawEllipse);
     RegisterRemoteSignal(&RSViewDrawPie,                &ServerApplication::SlotViewDrawPie);
@@ -83,7 +88,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewAddTriangle,            &ServerApplication::SlotViewAddTriangle);
     RegisterRemoteSignal(&RSViewEndTriangles,           &ServerApplication::SlotViewEndTriangles);
     RegisterRemoteSignal(&RSViewDrawString,             &ServerApplication::SlotViewDrawString);
-    RegisterRemoteSignal(&m_RSViewDrawStringWidth,       &ServerApplication::SlotViewDrawStringWidth);
+    RegisterRemoteSignal(&RSViewDrawStringWidth,       &ServerApplication::SlotViewDrawStringWidth);
     RegisterRemoteSignal(&RSViewScrollBy,               &ServerApplication::SlotViewScrollBy);
     RegisterRemoteSignal(&RSViewCopyRect,               &ServerApplication::SlotViewCopyRect);
     RegisterRemoteSignal(&RSViewDrawBitmap,             &ServerApplication::SlotViewDrawBitmap);
@@ -416,7 +421,9 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
                                        handle_id             fontHandle,
                                        handle_id                backgroundBrush,
                                        handle_id                drawingBrush,
-                                       PColor                fgColor)
+                                       PColor                fgColor,
+                                       const PPoint& backgroundBrushOrigin,
+                                       const PPoint& drawingBrushOrigin)
 {
     Ptr<PServerFontInstance> font = GetFont(fontHandle);
     Ptr<PServerBrush> background = (backgroundBrush != INVALID_HANDLE) ? GetBrush(backgroundBrush) : nullptr;
@@ -471,7 +478,9 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
         std::move(font),
         std::move(background),
         std::move(drawing),
-        fgColor);
+        fgColor,
+        backgroundBrushOrigin,
+        drawingBrushOrigin);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view, index);

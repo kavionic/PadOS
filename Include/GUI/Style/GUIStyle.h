@@ -51,7 +51,7 @@ class PGUIStyle : public PtrTarget
 public:
     ~PGUIStyle() override = default;
 
-    virtual void ButtonPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const = 0;
+    virtual void ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const = 0;
     virtual void ButtonGetPreferredSize(const PView& target, PButtonStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
 
     virtual void CheckBoxPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const = 0;

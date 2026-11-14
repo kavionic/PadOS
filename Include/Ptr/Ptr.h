@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <type_traits>
 #include "Ptr/PtrTarget.h"
 template <class T> class WeakPtr;
 template <class T> class SigWeakPtr;
@@ -43,7 +44,7 @@ public:
     inline Ptr(const Ptr& value) noexcept;
     inline Ptr(Ptr&& value) noexcept;
 
-    template <class Y> inline Ptr(const Ptr<Y>& ptr) noexcept;
+    template <class Y> requires std::is_convertible_v<Y*, T*> inline Ptr(const Ptr<Y>& ptr) noexcept;
     template <class Y> inline explicit Ptr(const SigWeakPtr<Y>& ptr) noexcept;
     template <class Y> inline Ptr(NoPtr<Y>& value) noexcept;
 

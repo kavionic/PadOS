@@ -223,19 +223,24 @@ public:
     Ptr<const PBrush> GetStandardBrush(PStandardColorID color) const;
     Ptr<const PBrush> GetStandardBrush(PNamedColors color) const;
 
-    // A null background inherits from ancestors; a null drawing brush uses
-    // this view's effective background. Automatic bounds start at content (0,0).
-    const PViewBrushBinding& GetBackgroundBrushBinding() const noexcept { return m_BackgroundBrush; }
-    const PViewBrushBinding& GetBrushBinding() const noexcept { return m_DrawingBrush; }
+    // None/null backgrounds inherit; None/null drawing brushes disable fills.
+    Ptr<const PBrush> GetBackgroundBrush() const noexcept { return m_BackgroundBrush; }
+    Ptr<const PBrush> GetBrush() const noexcept { return m_DrawingBrush; }
     void SetBackgroundBrush(Ptr<const PBrush> brush);
     void SetBackgroundBrush(PStandardColorID color) { SetBackgroundBrush(GetStandardBrush(color)); }
     void SetBackgroundBrush(PNamedColors color) { SetBackgroundBrush(GetStandardBrush(color)); }
-    void SetBackgroundBrush(Ptr<const PBrush> brush, const PRect& bounds);
     void SetBrush(Ptr<const PBrush> brush);
     void SetBrush(PStandardColorID color) { SetBrush(GetStandardBrush(color)); }
     void SetBrush(PNamedColors color) { SetBrush(GetStandardBrush(color)); }
-    void SetBrush(Ptr<const PBrush> brush, const PRect& bounds);
 
+    // Each origin is anchored in this view's content coordinates. Inheriting
+    // views sample the owning ancestor's mapping, without applying their origin.
+    PPoint GetBackgroundBrushOrigin() const noexcept { return m_BackgroundBrushOrigin; }
+    PPoint GetDrawingBrushOrigin() const noexcept { return m_DrawingBrushOrigin; }
+    void SetBackgroundBrushOrigin(const PPoint& origin);
+    void SetBrushOrigin(const PPoint& origin);
+
+    // Zero selects a single-pixel pen that does not scale.
     void            SetPenWidth(float width)        { if (width != m_PenWidth) { m_PenWidth = width; Post<ASViewSetPenWidth>(width); } }
     float           GetPenWidth() const noexcept    { return m_PenWidth; }
 
@@ -261,17 +266,15 @@ public:
     void            DrawLine(const PPoint& fromPos, const PPoint& toPos)    { Post<ASViewDrawLine2>(fromPos, toPos); }
     void            DrawLine(float x, float y)                              { DrawLine(PPoint(x, y)); }
     void            DrawLine(float x1, float y1, float x2, float y2)        { DrawLine(PPoint(x1, y1), PPoint(x2, y2)); }
-    void            DrawRect(const PRect& frame)
-    {
-        MovePenTo(PPoint(frame.left, frame.top));
-        DrawLine(PPoint(frame.right - 1.0f, frame.top));
-        DrawLine(PPoint(frame.right - 1.0f, frame.bottom - 1.0f));
-        DrawLine(PPoint(frame.left, frame.bottom - 1.0f));
-        DrawLine(PPoint(frame.left, frame.top));
-    }        
-    void            FillRect(const PRect& rect)                         { Post<ASViewFillRect>(rect, m_FgColor); }
-    void            FillRect(const PRect& rect, PColor color)           { Post<ASViewFillRect>(rect, color); }
-    void            FillBrushRect(const PRect& rect) { Post<ASViewEraseRect>(rect, true); }
+    // The rectangle is the fill area; the pen outline extends outside it.
+    // A transparent pen suppresses the outline; a None brush suppresses the fill.
+    void            DrawRect(const PRect& rect) { Post<ASViewDrawRect>(rect); }
+    // Explicit fills leave the selected brush and pen unchanged. Brush sources
+    // use this view's drawing-brush origin.
+    void            FillRect(const PRect& rect, Ptr<const PBrush> brush);
+    void            FillRect(const PRect& rect, PColor color) { Post<ASViewFillRect>(rect, color); }
+    void            FillRect(const PRect& rect, PStandardColorID color) { FillRect(rect, pget_standard_color(color)); }
+    void            FillRect(const PRect& rect, PNamedColors color) { FillRect(rect, PColor(color)); }
     void            EraseRect(const PRect& rect);
 
     void            FillCircle(const PPoint& position, float radius) { Post<ASViewFillCircle>(position, radius); }
@@ -384,8 +387,7 @@ private:
     void HandleDetachedFromScreen();
 
     void HandlePaint(const PRect& updateRect);
-    void SendBrush(bool background);
-    void SetBrushBinding(bool background, Ptr<const PBrush> brush, const PRect& bounds, bool automaticBounds);
+    void FillTextBackground(const PRect& rect);
     
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
         
@@ -463,8 +465,10 @@ private:
     PScrollBar*         m_HScrollBar = nullptr;
     PScrollBar*         m_VScrollBar = nullptr;
 
-    PViewBrushBinding m_BackgroundBrush;
-    PViewBrushBinding m_DrawingBrush;
+    Ptr<const PBrush>   m_BackgroundBrush;
+    Ptr<const PBrush>   m_DrawingBrush;
+    PPoint              m_BackgroundBrushOrigin;
+    PPoint              m_DrawingBrushOrigin;
 
     Ptr<const PFont>    m_Font = ptr_new<PFont>(PFontID::e_FontLarge);
 };

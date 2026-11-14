@@ -48,7 +48,7 @@ void PServerBrush::SetProperties(const PBrushDescription& description, Ptr<PSrvB
         m_Driver->UpdateBrush(this, description, bitmap);
         m_Description = description;
         m_Bitmap = std::move(bitmap);
-        ++m_Revision;
+        AdvanceRevision();
         SignalChanged();
     }
 }
@@ -59,12 +59,28 @@ void PServerBrush::SetProperties(const PBrushDescription& description, Ptr<PSrvB
 
 void PServerBrush::SetColor(PColor color)
 {
-    if (m_Description.Type != PBrushType::Solid || m_Description.Color != color)
+    if (m_Description.Type != PBrushType::Solid || m_Description.Style != PBrushStyle::SolidPattern || m_Description.Color != color)
     {
         m_Driver->SetBrushColor(this, color);
         m_Description.SetColor(color);
         m_Bitmap = nullptr;
-        ++m_Revision;
+        AdvanceRevision();
         SignalChanged();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Retire cached revision stamps before reusing a value, including snapshots
+/// held by views that have not drawn since the previous counter cycle.
+///
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerBrush::AdvanceRevision()
+{
+    if (++m_Revision == 0)
+    {
+        m_Driver->HandleBrushRevisionWrap(this);
+        m_Revision = 1;
     }
 }

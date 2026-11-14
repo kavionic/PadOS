@@ -550,8 +550,7 @@ void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& e
 
 void PMenu::OnPaint(const PRect& updateRect)
 {
-    SetFgColor(PStandardColorID::MenuBackground);
-    FillRect(GetBounds());
+    FillRect(GetBounds(), PStandardColorID::MenuBackground);
 
     DrawFrame(GetBounds(), FRAME_RAISED | FRAME_THIN | FRAME_TRANSPARENT);
 }

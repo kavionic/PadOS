@@ -50,7 +50,7 @@ void PListViewHeaderView::DrawButton(const PString& title, const PRect& frame, c
     const float textHeight = fontHeight.ascender + fontHeight.descender;
     const PPoint baseline = frame.TopLeft() + PPoint(5.0f, (frame.Height() + 1.0f - textHeight) * 0.5f + fontHeight.ascender);
     const PRect background = frame.GetFloored().GetResized(2.0f, 2.0f, -4.0f, -2.0f);
-    FillBrushRect(PRect(background.right, background.top, background.right + 2.0f, background.bottom));
+    FillRect(PRect(background.right, background.top, background.right + 2.0f, background.bottom), GetBrush());
     DrawString(title, baseline, background, false);
 }
 

@@ -19,7 +19,7 @@ class PSrvBitmap : public PtrTarget
 public:
     PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0, bool readOnly = false);
 
-    uint64_t        m_RenderSequence = 0;
+    uint32_t        m_RenderSequence = 0;
     size_t          m_ResourceIndex = 0;
     PDriverResourceID m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
     PEColorSpace     m_ColorSpace    = PEColorSpace::NO_COLOR_SPACE;

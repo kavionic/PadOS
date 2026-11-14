@@ -39,6 +39,7 @@ public:
     virtual ~PDisplayDriver() override;
 
     bool            Open();
+    bool            IsOpen() const noexcept { return m_DeviceControl.GetDeviceFD() >= 0; }
     void            Close();
     void            PowerLost(bool hasPower);
     Ptr<PSrvBitmap>  GetScreenBitmap();
@@ -49,6 +50,7 @@ public:
     void UnregisterBrush(PServerBrush* brush) noexcept;
     void UpdateBrush(PServerBrush* brush, const PBrushDescription& description, const Ptr<PSrvBitmap>& bitmap);
     void SetBrushColor(PServerBrush* brush, PColor color);
+    void HandleBrushRevisionWrap(const PServerBrush* brush);
 
     int             GetScreenModeCount();
     bool            GetScreenModeDesc(size_t index, PScreenMode& outMode);
@@ -189,6 +191,7 @@ private:
     }
 
     void* AllocCommandBuffer(size_t size);
+    void AdvanceSequence() noexcept;
     PDriverResourceID ReferenceBitmap(PSrvBitmap* bitmap);
     void ReserveBrushUpdateReferences(const PServerBrush* brush, const PSrvBitmap* bitmap);
     void RetainBrushUpdateReferences(PServerBrush* brush, PSrvBitmap* bitmap) noexcept;
@@ -196,7 +199,7 @@ private:
     PDriverResourceID CreateBitmapResource(const PSrvBitmap& bitmap);
     PDriverResourceID CreateBrushResource(const PServerBrush& brush);
 
-    uint64_t m_Sequence = 1;
+    uint32_t m_Sequence = 1;
     PString m_DevicePath;
     PDisplayDeviceControl m_DeviceControl;
     std::vector<uint64_t> m_CommandBuffer;
@@ -208,7 +211,6 @@ private:
     std::vector<PSrvBitmap*> m_BitmapResources;
     std::vector<PServerBrush*> m_BrushResources;
     bool m_BrushStateValid = true;
-    bool m_HasPendingBrushUpdates = false;
     PDisplayInfo m_Info;
     Ptr<PSrvBitmap> m_ScreenBitmap;
     PColor m_FgColor;

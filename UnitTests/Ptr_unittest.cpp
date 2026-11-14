@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <type_traits>
 #include <gtest/gtest.h>
 #include <Ptr/WeakPtr.h>
 
@@ -14,6 +15,19 @@ namespace pointer_tests
 class ComparisonTarget : public PtrTarget
 {
 };
+
+class UnrelatedTarget : public PtrTarget
+{
+};
+
+// Reject invalid conversions during overload resolution, while retaining
+// implicit derived-to-base conversions and addition of const qualification.
+static_assert(std::is_convertible_v<Ptr<ComparisonTarget>, Ptr<PtrTarget>>);
+static_assert(std::is_convertible_v<Ptr<ComparisonTarget>, Ptr<const ComparisonTarget>>);
+static_assert(std::is_convertible_v<Ptr<ComparisonTarget>, Ptr<const PtrTarget>>);
+static_assert(!std::is_convertible_v<Ptr<PtrTarget>, Ptr<ComparisonTarget>>);
+static_assert(!std::is_convertible_v<Ptr<const ComparisonTarget>, Ptr<ComparisonTarget>>);
+static_assert(!std::is_convertible_v<Ptr<ComparisonTarget>, Ptr<UnrelatedTarget>>);
 
 TEST(PtrTest, ComparesRawPointersInBothDirectionsWithoutTakingOwnership)
 {

@@ -6,7 +6,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GUI/Bitmap.h>
-#include <limits>
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 
@@ -26,13 +25,21 @@ PSrvBitmap::PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* ra
     }
     if (m_BytesPerLine == 0)
     {
-        const uint64_t minimumStride = (uint64_t(m_Size.x) * BitsPerPixel(colorSpace) + 7) / 8;
-        if (minimumStride > std::numeric_limits<size_t>::max() - 3) {
+        const size_t width = m_Size.x;
+        const size_t bitsPerPixel = BitsPerPixel(colorSpace);
+        size_t minimumStride;
+        if (bitsPerPixel == 1) {
+            minimumStride = (width + 7) / 8;
+        } else if (__builtin_mul_overflow(width, bitsPerPixel / 8, &minimumStride)) {
             PERROR_THROW_CODE(PErrorCode::OVERFLOW);
         }
-        m_BytesPerLine = (size_t(minimumStride) + 3) & ~size_t(0x03);
+        if (__builtin_add_overflow(minimumStride, 3, &m_BytesPerLine)) {
+            PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+        }
+        m_BytesPerLine &= ~0x03;
     }
-    if (m_Size.y != 0 && m_BytesPerLine > std::numeric_limits<size_t>::max() / size_t(m_Size.y)) {
+    size_t rasterSize;
+    if (__builtin_mul_overflow(m_BytesPerLine, m_Size.y, &rasterSize)) {
         PERROR_THROW_CODE(PErrorCode::OVERFLOW);
     }
     if (m_Size.x == 0 || raster != nullptr)
@@ -43,7 +50,7 @@ PSrvBitmap::PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* ra
     else
     {
         m_FreeRaster = true;
-        m_Raster     = new uint8_t[m_Size.y * m_BytesPerLine];
+        m_Raster     = new uint8_t[rasterSize];
     }
 }
 

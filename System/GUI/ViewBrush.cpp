@@ -6,7 +6,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GUI/View.h>
+#include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 Ptr<const PBrush> PView::GetStandardBrush(PStandardColorID color) const
 {
@@ -17,6 +22,10 @@ Ptr<const PBrush> PView::GetStandardBrush(PStandardColorID color) const
     return application->GetStandardBrush(color);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<const PBrush> PView::GetStandardBrush(PNamedColors color) const
 {
     PApplication* application = GetApplication();
@@ -26,60 +35,107 @@ Ptr<const PBrush> PView::GetStandardBrush(PNamedColors color) const
     return application->GetStandardBrush(color);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PView::SetBackgroundBrush(Ptr<const PBrush> brush)
 {
-    SetBrushBinding(true, std::move(brush), PRect(), true);
+    PApplication* application = GetApplication();
+    if (brush != nullptr && application != nullptr && brush->GetApplication() != application) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (m_BackgroundBrush != brush)
+    {
+        m_BackgroundBrush = std::move(brush);
+        Post<ASViewSetBackgroundBrush>((m_BackgroundBrush != nullptr) ? m_BackgroundBrush->GetHandle() : INVALID_HANDLE);
+        if (m_BeginPainCount == 0) {
+            Invalidate();
+        }
+    }
 }
 
-void PView::SetBackgroundBrush(Ptr<const PBrush> brush, const PRect& bounds)
-{
-    SetBrushBinding(true, std::move(brush), bounds, false);
-}
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PView::SetBrush(Ptr<const PBrush> brush)
 {
-    SetBrushBinding(false, std::move(brush), PRect(), true);
+    PApplication* application = GetApplication();
+    if (brush != nullptr && application != nullptr && brush->GetApplication() != application) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (m_DrawingBrush != brush)
+    {
+        m_DrawingBrush = std::move(brush);
+        Post<ASViewSetBrush>((m_DrawingBrush != nullptr) ? m_DrawingBrush->GetHandle() : INVALID_HANDLE);
+    }
 }
 
-void PView::SetBrush(Ptr<const PBrush> brush, const PRect& bounds)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::SetBackgroundBrushOrigin(const PPoint& origin)
 {
-    SetBrushBinding(false, std::move(brush), bounds, false);
+    if (!PMath::is_finite(origin.x) || !PMath::is_finite(origin.y)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (m_BackgroundBrushOrigin != origin)
+    {
+        m_BackgroundBrushOrigin = origin;
+        Post<ASViewSetBackgroundBrushOrigin>(origin);
+        if (m_BackgroundBrush != nullptr && m_BackgroundBrush->GetStyle() == PBrushStyle::TexturePattern && m_BeginPainCount == 0) {
+            Invalidate();
+        }
+    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::SetBrushOrigin(const PPoint& origin)
+{
+    if (!PMath::is_finite(origin.x) || !PMath::is_finite(origin.y)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (m_DrawingBrushOrigin != origin)
+    {
+        m_DrawingBrushOrigin = origin;
+        Post<ASViewSetBrushOrigin>(origin);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::FillRect(const PRect& rect, Ptr<const PBrush> brush)
+{
+    if (brush != nullptr) {
+        Post<ASViewFillRectBrush>(rect, brush->GetHandle());
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PView::EraseRect(const PRect& rect)
 {
-    Post<ASViewEraseRect>(rect, false);
+    Post<ASViewEraseRect>(rect);
 }
 
-void PView::SendBrush(bool background)
-{
-    const PViewBrushBinding& binding = background ? m_BackgroundBrush : m_DrawingBrush;
-    const handle_id handle = (binding.Brush != nullptr) ? binding.Brush->GetHandle() : INVALID_HANDLE;
-    if (binding.Brush != nullptr && GetApplication() != nullptr && binding.Brush->GetApplication() != GetApplication()) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    Post<ASViewSetBrush>(background, binding.Source, handle, binding.Bounds, binding.AutomaticBounds);
-}
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-void PView::SetBrushBinding(bool background, Ptr<const PBrush> brush, const PRect& bounds, bool automaticBounds)
+void PView::FillTextBackground(const PRect& rect)
 {
-    if (!automaticBounds && !bounds.IsValid()) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    if (brush != nullptr && GetApplication() != nullptr && brush->GetApplication() != GetApplication()) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    PViewBrushBinding& binding = background ? m_BackgroundBrush : m_DrawingBrush;
-    const PBrushSource source = (brush != nullptr) ? PBrushSource::Brush : PBrushSource::Inherit;
-    if (binding.Source != source || binding.Brush != brush || binding.Bounds != bounds || binding.AutomaticBounds != automaticBounds)
-    {
-        binding.Brush = std::move(brush);
-        binding.Bounds = bounds;
-        binding.Source = source;
-        binding.AutomaticBounds = automaticBounds;
-        SendBrush(background);
-        if (background && m_BeginPainCount == 0) {
-            Invalidate();
-        }
+    if (m_DrawingBrush != nullptr && m_DrawingBrush->GetStyle() != PBrushStyle::None) {
+        FillRect(rect, m_DrawingBrush);
+    } else {
+        EraseRect(rect);
     }
 }

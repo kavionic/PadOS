@@ -68,8 +68,7 @@ void PMenuSeparator::Draw(Ptr<PView> targetView)
         frame.left = viewFrame.left;
         frame.right = viewFrame.right;
     }
-    targetView->SetFgColor(PStandardColorID::MenuBackground);
-    targetView->FillRect(frame);
+    targetView->FillRect(frame, PStandardColorID::MenuBackground);
 
     if (menu->GetLayout() == PMenuLayout::Horizontal)
     {

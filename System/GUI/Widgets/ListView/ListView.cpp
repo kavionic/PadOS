@@ -787,7 +787,7 @@ void PListView::OnPaint(const PRect& updateRect)
         const PRect scrollBarFrameH = m_HScrollBar->GetFrame();
         const PRect scrollBarFrameV = m_VScrollBar->GetFrame();
         const PRect frame(scrollBarFrameH.right, scrollBarFrameV.bottom, scrollBarFrameV.right, scrollBarFrameH.bottom);
-        FillRect(frame, pget_standard_color(PStandardColorID::DefaultBackground));
+        FillRect(frame, PStandardColorID::DefaultBackground);
     }
     if (HasFlags(PListViewFlag::RenderBorder)) {
         DrawFrame(GetBounds(), FRAME_RECESSED | FRAME_TRANSPARENT);

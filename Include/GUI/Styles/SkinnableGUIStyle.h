@@ -42,7 +42,7 @@ public:
     PSkinnableGUIStyle() = default;
     explicit PSkinnableGUIStyle(const PButtonSkin& buttonSkin);
 
-    void ButtonPaint(PView& target, const PRect& frame, bool isEnabled, PButtonStyleData& data) const override;
+    void ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const override;
     void ButtonGetPreferredSize(const PView& target, PButtonStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
 
 private:

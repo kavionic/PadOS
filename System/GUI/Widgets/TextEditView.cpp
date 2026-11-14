@@ -150,7 +150,7 @@ void PTextEditView::OnPaint(const PRect& updateRect)
     DrawString(m_Text, PPoint(0.0f, GetFontHeight().ascender), GetBounds());
 
     if (m_CursorVisible) {
-        FillRect(GetCursorFrame());
+        FillRect(GetCursorFrame(), GetFgColor());
     }
 }
 

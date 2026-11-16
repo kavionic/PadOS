@@ -66,6 +66,7 @@ void WindowManager::ThreadStarted()
     if (m_TopView != nullptr)
     {
         m_TopView->SetFrame(ApplicationServer::GetScreenFrame());
+        m_TopView->SetBackgroundBrush(PStandardColorID::DefaultBackground);
 
         m_DesktopView = m_TopView->FindChild("DesktopView");
         m_SidebarView = m_TopView->FindChild("SideBar");
@@ -75,7 +76,10 @@ void WindowManager::ThreadStarted()
             m_DesktopView->SetFrame(m_TopView->GetBounds());
         }
         if (m_SidebarView != nullptr) {
-            m_SidebarView->SetBackgroundBrush(PNamedColors::dimgray);
+            m_SidebarView->SetBackgroundBrush(PStandardColorID::DefaultBackground);
+        }
+        if (m_ClientsView != nullptr) {
+            m_ClientsView->SetBackgroundBrush(PStandardColorID::DefaultBackground);
         }
         AddView(m_TopView, PViewDockType::RootLevelView);
     }

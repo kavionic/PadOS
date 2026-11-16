@@ -5,13 +5,19 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+#include <limits>
+
 #include <gtest/gtest.h>
 #include <GUI/Font.h>
 #include <GUI/LayoutNode.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/GroupView.h>
+#include <Storage/Path.h>
+#include <Storage/StandardPaths.h>
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
@@ -120,5 +126,169 @@ TEST(GroupViewStyle, PaintingRestoresThePenWidth)
         style->GroupViewPropertyChanged(*target, data, PGroupViewProperty::Label);
         style->GroupViewPaint(*target, target->GetBounds(), data);
         EXPECT_EQ(target->GetPenWidth(), 7.0f);
+    });
+}
+
+TEST(GroupViewStyle, SkinnedGroupsTrackTitlesAndFontsWithoutChangingChildLayout)
+{
+    for (const char* theme : {"Normal", "Dark"})
+    {
+        RunGUITest([theme](PApplication& application)
+        {
+            const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
+            const Ptr<PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
+            Ptr<PGroupView> group = ptr_new<PGroupView>("skinned_group");
+            group->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
+            EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint(28, 28));
+            group->SetLabel("Motion");
+            const PPoint smallSize = group->GetPreferredSize(PPrefSizeType::Smallest);
+            EXPECT_FLOAT_EQ(smallSize.x, group->GetStringWidth("Motion") + 28.0f);
+            group->SetFont(ptr_new<PFont>(PFontID::e_FontLarge));
+            const PPoint largeSize = group->GetPreferredSize(PPrefSizeType::Smallest);
+            EXPECT_GT(largeSize.x, smallSize.x);
+            EXPECT_GT(largeSize.y, smallSize.y);
+            group->SetLabel("A much longer group title");
+            EXPECT_GT(group->GetPreferredSize(PPrefSizeType::Smallest).x, largeSize.x);
+            group->SetLabel(PString::zero);
+            EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint(28, 28));
+            group->SetLabel("Group");
+            Ptr<PView> child = ptr_new<PView>("content");
+            child->SetWidthOverride(PPrefSizeType::Smallest, PSizeOverride::Always, 320.0f);
+            child->SetWidthOverride(PPrefSizeType::Greatest, PSizeOverride::Always, 400.0f);
+            child->SetHeightOverride(PPrefSizeType::Smallest, PSizeOverride::Always, 80.0f);
+            child->SetHeightOverride(PPrefSizeType::Greatest, PSizeOverride::Always, 100.0f);
+            const PRect borders(10, 20, 30, 40);
+            child->SetBorders(borders);
+            group->AddChild(child);
+            group->SetLayoutNode(ptr_new<PLayoutNode>());
+            EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint(360, 140));
+            EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Greatest), PPoint(440, 160));
+            ASSERT_TRUE(application.AddHandler(group));
+            PScopeExit removeGroup([&application, &group] { application.RemoveHandler(group); });
+            group->OnStyleChanged();
+            EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint(360, 140));
+            EXPECT_EQ(child->GetBorders(), borders);
+            group->SetWidthOverride(PPrefSizeType::All, PSizeOverride::Always, 50.0f);
+            group->SetHeightOverride(PPrefSizeType::All, PSizeOverride::Always, 60.0f);
+            EXPECT_EQ(group->GetPreferredSize(PPrefSizeType::Smallest), PPoint(50, 60));
+        });
+    }
+}
+
+TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingState)
+{
+    RunGUITest([](PApplication& application)
+    {
+        for (const char* theme : {"Normal", "Dark"})
+        {
+            const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
+            const PSkinnableGUIStyle style(directory, &application);
+            Ptr<PView> parent = ptr_new<PView>("group_parent");
+            const Ptr<PBrush> background = ptr_new<PBrush>(PColor(40, 60, 80));
+            parent->SetBackgroundBrush(background);
+            parent->SetFrame(PRect(0, 0, 400, 240));
+            Ptr<PView> target = ptr_new<PView>("group_paint_target", PViewFlag::WillDraw);
+            parent->AddChild(target);
+            parent->Hide();
+            ASSERT_TRUE(application.AddView(parent, PViewDockType::TopLevelView));
+            PScopeExit removeParent([&application, &parent] { application.RemoveView(parent); });
+            const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(2, 3, 238, 158));
+            target->SetDrawingRegion(clip);
+            target->SetPenWidth(7.0f);
+            target->SetDrawingMode(PDrawingMode::Overlay);
+            PGroupViewStyleData data;
+            data.Label = "Skinned group";
+            for (const PPoint& size : {PPoint(240, 160), PPoint(310, 190), PPoint(12, 9), PPoint()})
+            {
+                target->SetFrame(PRect::FromSize(size));
+                style.GroupViewPropertyChanged(*target, data, PGroupViewProperty::Frame);
+                EXPECT_NO_THROW(style.GroupViewPaint(*target, target->GetBounds(), data));
+                EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+                EXPECT_EQ(parent->GetBackgroundBrush(), background);
+                EXPECT_EQ(target->GetDrawingRegion(), clip);
+                EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
+                EXPECT_FLOAT_EQ(target->GetPenWidth(), 7.0f);
+                EXPECT_EQ(target->GetBrush(), nullptr);
+            }
+            target->SetFrame(PRect(0, 0, 240, 160));
+            target->ScrollTo(PPoint(-3, -7));
+            const Ptr<PtrTarget> cache = data.StyleData;
+            style.GroupViewPaint(*target, target->GetBounds().GetResized(10, 10, -10, -10), data);
+            data.Label.clear();
+            style.GroupViewPropertyChanged(*target, data, PGroupViewProperty::Label);
+            style.GroupViewPaint(*target, target->GetBounds(), data);
+            EXPECT_EQ(data.StyleData, cache);
+            EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+        }
+        application.Sync();
+    });
+}
+
+TEST(GroupViewStyle, SkinGeometryAllowsSignedSpacingAndPreservesSharedImages)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(32, 32, PEColorSpace::RGBA32);
+        std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 32, 0);
+        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
+        image->SetSliceRect(PRect(8, 8, 24, 24));
+        image->SetLayoutSize(PPoint(32, 32), PImageLayoutMode::Absolute);
+        const PImageDescription original = image->GetDescription();
+        PGroupViewSkin skin;
+        skin.Frame = image;
+        skin.FrameInsets = PRect(-2, 3, 4, -5);
+        skin.LabelPadding = PRect(-3, -2, 7, 6);
+        skin.LabelGap = -1.0f;
+        skin.MinimumSize = PPoint(70, 50);
+        const auto createStyle = [&application](const PGroupViewSkin& groupSkin)
+        {
+            return ptr_new<PSkinnableGUIStyle>(
+                PButtonSkin(),
+                PCheckBoxSkin(),
+                PRadioButtonSkin(),
+                PSliderSkin(),
+                PScrollBarSkin(),
+                PTabViewSkin(),
+                PDropdownMenuSkin(),
+                groupSkin,
+                &application);
+        };
+        const Ptr<PSkinnableGUIStyle> style = createStyle(skin);
+        Ptr<PView> first = ptr_new<PView>("first_group");
+        Ptr<PView> second = ptr_new<PView>("second_group");
+        first->SetFrame(PRect(0, 0, 240, 100));
+        second->SetFrame(PRect(0, 0, 180, 140));
+        PGroupViewStyleData firstData;
+        PGroupViewStyleData secondData;
+        PPoint minimum;
+        PPoint maximum;
+        style->GroupViewGetPreferredSize(*first, firstData, &minimum, &maximum);
+        EXPECT_EQ(minimum, PPoint(70, 50));
+        firstData.Label = "An overlapping title";
+        style->GroupViewPropertyChanged(*first, firstData, PGroupViewProperty::Label);
+        style->GroupViewPaint(*first, first->GetBounds(), firstData);
+        style->GroupViewPaint(*second, second->GetBounds(), secondData);
+        EXPECT_NE(firstData.StyleData, secondData.StyleData);
+        first->SetFrame(PRect(0, 0, 12, 9));
+        style->GroupViewPaint(*first, first->GetBounds(), firstData);
+        EXPECT_EQ(image->GetDescription(), original);
+        skin.LabelGap = std::numeric_limits<float>::quiet_NaN();
+        EXPECT_THROW(createStyle(skin), std::system_error);
+        skin.LabelGap = 4.0f;
+        skin.MinimumSize.x = 0.0f;
+        EXPECT_THROW(createStyle(skin), std::system_error);
+        const PSkinnableGUIStyle fallback;
+        const PDefaultGUIStyle defaultStyle;
+        PGroupViewStyleData fallbackData;
+        PGroupViewStyleData defaultData;
+        fallbackData.Label = "Default";
+        defaultData.Label = fallbackData.Label;
+        PPoint expectedMinimum;
+        PPoint expectedMaximum;
+        fallback.GroupViewGetPreferredSize(*first, fallbackData, &minimum, &maximum);
+        defaultStyle.GroupViewGetPreferredSize(*first, defaultData, &expectedMinimum, &expectedMaximum);
+        EXPECT_EQ(minimum, expectedMinimum);
+        EXPECT_EQ(maximum, expectedMaximum);
     });
 }

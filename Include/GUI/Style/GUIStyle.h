@@ -7,13 +7,14 @@
 
 #pragma once
 
-#include <Ptr/PtrTarget.h>
+#include <GUI/Brush.h>
 #include <Utils/EnumBitmask.h>
 
 class PPoint;
 class PRect;
 class PView;
 
+struct PTextBoxStyle;
 struct PButtonStyleData;
 
 struct PSliderStyleData;
@@ -51,6 +52,9 @@ class PGUIStyle : public PtrTarget
 public:
     ~PGUIStyle() override = default;
 
+    // Hold the owning application mutex when obtaining or using its brush.
+    virtual Ptr<const PBrush> GetBackgroundBrush() const = 0;
+
     virtual void ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const = 0;
     virtual void ButtonGetPreferredSize(const PView& target, PButtonStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
 
@@ -87,6 +91,7 @@ public:
     virtual void    DropdownMenuGetPreferredSize(const PView& target, const PDropdownMenuStyleData& data, PPoint* minSize, PPoint* maxSize) const = 0;
     virtual void    DropdownMenuPropertyChanged(PView& target, PDropdownMenuStyleData& data, PDropdownMenuProperties properties) const = 0;
     virtual PRect   DropdownMenuGetEditorFrame(const PView& target, const PDropdownMenuStyleData& data) const = 0;
+    virtual Ptr<const PTextBoxStyle> DropdownMenuGetEditorStyle(const PDropdownMenuStyleData& data) const = 0;
     virtual bool    DropdownMenuHitTest(const PView& target, const PDropdownMenuStyleData& data, const PPoint& position) const = 0;
 
     virtual void    DropdownMenuPopupFramePaint(PView& target, const PRect& frame) const = 0;

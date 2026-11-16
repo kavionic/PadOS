@@ -5,11 +5,17 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+#include <limits>
+
 #include <gtest/gtest.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/ProgressBar.h>
+#include <Storage/Path.h>
+#include <Storage/StandardPaths.h>
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
@@ -94,5 +100,170 @@ TEST(ProgressBarStyle, DetachedViewsKeepUnclampedValuesAndApplicationStyle)
         EXPECT_EQ(progressBar->GetStyle(), application.GetGUIStyle());
         EXPECT_EQ(progressBar->GetPreferredSize(PPrefSizeType::Smallest), PPoint(50.0f, 24.0f));
         EXPECT_FLOAT_EQ(progressBar->GetProgress(), 1.5f);
+    });
+}
+
+TEST(ProgressBarStyle, SkinnedSizesAndStyleChangesPreserveProgressAndOverrides)
+{
+    for (const char* theme : {"Normal", "Dark"})
+    {
+        RunGUITest([theme](PApplication& application)
+        {
+            const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
+            application.SetGUIStyle(ptr_new<PSkinnableGUIStyle>(directory, &application));
+            for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
+            {
+                const bool horizontal = orientation == POrientation::Horizontal;
+                Ptr<PProgressBar> progress = ptr_new<PProgressBar>("skinned_progress", orientation);
+                EXPECT_EQ(progress->GetPreferredSize(PPrefSizeType::Smallest), horizontal ? PPoint(50, 24) : PPoint(24, 50));
+                EXPECT_EQ(progress->GetPreferredSize(PPrefSizeType::Greatest), horizontal ? PPoint(LAYOUT_MAX_SIZE, 24) : PPoint(24, LAYOUT_MAX_SIZE));
+                ASSERT_TRUE(application.AddHandler(progress));
+                PScopeExit removeProgress([&application, &progress] { application.RemoveHandler(progress); });
+                progress->SetWidthOverride(PPrefSizeType::All, PSizeOverride::Always, 120.0f);
+                progress->SetHeightOverride(PPrefSizeType::All, PSizeOverride::Always, 30.0f);
+                progress->SetFrame(PRect(0, 0, 120, 30));
+                progress->SetProgress(0.75f);
+                progress->OnPaint(progress->GetBounds());
+                progress->SetProgress(0.25f);
+                progress->OnPaint(progress->GetBounds());
+                progress->OnStyleChanged();
+                EXPECT_FLOAT_EQ(progress->GetProgress(), 0.25f);
+                EXPECT_EQ(progress->GetPreferredSize(PPrefSizeType::Smallest), PPoint(120, 30));
+                EXPECT_EQ(progress->GetPreferredSize(PPrefSizeType::Greatest), PPoint(120, 30));
+                EXPECT_EQ(progress->GetBackgroundBrush(), nullptr);
+            }
+            application.SetGUIStyle(ptr_new<PDefaultGUIStyle>());
+        });
+    }
+}
+
+TEST(ProgressBarStyle, SkinnedPaintingRestoresBrushesOriginsModeAndClipping)
+{
+    RunGUITest([](PApplication& application)
+    {
+        Ptr<PView> target = ptr_new<PView>("progress_skin_paint", PViewFlag::WillDraw);
+        target->SetFrame(PRect(0, 0, 220, 40));
+        target->Hide();
+        ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
+        PScopeExit removeTarget([&application, &target] { application.RemoveView(target); });
+        const Ptr<PBrush> background = ptr_new<PBrush>(PColor(40, 60, 80));
+        const Ptr<PBrush> drawing = ptr_new<PBrush>(PColor(80, 60, 40));
+        const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(2, 3, 218, 218));
+        target->SetBackgroundBrush(background);
+        target->SetBackgroundBrushOrigin(PPoint(5, 7));
+        target->SetBrush(drawing);
+        target->SetBrushOrigin(PPoint(11, 13));
+        target->SetDrawingRegion(clip);
+        target->SetDrawingMode(PDrawingMode::Overlay);
+        target->SetPenWidth(7.0f);
+        for (const char* theme : {"Normal", "Dark"})
+        {
+            const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
+            const PSkinnableGUIStyle style(directory, &application);
+            PProgressBarStyleData data;
+            for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
+            {
+                data.Orientation = orientation;
+                for (const PPoint& size : {PPoint(220, 24), PPoint(24, 220), PPoint(7, 7), PPoint(3, 3), PPoint()})
+                {
+                    target->SetFrame(PRect::FromSize(size));
+                    style.ProgressBarPropertyChanged(*target, data, PProgressBarProperty::Frame);
+                    for (float value : {1.5f, 1.0f, 0.75f, 0.25f, 0.001f, 0.0f, -0.5f, std::numeric_limits<float>::quiet_NaN()})
+                    {
+                        data.Value = value;
+                        style.ProgressBarPropertyChanged(*target, data, PProgressBarProperty::Value);
+                        EXPECT_NO_THROW(style.ProgressBarPaint(*target, target->GetNormalizedBounds(), data));
+                        EXPECT_EQ(target->GetBackgroundBrush(), background);
+                        EXPECT_EQ(target->GetBackgroundBrushOrigin(), PPoint(5, 7));
+                        EXPECT_EQ(target->GetBrush(), drawing);
+                        EXPECT_EQ(target->GetDrawingBrushOrigin(), PPoint(11, 13));
+                        EXPECT_EQ(target->GetDrawingRegion(), clip);
+                        EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
+                        EXPECT_FLOAT_EQ(target->GetPenWidth(), 7.0f);
+                    }
+                }
+            }
+            target->SetFrame(PRect(0, 0, 220, 24));
+            target->SetBackgroundBrush(nullptr);
+            data.Value = 0.5f;
+            style.ProgressBarPaint(*target, target->GetNormalizedBounds(), data);
+            EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+            target->SetBackgroundBrush(background);
+        }
+        application.Sync();
+    });
+}
+
+TEST(ProgressBarStyle, SkinGeometryAllowsSignedInsetsAndDoesNotResizeSharedImages)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(32, 24, PEColorSpace::RGBA32);
+        std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 24, 0);
+        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
+        image->SetSliceRect(PRect(8, 8, 24, 16));
+        image->SetLayoutSize(PPoint(32, 24), PImageLayoutMode::Absolute);
+        const PImageDescription original = image->GetDescription();
+        PProgressBarSkin skin;
+        skin.Horizontal.Track = image;
+        skin.Horizontal.Fill = image;
+        skin.Horizontal.FillInsets = PRect(-2, 3, 4, -5);
+        skin.Horizontal.MinimumLength = 70.0f;
+        skin.Horizontal.Thickness = 18.0f;
+        skin.Vertical = skin.Horizontal;
+        skin.Vertical.MinimumLength = 90.0f;
+        skin.Vertical.Thickness = 22.0f;
+        const auto createStyle = [&application](const PProgressBarSkin& progressSkin)
+        {
+            return ptr_new<PSkinnableGUIStyle>(
+                PButtonSkin(),
+                PCheckBoxSkin(),
+                PRadioButtonSkin(),
+                PSliderSkin(),
+                PScrollBarSkin(),
+                PTabViewSkin(),
+                PDropdownMenuSkin(),
+                PGroupViewSkin(),
+                progressSkin,
+                &application);
+        };
+        const Ptr<PSkinnableGUIStyle> style = createStyle(skin);
+        Ptr<PView> target = ptr_new<PView>("custom_progress");
+        PProgressBarStyleData firstData;
+        PProgressBarStyleData secondData;
+        PPoint minimum;
+        PPoint maximum;
+        style->ProgressBarGetPreferredSize(*target, firstData, &minimum, &maximum);
+        EXPECT_EQ(minimum, PPoint(70, 18));
+        EXPECT_EQ(maximum, PPoint(LAYOUT_MAX_SIZE, 18));
+        secondData.Orientation = POrientation::Vertical;
+        style->ProgressBarGetPreferredSize(*target, secondData, &minimum, &maximum);
+        EXPECT_EQ(minimum, PPoint(22, 90));
+        EXPECT_EQ(maximum, PPoint(22, LAYOUT_MAX_SIZE));
+        target->SetFrame(PRect(0, 0, 120, 24));
+        firstData.Value = 0.001f;
+        style->ProgressBarPaint(*target, target->GetNormalizedBounds(), firstData);
+        const Ptr<PtrTarget> firstCache = firstData.StyleData;
+        target->SetFrame(PRect(0, 0, 24, 180));
+        secondData.Value = 0.75f;
+        style->ProgressBarPaint(*target, target->GetNormalizedBounds(), secondData);
+        EXPECT_NE(firstData.StyleData, secondData.StyleData);
+        firstData.Value = 1.0f;
+        style->ProgressBarPaint(*target, target->GetNormalizedBounds(), firstData);
+        EXPECT_EQ(firstData.StyleData, firstCache);
+        EXPECT_EQ(image->GetDescription(), original);
+        skin.Vertical.Fill = nullptr;
+        EXPECT_THROW(createStyle(skin), std::system_error);
+        skin.Vertical.Fill = image;
+        skin.Horizontal.FillInsets.left = std::numeric_limits<float>::quiet_NaN();
+        EXPECT_THROW(createStyle(skin), std::system_error);
+        skin.Horizontal.FillInsets.left = -2.0f;
+        skin.Vertical.Thickness = 0.0f;
+        EXPECT_THROW(createStyle(skin), std::system_error);
+        const Ptr<PSkinnableGUIStyle> fallback = createStyle(PProgressBarSkin());
+        PProgressBarStyleData fallbackData;
+        fallback->ProgressBarGetPreferredSize(*target, fallbackData, &minimum, &maximum);
+        EXPECT_EQ(minimum, PPoint(50, 24));
+        EXPECT_EQ(maximum, PPoint(LAYOUT_MAX_SIZE, 24));
     });
 }

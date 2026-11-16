@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 #include <GUI/Font.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/TabView.h>
@@ -311,6 +312,7 @@ TEST(TabViewStyle, TouchSelectsOnDownAndReleaseDoesNotChangeSelection)
         tabs->AppendTab("Second");
         tabs->SetSelection(0, false);
         tabs->SetFrame(PRect(0.0f, 0.0f, 400.0f, 120.0f));
+        tabs->MoveTo(PApplication::GetScreenFrame().BottomRight());
         ASSERT_TRUE(application.AddView(tabs, PViewDockType::TopLevelView));
         PScopeExit removeTabs([&application, &tabs] { application.RemoveView(tabs); });
         ASSERT_NE(tabs->GetServerHandle(), INVALID_HANDLE);
@@ -364,6 +366,7 @@ TEST(TabViewStyle, MouseHoverDoesNotSelectAndScrollPreservesSelection)
         tabs->AppendTab("Second long tab");
         tabs->SetSelection(1, false);
         tabs->SetFrame(PRect(0.0f, 0.0f, 160.0f, 120.0f));
+        tabs->MoveTo(PApplication::GetScreenFrame().BottomRight());
         ASSERT_TRUE(application.AddView(tabs, PViewDockType::TopLevelView));
         PScopeExit removeTabs([&application, &tabs] { application.RemoveView(tabs); });
         ASSERT_NE(tabs->GetServerHandle(), INVALID_HANDLE);
@@ -423,6 +426,7 @@ TEST(TabViewStyle, CancelAndWheelPreserveSelectionAndTabEditsCancelInteraction)
         tabs->AppendTab("Second long tab");
         tabs->SetSelection(1, false);
         tabs->SetFrame(PRect(0.0f, 0.0f, 160.0f, 120.0f));
+        tabs->MoveTo(PApplication::GetScreenFrame().BottomRight());
         ASSERT_TRUE(application.AddView(tabs, PViewDockType::TopLevelView));
         PScopeExit removeTabs([&application, &tabs] { application.RemoveView(tabs); });
         ASSERT_NE(tabs->GetServerHandle(), INVALID_HANDLE);
@@ -480,6 +484,7 @@ TEST(TabViewStyle, ScrollPreservesSelectionChangedByNotification)
         tabs->AppendTab("Third long tab");
         tabs->SetSelection(2, false);
         tabs->SetFrame(PRect(0.0f, 0.0f, 160.0f, 120.0f));
+        tabs->MoveTo(PApplication::GetScreenFrame().BottomRight());
         ASSERT_TRUE(application.AddView(tabs, PViewDockType::TopLevelView));
         PScopeExit removeTabs([&application, &tabs] { application.RemoveView(tabs); });
         ASSERT_NE(tabs->GetServerHandle(), INVALID_HANDLE);
@@ -511,5 +516,69 @@ TEST(TabViewStyle, ScrollPreservesSelectionChangedByNotification)
         topView->ReleasePointerCapture(touch.PointerID);
         EXPECT_EQ(tabs->GetSelection(), 1u);
         EXPECT_EQ(selections, std::vector<size_t>({0, 1}));
+    });
+}
+
+class PTabViewInteractionTestStyle : public PDefaultGUIStyle
+{
+public:
+    void TabViewPropertyChanged(PView& target, PView& tabsTarget, PTabViewStyleData& data, PTabViewProperties properties, size_t tabIndex) const override
+    {
+        m_HighlightedTab = data.HighlightedTab;
+        m_PressedTab = data.PressedTab;
+        PDefaultGUIStyle::TabViewPropertyChanged(target, tabsTarget, data, properties, tabIndex);
+    }
+
+    mutable size_t m_HighlightedTab = INVALID_INDEX;
+    mutable size_t m_PressedTab = INVALID_INDEX;
+};
+
+TEST(TabViewStyle, PressedAppearanceClearsOnReleaseEvenWhenTheTabRemainsHovered)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PTabViewInteractionTestStyle> style = ptr_new<PTabViewInteractionTestStyle>();
+        application.SetGUIStyle(style);
+        Ptr<PTabView> tabs = ptr_new<PTabView>("pressed_tabs");
+        tabs->AppendTab("First");
+        tabs->AppendTab("Second");
+        tabs->SetSelection(0, false);
+        tabs->SetFrame(PRect(0, 0, 400, 140));
+        tabs->MoveTo(PApplication::GetScreenFrame().BottomRight());
+        ASSERT_TRUE(application.AddView(tabs, PViewDockType::TopLevelView));
+        PScopeExit removeTabs([&application, &tabs] { application.RemoveView(tabs); });
+        const Ptr<PScrollView> topView = tabs->GetChildAt<PScrollView>(size_t(0));
+        ASSERT_NE(topView, nullptr);
+        const Ptr<PView> tabsView = topView->GetScrolledView();
+        ASSERT_NE(tabsView, nullptr);
+        const PPoint position(12, tabsView->GetBounds().Center().y);
+        PPointerEvent mouse;
+        mouse.PointerID = PMousePointerID;
+        mouse.ToolType = PMotionToolType::Mouse;
+        mouse.SupportsHover = true;
+        tabsView->OnPointerOver(mouse.PointerID, position, mouse, PEventPhase::Target);
+        EXPECT_EQ(style->m_HighlightedTab, 0u);
+        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        mouse.Button = PMouseButton::Left;
+        mouse.Buttons = GetPointerButtonMask(PMouseButton::Left);
+        SendTabViewPointerEvent(*tabs, *tabsView, mouse, PPointerEventType::Down, position);
+        ASSERT_TRUE(tabsView->HasPointerCapture(mouse.PointerID));
+        EXPECT_EQ(style->m_PressedTab, 0u);
+        tabsView->OnPointerMove(mouse.PointerID, PPoint(12, -10), mouse, PEventPhase::Target);
+        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        tabsView->OnPointerMove(mouse.PointerID, position, mouse, PEventPhase::Target);
+        EXPECT_EQ(style->m_PressedTab, 0u);
+        mouse.Buttons = PPointerButtonMaskNone;
+        SendTabViewPointerEvent(*tabs, *tabsView, mouse, PPointerEventType::Up, position);
+        EXPECT_EQ(style->m_HighlightedTab, 0u);
+        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        mouse.Button = PMouseButton::Left;
+        mouse.Buttons = GetPointerButtonMask(PMouseButton::Left);
+        SendTabViewPointerEvent(*tabs, *tabsView, mouse, PPointerEventType::Down, position);
+        EXPECT_EQ(style->m_PressedTab, 0u);
+        tabs->SetTabTitle(0, "Renamed during press");
+        EXPECT_FALSE(tabsView->HasPointerCapture(mouse.PointerID));
+        EXPECT_EQ(style->m_HighlightedTab, INVALID_INDEX);
+        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
     });
 }

@@ -60,6 +60,9 @@ public:
     virtual void    OnFrameSized(const PPoint& cDelta) override;
     virtual void    OnScreenFrameMoved(const PPoint& delta) override;
     virtual void    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    void OnPointerEnter(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    void OnPointerLeave(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPaint(const PRect& cUpdateRect) override;
 
     // From Control:
@@ -90,6 +93,7 @@ private:
     void    LayoutMenuWindow();
     void    LayoutEditor();
     void    NotifyStylePropertyChanged(PDropdownMenuProperties properties);
+    void    SetPointerOver(bool pointerOver);
     void    SlotTextChanged(const PString& text, bool finalUpdate);
     void    SlotSelectionChanged(size_t selection, bool finalUpdate);
 

@@ -745,9 +745,11 @@ bool PTabView::TabsView::IsScrolling(PPointerID pointerID) const
 void PTabView::TabsView::SetHighlightedTab(size_t index)
 {
     PTabViewStyleData& data = m_TabView->m_TabViewStyleData;
-    if (data.HighlightedTab != index)
+    const size_t pressedTab = (m_HitPointerID != PInvalidPointerID && index == m_PressedTab) ? index : INVALID_INDEX;
+    if (data.HighlightedTab != index || data.PressedTab != pressedTab)
     {
         data.HighlightedTab = index;
+        data.PressedTab = pressedTab;
         const PGUIStyle* style = m_TabView->GetStyle();
         if (style != nullptr) {
             style->TabViewPropertyChanged(*m_TabView, *this, data, PTabViewProperty::Highlight, INVALID_INDEX);

@@ -48,7 +48,7 @@ void PApplication::SetDefaultApplication(PApplication* application)
 
 PApplication::PApplication(const PString& name) : PLooper(name, 1000, PAPPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("app_reply", 1000)
 {
-    m_GUIStyle = ptr_new<PDefaultGUIStyle>();
+    m_GUIStyle = ptr_new<PDefaultGUIStyle>(this);
 
     RegisterRemoteSignal(&m_RSPaintView, &PApplication::HandlePaint);
     RegisterRemoteSignal(&m_RSViewFrameChanged, &PApplication::HandleViewFrameChanged);
@@ -131,7 +131,7 @@ void PApplication::SetGUIStyle(Ptr<const PGUIStyle> style)
         PERROR_THROW_CODE(PErrorCode::BUSY);
     }
     if (style == nullptr) {
-        style = ptr_new<PDefaultGUIStyle>();
+        style = ptr_new<PDefaultGUIStyle>(this);
     }
     m_GUIStyle = std::move(style);
 }
@@ -837,6 +837,9 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
             if (code == PAppserverProtocol::CREATE_VIEW_REPLY)
             {
                 view->SetServerHandle(reply.m_ViewHandle);
+                if (view->m_ServerHandle != INVALID_HANDLE && view->m_DrawingRegion != nullptr) {
+                    Post<ASViewSetDrawRegion>(view->m_ServerHandle, true, view->m_DrawingRegion->m_Rects);
+                }
                 view->HandleScreenPositionChanged(reply.m_ScreenPosition);
                 InvalidatePointerPaths();
                 break;

@@ -31,7 +31,8 @@ enum class PScrollBarProperty : uint32_t
     Pressed     = 0x08,
     Enabled     = 0x10,
     Frame       = 0x20,
-    Font        = 0x40
+    Font        = 0x40,
+    Hovered     = 0x80
 };
 
 using PScrollBarProperties = PEnumBitmask<PScrollBarProperty>;
@@ -43,6 +44,7 @@ struct PScrollBarStyleData : PGUIStyleData
     float Proportion = 0.1f;
     POrientation Orientation = POrientation::Vertical;
     PScrollBarPart PressedPart = PScrollBarPart::None;
+    PScrollBarPart HoveredPart = PScrollBarPart::None;
     bool HasRange = true;
     bool IsEnabled = true;
 };

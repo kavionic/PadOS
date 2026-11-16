@@ -11,6 +11,7 @@ target_sources(PadOS_GUI PRIVATE
 	ImageTypes.h
 	BrushTypes.h
 	Bitmap.h
+	BitmapLoader.h
 	Color.h
 	Desktop.h
 	Font.h

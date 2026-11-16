@@ -150,7 +150,7 @@ public:
     void        BeginPolyline();
     void        AddPolylinePoint(const PPoint& point);
     void        EndPolyline();
-    void        DrawString(const PString& string, float width, bool allowPartialCharacter);
+    void        DrawString(Ptr<PServerBrush> backgroundBrush, const PString& string, float width, bool allowPartialCharacter);
     void        CopyRect(const PRect& srcRect, const PPoint& dstPos);
     void        DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos);
     void        DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PRect& dstRect);

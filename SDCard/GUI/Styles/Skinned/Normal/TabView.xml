@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nine-slice tabs and frame; offsets are native pixels. -->
+<TabView frame_insets="Rect(3, 3, 3, 3)" label_padding="Rect(12, 4, 12, 6)" minimum_tab_size="Point(40, 28)"
+         tab_spacing="2" inactive_top_inset="3" overflow_width="12">
+    <Frame image="TabView/TabViewFrame.png" borders="Rect(3, 3, 3, 3)"/>
+    <OverflowLeft image="TabView/TabViewOverflowLeft.png"/>
+    <OverflowRight image="TabView/TabViewOverflowRight.png"/>
+    <Tab>
+        <Normal image="TabView/TabViewTabNormal.png" borders="Rect(6, 6, 6, 4)" text_color="#25354A" text_offset="Point(0, 0)"/>
+        <Hovered image="TabView/TabViewTabHovered.png" borders="Rect(6, 6, 6, 4)" text_color="#203B59" text_offset="Point(0, 0)"/>
+        <Pressed image="TabView/TabViewTabPressed.png" borders="Rect(6, 6, 6, 4)" text_color="#173F63" text_offset="Point(1, 1)"/>
+    </Tab>
+    <Selected>
+        <Normal image="TabView/TabViewSelectedNormal.png" borders="Rect(11, 7, 11, 9)" text_color="#173F63" text_offset="Point(0, 0)"/>
+        <Hovered image="TabView/TabViewSelectedHovered.png" borders="Rect(11, 7, 11, 9)" text_color="#103B60" text_offset="Point(0, 0)"/>
+        <Pressed image="TabView/TabViewSelectedPressed.png" borders="Rect(11, 7, 11, 9)" text_color="#153C5C" text_offset="Point(1, 1)"/>
+    </Selected>
+</TabView>

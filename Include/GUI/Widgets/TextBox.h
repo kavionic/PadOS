@@ -33,6 +33,8 @@ struct PTextBoxStyle : PtrTarget
     PColor   ReadOnlyTextColor       = PColor(PNamedColors::black);
     PColor   DisabledBackgroundColor = PColor(PNamedColors::darkgray);
     PColor   DisabledTextColor       = PColor(PNamedColors::dimgray);
+    PRect    Borders = PRect(4.0f, 4.0f, 4.0f, 4.0f);
+    bool     HasFrame = true;
 };
 
 class PTextBox : public PControl, public PViewScroller
@@ -61,7 +63,7 @@ public:
     PPoint           GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
     Ptr<const PTextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
-    void                    SetStyle(Ptr<const PTextBoxStyle> style) { m_Editor->SetStyle(style); }
+    void                    SetStyle(Ptr<const PTextBoxStyle> style);
 
     Signal<void, const PString&, bool, PTextBox*> SignalTextChanged; //(const PString& newText, bool finalUpdate, TextBox* source)
 private:

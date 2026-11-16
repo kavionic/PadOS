@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Button label_padding="Rect(12, 3, 12, 5)" pressed_label_offset="Point(1, 1)">
+    <Normal image="Button/ButtonNormal.png" borders="Rect(12, 12, 12, 12)" text_color="#EEF4FC"/>
+    <Hovered image="Button/ButtonHovered.png" borders="Rect(12, 12, 12, 12)" text_color="#FFFFFF"/>
+    <Pressed image="Button/ButtonPressed.png" borders="Rect(12, 12, 12, 12)" text_color="#E8F1FC"/>
+    <Disabled image="Button/ButtonDisabled.png" borders="Rect(12, 12, 12, 12)" text_color="#78879C"/>
+    <Checked>
+        <Normal image="Button/ButtonCheckedNormal.png" borders="Rect(12, 12, 12, 12)" text_color="#F1F8FF"/>
+        <Hovered image="Button/ButtonCheckedHovered.png" borders="Rect(12, 12, 12, 12)" text_color="#FFFFFF"/>
+        <Pressed image="Button/ButtonCheckedPressed.png" borders="Rect(12, 12, 12, 12)" text_color="#EAF5FF"/>
+        <Disabled image="Button/ButtonCheckedDisabled.png" borders="Rect(12, 12, 12, 12)" text_color="#8095A9"/>
+    </Checked>
+</Button>

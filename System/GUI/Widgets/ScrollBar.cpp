@@ -112,6 +112,7 @@ void PScrollBar::OnFontChanged(Ptr<const PFont> newFont)
 
 void PScrollBar::OnStyleChanged()
 {
+    m_ScrollBarStyleData.HoveredPart = PScrollBarPart::None;
     m_ScrollBarStyleData.StyleData.Reset();
     EndInteraction();
     PControl::OnStyleChanged();
@@ -124,8 +125,10 @@ void PScrollBar::OnStyleChanged()
 void PScrollBar::OnEnableStatusChanged(bool isEnabled)
 {
     m_ScrollBarStyleData.IsEnabled = isEnabled;
-    if (!isEnabled) {
+    if (!isEnabled)
+    {
         EndInteraction();
+        SetHoveredPart(PScrollBarPart::None);
     }
     NotifyStylePropertyChanged(PScrollBarProperty::Enabled);
     Flush();
@@ -189,8 +192,13 @@ void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 	{
 		SignalValueChanged(GetValue(), true, ptr_tmp_cast(this)); // Send a 'final' event.
 	}
-	EndInteraction();
-	Flush();
+    EndInteraction();
+    if (event.SupportsHover && style != nullptr) {
+        SetHoveredPart(style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position));
+    } else {
+        SetHoveredPart(PScrollBarPart::None);
+    }
+    Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -199,13 +207,19 @@ void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 
 void PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-	if (phase != PEventPhase::Target || pointerID != m_HitPointerID) {
-		return;
-	}
-	const PGUIStyle* style = GetStyle();
-	if (style == nullptr) {
-		return;
-	}
+    if (phase != PEventPhase::Target) {
+        return;
+    }
+    const PGUIStyle* style = GetStyle();
+    if (style == nullptr) {
+        return;
+    }
+    if (event.SupportsHover && (m_HitPointerID == PInvalidPointerID || pointerID == m_HitPointerID)) {
+        SetHoveredPart(style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position));
+    }
+    if (pointerID != m_HitPointerID) {
+        return;
+    }
 	if (IsArrowPart(m_HitPart))
 	{
 		const bool isHit = style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position) == m_HitPart;
@@ -242,7 +256,34 @@ void PScrollBar::OnPointerCancel(PPointerID pointerID, const PPoint& position, c
     if (phase == PEventPhase::Target && pointerID == m_HitPointerID)
     {
         EndInteraction();
+        SetHoveredPart(PScrollBarPart::None);
         Flush();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && event.SupportsHover && m_HitPointerID == PInvalidPointerID)
+    {
+        const PGUIStyle* style = GetStyle();
+        if (style != nullptr) {
+            SetHoveredPart(style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position));
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && (m_HitPointerID == PInvalidPointerID || pointerID == m_HitPointerID)) {
+        SetHoveredPart(PScrollBarPart::None);
     }
 }
 
@@ -255,6 +296,7 @@ void PScrollBar::OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostR
     if (pointerID == m_HitPointerID)
     {
         EndInteraction();
+        SetHoveredPart(PScrollBarPart::None);
         Flush();
     }
 }
@@ -463,6 +505,20 @@ void PScrollBar::EndInteraction()
     {
         m_ScrollBarStyleData.PressedPart = PScrollBarPart::None;
         NotifyStylePropertyChanged(PScrollBarProperty::Pressed);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PScrollBar::SetHoveredPart(PScrollBarPart part)
+{
+    if (m_ScrollBarStyleData.HoveredPart != part)
+    {
+        m_ScrollBarStyleData.HoveredPart = part;
+        NotifyStylePropertyChanged(PScrollBarProperty::Hovered);
+        Flush();
     }
 }
 

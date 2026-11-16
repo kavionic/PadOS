@@ -17,6 +17,7 @@
 
 #include "Ptr/Ptr.h"
 
+struct PColor;
 class PLayoutNode;
 class PPoint;
 class PRect;
@@ -40,6 +41,8 @@ bool parse(const char* text, double& value);
 bool parse(const char* text, bool& value);
 
 bool parse(const char* text, PString& value);
+// Colors use #RRGGBB notation.
+bool parse(const char* text, PColor& value);
 bool parse(const char* text, PPoint& value);
 bool parse(const char* text, PRect& value);
 bool parse(const char* text, Ptr<PLayoutNode>& value);

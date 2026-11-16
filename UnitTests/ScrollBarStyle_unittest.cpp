@@ -172,3 +172,43 @@ TEST(ScrollBarStyle, DetachedScrollBarsUseTheApplicationStyleWithoutCapturingInp
         EXPECT_FLOAT_EQ(scrollBar->GetValue(), 20.0f);
     });
 }
+
+class PScrollBarHoverTestStyle : public PDefaultGUIStyle
+{
+public:
+    void ScrollBarPropertyChanged(PView& target, PScrollBarStyleData& data, PScrollBarProperties properties) const override
+    {
+        m_HoveredPart = data.HoveredPart;
+        PDefaultGUIStyle::ScrollBarPropertyChanged(target, data, properties);
+    }
+    PScrollBarPart GetHoveredPart() const { return m_HoveredPart; }
+
+private:
+    mutable PScrollBarPart m_HoveredPart = PScrollBarPart::None;
+};
+
+TEST(ScrollBarStyle, HoverTracksPartsAndIgnoresTouchAndBubblingEvents)
+{
+    RunGUITest([](PApplication& application)
+    {
+        Ptr<PScrollBarHoverTestStyle> style = ptr_new<PScrollBarHoverTestStyle>();
+        application.SetGUIStyle(style);
+        Ptr<PScrollBar> scrollBar = ptr_new<PScrollBar>("hover_scrollbar", 0.0f, 100.0f, POrientation::Horizontal);
+        scrollBar->SetFrame(PRect::FromSize(200, 16));
+        PPointerEvent event;
+        event.SupportsHover = true;
+        scrollBar->OnPointerOver(1, PPoint(6, 8), event, PEventPhase::Target);
+        EXPECT_EQ(style->GetHoveredPart(), PScrollBarPart::DecrementStart);
+        scrollBar->OnPointerMove(1, PPoint(194, 8), event, PEventPhase::Target);
+        EXPECT_EQ(style->GetHoveredPart(), PScrollBarPart::IncrementEnd);
+        scrollBar->OnPointerOut(1, PPoint(201, 8), event, PEventPhase::Target);
+        EXPECT_EQ(style->GetHoveredPart(), PScrollBarPart::None);
+        event.SupportsHover = false;
+        scrollBar->OnPointerOver(1, PPoint(6, 8), event, PEventPhase::Target);
+        scrollBar->OnPointerMove(1, PPoint(194, 8), event, PEventPhase::Target);
+        EXPECT_EQ(style->GetHoveredPart(), PScrollBarPart::None);
+        event.SupportsHover = true;
+        scrollBar->OnPointerOver(1, PPoint(6, 8), event, PEventPhase::Bubble);
+        EXPECT_EQ(style->GetHoveredPart(), PScrollBarPart::None);
+    });
+}

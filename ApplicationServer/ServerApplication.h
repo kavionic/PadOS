@@ -96,6 +96,7 @@ private:
     void SlotViewSetFrame(handler_id clientHandle, const PRect& frame, handler_id requestingClient);
     void SlotViewInvalidate(handler_id clientHandle, const PIRect& frame);
     void SlotViewAddChild(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
+    void SlotViewSetDrawRegion(handler_id viewHandle, bool enabled, const std::vector<PIRect>& rectangles);
     void SlotSync(port_id replyPort);
     void SlotViewToggleDepth(handler_id viewHandle)                                         { ForwardToView(viewHandle, &PServerView::ToggleDepth); }
     void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &PServerView::BeginUpdate); }
@@ -140,13 +141,17 @@ private:
     void SlotViewBeginTriangles(handler_id viewHandle, PTriangleMode mode, size_t countHint)  { ForwardToView(viewHandle, &PServerView::BeginTriangles, mode, countHint); }
     void SlotViewAddTriangle(handler_id viewHandle, const PPoint& position)                   { ForwardToView(viewHandle, &PServerView::AddTriangle, position); }
     void SlotViewEndTriangles(handler_id viewHandle)                                          { ForwardToView(viewHandle, &PServerView::EndTriangles); }
-    void SlotViewDrawString(handler_id viewHandle, const PString& string)
+    void SlotViewDrawString(handler_id viewHandle, handle_id backgroundBrush, const PString& string)
     {
-        ForwardToView(viewHandle, &PServerView::DrawString, string, std::numeric_limits<float>::infinity(), true);
+        SlotViewDrawStringWidth(viewHandle, backgroundBrush, string, std::numeric_limits<float>::infinity(), true);
     }
-    void SlotViewDrawStringWidth(handler_id viewHandle, const PString& string, float width, bool allowPartialCharacter)
+    void SlotViewDrawStringWidth(handler_id viewHandle, handle_id backgroundBrush, const PString& string, float width, bool allowPartialCharacter)
     {
-        ForwardToView(viewHandle, &PServerView::DrawString, string, width, allowPartialCharacter);
+        Ptr<PServerBrush> resource = (backgroundBrush != INVALID_HANDLE) ? GetBrush(backgroundBrush) : nullptr;
+        if (backgroundBrush != INVALID_HANDLE && resource == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        ForwardToView(viewHandle, &PServerView::DrawString, resource, string, width, allowPartialCharacter);
     }
     void SlotViewScrollBy(handler_id viewHandle, const PPoint& delta)                        { ForwardToView(viewHandle, &PServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)  { ForwardToView(viewHandle, &PServerView::CopyRect, srcRect, dstPos); }
@@ -229,6 +234,7 @@ private:
     ASViewSetFrame              RSViewSetFrame;
     ASViewInvalidate            RSViewInvalidate;
     ASViewAddChild              RSViewAddChild;
+    ASViewSetDrawRegion         RSViewSetDrawRegion;
     ASViewToggleDepth           RSViewToggleDepth;
     ASViewBeginUpdate           RSViewBeginUpdate;
     ASViewEndUpdate             RSViewEndUpdate;

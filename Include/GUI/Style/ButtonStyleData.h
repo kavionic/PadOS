@@ -11,8 +11,12 @@
 #include <Math/Point.h>
 #include <Utils/String.h>
 
+class PView;
+
 struct PButtonStyleData
 {
+    void UpdateMetrics(const PView& target);
+
     PString Label;
 
     // Cached measurements are maintained by the selected style.

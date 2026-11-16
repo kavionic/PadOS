@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Normal theme: recessed checkboxes with nine-slice borders. -->
+<CheckBox size="32" label_spacing="8" label_vertical_offset="-1">
+    <Normal image="Checkbox/CheckBoxNormal.png" borders="Rect(8, 8, 8, 8)" text_color="#25354A"/>
+    <Hovered image="Checkbox/CheckBoxHovered.png" borders="Rect(8, 8, 8, 8)" text_color="#203B59"/>
+    <Pressed image="Checkbox/CheckBoxPressed.png" borders="Rect(8, 8, 8, 8)" text_color="#25354A"/>
+    <Disabled image="Checkbox/CheckBoxDisabled.png" borders="Rect(8, 8, 8, 8)" text_color="#8A96A6"/>
+    <Checked>
+        <Normal image="Checkbox/CheckBoxCheckedNormal.png" borders="Rect(8, 8, 8, 8)" text_color="#173F63"/>
+        <Hovered image="Checkbox/CheckBoxCheckedHovered.png" borders="Rect(8, 8, 8, 8)" text_color="#103B60"/>
+        <Pressed image="Checkbox/CheckBoxCheckedPressed.png" borders="Rect(8, 8, 8, 8)" text_color="#153C5C"/>
+        <Disabled image="Checkbox/CheckBoxCheckedDisabled.png" borders="Rect(8, 8, 8, 8)" text_color="#8297A9"/>
+    </Checked>
+</CheckBox>

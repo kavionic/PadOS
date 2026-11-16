@@ -52,7 +52,7 @@ void PTextBox::Initialize(const PString& text)
     m_Editor = ptr_new<PTextEditView>("Editor", text, GetFlags<PTextBoxFlags>());
     m_BackgroundColorBrush = ptr_new<PBrush>(GetStyle()->BackgroundColor, GetApplication());
     AddChild(m_Editor);
-    m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
+    m_Editor->SetBorders(GetStyle()->Borders);
 
     SetMaxOverscroll(40.0f, 0.0f);
     SetScrolledView(m_Editor);
@@ -138,7 +138,11 @@ void PTextBox::OnPaint(const PRect& updateRect)
     SetBackgroundBrush(m_BackgroundColorBrush);
 
     PRect bounds = GetBounds();
-    DrawFrame(bounds, HasFlags(PTextBoxFlag::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
+    if (style->HasFrame) {
+        DrawFrame(bounds, HasFlags(PTextBoxFlag::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
+    } else {
+        EraseRect(bounds);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,4 +184,27 @@ PPoint PTextBox::GetSizeForString(const PString& text, bool includeWidth, bool i
     size.x += borders.left + borders.right;
     size.y += borders.top + borders.bottom;
     return size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTextBox::SetStyle(Ptr<const PTextBoxStyle> style)
+{
+    if (style == nullptr) {
+        style = GetDefaultStyle();
+    }
+    if (GetStyle() != style)
+    {
+        const bool bordersChanged = m_Editor->GetBorders() != style->Borders;
+        m_Editor->SetStyle(style);
+        m_Editor->SetBorders(style->Borders);
+        if (bordersChanged)
+        {
+            OnFrameSized(PPoint());
+            PreferredSizeChanged();
+        }
+        Invalidate();
+    }
 }

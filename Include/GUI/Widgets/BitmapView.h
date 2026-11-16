@@ -9,7 +9,6 @@
 #pragma once
 
 #include <GUI/View.h>
-#include <DataTranslation/DataTranslator.h>
 
 
 class PBitmap;
@@ -40,12 +39,6 @@ public:
 
 private:
     void UpdateIsScaled();
-    bool SlotImageDataReady(const void* data, size_t length, bool isFinal);
-
-    PBitmapFrameHeader m_CurrentFrame;
-    ssize_t     m_CurrentFrameByteSize = -1;
-    size_t      m_BytesAddedToRow = 0;
-    size_t      m_BytesAddedToFrame = 0;
 
     PPoint m_Scale = PPoint(1.0f, 1.0f);
     bool   m_IsScaled = false;

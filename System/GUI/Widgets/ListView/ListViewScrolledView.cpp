@@ -22,6 +22,7 @@ PListViewScrolledView::PListViewScrolledView(Ptr<PListView> listView)
     : PView("main_view", PViewFlag::WillDraw | PViewFlag::DrawOnChildren)
 {
     m_ListView = ptr_raw_pointer_cast(listView);
+    SetBackgroundBrush(PNamedColors::white);
 
     m_InertialScroller.SetScrollHBounds(0.0f, 0.0f);
     m_InertialScroller.SignalUpdate.Connect(this, &PListViewScrolledView::SlotInertialScrollUpdate);

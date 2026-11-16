@@ -280,6 +280,8 @@ using ASViewEraseRect = PRemoteSignal<PAppserverProtocol::VIEW_ERASE_RECT, void(
 using ASViewSetFrame        = PRemoteSignal<PAppserverProtocol::VIEW_SET_FRAME,       void(handler_id viewHandle, const PRect& frame, handler_id requestingClient)>;
 using ASViewInvalidate      = PRemoteSignal<PAppserverProtocol::VIEW_INVALIDATE,      void(handler_id viewHandle, const PIRect& frame)>;
 using ASViewAddChild        = PRemoteSignal<PAppserverProtocol::VIEW_ADD_CHILD,       void(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle)>;
+using ASViewSetDrawRegion = PRemoteSignal<PAppserverProtocol::VIEW_SET_DRAW_REGION,
+    void(handler_id viewHandle, bool enabled, const std::vector<PIRect>& rectangles)>;
 using ASViewToggleDepth     = PRemoteSignal<PAppserverProtocol::VIEW_TOGGLE_DEPTH,    void(handler_id viewHandle)>;
 using ASViewBeginUpdate     = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_UPDATE,    void(handler_id viewHandle)>;
 using ASViewEndUpdate       = PRemoteSignal<PAppserverProtocol::VIEW_END_UPDATE,      void(handler_id viewHandle)>;
@@ -304,9 +306,10 @@ using ASViewFillTriangle    = PRemoteSignal<PAppserverProtocol::VIEW_FILL_TRIANG
 using ASViewBeginTriangles  = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_TRIANGLES,     void(handler_id viewHandle, PTriangleMode mode, size_t countHint)>;
 using ASViewAddTriangle     = PRemoteSignal<PAppserverProtocol::VIEW_ADD_TRIANGLE,        void(handler_id viewHandle, const PPoint& position)>;
 using ASViewEndTriangles    = PRemoteSignal<PAppserverProtocol::VIEW_END_TRIANGLES,       void(handler_id viewHandle)>;
-using ASViewDrawString      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING,         void(handler_id viewHandle, const PString& string)>;
+using ASViewDrawString = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING,
+    void(handler_id viewHandle, handle_id backgroundBrush, const PString& string)>;
 using ASViewDrawStringWidth = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING_WIDTH,
-    void(handler_id viewHandle, const PString& string, float width, bool allowPartialCharacter)>;
+    void(handler_id viewHandle, handle_id backgroundBrush, const PString& string, float width, bool allowPartialCharacter)>;
 using ASViewScrollBy        = PRemoteSignal<PAppserverProtocol::VIEW_SCROLL_BY,           void(handler_id viewHandle, const PPoint& delta)>;
 using ASViewCopyRect        = PRemoteSignal<PAppserverProtocol::VIEW_COPY_RECT,           void(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)>;
 using ASViewDrawBitmap      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_BITMAP,         void(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PPoint& dstPos)>;

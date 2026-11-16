@@ -7,7 +7,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
+#include <App/Application.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/Style/ButtonStyleData.h>
 #include <GUI/Style/DropdownMenuStyleData.h>
@@ -16,23 +18,16 @@
 #include <GUI/Style/ProgressBarStyleData.h>
 #include <GUI/Style/TabViewStyleData.h>
 #include <GUI/Style/SliderStyleData.h>
+#include <GUI/Style/SliderStyleLayout.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Bitmap.h>
 #include <GUI/View.h>
-#include <GUI/Region.h>
+#include <GUI/Widgets/TextBox.h>
+#include <System/ExceptionHandling.h>
 
-// Measurement queries never advance the appearance snapshot used for damage.
 struct PDefaultGUIStyle::SliderStyleData : PtrTarget
 {
-    PPoint  ValueLabelSize;
-    float   MinLabelWidth = 0.0f;
-    float   MaxLabelWidth = 0.0f;
-    PRect   KnobFrame;
-    PRect   ValueLabelFrame;
-    std::vector<PRect> ShadowKnobFrames;
-    bool    IsValueLabelSizeValid = false;
-    bool    AreLimitLabelWidthsValid = false;
-    bool    HasVisualState = false;
+    PSliderStyleLayout Layout;
 };
 
 struct PDefaultGUIStyle::ScrollBarStyleData : PtrTarget
@@ -109,9 +104,31 @@ struct PDefaultGUIStyle::TabViewGeometry
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PDefaultGUIStyle::PDefaultGUIStyle(PApplication* application)
+    : m_Application(ptr_weak_cast((application != nullptr) ? application : PApplication::GetCurrentApplication()))
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<const PBrush> PDefaultGUIStyle::GetBackgroundBrush() const
+{
+    PApplication* application = ptr_raw_pointer_cast(m_Application);
+    if (application == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    return application->GetStandardBrush(PStandardColorID::DefaultBackground);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const
 {
-    UpdateButtonMetrics(target, data);
+    data.UpdateMetrics(target);
 
     const PStandardColorID backgroundColor =
         (isEnabled && data.IsPointerOver) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::ButtonBackground;
@@ -140,7 +157,7 @@ void PDefaultGUIStyle::ButtonPaint(PView& target, const PRect& bounds, bool isEn
 
 void PDefaultGUIStyle::ButtonGetPreferredSize(const PView& target, PButtonStyleData& data, PPoint* minSize, PPoint* maxSize) const
 {
-    UpdateButtonMetrics(target, data);
+    data.UpdateMetrics(target);
     const PPoint size(data.LabelSize.x + 16.0f, data.LabelSize.y + 8.0f);
     *minSize = size;
     *maxSize = size;
@@ -158,7 +175,7 @@ void PDefaultGUIStyle::CheckBoxPaint(PView& target, const PRect& frame, bool isE
     const float baseline = frame.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender;
     target.SetFgColor(0, 0, 0);
     target.SetBrush(PStandardColorID::DefaultBackground);
-    target.DrawString(data.Label, PPoint(CHECK_BOX_SIZE + CHECK_BOX_LABEL_SPACING, baseline), frame);
+    target.DrawString(target.GetBrush(), data.Label, PPoint(CHECK_BOX_SIZE + CHECK_BOX_LABEL_SPACING, baseline), frame);
 
     target.SetBackgroundBrush(backgroundColor);
 
@@ -193,7 +210,7 @@ void PDefaultGUIStyle::CheckBoxGetPreferredSize(const PView& target, PButtonStyl
     PPoint size(CHECK_BOX_SIZE, CHECK_BOX_SIZE);
     if (!data.Label.empty())
     {
-        UpdateButtonMetrics(target, data);
+        data.UpdateMetrics(target);
         const PFontHeight fontHeight = target.GetFontHeight();
         size.x += CHECK_BOX_LABEL_SPACING + data.LabelSize.x;
         size.y = std::max(size.y, fontHeight.ascender + fontHeight.descender);
@@ -242,7 +259,7 @@ void PDefaultGUIStyle::RadioButtonGetPreferredSize(const PView& target, PButtonS
     PPoint size(RADIO_BUTTON_SIZE, RADIO_BUTTON_SIZE);
     if (!data.Label.empty())
     {
-        UpdateButtonMetrics(target, data);
+        data.UpdateMetrics(target);
         const PFontHeight fontHeight = target.GetFontHeight();
         if (data.LabelAlignment == PAlignment::Top || data.LabelAlignment == PAlignment::Bottom)
         {
@@ -267,47 +284,19 @@ void PDefaultGUIStyle::SliderPaint(PView& target, const PRect& frame, const PSli
 {
     target.SetBackgroundBrush(PStandardColorID::SliderTrackNormal);
 
+    PSliderStyleLayout& layout = GetSliderLayout(data);
     const PRect& bounds = frame;
 
-    const PRect sliderFrame = GetSliderTrackFrame(target, bounds, data);
-    const PPoint knobPosition = GetSliderPosition(sliderFrame, data.Orientation, data.Value);
+    const PRect sliderFrame = layout.GetTrackFrame(target, bounds, data);
+    const PPoint knobPosition = PSliderStyleLayout::GetPosition(sliderFrame, data.Orientation, data.Value);
     const PRect knobBounds = GetSliderKnobBounds(data, data.Orientation, SliderKnobFrameMode::FullFrame);
     const PRect knobFrame = knobBounds + knobPosition;
 
-    // Clear areas not fully overwritten by the slider track and the knob.
-    PRegion clearRegion(bounds);
-    clearRegion.Exclude(sliderFrame);
-    clearRegion.Exclude(knobFrame);
-    const PRect labelFrame = GetSliderValueLabelFrame(target, data);
-    if (labelFrame.IsValid()) {
-        clearRegion.Exclude(labelFrame);
-    }
-    if (data.Orientation == POrientation::Horizontal)
-    {
-        if (!data.MinLabel.empty() && !data.MaxLabel.empty())
-        {
-            const float top = sliderFrame.bottom + SLIDER_TICK_SPACING + SLIDER_TICK_LENGTH + SLIDER_HORIZONTAL_LABEL_SPACING;
-            clearRegion.Exclude(PRect(bounds.left, top, bounds.right, bounds.bottom));
-        }
-    }
-    else
-    {
-        const PRect knobBounds = GetSliderKnobBounds(data, data.Orientation, SliderKnobFrameMode::FullFrame);
-        const float offset = std::ceil(knobBounds.Height() * 0.5f) + SLIDER_VERTICAL_LABEL_SPACING;
-        if (!data.MaxLabel.empty()) {
-            clearRegion.Exclude(PRect(bounds.left, bounds.top, bounds.right, sliderFrame.top - offset));
-        }
-        if (!data.MinLabel.empty()) {
-            clearRegion.Exclude(PRect(bounds.left, sliderFrame.bottom + offset, bounds.right, bounds.bottom));
-        }
-    }
-    clearRegion.Optimize();
-    for (const PIRect& rect : clearRegion.m_Rects) {
-        target.EraseRect(rect);
-    }
+    layout.ClearBackground(target, bounds, sliderFrame, knobFrame, data);
+    const PRect labelFrame = layout.GetValueLabelFrame(target, data);
 
-    DrawSliderTicks(target, sliderFrame, data);
-    DrawSliderLabels(target, bounds, sliderFrame, data);
+    PSliderStyleLayout::DrawTicks(target, sliderFrame, data, pget_standard_color(PStandardColorID::Shadow), pget_standard_color(PStandardColorID::Shine));
+    layout.DrawLabels(target, bounds, sliderFrame, data, PColor(0, 0, 0));
 
     DrawSliderTrack(target, sliderFrame, knobFrame, data);
     for (float value : data.ShadowValues) {
@@ -322,8 +311,8 @@ void PDefaultGUIStyle::SliderPaint(PView& target, const PRect& frame, const PSli
         target.SetBrush(nullptr);
         target.DrawString(data.ValueLabel, labelFrame.TopLeft() + PPoint(0.0f, target.GetFontHeight().ascender), labelFrame);
     }
-    if (!data.GetOrCreateStyleData<SliderStyleData>().HasVisualState) {
-        UpdateSliderDamage(target, data, PSliderProperties(), false);
+    if (!layout.HasVisualState()) {
+        layout.UpdateDamage(target, data, PSliderProperties(), false);
     }
 }
 
@@ -333,19 +322,7 @@ void PDefaultGUIStyle::SliderPaint(PView& target, const PRect& frame, const PSli
 
 void PDefaultGUIStyle::SliderGetPreferredSize(const PView& target, const PSliderStyleData& data, PPoint* minSize, PPoint* maxSize) const
 {
-    PRect totalFrame;
-    float minimumLength;
-    GetSliderTrackFrame(target, target.GetNormalizedBounds(), data, &totalFrame, &minimumLength);
-    if (data.Orientation == POrientation::Horizontal)
-    {
-        *minSize = PPoint(minimumLength, totalFrame.Height());
-        *maxSize = PPoint(2000.0f, minSize->y);
-    }
-    else
-    {
-        *minSize = PPoint(totalFrame.Width(), minimumLength);
-        *maxSize = PPoint(minSize->x, 2000.0f);
-    }
+    GetSliderLayout(data).GetPreferredSize(target, data, minSize, maxSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -354,27 +331,7 @@ void PDefaultGUIStyle::SliderGetPreferredSize(const PView& target, const PSlider
 
 void PDefaultGUIStyle::SliderPropertyChanged(PView& target, PSliderStyleData& data, PSliderProperties properties) const
 {
-    SliderStyleData& state = data.GetOrCreateStyleData<SliderStyleData>();
-    if (properties.HasAny(PSliderProperties(PSliderProperty::ValueLabel, PSliderProperty::Font))) {
-        state.IsValueLabelSizeValid = false;
-    }
-    if (properties.HasAny(PSliderProperties(PSliderProperty::MinLabel, PSliderProperty::MaxLabel, PSliderProperty::Font))) {
-        state.AreLimitLabelWidthsValid = false;
-    }
-    const bool labelHeightChanged = state.ValueLabelFrame.Height() != GetSliderValueLabelFrame(target, data).Height();
-    UpdateSliderDamage(target, data, properties, true);
-
-    const PSliderProperties sizeProperties(
-        PSliderProperty::Label,
-        PSliderProperty::MinLabel,
-        PSliderProperty::MaxLabel,
-        PSliderProperty::Font,
-        PSliderProperty::SliderSize,
-        PSliderProperty::TickCount,
-        PSliderProperty::Appearance);
-    if (labelHeightChanged || properties.HasAny(sizeProperties)) {
-        target.PreferredSizeChanged();
-    }
+    GetSliderLayout(data).PropertyChanged(target, data, properties);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -383,8 +340,7 @@ void PDefaultGUIStyle::SliderPropertyChanged(PView& target, PSliderStyleData& da
 
 PPoint PDefaultGUIStyle::SliderGetValuePosition(const PView& target, const PSliderStyleData& data, float relativeValue) const
 {
-    const PRect trackFrame = GetSliderTrackFrame(target, target.GetNormalizedBounds(), data);
-    return GetSliderPosition(trackFrame, data.Orientation, relativeValue);
+    return GetSliderLayout(data).GetValuePosition(target, data, relativeValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -393,14 +349,7 @@ PPoint PDefaultGUIStyle::SliderGetValuePosition(const PView& target, const PSlid
 
 float PDefaultGUIStyle::SliderGetValueFromPosition(const PView& target, const PSliderStyleData& data, const PPoint& position) const
 {
-    const PRect trackFrame = GetSliderTrackFrame(target, target.GetNormalizedBounds(), data);
-    const bool isHorizontal = data.Orientation == POrientation::Horizontal;
-    const float length = isHorizontal ? trackFrame.Width() : trackFrame.Height();
-    if (length <= 0.0f) {
-        return data.Value;
-    }
-    const float relativeValue = isHorizontal ? (position.x - trackFrame.left) / length : (trackFrame.bottom - position.y) / length;
-    return std::clamp(relativeValue, 0.0f, 1.0f);
+    return GetSliderLayout(data).GetValueFromPosition(target, data, position);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -445,7 +394,7 @@ void PDefaultGUIStyle::ScrollBarPropertyChanged(PView& target, PScrollBarStyleDa
     ScrollBarStyleData& state = data.GetOrCreateStyleData<ScrollBarStyleData>();
 
     const PScrollBarProperties  trackProperties(PScrollBarProperty::Value, PScrollBarProperty::Proportion, PScrollBarProperty::Range);
-    const PScrollBarProperties  incrementalProperties = trackProperties | PScrollBarProperty::Pressed;
+    const PScrollBarProperties  incrementalProperties = trackProperties | PScrollBarProperty::Pressed | PScrollBarProperty::Hovered;
     const bool                  propertiesRequireFullUpdate = !(properties & ~incrementalProperties).Empty();
 
     if (!state.HasVisualState || propertiesRequireFullUpdate)
@@ -614,6 +563,15 @@ PRect PDefaultGUIStyle::DropdownMenuGetEditorFrame(const PView& target, const PD
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<const PTextBoxStyle> PDefaultGUIStyle::DropdownMenuGetEditorStyle(const PDropdownMenuStyleData& data) const
+{
+    return PTextBox::GetDefaultStyle();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool PDefaultGUIStyle::DropdownMenuHitTest(const PView& target, const PDropdownMenuStyleData& data, const PPoint& position) const
 {
     const PRect hitFrame = data.IsReadOnly ? target.GetBounds() : GetDropdownMenuArrowFrame(target.GetBounds());
@@ -688,7 +646,7 @@ void PDefaultGUIStyle::DropdownMenuPopupPaint(PView& target, const PRect& update
             const PPoint baseline(
                 DROPDOWN_MENU_POPUP_LABEL_PADDING,
                 std::round(itemFrame.top + state.FontHeight.ascender + state.FontHeight.line_gap * 0.5f));
-            target.DrawString(data.Items[i], baseline, itemFrame);
+            target.DrawString(target.GetBrush(), data.Items[i], baseline, itemFrame);
         }
     }
     state.PreviousSelection = data.Selection;
@@ -890,7 +848,7 @@ void PDefaultGUIStyle::ProgressBarPaint(PView& target, const PRect& frame, const
             target.FillRect(barFrame, PColor(0x66, 0x88, 0xbb));
         }
         if (restFrame.IsValid()) {
-            target.FillRect(restFrame, target.GetBrush());
+            target.EraseRect(restFrame);
         }
     }
     data.GetOrCreateStyleData<ProgressBarStyleData>().PreviousFrame = frame;
@@ -1095,27 +1053,12 @@ size_t PDefaultGUIStyle::TabViewGetTabFromPosition(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDefaultGUIStyle::UpdateButtonMetrics(const PView& target, PButtonStyleData& data)
-{
-    if (!data.IsLabelSizeValid)
-    {
-        data.LabelSize.x = target.GetStringWidth(data.Label);
-        const PFontHeight fontHeight = target.GetFontHeight();
-        data.LabelSize.y = fontHeight.descender + fontHeight.ascender + fontHeight.line_gap;
-        data.IsLabelSizeValid = true;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 PRect PDefaultGUIStyle::DrawRadioButtonLabel(PView& target, const PRect& frame, PButtonStyleData& data)
 {
     PRect buttonFrame = frame;
     if (!data.Label.empty())
     {
-        UpdateButtonMetrics(target, data);
+        data.UpdateMetrics(target);
         const PFontHeight fontHeight = target.GetFontHeight();
         const float labelWidth = data.LabelSize.x;
         const PAlignment labelAlignment = data.LabelAlignment;
@@ -1149,7 +1092,7 @@ PRect PDefaultGUIStyle::DrawRadioButtonLabel(PView& target, const PRect& frame, 
         }
         target.SetFgColor(0, 0, 0);
         target.SetBrush(PStandardColorID::DefaultBackground);
-        target.DrawString(data.Label, target.GetPenPosition(), frame);
+        target.DrawString(target.GetBrush(), data.Label, target.GetPenPosition(), frame);
     }
     else
     {
@@ -1162,236 +1105,11 @@ PRect PDefaultGUIStyle::DrawRadioButtonLabel(PView& target, const PRect& frame, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDefaultGUIStyle::UpdateSliderMetrics(const PView& target, const PSliderStyleData& data)
+PSliderStyleLayout& PDefaultGUIStyle::GetSliderLayout(const PSliderStyleData& data)
 {
-    SliderStyleData& state = data.GetOrCreateStyleData<SliderStyleData>();
-    if (!state.IsValueLabelSizeValid)
-    {
-        const PFontHeight fontHeight = target.GetFontHeight();
-        state.ValueLabelSize = PPoint(target.GetStringWidth(data.ValueLabel), fontHeight.ascender + fontHeight.descender);
-        state.IsValueLabelSizeValid = true;
-    }
-    if (!state.AreLimitLabelWidthsValid)
-    {
-        state.MinLabelWidth = target.GetStringWidth(data.MinLabel);
-        state.MaxLabelWidth = target.GetStringWidth(data.MaxLabel);
-        state.AreLimitLabelWidthsValid = true;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDefaultGUIStyle::UpdateSliderDamage(PView& target, const PSliderStyleData& data, PSliderProperties properties, bool invalidate)
-{
-    SliderStyleData& state = data.GetOrCreateStyleData<SliderStyleData>();
-    const PRect trackFrame = GetSliderTrackFrame(target, target.GetNormalizedBounds(), data);
-    const PRect knobBounds = GetSliderKnobBounds(data, data.Orientation, SliderKnobFrameMode::FullFrame);
-    const PRect knobFrame = knobBounds + GetSliderPosition(trackFrame, data.Orientation, data.Value);
-    const PRect labelFrame = GetSliderValueLabelFrame(target, data);
-    const PSliderProperties incrementalProperties(
-        PSliderProperty::Value,
-        PSliderProperty::ValueLabel,
-        PSliderProperty::ShadowValues,
-        PSliderProperty::Pressed);
-    const bool propertiesRequireFullUpdate = !(properties & ~incrementalProperties).Empty();
-    const bool fullUpdate = !state.HasVisualState || propertiesRequireFullUpdate || labelFrame.Height() != state.ValueLabelFrame.Height();
-    if (invalidate)
-    {
-        if (fullUpdate)
-        {
-            target.Invalidate();
-        }
-        else
-        {
-            if (properties.HasAny(PSliderProperties(PSliderProperty::Value, PSliderProperty::Pressed))) {
-                InvalidateSliderFrames(target, state.KnobFrame, knobFrame);
-            }
-            if (properties.Has(PSliderProperty::ValueLabel)) {
-                InvalidateSliderFrames(target, state.ValueLabelFrame, labelFrame);
-            }
-        }
-    }
-    if (fullUpdate || properties.Has(PSliderProperty::ShadowValues)) {
-        UpdateSliderShadowDamage(target, data, trackFrame, knobBounds, invalidate && !fullUpdate);
-    }
-
-    // Advance only after queuing damage. Repeated changes before a paint then
-    // accumulate all affected regions, including any intermediate positions.
-    state.KnobFrame = knobFrame;
-    state.ValueLabelFrame = labelFrame;
-    state.HasVisualState = true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDefaultGUIStyle::UpdateSliderShadowDamage(
-    PView& target,
-    const PSliderStyleData& data,
-    const PRect& trackFrame,
-    const PRect& knobBounds,
-    bool invalidate)
-{
-    SliderStyleData& state = data.GetOrCreateStyleData<SliderStyleData>();
-    const size_t previousCount = state.ShadowKnobFrames.size();
-    if (invalidate)
-    {
-        for (size_t i = data.ShadowValues.size(); i < previousCount; ++i) {
-            InvalidateSliderFrames(target, state.ShadowKnobFrames[i], PRect());
-        }
-    }
-    state.ShadowKnobFrames.resize(data.ShadowValues.size());
-    for (size_t i = 0; i < data.ShadowValues.size(); ++i)
-    {
-        const PRect frame = knobBounds + GetSliderPosition(trackFrame, data.Orientation, data.ShadowValues[i]);
-        if (invalidate && (i >= previousCount || frame != state.ShadowKnobFrames[i])) {
-            InvalidateSliderFrames(target, state.ShadowKnobFrames[i], frame);
-        }
-        state.ShadowKnobFrames[i] = frame;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDefaultGUIStyle::InvalidateSliderFrames(PView& target, const PRect& previousFrame, const PRect& currentFrame)
-{
-    if (previousFrame.IsValid()) {
-        target.Invalidate(currentFrame.IsValid() ? previousFrame | currentFrame : previousFrame);
-    } else if (currentFrame.IsValid()) {
-        target.Invalidate(currentFrame);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PRect PDefaultGUIStyle::GetSliderValueLabelFrame(const PView& target, const PSliderStyleData& data)
-{
-    if (data.Orientation == POrientation::Horizontal && data.HasValueLabel)
-    {
-        UpdateSliderMetrics(target, data);
-        return PRect::FromSize(data.GetOrCreateStyleData<SliderStyleData>().ValueLabelSize);
-    }
-    else
-    {
-        return PRect();
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PRect PDefaultGUIStyle::GetSliderTrackFrame(
-    const PView& target,
-    const PRect& bounds,
-    const PSliderStyleData& data,
-    PRect* outTotalFrame,
-    float* minimumLength)
-{
-    const SliderStyleData& state = data.GetOrCreateStyleData<SliderStyleData>();
-    UpdateSliderMetrics(target, data);
-    PRect  knobFrame = GetSliderKnobBounds(data, POrientation::Horizontal, SliderKnobFrameMode::FullFrame);
-
-    float center = std::ceil(data.SliderSize * 0.5f);
-    PRect sliderFrame(0.0f, -center, 0.0f, data.SliderSize - center);
-    PRect totalFrame = sliderFrame;
-
-    if (data.TicksAbove) {
-        totalFrame.top -= SLIDER_TICK_SPACING + SLIDER_TICK_LENGTH;
-    }
-    if (data.TicksBelow) {
-        totalFrame.bottom += SLIDER_TICK_SPACING + SLIDER_TICK_LENGTH;
-    }
-    if (knobFrame.top < totalFrame.top)         totalFrame.top = knobFrame.top;
-    if (knobFrame.bottom > totalFrame.bottom)   totalFrame.bottom = knobFrame.bottom;
-
-    if (data.Orientation == POrientation::Vertical)
-    {
-        std::swap(knobFrame.left,   knobFrame.top);
-        std::swap(knobFrame.right,  knobFrame.bottom);
-        std::swap(sliderFrame.left, sliderFrame.top);
-        std::swap(sliderFrame.right, sliderFrame.bottom);
-        std::swap(totalFrame.left, totalFrame.top);
-        std::swap(totalFrame.right, totalFrame.bottom);
-    }
-
-    if (data.Orientation == POrientation::Horizontal)
-    {
-        if (data.HasValueLabel) {
-            totalFrame.top -= state.ValueLabelSize.y;
-        }
-        if (!data.MinLabel.empty() || !data.MaxLabel.empty())
-        {
-            const PFontHeight    fontHeight = target.GetFontHeight();
-            totalFrame.bottom += fontHeight.ascender + fontHeight.descender;
-        }
-        const float knobCenter = std::ceil(knobFrame.Width() * 0.5f);
-        sliderFrame.left = knobCenter;
-        sliderFrame.right = std::max(sliderFrame.left, bounds.right - knobCenter);
-        totalFrame.left = bounds.left;
-        totalFrame.right = bounds.right;
-        if (minimumLength != nullptr) {
-            *minimumLength = knobCenter * 2.0f;
-        }
-    }
-    else
-    {
-        const PFontHeight    fontHeight = target.GetFontHeight();
-
-        const float minLabelWidth = state.MinLabelWidth;
-        const float minLabelFontHeight = data.MinLabel.empty() ? 0.0f : fontHeight.ascender + fontHeight.descender + SLIDER_VERTICAL_LABEL_SPACING;
-
-        const float maxLabelWidth = state.MaxLabelWidth;
-        const float maxLabelFontHeight = data.MaxLabel.empty() ? 0.0f : fontHeight.ascender + fontHeight.descender + SLIDER_VERTICAL_LABEL_SPACING;
-
-        const float labelCenter = std::ceil(std::max(minLabelWidth, maxLabelWidth) * 0.5f);
-
-        if (-labelCenter < totalFrame.left) totalFrame.left = -labelCenter;
-        if (labelCenter > totalFrame.right) totalFrame.right = labelCenter;
-
-        const float knobCenter = std::ceil(knobFrame.Height() * 0.5f);
-        sliderFrame.top     = knobCenter;
-        sliderFrame.bottom  = bounds.bottom - knobCenter;
-
-        sliderFrame.top     += maxLabelFontHeight;
-        sliderFrame.bottom  -= minLabelFontHeight;
-        sliderFrame.bottom = std::max(sliderFrame.top, sliderFrame.bottom);
-
-        totalFrame.top    = bounds.top;
-        totalFrame.bottom = bounds.bottom;
-        if (minimumLength != nullptr) {
-            *minimumLength = knobCenter * 2.0f + minLabelFontHeight + maxLabelFontHeight;
-        }
-    }
-    sliderFrame.left -= totalFrame.left;
-    sliderFrame.right -= totalFrame.left;
-    totalFrame.right -= totalFrame.left;
-    totalFrame.left = 0.0f;
-
-    sliderFrame.top -= totalFrame.top;
-    sliderFrame.bottom -= totalFrame.top;
-    totalFrame.bottom -= totalFrame.top;
-    totalFrame.top = 0.0f;
-
-    PPoint centerOffset;
-    if (data.Orientation == POrientation::Horizontal) {
-        centerOffset.y = std::floor((bounds.Height() - totalFrame.Height()) * 0.5f);
-    } else {
-        centerOffset.x = std::floor((bounds.Width() - totalFrame.Width()) * 0.5f);
-    }
-    sliderFrame += centerOffset;
-    totalFrame += centerOffset;
-    if (outTotalFrame != nullptr) {
-        *outTotalFrame = totalFrame;
-    }
-    return sliderFrame;
+    PSliderStyleLayout& layout = data.GetOrCreateStyleData<SliderStyleData>().Layout;
+    layout.SetKnobBounds(GetSliderKnobBounds(data, data.Orientation, SliderKnobFrameMode::FullFrame));
+    return layout;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1429,24 +1147,6 @@ PRect PDefaultGUIStyle::GetSliderKnobBounds(const PSliderStyleData& data, POrien
         std::swap(solidFrame.right, solidFrame.bottom);
     }
     return solidFrame;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PPoint PDefaultGUIStyle::GetSliderPosition(const PRect& trackFrame, POrientation orientation, float relativeValue)
-{
-    if (orientation == POrientation::Horizontal)
-    {
-        return PPoint(std::round(trackFrame.left + trackFrame.Width() * relativeValue), std::round(trackFrame.top + trackFrame.Height() * 0.5f));
-    }
-    else
-    {
-        return PPoint(
-            std::round(trackFrame.left + trackFrame.Width() * 0.5f),
-            std::round(trackFrame.top + trackFrame.Height() * (1.0f - relativeValue)));
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1552,7 +1252,7 @@ void PDefaultGUIStyle::DrawSliderKnob(
     PStandardColorID knobColor,
     float relativeValue)
 {
-    const PPoint knobPosition = GetSliderPosition(trackFrame, data.Orientation, relativeValue);
+    const PPoint knobPosition = PSliderStyleLayout::GetPosition(trackFrame, data.Orientation, relativeValue);
     PRect knobFrame = GetSliderKnobBounds(data, data.Orientation, SliderKnobFrameMode::SquareFrame) + knobPosition;
 
     if (!data.KnobPointUp && !data.KnobPointDown)
@@ -1700,123 +1400,6 @@ void PDefaultGUIStyle::DrawVerticalSliderKnob(
     target.DrawLine(knobFrame.BottomLeft());
     if (data.KnobPointUp) {
         target.DrawLine(knobFullFrame.left, center);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDefaultGUIStyle::DrawSliderLabels(PView& target, const PRect& bounds, const PRect& sliderFrame, const PSliderStyleData& data)
-{
-    const SliderStyleData& state = data.GetOrCreateStyleData<SliderStyleData>();
-    const PPoint         center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
-    const PFontHeight    fontHeight = target.GetFontHeight();
-
-    target.SetBrush(nullptr);
-    target.SetFgColor(0, 0, 0);
-    if (data.Orientation == POrientation::Horizontal)
-    {
-        if (!data.MinLabel.empty() && !data.MaxLabel.empty())
-        {
-            const float top = sliderFrame.bottom + SLIDER_TICK_SPACING + SLIDER_TICK_LENGTH + SLIDER_HORIZONTAL_LABEL_SPACING;
-            const float rightLabelX = bounds.right - state.MaxLabelWidth;
-            const float split = std::clamp(rightLabelX, bounds.left, bounds.right);
-            target.DrawString(data.MinLabel, PPoint(0.0f, top + fontHeight.ascender), PRect(bounds.left, top, split, bounds.bottom));
-            target.DrawString(data.MaxLabel, PPoint(rightLabelX, top + fontHeight.ascender), PRect(split, top, bounds.right, bounds.bottom));
-        }
-    }
-    else
-    {
-        const PRect knobBounds = GetSliderKnobBounds(data, data.Orientation, SliderKnobFrameMode::FullFrame);
-        const float offset = std::ceil(knobBounds.Height() * 0.5f) + SLIDER_VERTICAL_LABEL_SPACING;
-        if (!data.MaxLabel.empty())
-        {
-            target.DrawString(
-                data.MaxLabel,
-                PPoint(center.x - state.MaxLabelWidth * 0.5f, sliderFrame.top - fontHeight.descender - offset),
-                PRect(bounds.left, bounds.top, bounds.right, sliderFrame.top - offset));
-        }
-        if (!data.MinLabel.empty())
-        {
-            target.DrawString(
-                data.MinLabel,
-                PPoint(center.x - state.MinLabelWidth * 0.5f, sliderFrame.bottom + fontHeight.ascender + offset),
-                PRect(bounds.left, sliderFrame.bottom + offset, bounds.right, bounds.bottom));
-        }
-    }
-}
-
-void PDefaultGUIStyle::DrawSliderTicks(PView& target, const PRect& sliderFrame, const PSliderStyleData& data)
-{
-    if (data.TickCount > 0 && sliderFrame.IsValid())
-    {
-        const float scale = (data.TickCount > 1) ? 1.0f / float(data.TickCount - 1) : 0.0f;
-
-        if (data.Orientation == POrientation::Horizontal)
-        {
-            const float width = std::floor(sliderFrame.Width() - 2.0f);
-
-            const float y1 = std::floor(sliderFrame.top - SLIDER_TICK_SPACING);
-            const float y2 = y1 - SLIDER_TICK_LENGTH;
-            const float y4 = std::floor(sliderFrame.bottom + SLIDER_TICK_SPACING);
-            const float y3 = y4 + SLIDER_TICK_LENGTH;
-
-            target.SetFgColor(pget_standard_color(PStandardColorID::Shadow));
-            for (int i = 0; i < data.TickCount; ++i)
-            {
-                const float x = std::floor(sliderFrame.left + width * float(i) * scale);
-                if (data.TicksAbove) {
-                    target.DrawLine(PPoint(x, y1), PPoint(x, y2));
-                }
-                if (data.TicksBelow) {
-                    target.DrawLine(PPoint(x, y3), PPoint(x, y4));
-                }
-            }
-            target.SetFgColor(pget_standard_color(PStandardColorID::Shine));
-            for (int i = 0; i < data.TickCount; ++i)
-            {
-                const float x = std::floor(sliderFrame.left + width * float(i) * scale) + 1.0f;
-                if (data.TicksAbove) {
-                    target.DrawLine(PPoint(x, y1), PPoint(x, y2));
-                }
-                if (data.TicksBelow) {
-                    target.DrawLine(PPoint(x, y3), PPoint(x, y4));
-                }
-            }
-        }
-        else
-        {
-            const float height = sliderFrame.Height() - 2.0f;
-
-            const float x1 = std::floor(sliderFrame.left - SLIDER_TICK_SPACING);
-            const float x2 = x1 - SLIDER_TICK_LENGTH;
-            const float x4 = std::floor(sliderFrame.right + SLIDER_TICK_SPACING - 1.0f);
-            const float x3 = x4 + SLIDER_TICK_LENGTH;
-
-            target.SetFgColor(pget_standard_color(PStandardColorID::Shadow));
-            for (int i = 0; i < data.TickCount; ++i)
-            {
-                const float y = std::floor(sliderFrame.top + height * float(i) * scale);
-                if (data.TicksAbove) {
-                    target.DrawLine(PPoint(x1, y), PPoint(x2, y));
-                }
-                if (data.TicksBelow) {
-                    target.DrawLine(PPoint(x3, y), PPoint(x4, y));
-                }
-            }
-            target.SetFgColor(pget_standard_color(PStandardColorID::Shine));
-            for (int i = 0; i < data.TickCount; ++i)
-            {
-                const float y = std::floor(sliderFrame.top + height * float(i) * scale) + 1.0f;
-                if (data.TicksAbove) {
-                    target.DrawLine(PPoint(x1, y), PPoint(x2, y));
-                }
-                if (data.TicksBelow) {
-                    target.DrawLine(PPoint(x3, y), PPoint(x4, y));
-                }
-            }
-        }
     }
 }
 
@@ -1973,9 +1556,9 @@ void PDefaultGUIStyle::DrawScrollBarTrack(PView& target, const ScrollBarGeometry
     }
     target.SetFgColor(GetScrollBarTint(pget_standard_color(PStandardColorID::Shine), 0.6f));
     if (isHorizontal) {
-        target.DrawLine(PPoint(trackFrame.left, trackFrame.bottom + 1.0f), PPoint(trackFrame.right, trackFrame.bottom + 1.0f));
+        target.DrawLine(PPoint(trackFrame.left, trackFrame.bottom), PPoint(trackFrame.right, trackFrame.bottom));
     } else {
-        target.DrawLine(PPoint(trackFrame.right + 1.0f, trackFrame.top), PPoint(trackFrame.right + 1.0f, trackFrame.bottom));
+        target.DrawLine(PPoint(trackFrame.right, trackFrame.top), PPoint(trackFrame.right, trackFrame.bottom));
     }
 }
 
@@ -2427,7 +2010,7 @@ void PDefaultGUIStyle::DrawTabViewTitles(PView& target, const PTabViewStyleData&
         }
         else
         {
-            target.DrawString(data.Titles[i], baseline, background);
+            target.DrawString(target.GetBrush(), data.Titles[i], baseline, background);
         }
         backgroundLeft = right;
         x += width;
@@ -2481,7 +2064,7 @@ void PDefaultGUIStyle::DrawTabViewHighlight(PView& target, const PTabViewStyleDa
     const PDrawingMode previousMode = target.GetDrawingMode();
     target.SetDrawingMode(PDrawingMode::Overlay);
     target.SetFgColor(0, 0, 0);
-    target.DrawString(data.Titles[data.HighlightedTab], baseline, frame.right - baseline.x);
+    target.DrawString(target.GetBrush(), data.Titles[data.HighlightedTab], baseline, frame.right - baseline.x);
     target.SetDrawingMode(previousMode);
 }
 

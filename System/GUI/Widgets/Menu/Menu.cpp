@@ -57,6 +57,7 @@ PMenu::PMenu(const PString& title, PMenuLayout layout, PMenuFlags flags)
     m_Layout = layout;
 
     m_ContentView = ptr_new<PMenuRenderView>(this);
+    m_ContentView->SetBackgroundBrush(PStandardColorID::MenuBackground);
     AddChild(m_ContentView);
 
     SetScrolledView(m_ContentView);

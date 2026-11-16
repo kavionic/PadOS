@@ -35,6 +35,7 @@ struct PTabViewStyleData : PGUIStyleData
     std::vector<PString> Titles;
     size_t Selection = INVALID_INDEX;
     size_t HighlightedTab = INVALID_INDEX;
+    size_t PressedTab = INVALID_INDEX;
     PPoint TopBarMinSize;
     PPoint TopBarMaxSize;
     bool HasTopBarClient = false;

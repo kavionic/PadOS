@@ -310,7 +310,13 @@ TEST(FontSelection, SliderGeometryUsesTheStyleBeforeAndAfterHandlerRegistration)
             const PPoint detachedPosition = slider->ValToPos(20.0f);
             EXPECT_GT(detachedSize.x, 0.0f);
             EXPECT_GT(detachedSize.y, 0.0f);
-            EXPECT_FLOAT_EQ(slider->PosToVal(detachedPosition), 20.0f);
+            const PPoint minimumPosition = slider->ValToPos(10.0f);
+            const PPoint maximumPosition = slider->ValToPos(30.0f);
+            const PPoint midpoint = (minimumPosition + maximumPosition) * 0.5f;
+            // ValToPos rounds to a pixel, so its inverse can differ from the original value.
+            EXPECT_NEAR(detachedPosition.x, midpoint.x, 0.5f);
+            EXPECT_NEAR(detachedPosition.y, midpoint.y, 0.5f);
+            EXPECT_EQ(slider->ValToPos(slider->PosToVal(detachedPosition)), detachedPosition);
 
             ASSERT_TRUE(application.AddHandler(slider));
             PScopeExit removeSlider([&application, &slider] { application.RemoveHandler(slider); });
@@ -318,11 +324,9 @@ TEST(FontSelection, SliderGeometryUsesTheStyleBeforeAndAfterHandlerRegistration)
             EXPECT_EQ(slider->GetStyle(), application.GetGUIStyle());
             EXPECT_EQ(slider->GetPreferredSize(PPrefSizeType::Smallest), detachedSize);
             EXPECT_EQ(slider->ValToPos(20.0f), detachedPosition);
-            const PPoint minimumPosition = slider->ValToPos(10.0f);
-            const PPoint maximumPosition = slider->ValToPos(30.0f);
             EXPECT_FLOAT_EQ(slider->PosToVal(minimumPosition), 10.0f);
             EXPECT_FLOAT_EQ(slider->PosToVal(maximumPosition), 30.0f);
-            EXPECT_FLOAT_EQ(slider->PosToVal((minimumPosition + maximumPosition) * 0.5f), 20.0f);
+            EXPECT_FLOAT_EQ(slider->PosToVal(midpoint), 20.0f);
             if (orientation == POrientation::Horizontal) {
                 EXPECT_LT(minimumPosition.x, maximumPosition.x);
             } else {

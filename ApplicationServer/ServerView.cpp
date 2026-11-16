@@ -683,11 +683,8 @@ void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
 
 void PServerView::SetDrawRegion(Ptr<PRegion> region)
 {
-    m_DrawConstrainReg = region;
-
-    if (m_HideCount == 0) {
-        SetDirtyRegFlags();
-    }
+    m_DrawConstrainReg = std::move(region);
+    // Drawing clips change neither visibility nor pending damage.
     m_DrawReg = nullptr;
 }
 
@@ -1174,7 +1171,7 @@ Ptr<PRegion> PServerView::GetRegion()
     if ( m_HideCount > 0 ) {
         return nullptr;
     }
-    if (m_IsUpdating && m_ActiveDamageReg == nullptr) {
+    if (m_VisibleReg == nullptr || (m_IsUpdating && m_ActiveDamageReg == nullptr)) {
         return nullptr;
     }
 
@@ -3383,7 +3380,7 @@ void PServerView::AppendPolylineRoundJointTriangles(std::vector<PPoint>& triangl
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::DrawString(const PString& string, float width, bool allowPartialCharacter)
+void PServerView::DrawString(Ptr<PServerBrush> backgroundBrush, const PString& string, float width, bool allowPartialCharacter)
 {
     if (m_Font == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
@@ -3398,7 +3395,7 @@ void PServerView::DrawString(const PString& string, float width, bool allowParti
         for (const PIRect& clip : region->m_Rects) {
             m_TextClipRects.push_back(clip + screenPosition);
         }
-        const PServerBrushState& background = GetDrawingBrushState();
+        const PServerBrushState& background = GetDrawingBrushState(backgroundBrush);
         m_Bitmap->m_Driver->SetBrush(background.Layers);
         const PFontTextMetrics metrics = m_Bitmap->m_Driver->DrawString(
             m_Bitmap,

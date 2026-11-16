@@ -11,9 +11,15 @@
 #include <GUI/GUIDefines.h>
 #include <GUI/Style/GUIStyle.h>
 
+class PSliderStyleLayout;
+
 class PDefaultGUIStyle : public PGUIStyle
 {
 public:
+    explicit PDefaultGUIStyle(PApplication* application = nullptr);
+
+    Ptr<const PBrush> GetBackgroundBrush() const override;
+
     void ButtonPaint(PView& target, const PRect& bounds, bool isEnabled, PButtonStyleData& data) const override;
     void ButtonGetPreferredSize(const PView& target, PButtonStyleData& data, PPoint* minSize, PPoint* maxSize) const override;
 
@@ -54,6 +60,7 @@ public:
         PPoint* maxSize) const override;
     virtual void    DropdownMenuPropertyChanged(PView& target, PDropdownMenuStyleData& data, PDropdownMenuProperties properties) const override;
     virtual PRect   DropdownMenuGetEditorFrame(const PView& target, const PDropdownMenuStyleData& data) const override;
+    Ptr<const PTextBoxStyle> DropdownMenuGetEditorStyle(const PDropdownMenuStyleData& data) const override;
     virtual bool    DropdownMenuHitTest(const PView& target, const PDropdownMenuStyleData& data, const PPoint& position) const override;
 
     virtual void    DropdownMenuPopupFramePaint(PView& target, const PRect& frame) const override;
@@ -123,10 +130,13 @@ public:
         const PTabViewStyleData& data,
         const PPoint& position) const override;
 
-protected:
-    static void UpdateButtonMetrics(const PView& target, PButtonStyleData& data);
-
 private:
+    enum class SliderKnobFrameMode
+    {
+        FullFrame,
+        SquareFrame
+    };
+
     struct SliderStyleData;
     struct ScrollBarStyleData;
     struct ScrollBarGeometry;
@@ -218,40 +228,10 @@ private:
     static constexpr float RADIO_BUTTON_LABEL_HORIZONTAL_SPACING = 8.0f;
     static constexpr float RADIO_BUTTON_LABEL_VERTICAL_SPACING = 4.0f;
 
-    static constexpr float SLIDER_TICK_LENGTH = 6.0f;
-    static constexpr float SLIDER_TICK_SPACING = 3.0f;
-    static constexpr float SLIDER_VERTICAL_LABEL_SPACING = 3.0f;
-    static constexpr float SLIDER_HORIZONTAL_LABEL_SPACING = 2.0f;
-
-    enum class SliderKnobFrameMode
-    {
-        FullFrame,
-        SquareFrame
-    };
-
     static PRect    DrawRadioButtonLabel(PView& target, const PRect& frame, PButtonStyleData& data);
-    static void     UpdateSliderMetrics(const PView& target, const PSliderStyleData& data);
-    static void     UpdateSliderDamage(PView& target, const PSliderStyleData& data, PSliderProperties properties, bool invalidate);
 
-    static void     UpdateSliderShadowDamage(
-        PView& target,
-        const PSliderStyleData& data,
-        const PRect& trackFrame,
-        const PRect& knobBounds,
-        bool invalidate);
-
-    static void     InvalidateSliderFrames(PView& target, const PRect& previousFrame, const PRect& currentFrame);
-    static PRect    GetSliderValueLabelFrame(const PView& target, const PSliderStyleData& data);
-
-    static PRect    GetSliderTrackFrame(
-        const PView& target,
-        const PRect& bounds,
-        const PSliderStyleData& data,
-        PRect* outTotalFrame = nullptr,
-        float* minimumLength = nullptr);
-
-    static PRect    GetSliderKnobBounds(const PSliderStyleData& data, POrientation orientation, SliderKnobFrameMode mode);
-    static PPoint   GetSliderPosition(const PRect& trackFrame, POrientation orientation, float relativeValue);
+    static PSliderStyleLayout& GetSliderLayout(const PSliderStyleData& data);
+    static PRect GetSliderKnobBounds(const PSliderStyleData& data, POrientation orientation, SliderKnobFrameMode mode);
     static void     DrawSliderTrack(PView& target, const PRect& sliderFrame, const PRect& knobFrame, const PSliderStyleData& data);
     static void     DrawSliderKnob(PView& target, const PRect& trackFrame, const PSliderStyleData& data, PStandardColorID knobColor, float relativeValue);
 
@@ -268,9 +248,6 @@ private:
         const PRect& knobFullFrame,
         const PSliderStyleData& data,
         PStandardColorID knobColor);
-
-    static void DrawSliderLabels(PView& target, const PRect& bounds, const PRect& sliderFrame, const PSliderStyleData& data);
-    static void DrawSliderTicks(PView& target, const PRect& sliderFrame, const PSliderStyleData& data);
 
     static ScrollBarGeometry    GetScrollBarGeometry(const PRect& frame, const PScrollBarStyleData& data, float relativeValue);
     static PRect                GetScrollBarFrame(POrientation orientation, float start, float end, float crossStart, float crossEnd);
@@ -296,4 +273,6 @@ private:
     static void DrawTabViewTitles(PView& target, const PTabViewStyleData& data, const TabViewGeometry& geometry);
     static void DrawTabViewHighlight(PView& target, const PTabViewStyleData& data, PRect frame, const PPoint& baseline);
     static void DrawTabViewTabs(PView& target, const PTabViewStyleData& data, const TabViewGeometry& geometry);
+
+    WeakPtr<PApplication> m_Application;
 };

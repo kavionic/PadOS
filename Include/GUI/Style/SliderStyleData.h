@@ -30,7 +30,8 @@ enum class PSliderProperty : uint32_t
     SliderColors    = 0x0400,
     Appearance      = 0x0800,
     Font            = 0x1000,
-    Frame           = 0x2000
+    Frame           = 0x2000,
+    Hovered         = 0x4000
 };
 
 using PSliderProperties = PEnumBitmask<PSliderProperty>;
@@ -51,6 +52,8 @@ struct PSliderStyleData : PGUIStyleData
     int TickCount = 10;
     POrientation Orientation = POrientation::Horizontal;
     bool IsPressed = false;
+    bool IsPointerOver = false;
+    bool HasCustomSliderColors = false;
     bool IsEnabled = true;
     bool HasValueLabel = false;
     bool TicksAbove = false;

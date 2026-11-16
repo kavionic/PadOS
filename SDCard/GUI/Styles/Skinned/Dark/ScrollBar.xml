@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nine-slice surfaces; native-size glyphs. Dimensions and offsets are pixels. -->
+<ScrollBar>
+    <Horizontal thickness="20" arrow_length="18" minimum_knob_length="24" knob_insets="Rect(2, 2, 2, 2)" double_arrows="true">
+        <Track>
+            <Normal image="ScrollBar/ScrollBarTrackHorizontalNormal.png" borders="Rect(3, 3, 3, 3)"/>
+            <Hovered image="ScrollBar/ScrollBarTrackHorizontalHovered.png" borders="Rect(3, 3, 3, 3)"/>
+            <Pressed image="ScrollBar/ScrollBarTrackHorizontalPressed.png" borders="Rect(3, 3, 3, 3)"/>
+            <Disabled image="ScrollBar/ScrollBarTrackHorizontalDisabled.png" borders="Rect(3, 3, 3, 3)"/>
+        </Track>
+        <Knob>
+            <Normal image="ScrollBar/ScrollBarKnobHorizontalNormal.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripHorizontalNormal.png" offset="Point(0, 0)"/>
+            </Normal>
+            <Hovered image="ScrollBar/ScrollBarKnobHorizontalHovered.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripHorizontalHovered.png" offset="Point(0, 0)"/>
+            </Hovered>
+            <Pressed image="ScrollBar/ScrollBarKnobHorizontalPressed.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripHorizontalPressed.png" offset="Point(0, 0)"/>
+            </Pressed>
+            <Disabled image="ScrollBar/ScrollBarKnobHorizontalDisabled.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripHorizontalDisabled.png" offset="Point(0, 0)"/>
+            </Disabled>
+        </Knob>
+        <Decrement>
+            <Normal image="ScrollBar/ScrollBarButtonNormal.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowLeftNormal.png" offset="Point(0, 0)"/>
+            </Normal>
+            <Hovered image="ScrollBar/ScrollBarButtonHovered.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowLeftHovered.png" offset="Point(0, 0)"/>
+            </Hovered>
+            <Pressed image="ScrollBar/ScrollBarButtonPressed.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowLeftPressed.png" offset="Point(1, 1)"/>
+            </Pressed>
+            <Disabled image="ScrollBar/ScrollBarButtonDisabled.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowLeftDisabled.png" offset="Point(0, 0)"/>
+            </Disabled>
+        </Decrement>
+        <Increment>
+            <Normal image="ScrollBar/ScrollBarButtonNormal.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowRightNormal.png" offset="Point(0, 0)"/>
+            </Normal>
+            <Hovered image="ScrollBar/ScrollBarButtonHovered.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowRightHovered.png" offset="Point(0, 0)"/>
+            </Hovered>
+            <Pressed image="ScrollBar/ScrollBarButtonPressed.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowRightPressed.png" offset="Point(1, 1)"/>
+            </Pressed>
+            <Disabled image="ScrollBar/ScrollBarButtonDisabled.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowRightDisabled.png" offset="Point(0, 0)"/>
+            </Disabled>
+        </Increment>
+    </Horizontal>
+    <Vertical thickness="20" arrow_length="18" minimum_knob_length="24" knob_insets="Rect(2, 2, 2, 2)" double_arrows="true">
+        <Track>
+            <Normal image="ScrollBar/ScrollBarTrackVerticalNormal.png" borders="Rect(3, 3, 3, 3)"/>
+            <Hovered image="ScrollBar/ScrollBarTrackVerticalHovered.png" borders="Rect(3, 3, 3, 3)"/>
+            <Pressed image="ScrollBar/ScrollBarTrackVerticalPressed.png" borders="Rect(3, 3, 3, 3)"/>
+            <Disabled image="ScrollBar/ScrollBarTrackVerticalDisabled.png" borders="Rect(3, 3, 3, 3)"/>
+        </Track>
+        <Knob>
+            <Normal image="ScrollBar/ScrollBarKnobVerticalNormal.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripVerticalNormal.png" offset="Point(0, 0)"/>
+            </Normal>
+            <Hovered image="ScrollBar/ScrollBarKnobVerticalHovered.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripVerticalHovered.png" offset="Point(0, 0)"/>
+            </Hovered>
+            <Pressed image="ScrollBar/ScrollBarKnobVerticalPressed.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripVerticalPressed.png" offset="Point(0, 0)"/>
+            </Pressed>
+            <Disabled image="ScrollBar/ScrollBarKnobVerticalDisabled.png" borders="Rect(5, 5, 5, 5)">
+                <Glyph image="ScrollBar/ScrollBarGripVerticalDisabled.png" offset="Point(0, 0)"/>
+            </Disabled>
+        </Knob>
+        <Decrement>
+            <Normal image="ScrollBar/ScrollBarButtonNormal.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowUpNormal.png" offset="Point(0, 0)"/>
+            </Normal>
+            <Hovered image="ScrollBar/ScrollBarButtonHovered.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowUpHovered.png" offset="Point(0, 0)"/>
+            </Hovered>
+            <Pressed image="ScrollBar/ScrollBarButtonPressed.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowUpPressed.png" offset="Point(1, 1)"/>
+            </Pressed>
+            <Disabled image="ScrollBar/ScrollBarButtonDisabled.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowUpDisabled.png" offset="Point(0, 0)"/>
+            </Disabled>
+        </Decrement>
+        <Increment>
+            <Normal image="ScrollBar/ScrollBarButtonNormal.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowDownNormal.png" offset="Point(0, 0)"/>
+            </Normal>
+            <Hovered image="ScrollBar/ScrollBarButtonHovered.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowDownHovered.png" offset="Point(0, 0)"/>
+            </Hovered>
+            <Pressed image="ScrollBar/ScrollBarButtonPressed.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowDownPressed.png" offset="Point(1, 1)"/>
+            </Pressed>
+            <Disabled image="ScrollBar/ScrollBarButtonDisabled.png" borders="Rect(4, 4, 4, 4)">
+                <Glyph image="ScrollBar/ScrollBarArrowDownDisabled.png" offset="Point(0, 0)"/>
+            </Disabled>
+        </Increment>
+    </Vertical>
+</ScrollBar>

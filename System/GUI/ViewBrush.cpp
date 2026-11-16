@@ -131,10 +131,10 @@ void PView::EraseRect(const PRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::FillTextBackground(const PRect& rect)
+void PView::FillTextBackground(const PRect& rect, Ptr<const PBrush> backgroundBrush)
 {
-    if (m_DrawingBrush != nullptr && m_DrawingBrush->GetStyle() != PBrushStyle::None) {
-        FillRect(rect, m_DrawingBrush);
+    if (backgroundBrush != nullptr && backgroundBrush->GetStyle() != PBrushStyle::None) {
+        FillRect(rect, std::move(backgroundBrush));
     } else {
         EraseRect(rect);
     }

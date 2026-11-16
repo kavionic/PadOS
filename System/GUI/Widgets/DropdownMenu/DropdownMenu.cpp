@@ -87,6 +87,7 @@ void PDropdownMenu::OnFlagsChanged(PViewFlags changedFlags)
 void PDropdownMenu::DetachedFromScreen()
 {
     CloseMenu();
+    SetPointerOver(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,6 +181,44 @@ void PDropdownMenu::OnPointerDown(PPointerID pointerID, const PPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PDropdownMenu::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase != PEventPhase::Capture && event.SupportsHover)
+    {
+        const PGUIStyle* style = GetStyle();
+        SetPointerOver(style != nullptr && style->DropdownMenuHitTest(*this, m_DropdownMenuStyleData, position));
+    }
+    PControl::OnPointerMove(pointerID, position, event, phase);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDropdownMenu::OnPointerEnter(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && event.SupportsHover)
+    {
+        const PGUIStyle* style = GetStyle();
+        SetPointerOver(style != nullptr && style->DropdownMenuHitTest(*this, m_DropdownMenuStyleData, position));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDropdownMenu::OnPointerLeave(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target) {
+        SetPointerOver(false);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
 {
     const PGUIStyle* style = GetStyle();
@@ -197,6 +236,9 @@ void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
 void PDropdownMenu::OnEnableStatusChanged(bool isEnabled)
 {
     m_DropdownMenuStyleData.IsEnabled = isEnabled;
+    if (!isEnabled) {
+        m_DropdownMenuStyleData.IsPointerOver = false;
+    }
     m_EditBox->SetEnable(isEnabled);
     NotifyStylePropertyChanged(PDropdownMenuProperty::Enabled);
     Flush();
@@ -468,6 +510,10 @@ void PDropdownMenu::LayoutEditor()
     if (m_EditBox != nullptr)
     {
         const PGUIStyle* style = GetStyle();
+        if (style != nullptr) {
+            m_EditBox->SetStyle(style->DropdownMenuGetEditorStyle(m_DropdownMenuStyleData));
+        }
+        m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
         m_EditBox->SetFrame((style != nullptr) ? style->DropdownMenuGetEditorFrame(*this, m_DropdownMenuStyleData) : GetBounds());
     }
 }
@@ -497,6 +543,20 @@ void PDropdownMenu::NotifyStylePropertyChanged(PDropdownMenuProperties propertie
         Invalidate();
     }
     LayoutEditor();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDropdownMenu::SetPointerOver(bool pointerOver)
+{
+    if (m_DropdownMenuStyleData.IsPointerOver != pointerOver)
+    {
+        m_DropdownMenuStyleData.IsPointerOver = pointerOver;
+        NotifyStylePropertyChanged(PDropdownMenuProperty::Hovered);
+        Flush();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

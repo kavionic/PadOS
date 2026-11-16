@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Track gray 128 is neutral. Knob anchors are bitmap pixels on the track; states may override them. -->
+<Slider>
+    <Normal before_color="#367CB3" after_color="#2C3E54" text_color="#EEF4FC" tick_color="#213044" tick_highlight="#60758F"/>
+    <Hovered before_color="#367CB3" after_color="#2C3E54" text_color="#EEF4FC" tick_color="#213044" tick_highlight="#60758F"/>
+    <Pressed before_color="#367CB3" after_color="#2C3E54" text_color="#EEF4FC" tick_color="#213044" tick_highlight="#60758F"/>
+    <Disabled before_color="#3B4C60" after_color="#2D3A4C" text_color="#78879C" tick_color="#293749" tick_highlight="#4B5C71"/>
+    <Horizontal>
+        <Track image="Slider/SliderTrackHorizontal.png" borders="Rect(2, 2, 2, 2)"/>
+        <Plain anchor="Point(7, 10)">
+            <Normal image="Slider/SliderThumbHorizontalPlainNormal.png"/>
+            <Hovered image="Slider/SliderThumbHorizontalPlainHovered.png"/>
+            <Pressed image="Slider/SliderThumbHorizontalPlainPressed.png"/>
+            <Disabled image="Slider/SliderThumbHorizontalPlainDisabled.png"/>
+            <Shadow image="Slider/SliderThumbHorizontalPlainShadow.png"/>
+        </Plain>
+        <Up anchor="Point(7, 15)">
+            <Normal image="Slider/SliderThumbHorizontalUpNormal.png"/>
+            <Hovered image="Slider/SliderThumbHorizontalUpHovered.png"/>
+            <Pressed image="Slider/SliderThumbHorizontalUpPressed.png"/>
+            <Disabled image="Slider/SliderThumbHorizontalUpDisabled.png"/>
+            <Shadow image="Slider/SliderThumbHorizontalUpShadow.png"/>
+        </Up>
+        <Down anchor="Point(7, 11)">
+            <Normal image="Slider/SliderThumbHorizontalDownNormal.png"/>
+            <Hovered image="Slider/SliderThumbHorizontalDownHovered.png"/>
+            <Pressed image="Slider/SliderThumbHorizontalDownPressed.png"/>
+            <Disabled image="Slider/SliderThumbHorizontalDownDisabled.png"/>
+            <Shadow image="Slider/SliderThumbHorizontalDownShadow.png"/>
+        </Down>
+        <Both anchor="Point(7, 16)">
+            <Normal image="Slider/SliderThumbHorizontalBothNormal.png"/>
+            <Hovered image="Slider/SliderThumbHorizontalBothHovered.png"/>
+            <Pressed image="Slider/SliderThumbHorizontalBothPressed.png"/>
+            <Disabled image="Slider/SliderThumbHorizontalBothDisabled.png"/>
+            <Shadow image="Slider/SliderThumbHorizontalBothShadow.png"/>
+        </Both>
+    </Horizontal>
+    <Vertical>
+        <Track image="Slider/SliderTrackVertical.png" borders="Rect(2, 2, 2, 2)"/>
+        <Plain anchor="Point(10, 7)">
+            <Normal image="Slider/SliderThumbVerticalPlainNormal.png"/>
+            <Hovered image="Slider/SliderThumbVerticalPlainHovered.png"/>
+            <Pressed image="Slider/SliderThumbVerticalPlainPressed.png"/>
+            <Disabled image="Slider/SliderThumbVerticalPlainDisabled.png"/>
+            <Shadow image="Slider/SliderThumbVerticalPlainShadow.png"/>
+        </Plain>
+        <Left anchor="Point(15, 7)">
+            <Normal image="Slider/SliderThumbVerticalLeftNormal.png"/>
+            <Hovered image="Slider/SliderThumbVerticalLeftHovered.png"/>
+            <Pressed image="Slider/SliderThumbVerticalLeftPressed.png"/>
+            <Disabled image="Slider/SliderThumbVerticalLeftDisabled.png"/>
+            <Shadow image="Slider/SliderThumbVerticalLeftShadow.png"/>
+        </Left>
+        <Right anchor="Point(11, 7)">
+            <Normal image="Slider/SliderThumbVerticalRightNormal.png"/>
+            <Hovered image="Slider/SliderThumbVerticalRightHovered.png"/>
+            <Pressed image="Slider/SliderThumbVerticalRightPressed.png"/>
+            <Disabled image="Slider/SliderThumbVerticalRightDisabled.png"/>
+            <Shadow image="Slider/SliderThumbVerticalRightShadow.png"/>
+        </Right>
+        <Both anchor="Point(16, 7)">
+            <Normal image="Slider/SliderThumbVerticalBothNormal.png"/>
+            <Hovered image="Slider/SliderThumbVerticalBothHovered.png"/>
+            <Pressed image="Slider/SliderThumbVerticalBothPressed.png"/>
+            <Disabled image="Slider/SliderThumbVerticalBothDisabled.png"/>
+            <Shadow image="Slider/SliderThumbVerticalBothShadow.png"/>
+        </Both>
+    </Vertical>
+</Slider>

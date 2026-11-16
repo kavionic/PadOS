@@ -43,6 +43,8 @@ public:
     virtual void    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
+    virtual void    OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void    OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
 
 //    virtual void	WheelMoved(const Point& cDelta);
@@ -71,6 +73,7 @@ private:
     static bool IsArrowPart(PScrollBarPart part);
     void        StepValue(PScrollBarPart part);
     void        EndInteraction();
+    void        SetHoveredPart(PScrollBarPart part);
     float       GetRelativeValue() const;
     void        NotifyStylePropertyChanged(PScrollBarProperties properties);
 

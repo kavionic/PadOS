@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 17.05.2025 22:00
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/ScrollView.h>
 #include <GUI/Widgets/MVCBaseView.h>
 
@@ -377,6 +378,10 @@ void PMVCBaseView::Construct()
 {
     m_ScrollView = ptr_new<PScrollView>();
     m_ContentView = ptr_new<PView>(PString::zero, PViewFlag::WillDraw);
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr) {
+        m_ContentView->SetBackgroundBrush(style->GetBackgroundBrush());
+    }
 
     m_ContentView->VFCalculateContentSize.Connect(this, &PView::GetContentSize);
     m_ContentView->SignalFrameSized.Connect(this, &PMVCBaseView::OnContentViewFrameSized);

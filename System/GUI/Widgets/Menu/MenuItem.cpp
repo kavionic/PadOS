@@ -150,7 +150,7 @@ void PMenuItem::Draw(Ptr<PView> targetView)
         labelFrame.right -= float(menu->GetArrowRightBitmap()->GetBounds().Width()) + 5.0f;
         targetView->FillRect(PRect(labelFrame.right, frame.top, frame.right, frame.bottom), targetView->GetBrush());
     }
-    targetView->DrawString(m_Label, PPoint(frame.left + 2.0f, y), labelFrame);
+    targetView->DrawString(targetView->GetBrush(), m_Label, PPoint(frame.left + 2.0f, y), labelFrame);
 
     if (m_SubMenu != nullptr)
     {

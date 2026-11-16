@@ -148,8 +148,6 @@ PView::PView(const PString& name, PViewFlags flags)
         1.0f,
         PColor(0, 0, 0))
 {
-    m_BackgroundBrush = GetStandardBrush(PStandardColorID::DefaultBackground);
-    m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
 
@@ -280,8 +278,6 @@ PView::PView(PViewFactoryContext& context, const pugi::xml_node& xmlData)
 		}
 	}
 
-    m_BackgroundBrush = GetStandardBrush(PStandardColorID::DefaultBackground);
-    m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
 
@@ -301,8 +297,6 @@ PView::PView(handler_id serverHandle, const PString& name, const PRect& frame)
         PColor(0))
 {
     m_ServerHandle = serverHandle;
-    m_BackgroundBrush = GetStandardBrush(PNamedColors::white);
-    m_DrawingBrush = m_BackgroundBrush;
     ++s_InstanceCount;
 }
 
@@ -1260,6 +1254,41 @@ void PView::ResizeTo(float w, float h)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PView::SetDrawingRegion(const PRegion& region)
+{
+    SetDrawingRegion(ptr_new<PRegion>(region));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::SetDrawingRegion(Ptr<const PRegion> region)
+{
+    if (region != m_DrawingRegion)
+    {
+        m_DrawingRegion = std::move(region);
+        if (m_DrawingRegion != nullptr) {
+            Post<ASViewSetDrawRegion>(true, m_DrawingRegion->m_Rects);
+        } else {
+            Post<ASViewSetDrawRegion>(false, std::vector<PIRect>());
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::ClearDrawingRegion()
+{
+    SetDrawingRegion(nullptr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PView::Invalidate(const PRect& rect)
 {
     if (m_ServerHandle != INVALID_HANDLE) {
@@ -1453,6 +1482,15 @@ void PView::DrawPolyline(std::span<const PPoint> points)
 
 void PView::DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter)
 {
+    DrawString(nullptr, string, pos, background, allowPartialCharacter);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter)
+{
     const PIRect frame = PIRect(background + m_ScrollOffset) & PIRect(GetNormalizedBounds());
     if (!frame.IsValid()) {
         return;
@@ -1461,8 +1499,8 @@ void PView::DrawString(const PString& string, const PPoint& pos, const PRect& ba
     if (m_Font == nullptr || GetDrawingMode() != PDrawingMode::Copy
         || m_Font->GetDescription().Rotation != 0.0f || m_Font->GetDescription().Shear != 90.0f)
     {
-        FillTextBackground(background);
-        DrawString(string, pos);
+        FillTextBackground(background, backgroundBrush);
+        DrawString(backgroundBrush, string, pos);
         return;
     }
 
@@ -1478,21 +1516,21 @@ void PView::DrawString(const PString& string, const PPoint& pos, const PRect& ba
 
     if (top >= bottom || left >= frame.right)
     {
-        FillTextBackground(background);
+        FillTextBackground(background, backgroundBrush);
     }
     else
     {
         if (top > frame.top) {
-            FillTextBackground(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset);
+            FillTextBackground(PRect(PIRect(frame.left, frame.top, frame.right, top)) + fillOffset, backgroundBrush);
         }
         if (left > frame.left) {
-            FillTextBackground(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset);
+            FillTextBackground(PRect(PIRect(frame.left, top, left, bottom)) + fillOffset, backgroundBrush);
         }
         if (bottom < frame.bottom) {
-            FillTextBackground(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset);
+            FillTextBackground(PRect(PIRect(frame.left, bottom, frame.right, frame.bottom)) + fillOffset, backgroundBrush);
         }
     }
-    DrawString(string, pos, float(frame.right - baseline.x), allowPartialCharacter);
+    DrawString(backgroundBrush, string, pos, float(frame.right - baseline.x), allowPartialCharacter);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

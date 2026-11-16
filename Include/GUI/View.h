@@ -195,8 +195,13 @@ public:
     virtual void    ResizeTo(const PPoint& size);
     virtual void    ResizeTo(float w, float h);
 
+    // Drawing regions use normalized view coordinates, independent of scrolling.
+    // A null region adds no constraint; an empty region clips all drawing.
     void            SetDrawingRegion(const PRegion& region);
+    // A shared region must remain unchanged while bound to a view.
+    void            SetDrawingRegion(Ptr<const PRegion> region);
     void            ClearDrawingRegion();
+    Ptr<const PRegion> GetDrawingRegion() const noexcept { return m_DrawingRegion; }
     void            SetShapeRegion(const PRegion& region);
     void            ClearShapeRegion();
     
@@ -223,7 +228,7 @@ public:
     Ptr<const PBrush> GetStandardBrush(PStandardColorID color) const;
     Ptr<const PBrush> GetStandardBrush(PNamedColors color) const;
 
-    // None/null backgrounds inherit; None/null drawing brushes disable fills.
+    // Views start without brushes. None/null backgrounds inherit; None/null drawing brushes disable fills.
     Ptr<const PBrush> GetBackgroundBrush() const noexcept { return m_BackgroundBrush; }
     Ptr<const PBrush> GetBrush() const noexcept { return m_DrawingBrush; }
     void SetBackgroundBrush(Ptr<const PBrush> brush);
@@ -295,26 +300,47 @@ public:
     void            FillTriangleFan(std::span<const PPoint> points);
     void            FillTriangleStrip(std::span<const PPoint> points);
     void            DrawPolyline(std::span<const PPoint> points);
-    // Text positions are baselines.
-    void            DrawString(const PString& string) { Post<ASViewDrawString>(string); }
-    void            DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
+    // Text positions are baselines. Normal calls use the resolved view background.
+    // Explicit brushes use the drawing-brush origin; null/None uses the view background.
+    // Neither variant changes the selected drawing or background brush.
+    void DrawString(const PString& string) { Post<ASViewDrawString>(INVALID_HANDLE, string); }
+    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string)
+    {
+        Post<ASViewDrawString>((backgroundBrush != nullptr) ? backgroundBrush->GetHandle() : INVALID_HANDLE, string);
+    }
+    void DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); DrawString(string); }
+    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos)
+    {
+        MovePenTo(pos);
+        DrawString(std::move(backgroundBrush), string);
+    }
     // Width is measured along the font's baseline. Copy fills the ascender-to-descender band to that width.
     // Clipping applies at the far edge; leading glyph overhangs remain visible. Nonpositive widths draw nothing.
     // The pen advances by the included text, including the full advance of an allowed partial character.
     void DrawString(const PString& string, float width, bool allowPartialCharacter = true)
     {
-        Post<ASViewDrawStringWidth>(string, width, allowPartialCharacter);
+        Post<ASViewDrawStringWidth>(INVALID_HANDLE, string, width, allowPartialCharacter);
+    }
+    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, float width, bool allowPartialCharacter = true)
+    {
+        Post<ASViewDrawStringWidth>((backgroundBrush != nullptr) ? backgroundBrush->GetHandle() : INVALID_HANDLE, string, width, allowPartialCharacter);
     }
     void DrawString(const PString& string, const PPoint& pos, float width, bool allowPartialCharacter = true)
     {
         MovePenTo(pos);
-        Post<ASViewDrawStringWidth>(string, width, allowPartialCharacter);
+        DrawString(string, width, allowPartialCharacter);
+    }
+    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos, float width, bool allowPartialCharacter = true)
+    {
+        MovePenTo(pos);
+        DrawString(std::move(backgroundBrush), string, width, allowPartialCharacter);
     }
 
-    // Paint the background rectangle with the selected drawing background (color or brush) and draw at the supplied baseline.
+    // Paint the background rectangle and draw at the supplied baseline.
     // Upright Copy text fills its own band; only the surrounding padding is cleared separately.
     // Upright Copy text clips at the right edge. Other modes/transforms clear first and draw normally.
     void DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
+    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
 
     virtual void    ScrollBy(const PPoint& offset);
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(PPoint(vDeltaX, vDeltaY)); }
@@ -387,7 +413,7 @@ private:
     void HandleDetachedFromScreen();
 
     void HandlePaint(const PRect& updateRect);
-    void FillTextBackground(const PRect& rect);
+    void FillTextBackground(const PRect& rect, Ptr<const PBrush> backgroundBrush);
     
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
         
@@ -467,6 +493,7 @@ private:
 
     Ptr<const PBrush>   m_BackgroundBrush;
     Ptr<const PBrush>   m_DrawingBrush;
+    Ptr<const PRegion>  m_DrawingRegion;
     PPoint              m_BackgroundBrushOrigin;
     PPoint              m_DrawingBrushOrigin;
 

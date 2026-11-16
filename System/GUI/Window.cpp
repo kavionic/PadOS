@@ -61,6 +61,7 @@ void PWindow::OnPaint(const PRect& updateRect)
     SetBrush(PStandardColorID::WindowBorderActive);
 
     DrawString(
+        GetBrush(),
         m_Title,
         PPoint(10.0f, 4.0f + GetFontHeight().ascender),
         PRect(outerFrame.left + 2.0f, outerFrame.top + 2.0f, outerFrame.right - 2.0f, innerFrame.top));

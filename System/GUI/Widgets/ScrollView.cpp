@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 29.08.2020 00:30
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/ScrollView.h>
 #include <GUI/Widgets/ScrollableView.h>
 #include <GUI/ViewFactory.h>
@@ -46,6 +47,10 @@ PScrollView::PScrollView(PViewFactoryContext& context, const pugi::xml_node& xml
                 if (contentView != nullptr)
                 {
                     Ptr<PScrollableView> scrollableView = ptr_new<PScrollableView>();
+                    const PGUIStyle* style = GetStyle();
+                    if (style != nullptr) {
+                        scrollableView->SetBackgroundBrush(style->GetBackgroundBrush());
+                    }
 
                     scrollableView->SetHAlignment(PAlignment::Stretch);
                     scrollableView->SetVAlignment(PAlignment::Stretch);

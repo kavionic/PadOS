@@ -176,7 +176,7 @@ void PIconView::UpdateHighlightColor()
     } else if (m_IsHighlighted) {
         brush = GetStandardBrush(PNamedColors::lightblue);
     } else {
-        brush = GetStandardBrush(PStandardColorID::DefaultBackground);
+        brush = GetStyle()->GetBackgroundBrush();
     }
     SetBackgroundBrush(brush);
     m_IconView->SetBackgroundBrush(nullptr);

@@ -176,6 +176,7 @@ PPoint PSlider::ValToPos(float value) const
 
 void PSlider::SetSliderColors(const PColor& color1, const PColor& color2)
 {
+    m_SliderStyleData.HasCustomSliderColors = true;
     m_SliderStyleData.SliderColor1 = color1;
     m_SliderStyleData.SliderColor2 = color2;
     NotifyStylePropertyChanged(PSliderProperty::SliderColors);
@@ -646,6 +647,36 @@ void PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const 
         scaledPos.y *= interpolatedScale;
 
         SetValue(PosToVal(scaledPos + ValToPos(m_HitValue)));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PSlider::OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && !m_SliderStyleData.IsPointerOver)
+    {
+        m_SliderStyleData.IsPointerOver = true;
+        if (IsEnabled()) {
+            NotifyStylePropertyChanged(PSliderProperty::Hovered);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PSlider::OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
+{
+    if (phase == PEventPhase::Target && m_SliderStyleData.IsPointerOver)
+    {
+        m_SliderStyleData.IsPointerOver = false;
+        if (IsEnabled()) {
+            NotifyStylePropertyChanged(PSliderProperty::Hovered);
+        }
     }
 }
 

@@ -1,0 +1,19 @@
+PadOS button artwork
+
+Production assets were rendered procedurally with user approval, using
+the built-in image_gen output as a visual reference. No API/CLI image
+generation fallback was used. Firmware source was not changed.
+
+Final production brief:
+Render a coordinated light silver and dark charcoal button set with restrained beveled depth, 9 px rounded corners, a thin upper highlight and darker lower lip. Unchecked normal/hovered states are raised; pressed and checked states are recessed. Hover is brighter with a restrained blue border; disabled is muted; checked uses blue. Render all eight states per theme as 48x48 RGBA PNGs with identical geometry and alpha, 12 px nine-slice borders, fully opaque straight edges and center, and antialiasing only at the corners. No label, icon, external shadow, texture noise, or baked background.
+
+Rendering: analytical rounded rectangles, 8 x 8 subpixel coverage per
+pixel, smooth vertical gradients, exact area averaging, straight alpha.
+The two themes use the same geometry, nine-slice borders, and alpha.
+Four unchecked and four checked states are provided for each theme.
+The contact sheet uses the final PNGs and actual nine-slice resizing.
+
+Built-in image generation reference prompt:
+Use case: ui-mockup
+Asset type: production nine-slice GUI button background bitmap, LIGHT/NORMAL theme, resting state.
+Create ONE blank rounded rectangular button skin on a genuinely transparent RGBA background, no text, no icons, no presentation background. This is a usable front-facing 2D UI raster texture with restrained 3D depth, not a perspective rendering. Satin silver/light cool-gray face, gently lighter at the top, subtle 1-pixel-looking bright inner upper rim, crisp medium-gray outer contour, slim darker bottom bevel giving a softly raised tactile appearance. Refined and understated, not flat, not glossy glass, not plastic toy, not neumorphism. Symmetric rounded corners, radius approximately 9 pixels when finally reduced to a 96 x 64 pixel texture. Short broad rectangle aspect ratio 3:2. The button including its restrained contact shadow should occupy essentially the entire image with only a very narrow transparent margin. All contour, bevel, corner and shadow details fit inside the outer 14/96 of width and 14/64 of height, leaving a smooth stretchable center. Vertical straight edges and horizontal straight edges, precise left/right symmetry, even top lighting, no diagonal lighting or horizontal color variation across the face. Center nearly uniform light gray with only a very subtle vertical tonal transition. Actual transparency outside the rounded silhouette, antialiased edge. No checkerboard baked in, no captions, no guides, no extra objects, no watermark. Output a single small game-ready sprite suitable for nine-slice stretching, ideally 96x64 pixels.

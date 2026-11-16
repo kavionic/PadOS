@@ -10,9 +10,11 @@
 #include <Utils/XMLObjectParser.h>
 
 #include <algorithm>
+#include <charconv>
 #include <iterator>
 
 #include <Math/Rect.h>
+#include <GUI/Color.h>
 #include <GUI/LayoutNode.h>
 #include <GUI/GUIDefines.h>
 #include <Utils/UTF8Utils.h>
@@ -52,6 +54,24 @@ bool parse(const char* text, bool& value)
 bool parse(const char* text, PString& value)
 {
 	value = text; return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool parse(const char* text, PColor& value)
+{
+    if (strlen(text) != 7 || text[0] != '#') {
+        return false;
+    }
+    uint32_t color;
+    const std::from_chars_result result = std::from_chars(text + 1, text + 7, color, 16);
+    if (result.ec != std::errc() || result.ptr != text + 7) {
+        return false;
+    }
+    value = PColor::FromRGB32(color);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

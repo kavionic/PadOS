@@ -11,6 +11,7 @@ target_sources(PadOS_GUI PRIVATE
 	Image.cpp
 	Application.cpp
 	Bitmap.cpp
+	BitmapLoader.cpp
 	Color.cpp
 	Font.cpp
 	KeyboardView.cpp
@@ -24,5 +25,6 @@ target_sources(PadOS_GUI PRIVATE
 )
 
 add_subdirectory(Dialogs)
+add_subdirectory(Style)
 add_subdirectory(Styles)
 add_subdirectory(Widgets)

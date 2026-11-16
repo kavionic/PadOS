@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dark theme: recessed radio buttons with nine-slice borders. -->
+<RadioButton size="32" label_spacing="8" label_vertical_spacing="4" label_vertical_offset="-1">
+    <Normal image="RadioButton/RadioButtonNormal.png" borders="Rect(8, 8, 8, 8)" text_color="#EEF4FC"/>
+    <Hovered image="RadioButton/RadioButtonHovered.png" borders="Rect(8, 8, 8, 8)" text_color="#FFFFFF"/>
+    <Pressed image="RadioButton/RadioButtonPressed.png" borders="Rect(8, 8, 8, 8)" text_color="#E8F1FC"/>
+    <Disabled image="RadioButton/RadioButtonDisabled.png" borders="Rect(8, 8, 8, 8)" text_color="#78879C"/>
+    <Checked>
+        <Normal image="RadioButton/RadioButtonCheckedNormal.png" borders="Rect(8, 8, 8, 8)" text_color="#F1F8FF"/>
+        <Hovered image="RadioButton/RadioButtonCheckedHovered.png" borders="Rect(8, 8, 8, 8)" text_color="#FFFFFF"/>
+        <Pressed image="RadioButton/RadioButtonCheckedPressed.png" borders="Rect(8, 8, 8, 8)" text_color="#EAF5FF"/>
+        <Disabled image="RadioButton/RadioButtonCheckedDisabled.png" borders="Rect(8, 8, 8, 8)" text_color="#8095A9"/>
+    </Checked>
+</RadioButton>

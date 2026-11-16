@@ -95,7 +95,7 @@ void PListViewStringRow::Paint(const PRect& frame, Ptr<PView> view, size_t colum
     {
         view->SetFgColor(0, 0, 0);
         view->SetBrush(PStandardColorID::ListViewBackground);
-        view->DrawString(text, baseline, frame);
+        view->DrawString(view->GetBrush(), text, baseline, frame);
         return;
     }
 
@@ -152,12 +152,12 @@ void PListViewStringRow::Paint(const PRect& frame, Ptr<PView> view, size_t colum
             fillOutside(selectionFrame, textFrame, pget_standard_color(PStandardColorID::ListViewSelection));
         }
         view->SetBrush(PStandardColorID::ListViewHighlight);
-        view->DrawString(text, baseline, PRect(textFrame & pixelFrame) + fillOffset);
+        view->DrawString(view->GetBrush(), text, baseline, PRect(textFrame & pixelFrame) + fillOffset);
     }
     else
     {
         view->SetBrush(PStandardColorID::ListViewSelection);
-        view->DrawString(text, baseline, PRect(selectionFrame) + fillOffset);
+        view->DrawString(view->GetBrush(), text, baseline, PRect(selectionFrame) + fillOffset);
     }
 }
 

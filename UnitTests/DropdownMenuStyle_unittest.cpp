@@ -11,6 +11,9 @@
 #include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
+#include <Storage/Path.h>
+#include <Storage/StandardPaths.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/TextBox.h>
 #include <System/ExceptionHandling.h>
@@ -179,5 +182,216 @@ TEST(DropdownMenuStyle, PopupGeometryIsAvailableBeforeHandlerRegistration)
         popup->SetFrame(PRect::FromSize(popupSize));
         EXPECT_EQ(content->GetFrame(), PRect(2.0f, 4.0f, popupSize.x - 2.0f, popupSize.y - 4.0f));
         EXPECT_EQ(content->GetContentSize() + PPoint(4.0f, 8.0f), popupSize);
+    });
+}
+
+TEST(DropdownMenuStyle, SkinnedFieldsConfigureTheirEditorAndTrackHoverWithoutOpeningAWindow)
+{
+    for (const char* theme : {"Normal", "Dark"})
+    {
+        RunGUITest([theme](PApplication& application)
+        {
+            const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
+            const Ptr<PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
+            Ptr<PDropdownMenu> menu = ptr_new<PDropdownMenu>("skinned_dropdown", PDropdownMenuFlag::ReadOnly);
+            menu->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
+            menu->AppendItem("First item");
+            menu->AppendItem("A longer second item");
+            menu->SetSelection(1, false);
+            menu->SetFrame(PRect(0, 0, 200, 32));
+            const Ptr<PTextBox> editor = menu->GetChildAt<PTextBox>(size_t(0));
+            ASSERT_NE(editor, nullptr);
+            EXPECT_FALSE(editor->GetStyle()->HasFrame);
+            EXPECT_EQ(editor->GetStyle()->Borders, PRect());
+            EXPECT_EQ(editor->GetFrame(), PRect(10, 4, 164, 27));
+            EXPECT_EQ(editor->GetChildAt(size_t(0))->GetFrame(), PRect(0, 0, 154, 23));
+            EXPECT_EQ(menu->GetCurrentString(), "A longer second item");
+            const PPoint preferred = menu->GetPreferredSize(PPrefSizeType::Smallest);
+            EXPECT_FLOAT_EQ(preferred.y, 32.0f);
+
+            PDropdownMenuStyleData data;
+            data.IsReadOnly = true;
+            EXPECT_EQ(editor->GetStyle(), style->DropdownMenuGetEditorStyle(data));
+            EXPECT_TRUE(style->DropdownMenuHitTest(*menu, data, PPoint(20, 16)));
+            PPointerEvent mouse;
+            mouse.PointerID = PMousePointerID;
+            mouse.SupportsHover = true;
+            mouse.ToolType = PMotionToolType::Mouse;
+            menu->OnPointerEnter(mouse.PointerID, PPoint(20, 16), mouse, PEventPhase::Target);
+            data.IsPointerOver = true;
+            EXPECT_EQ(editor->GetStyle(), style->DropdownMenuGetEditorStyle(data));
+            menu->OnPointerLeave(mouse.PointerID, PPoint(-1, 16), mouse, PEventPhase::Target);
+            data.IsPointerOver = false;
+            EXPECT_EQ(editor->GetStyle(), style->DropdownMenuGetEditorStyle(data));
+            menu->ClearFlags(PDropdownMenuFlag::ReadOnly);
+            data.IsReadOnly = false;
+            EXPECT_FALSE(style->DropdownMenuHitTest(*menu, data, PPoint(20, 16)));
+            EXPECT_TRUE(style->DropdownMenuHitTest(*menu, data, PPoint(185, 16)));
+            menu->OnPointerEnter(mouse.PointerID, PPoint(20, 16), mouse, PEventPhase::Target);
+            EXPECT_EQ(editor->GetStyle(), style->DropdownMenuGetEditorStyle(data));
+            menu->OnPointerMove(mouse.PointerID, PPoint(185, 16), mouse, PEventPhase::Target);
+            data.IsPointerOver = true;
+            EXPECT_EQ(editor->GetStyle(), style->DropdownMenuGetEditorStyle(data));
+            menu->SetEnable(false);
+            data.IsEnabled = false;
+            EXPECT_EQ(editor->GetStyle(), style->DropdownMenuGetEditorStyle(data));
+            EXPECT_FALSE(style->DropdownMenuHitTest(*menu, data, PPoint(185, 16)));
+
+            Ptr<const PBrush> previousBrush;
+            for (PButtonSkinState state : {PButtonSkinState::Normal, PButtonSkinState::Hovered, PButtonSkinState::Pressed, PButtonSkinState::Disabled})
+            {
+                data.IsEnabled = state != PButtonSkinState::Disabled;
+                data.IsOpen = state == PButtonSkinState::Pressed;
+                data.IsPointerOver = state == PButtonSkinState::Hovered;
+                menu->SetDrawingMode(PDrawingMode::Blend);
+                style->DropdownMenuPaint(*menu, menu->GetBounds(), data);
+                EXPECT_EQ(menu->GetDrawingMode(), PDrawingMode::Blend);
+                EXPECT_EQ(menu->GetBrush(), nullptr);
+                EXPECT_NE(menu->GetBackgroundBrush(), previousBrush);
+                previousBrush = menu->GetBackgroundBrush();
+                EXPECT_EQ(style->DropdownMenuGetEditorFrame(*menu, data), PRect(10, 4, 164, 27));
+            }
+            menu->SetEnable(true);
+            menu->SetFont(ptr_new<PFont>(PFontID::e_FontLarge));
+            EXPECT_GT(menu->GetPreferredSize(PPrefSizeType::Smallest).y, preferred.y);
+            for (const PPoint& size : {PPoint(10, 5), PPoint()})
+            {
+                menu->SetFrame(PRect::FromSize(size));
+                const PRect frame = style->DropdownMenuGetEditorFrame(*menu, data);
+                EXPECT_GE(frame.Width(), 0.0f);
+                EXPECT_GE(frame.Height(), 0.0f);
+                EXPECT_NO_THROW(menu->OnPaint(menu->GetBounds()));
+            }
+        });
+    }
+}
+
+TEST(DropdownMenuStyle, SkinnedPopupsShareGeometryForPaintingScrollingAndHitTesting)
+{
+    RunGUITest([](PApplication& application)
+    {
+        for (const char* theme : {"Normal", "Dark"})
+        {
+            const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
+            const PSkinnableGUIStyle style(directory, &application);
+            Ptr<PView> target = ptr_new<PView>("skinned_popup", PViewFlag::WillDraw);
+            target->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
+            target->SetFrame(PRect(0, 0, 200, 80));
+            target->Hide();
+            ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
+            PScopeExit removeTarget([&application, &target] { application.RemoveView(target); });
+            std::vector<PString> items{"First", "Second", "Third"};
+            PDropdownMenuPopupStyleData data(items);
+            PPoint minimum;
+            PPoint maximum;
+            style.DropdownMenuPopupGetPreferredSize(*target, data, &minimum, &maximum);
+            EXPECT_EQ(minimum, maximum);
+            EXPECT_FLOAT_EQ(minimum.y, 96.0f);
+            EXPECT_EQ(style.DropdownMenuPopupFrameGetContentFrame(*target), PRect(4, 4, 196, 76));
+            PPoint popupSize;
+            style.DropdownMenuPopupFrameGetPreferredSize(*target, minimum, &popupSize, &maximum);
+            EXPECT_EQ(popupSize, minimum + PPoint(8, 8));
+            const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(1, 2, 198, 78));
+            target->SetDrawingRegion(clip);
+            target->SetDrawingMode(PDrawingMode::Overlay);
+            style.DropdownMenuPopupFramePaint(*target, target->GetBounds());
+            for (size_t index = 0; index < items.size(); ++index)
+            {
+                const PRect frame = style.DropdownMenuPopupGetItemFrame(*target, data, index);
+                EXPECT_EQ(frame, PRect(0, float(index) * 32.0f, 200, float(index + 1) * 32.0f));
+                EXPECT_EQ(style.DropdownMenuPopupGetItemFromPosition(*target, data, frame.Center()), index);
+                data.Selection = index;
+                data.PressedItem = (index + 1) % items.size();
+                style.DropdownMenuPopupPropertyChanged(
+                    *target,
+                    data,
+                    PDropdownMenuPopupProperties(PDropdownMenuPopupProperty::Selection, PDropdownMenuPopupProperty::Pressed));
+                style.DropdownMenuPopupPaint(*target, target->GetBounds(), data);
+                EXPECT_EQ(target->GetDrawingRegion(), clip);
+                EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
+                EXPECT_EQ(target->GetBrush(), nullptr);
+            }
+            const Ptr<PtrTarget> privateData = data.StyleData;
+            target->ScrollTo(PPoint(0, -32));
+            EXPECT_EQ(style.DropdownMenuPopupGetItemFromPosition(*target, data, target->GetBounds().TopLeft()), 1u);
+            style.DropdownMenuPopupPaint(*target, target->GetBounds(), data);
+            target->SetFont(ptr_new<PFont>(PFontID::e_FontLarge));
+            style.DropdownMenuPopupPropertyChanged(*target, data, PDropdownMenuPopupProperty::Font);
+            PPoint larger;
+            style.DropdownMenuPopupGetPreferredSize(*target, data, &larger, &maximum);
+            EXPECT_GT(larger.y, minimum.y);
+            EXPECT_EQ(data.StyleData, privateData);
+            items.clear();
+            style.DropdownMenuPopupPropertyChanged(*target, data, PDropdownMenuPopupProperty::Items);
+            style.DropdownMenuPopupGetPreferredSize(*target, data, &minimum, &maximum);
+            EXPECT_FLOAT_EQ(minimum.y, 0.0f);
+            EXPECT_EQ(style.DropdownMenuPopupGetItemFromPosition(*target, data, PPoint()), INVALID_INDEX);
+            EXPECT_EQ(style.DropdownMenuPopupGetItemFrame(*target, data, 0), PRect());
+            EXPECT_NO_THROW(style.DropdownMenuPopupPaint(*target, target->GetBounds(), data));
+        }
+        application.Sync();
+    });
+}
+
+TEST(DropdownMenuStyle, SkinMetricsAllowOverlapAndResizingDoesNotChangeSharedImages)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(16, 16, PEColorSpace::RGBA32);
+        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
+        image->SetSliceRect(PRect(4, 4, 12, 12));
+        image->SetLayoutSize(PPoint(16, 16), PImageLayoutMode::Absolute);
+        const PImageDescription description = image->GetDescription();
+        const Ptr<PBrush> brush = ptr_new<PBrush>(image);
+        const Ptr<PTextBoxStyle> editor = ptr_new<PTextBoxStyle>();
+        editor->Borders = PRect();
+        editor->HasFrame = false;
+        PDropdownMenuSkin skin;
+        for (PDropdownMenuAppearance& appearance : skin.States)
+        {
+            appearance.Background = brush;
+            appearance.Arrow = bitmap;
+            appearance.Editor = editor;
+        }
+        for (PDropdownMenuRowAppearance& appearance : skin.Rows)
+        {
+            appearance.Image = image;
+            appearance.LabelOffset = PPoint(-100, -100);
+        }
+        skin.PopupFrame = brush;
+        skin.PopupBackground = application.GetStandardBrush(PNamedColors::black);
+        skin.ArrowWidth = 47.0f;
+        skin.EditorInsets = PRect(-2, 3, 4, 6);
+        skin.PopupInsets = PRect(7, 5, 9, 6);
+        skin.RowPadding = PRect(-2, 3, 4, 6);
+        skin.MinimumRowHeight = 19.0f;
+        const PSkinnableGUIStyle style(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), PSliderSkin(), PScrollBarSkin(), PTabViewSkin(), skin, &application);
+        Ptr<PView> first = ptr_new<PView>("first_popup", PViewFlag::WillDraw);
+        Ptr<PView> second = ptr_new<PView>("second_popup", PViewFlag::WillDraw);
+        first->SetFrame(PRect(0, 0, 200, 40));
+        second->SetFrame(PRect(0, 0, 120, 60));
+        PDropdownMenuStyleData fieldData;
+        EXPECT_EQ(style.DropdownMenuGetEditorFrame(*first, fieldData), PRect(-2, 3, 149, 34));
+        EXPECT_EQ(style.DropdownMenuPopupFrameGetContentFrame(*first), PRect(7, 5, 191, 34));
+        EXPECT_FALSE(style.DropdownMenuHitTest(*first, fieldData, PPoint(152, 20)));
+        EXPECT_TRUE(style.DropdownMenuHitTest(*first, fieldData, PPoint(153, 20)));
+        const std::vector<PString> items{"A", "B"};
+        PDropdownMenuPopupStyleData firstData(items);
+        PDropdownMenuPopupStyleData secondData(items);
+        const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(1, 2, 190, 38));
+        first->SetDrawingRegion(clip);
+        style.DropdownMenuPopupPaint(*first, first->GetBounds(), firstData);
+        style.DropdownMenuPopupPaint(*second, second->GetBounds(), secondData);
+        EXPECT_NE(firstData.StyleData, secondData.StyleData);
+        EXPECT_EQ(first->GetDrawingRegion(), clip);
+        EXPECT_EQ(image->GetDescription(), description);
+        first->SetFrame(PRect(0, 0, 50, 12));
+        style.DropdownMenuPopupPaint(*first, first->GetBounds(), firstData);
+        EXPECT_EQ(image->GetDescription(), description);
+        const PSkinnableGUIStyle fallback;
+        const PDefaultGUIStyle defaultStyle;
+        EXPECT_EQ(fallback.DropdownMenuGetEditorStyle(fieldData), defaultStyle.DropdownMenuGetEditorStyle(fieldData));
+        EXPECT_EQ(fallback.DropdownMenuGetEditorFrame(*first, fieldData), defaultStyle.DropdownMenuGetEditorFrame(*first, fieldData));
     });
 }

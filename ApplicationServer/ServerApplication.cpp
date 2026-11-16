@@ -50,6 +50,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
     RegisterRemoteSignal(&RSViewInvalidate,     &ServerApplication::SlotViewInvalidate);
     RegisterRemoteSignal(&RSViewAddChild,       &ServerApplication::SlotViewAddChild);
+    RegisterRemoteSignal(&RSViewSetDrawRegion,  &ServerApplication::SlotViewSetDrawRegion);
     RegisterRemoteSignal(&RSViewToggleDepth,    &ServerApplication::SlotViewToggleDepth);
     RegisterRemoteSignal(&RSViewBeginUpdate,    &ServerApplication::SlotViewBeginUpdate);
     RegisterRemoteSignal(&RSViewEndUpdate,      &ServerApplication::SlotViewEndUpdate);
@@ -167,6 +168,10 @@ handle_id ServerApplication::AllocateBrushHandle()
     PERROR_THROW_CODE(PErrorCode::OVERFLOW);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 handle_id ServerApplication::AllocateFontHandle()
 {
     const handle_id firstHandle = s_NextFontHandle;
@@ -253,6 +258,10 @@ Ptr<PServerBrush> ServerApplication::GetBrush(handle_id brushHandle) const
     const auto iterator = m_BrushMap.find(brushHandle);
     return (iterator != m_BrushMap.end()) ? iterator->second : nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 Ptr<PServerFontInstance> ServerApplication::GetFont(handle_id fontHandle) const
 {
@@ -668,10 +677,18 @@ void ServerApplication::SlotCreateBrush(port_id replyPort, const PBrushDescripti
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerApplication::SlotDeleteBrush(handle_id brushHandle)
 {
     m_BrushMap.erase(brushHandle);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void ServerApplication::SlotUpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle)
 {
@@ -683,6 +700,10 @@ void ServerApplication::SlotUpdateBrush(handle_id brushHandle, const PBrushDescr
     brush->SetProperties(description, std::move(bitmap));
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerApplication::SlotSetBrushColor(handle_id brushHandle, PColor color)
 {
     Ptr<PServerBrush> brush = GetBrush(brushHandle);
@@ -691,6 +712,10 @@ void ServerApplication::SlotSetBrushColor(handle_id brushHandle, PColor color)
     }
     brush->SetColor(color);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void ServerApplication::SlotCreateFont(port_id replyPort, const PFontDescription& description)
 {
@@ -853,6 +878,21 @@ void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, ha
 ///////////////////////////////////////////////////////////////////////////////
 
 
+void ServerApplication::SlotViewSetDrawRegion(handler_id viewHandle, bool enabled, const std::vector<PIRect>& rectangles)
+{
+    Ptr<PRegion> region;
+    if (enabled)
+    {
+        region = ptr_new<PRegion>();
+        region->m_Rects = rectangles;
+    }
+    ForwardToView(viewHandle, &PServerView::SetDrawRegion, std::move(region));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerApplication::SlotSync(port_id replyPort)
 {
     // Failed submissions also release client raster references. Always unblock the waiting client.
@@ -863,6 +903,9 @@ void ServerApplication::SlotSync(port_id replyPort)
     m_Server->GetDisplayDriver()->Flush();
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
 {

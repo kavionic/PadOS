@@ -22,7 +22,8 @@ enum class PDropdownMenuProperty : uint32_t
     ReadOnly = 0x08,
     Enabled  = 0x10,
     Open     = 0x20,
-    Frame    = 0x40
+    Frame    = 0x40,
+    Hovered  = 0x80
 };
 
 using PDropdownMenuProperties = PEnumBitmask<PDropdownMenuProperty>;
@@ -37,4 +38,5 @@ struct PDropdownMenuStyleData : PGUIStyleData
     bool IsReadOnly = false;
     bool IsEnabled = true;
     bool IsOpen = false;
+    bool IsPointerOver = false;
 };

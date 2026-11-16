@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nine-slice track and fill; insets and dimensions are pixels. -->
+<ProgressBar>
+    <Horizontal minimum_length="50" thickness="24" fill_insets="Rect(3, 3, 3, 3)">
+        <Track image="ProgressBar/TrackHorizontal.png" borders="Rect(8, 11, 8, 11)"/>
+        <Fill image="ProgressBar/FillHorizontal.png" borders="Rect(6, 8, 6, 8)"/>
+    </Horizontal>
+    <Vertical minimum_length="50" thickness="24" fill_insets="Rect(3, 3, 3, 3)">
+        <Track image="ProgressBar/TrackVertical.png" borders="Rect(11, 8, 11, 8)"/>
+        <Fill image="ProgressBar/FillVertical.png" borders="Rect(8, 6, 8, 6)"/>
+    </Vertical>
+</ProgressBar>

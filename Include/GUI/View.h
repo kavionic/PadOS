@@ -150,7 +150,6 @@ public:
     void        AddChild(Ptr<PView> child);
     void        InsertChild(Ptr<PView> child, size_t index);
     void        RemoveChild(Ptr<PView> child);
-    Ptr<PView>   RemoveChild(ChildList_t::iterator iterator);
     bool        RemoveThis();
     
     Ptr<PView>   GetChildAt(const PPoint& pos);

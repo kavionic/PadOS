@@ -19,6 +19,7 @@
 #include <GUI/MouseCursor.h>
 #include <ApplicationServer/KeyboardProtocol.h>
 #include <ApplicationServer/FontProtocol.h>
+#include <ApplicationServer/GUIStyleProtocol.h>
 #include <GUI/BrushTypes.h>
 
 class PString;
@@ -157,6 +158,12 @@ namespace PAppserverProtocol
         CREATE_BRUSH_REPLY,
         UPDATE_BRUSH,
         SET_BRUSH_COLOR,
+        GET_GUI_STYLES,
+        GET_GUI_STYLE_CONFIGURATION,
+        SET_GUI_STYLE_CONFIGURATION,
+        GET_GUI_STYLES_REPLY,
+        GUI_STYLE_CONFIGURATION_REPLY,
+        GUI_STYLE_CHANGED,
     };
 }
 
@@ -167,11 +174,6 @@ struct AppserverMessage
     int32_t    m_Length;
     handler_id m_TargetHandler;
     int32_t    m_Code;
-};
-
-struct MsgRegisterApplicationReply
-{
-    handler_id m_ServerHandle;
 };
 
 struct MsgCreateViewReply
@@ -194,6 +196,8 @@ struct MsgCreateBrushReply
 };
 
 using ASRegisterApplication = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const PString& name)>;
+using ASRegisterApplicationReply = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION_REPLY,
+    void(handler_id serverHandle, const PString& style, const PString& variant)>;
 using ASUnregisterApplication = PRemoteSignal<PAppserverProtocol::UNREGISTER_APPLICATION, void(handler_id applicationHandle)>;
 using ASVirtualKeyboardEvent = PRemoteSignal<PAppserverProtocol::VIRTUAL_KEYBOARD_EVENT,
     void(const PKeyEvent& keyEvent, const PString& text)>;
@@ -389,6 +393,19 @@ using ASKeyboardConfigurationReply = PRemoteSignal<PAppserverProtocol::KEYBOARD_
         const PString& options
         )
 >;
+
+// Style catalog replies fit within the application message buffer.
+static constexpr size_t GUI_STYLE_PAGE_SIZE = 16;
+
+using ASGetGUIStyles = PRemoteSignal<PAppserverProtocol::GET_GUI_STYLES, void(port_id replyPort, uint32_t requestID, size_t firstIndex)>;
+using ASGetGUIStyleConfiguration = PRemoteSignal<PAppserverProtocol::GET_GUI_STYLE_CONFIGURATION, void(port_id replyPort, uint32_t requestID)>;
+using ASSetGUIStyleConfiguration = PRemoteSignal<PAppserverProtocol::SET_GUI_STYLE_CONFIGURATION,
+    void(port_id replyPort, uint32_t requestID, const PString& style, const PString& variant)>;
+using ASGetGUIStylesReply = PRemoteSignal<PAppserverProtocol::GET_GUI_STYLES_REPLY,
+    void(uint32_t requestID, PErrorCode error, size_t firstIndex, size_t totalCount, const std::vector<PGUIStyleInfo>& styles)>;
+using ASGUIStyleConfigurationReply = PRemoteSignal<PAppserverProtocol::GUI_STYLE_CONFIGURATION_REPLY,
+    void(uint32_t requestID, PErrorCode error, const PString& style, const PString& variant)>;
+using ASGUIStyleChanged = PRemoteSignal<PAppserverProtocol::GUI_STYLE_CHANGED, void(const PString& style, const PString& variant)>;
 
 using ASCreateFont = PRemoteSignal<PAppserverProtocol::CREATE_FONT,
     void(port_id replyPort, const PFontDescription& description)>;

@@ -314,7 +314,7 @@ PView::~PView()
        
     while(!m_ChildrenList.empty())
     {
-        RemoveChild(m_ChildrenList[m_ChildrenList.size()-1]);
+        RemoveChild(m_ChildrenList.GetLast());
     }
     --s_InstanceCount;
 }
@@ -937,16 +937,10 @@ void PView::InsertChild(Ptr<PView> child, size_t index)
 
 void PView::RemoveChild(Ptr<PView> child)
 {
+    if (child->GetParent() == this && child->GetLooper() != nullptr) {
+        child->GetApplication()->AdvanceGUIStyleNotificationCursors(child);
+    }
     UnlinkChild(child);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<PView> PView::RemoveChild(ChildList_t::iterator iterator)
-{
-    return UnlinkChild(iterator);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -995,7 +989,7 @@ Ptr<PView> PView::GetChildAt(const PPoint& pos)
 Ptr<PView> PView::GetChildAt(size_t index)
 {
     if (index < m_ChildrenList.size()) {
-        return m_ChildrenList[index];
+        return *std::next(m_ChildrenList.begin(), index);
     } else {
         return nullptr;
     }

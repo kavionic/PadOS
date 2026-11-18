@@ -137,7 +137,7 @@ TEST(ViewApplication, OwnAndAncestorLoopersTakePrecedenceOverTheCurrentApplicati
     RunGUITest([](PApplication& application)
     {
         Ptr<PApplication> otherApplication = ptr_new<PApplication>("other_view_application");
-        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBackgroundBrush(), otherApplication->GetStandardBrush(PStandardColorID::DefaultBackground));
+        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBackgroundBrush()->GetApplication(), otherApplication);
         otherApplication->SetGUIStyle(nullptr);
         EXPECT_EQ(otherApplication->GetGUIStyle()->GetBackgroundBrush(), otherApplication->GetStandardBrush(PStandardColorID::DefaultBackground));
         Ptr<PView> parent = ptr_new<PView>("parent");

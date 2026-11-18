@@ -13,6 +13,22 @@
 
 #include <cmath>
 
+class PXMLScrollContentView : public PScrollableView
+{
+public:
+    PXMLScrollContentView()
+    {
+        OnStyleChanged();
+    }
+
+    virtual void OnStyleChanged() override
+    {
+        PScrollableView::OnStyleChanged();
+        const PGUIStyle* style = GetStyle();
+        SetBackgroundBrush((style != nullptr) ? style->GetBackgroundBrush() : nullptr);
+    }
+};
+
 static constexpr float SCROLL_VIEW_WHEEL_SCROLL_STEP = 32.0f;
 
 
@@ -46,11 +62,7 @@ PScrollView::PScrollView(PViewFactoryContext& context, const pugi::xml_node& xml
                 contentView = PViewFactory::Get().CreateView(context, nullptr, childNode);
                 if (contentView != nullptr)
                 {
-                    Ptr<PScrollableView> scrollableView = ptr_new<PScrollableView>();
-                    const PGUIStyle* style = GetStyle();
-                    if (style != nullptr) {
-                        scrollableView->SetBackgroundBrush(style->GetBackgroundBrush());
-                    }
+                    Ptr<PScrollableView> scrollableView = ptr_new<PXMLScrollContentView>();
 
                     scrollableView->SetHAlignment(PAlignment::Stretch);
                     scrollableView->SetVAlignment(PAlignment::Stretch);

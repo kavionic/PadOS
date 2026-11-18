@@ -21,6 +21,7 @@
 #include <Threads/Looper.h>
 #include <Threads/EventTimer.h>
 #include <ApplicationServer/Protocol.h>
+#include <GUI/Style/GUIStyleInfo.h>
 
 class PBrush;
 class PGUIStyle;
@@ -38,15 +39,19 @@ public:
 
     static PApplication* GetCurrentApplication() { return dynamic_cast<PApplication*>(GetCurrentThread()); }
 
-    // Select the style before the first view is attached to this application.
+    // Install an application-local style while holding the application mutex.
+    // Use SetGUIStyleConfiguration() to change the server's selection for all applications.
     void SetGUIStyle(Ptr<const PGUIStyle> style);
     const PGUIStyle* GetGUIStyle() const { return ptr_raw_pointer_cast(m_GUIStyle); }
+    const PString& GetGUIStyleName() const { return m_GUIStyleName; }
+    const PString& GetGUIStyleVariant() const { return m_GUIStyleVariant; }
 
     virtual void Idle() override;
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     static PIRect    GetScreenIFrame();
     static PRect     GetScreenFrame() { return PRect(GetScreenIFrame()); }
     
+    // Register a GUI root and attach its subtree. AddHandler() alone only registers a message handler.
     bool AddView(Ptr<PView> view, PViewDockType dockType, size_t index = INVALID_INDEX);
     bool AddChildView(Ptr<PView> parent, Ptr<PView> view, size_t index = INVALID_INDEX);
     bool RemoveView(Ptr<PView> view);
@@ -82,6 +87,19 @@ public:
         const PString& variant = PString(),
         const PString& options = PString());
 
+    using GUIStylesCallback = std::function<void(PErrorCode error, size_t firstIndex, size_t totalCount, const std::vector<PGUIStyleInfo>& styles)>;
+    using GUIStyleConfigurationCallback = std::function<void(PErrorCode error, const PString& style, const PString& variant)>;
+
+    // Hold the application mutex. Replies run once on its looper; destruction discards pending callbacks.
+    // Synchronous failures throw and leave no pending callback; server errors are delivered through the callback.
+    // Empty callbacks and oversized configuration requests throw with PErrorCode::INVAL.
+    // Catalog requests return one page; continue at firstIndex + styles.size().
+    // A successful configuration reply confirms saving and broadcasting, not completion in every application.
+    // SignalGUIStyleChanged reports the result of applying the selection in this application.
+    void RequestGUIStyles(GUIStylesCallback callback, size_t firstIndex = 0);
+    void RequestGUIStyleConfiguration(GUIStyleConfigurationCallback callback);
+    void SetGUIStyleConfiguration(GUIStyleConfigurationCallback callback, const PString& style, const PString& variant);
+
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
@@ -112,6 +130,10 @@ public:
 
     // Modifier snapshot for the most recently dispatched keyboard or pointer event.
     uint32_t GetQualifiers() const { return m_KeyQualifiers; }
+
+    // Emitted on this application's looper after attempting a server-selected style.
+    // On failure the previous style remains installed; style and variant identify the failed selection.
+    Signal<void(PErrorCode error, const PString& style, const PString& variant)> SignalGUIStyleChanged;
 private:
     friend class PView;
  
@@ -139,6 +161,8 @@ private:
         PPointerCaptureID   CaptureID;
     };
     
+    void NotifyGUIStyleChanged(Ptr<PView> view);
+    void AdvanceGUIStyleNotificationCursors(const Ptr<PView>& view);
     void DetachView(Ptr<PView> view, bool detachChildren);
     void RemoveViewFromPointerState(Ptr<PView> view);
     
@@ -180,6 +204,11 @@ private:
                                      const PString& variant,
                                      const PString& options);
 
+    uint32_t AllocateGUIStyleRequestID();
+    void HandleGetGUIStylesReply(uint32_t requestID, PErrorCode error, size_t firstIndex, size_t totalCount, const std::vector<PGUIStyleInfo>& styles);
+    void HandleGUIStyleConfiguration(uint32_t requestID, PErrorCode error, const PString& style, const PString& variant);
+    void HandleGUIStyleChanged(const PString& style, const PString& variant);
+
     void      HandlePointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
     void      DispatchPendingPointerEvents();
     void      DispatchPointerEvent(handler_id viewHandle, const PPointerEvent& pointerEvent, PPointerCaptureID captureID);
@@ -196,9 +225,10 @@ private:
 
     static PApplication* s_DefaultApplication;
     Ptr<const PGUIStyle> m_GUIStyle;
+    PString m_GUIStyleName = DEFAULT_GUI_STYLE_NAME;
+    PString m_GUIStyleVariant = DEFAULT_GUI_STYLE_VARIANT;
     std::array<Ptr<PBrush>, std::to_underlying(PStandardColorID::Count)> m_StandardBrushes;
     std::map<PNamedColors, Ptr<PBrush>> m_NamedBrushes;
-    bool m_StyleSelectionClosed = false;
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
     PMouseCursorToken m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;
@@ -208,9 +238,12 @@ private:
     int32_t m_UsedSendBufferSize = 0;
     uint32_t m_KeyQualifiers = 0;
     uint32_t m_NextKeyboardRequestID = 0;
+    uint32_t m_NextGUIStyleRequestID = 0;
 
     std::map<uint32_t, KeyboardLayoutsCallback> m_KeyboardLayoutsCallbacks;
     std::map<uint32_t, KeyboardConfigurationCallback> m_KeyboardConfigurationCallbacks;
+    std::map<uint32_t, GUIStylesCallback> m_GUIStylesCallbacks;
+    std::map<uint32_t, GUIStyleConfigurationCallback> m_GUIStyleConfigurationCallbacks;
 
     std::map<PPointerID, PointerState> m_PointerStateMap;
     std::deque<PendingPointerEvent> m_PendingPointerEvents;
@@ -224,11 +257,16 @@ private:
     ASHandleKeyboardEvent    m_RSHandleKeyboardEvent;
     ASKeyboardLayoutsReply m_RSKeyboardLayoutsReply;
     ASKeyboardConfigurationReply m_RSKeyboardConfigurationReply;
+    ASGetGUIStylesReply m_RSGetGUIStylesReply;
+    ASGUIStyleConfigurationReply m_RSGUIStyleConfigurationReply;
+    ASGUIStyleChanged m_RSGUIStyleChanged;
     ASHandlePointerEvent     m_RSHandlePointerEvent;
     ASHandlePointerCaptureRequestReply m_RSHandlePointerCaptureRequestReply;
     ASHandlePointerCaptureLost m_RSHandlePointerCaptureLost;
     ASUpdatePointerRootView  m_RSUpdatePointerRootView;
 
+    std::vector<Ptr<PView>> m_RootViews;
+    std::vector<Ptr<PView>> m_GUIStyleNotificationStack;
     std::set<Ptr<PView>>     m_ViewsNeedingLayout;
 
 

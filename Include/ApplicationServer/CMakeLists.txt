@@ -11,6 +11,7 @@ target_sources(PadOS_ApplicationServer PRIVATE
 	DisplayDriver.h
 	DisplayDriverInvoker.h
 	FontProtocol.h
+	GUIStyleProtocol.h
 	Protocol.h
 	KeyboardManager.h
 	KeyboardProtocol.h

@@ -87,7 +87,7 @@ private:
     template<class Y> friend WeakPtr<Y> ptr_weak_cast(Y*);
     template<class Y> friend Y* ptr_raw_pointer_cast (const WeakPtr<Y>&) noexcept;
 
-    template <class Y> void Set(Y* obj);
+    template <bool SOURCE_IS_STRONG, class Y> void Set(Y* obj);
     T* Get() const noexcept;
   
     PtrTargetNotifier* m_Notifier;
@@ -103,7 +103,7 @@ template<class T> inline
 WeakPtr<T> ptr_weak_cast(T* obj)
 {
     WeakPtr<T> ptr;
-    ptr.Set(obj);
+    ptr.template Set<false>(obj);
     return ptr;
 }
 

@@ -276,28 +276,29 @@ void PHLayoutNode::ApplyInnerBorders(const PRect& borders, float spacing)
     }
     if (childList.size() == 1)
     {
-        PRect childBorders = childList[0]->GetBorders();
+        PRect childBorders = childList.front()->GetBorders();
         childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
-        childList[0]->SetBorders(childBorders);
+        childList.front()->SetBorders(childBorders);
     }
     else
     {
         // Apply to left-most child:
-        PRect childBorders = childList[0]->GetBorders();
+        PRect childBorders = childList.front()->GetBorders();
         childBorders.Resize(borders.left, borders.top, spacing, borders.bottom);
-        childList[0]->SetBorders(childBorders);
+        childList.front()->SetBorders(childBorders);
 		
 		// Apply to right-most child:
-        childBorders = childList[childList.size() - 1]->GetBorders();
+        childBorders = childList.back()->GetBorders();
 		childBorders.Resize(0.0f, borders.top, borders.right, borders.bottom);
-		childList[childList.size() - 1]->SetBorders(childBorders);
+		childList.back()->SetBorders(childBorders);
 		
         // Apply to center children:
-        for (size_t i = 1; i < childList.size() - 1; ++i)
+        const auto last = std::prev(childList.end());
+        for (auto child = std::next(childList.begin()); child != last; ++child)
         {
-			childBorders = childList[i]->GetBorders();
-			childBorders.Resize(0.0f, borders.top, spacing, borders.bottom);
-			childList[i]->SetBorders(childBorders);
+            childBorders = child->GetBorders();
+            childBorders.Resize(0.0f, borders.top, spacing, borders.bottom);
+            child->SetBorders(childBorders);
         }
     }
 }
@@ -323,16 +324,17 @@ void PHLayoutNode::Layout()
         float  vMinWidth = 0.0f;
         float  totalWheight = 0.0f;
     
-        for (size_t i = 0 ; i < childList.size() ; ++i)
+        size_t childIndex = 0;
+        for (auto iterator = childList.begin(); iterator != childList.end(); ++iterator, ++childIndex)
         {
-            Ptr<PView> child = childList[i];
+            Ptr<PView> child = *iterator;
   
             if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible())
             {
-                wheights[i] = 0.0f;
-                maxHeights[i] = 0.0f;
-                minWidths[i] = 0.0f;
-                maxWidths[i] = 0.0f;
+                wheights[childIndex] = 0.0f;
+                maxHeights[childIndex] = 0.0f;
+                minWidths[childIndex] = 0.0f;
+                maxWidths[childIndex] = 0.0f;
                 continue;
             }
 
@@ -343,14 +345,14 @@ void PHLayoutNode::Layout()
             const PPoint maxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
 
             
-            wheights[i]   = child->GetWheight();
+            wheights[childIndex]   = child->GetWheight();
 
-            maxHeights[i] = maxSize.y;
-            maxWidths[i]  = maxSize.x;
-            minWidths[i]  = minSize.x;
+            maxHeights[childIndex] = maxSize.y;
+            maxWidths[childIndex]  = maxSize.x;
+            minWidths[childIndex]  = minSize.x;
 
             vMinWidth += minSize.x;
-            totalWheight += wheights[i];
+            totalWheight += wheights[childIndex];
         }
     //    if ( vMinWidth > bounds.Width() + 1.0f ) {
     //      p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() Width={:.2f}, Required width={:.2f}", bounds.Width() + 1.0f, vMinWidth  );
@@ -359,33 +361,39 @@ void PHLayoutNode::Layout()
 
         float x = bounds.left + unusedWidth * 0.5f;
     
-        for (size_t i = 0 ; i < childList.size() ; ++i)
+        childIndex = 0;
+        for (auto child = childList.begin(); child != childList.end(); ++child, ++childIndex)
         {
-            PRect frame(0.0f, 0.0f, finalHeights[i], bounds.bottom);
-            if (childList[i]->GetVAlignment() != PAlignment::Stretch && frame.Height() > maxHeights[i]) {
-                frame.bottom = maxHeights[i];
+            PRect frame(0.0f, 0.0f, finalHeights[childIndex], bounds.bottom);
+            if (child->GetVAlignment() != PAlignment::Stretch && frame.Height() > maxHeights[childIndex]) {
+                frame.bottom = maxHeights[childIndex];
             }
             float y = 0.0f;
-            switch(childList[i]->GetVAlignment())
+            switch(child->GetVAlignment())
             {
                 case PAlignment::Top:    y = bounds.top; break;
                 case PAlignment::Bottom:  y = bounds.bottom - frame.Height(); break;
-                default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() node '{}' has invalid v-alignment {}", m_View->GetName(), int(childList[i]->GetVAlignment()) );
+                default:
+                    p_system_log<PLogSeverity::ERROR>(
+                        LogCategoryGUITK,
+                        "HLayoutNode::Layout() node '{}' has invalid v-alignment {}",
+                        m_View->GetName(),
+                        int(child->GetVAlignment()));
                 [[fallthrough]];
                 case PAlignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
                 case PAlignment::Stretch: x = 0.0f; break;
             }
             
             frame += PPoint(x, y);
-            PRect borders = childList[i]->GetBorders();
+            PRect borders = child->GetBorders();
             
             float width = frame.Width();
             frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
             
             x += width + unusedWidth;
             frame.Floor();
-//            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "    {}: {:.2f}->{:.2f}", i, frame.left, frame.right);
-            childList[i]->SetFrame(frame);
+//            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "    {}: {:.2f}->{:.2f}", childIndex, frame.left, frame.right);
+            child->SetFrame(frame);
         }
     }    
 }
@@ -454,16 +462,17 @@ void PVLayoutNode::Layout()
         float  vMinHeight = 0.0f;
         float  vMaxHeight = 0.0f;
 
-        for (size_t i = 0 ; i < childList.size() ; ++i)
+        size_t childIndex = 0;
+        for (auto iterator = childList.begin(); iterator != childList.end(); ++iterator, ++childIndex)
         {
-            Ptr<PView> child = childList[i];
+            Ptr<PView> child = *iterator;
             
             if (child->HasFlags(PViewFlag::IgnoreWhenHidden) && !child->IsVisible())
             {
-                wheights[i] = 0.0f;
-                maxWidths[i] = 0.0f;
-                minHeights[i] = 0.0f;
-                maxHeights[i] = 0.0f;
+                wheights[childIndex] = 0.0f;
+                maxWidths[childIndex] = 0.0f;
+                minHeights[childIndex] = 0.0f;
+                maxHeights[childIndex] = 0.0f;
                 continue;
             }
 
@@ -474,14 +483,14 @@ void PVLayoutNode::Layout()
             const PPoint maxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
 
 
-            wheights[i]   = child->GetWheight();
-            maxWidths[i]  = maxSize.x;
-            minHeights[i] = minSize.y;
-            maxHeights[i] = maxSize.y;
+            wheights[childIndex]   = child->GetWheight();
+            maxWidths[childIndex]  = maxSize.x;
+            minHeights[childIndex] = minSize.y;
+            maxHeights[childIndex] = maxSize.y;
 
             vMinHeight += minSize.y;
             vMaxHeight += maxSize.y;
-            totalWheight += wheights[i];
+            totalWheight += wheights[childIndex];
         }
     //    if ( vMinHeight > bounds.Height() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Height() + 1.0f, vMinHeight  );
@@ -489,18 +498,24 @@ void PVLayoutNode::Layout()
         const float vUnusedHeight = SpaceOut(childList.size(), bounds.Height(),  vMinHeight, totalWheight, minHeights, maxHeights, wheights, finalHeights) / float(childList.size());
 
         float y = bounds.top + vUnusedHeight * 0.5f;
-        for (size_t i = 0 ; i < childList.size() ; ++i)
+        childIndex = 0;
+        for (auto child = childList.begin(); child != childList.end(); ++child, ++childIndex)
         {
-            PRect frame(0.0f, 0.0f, bounds.right, finalHeights[i]);
-            if (childList[i]->GetHAlignment() != PAlignment::Stretch && frame.Width() > maxWidths[i]) {
-                frame.right = maxWidths[i];
+            PRect frame(0.0f, 0.0f, bounds.right, finalHeights[childIndex]);
+            if (child->GetHAlignment() != PAlignment::Stretch && frame.Width() > maxWidths[childIndex]) {
+                frame.right = maxWidths[childIndex];
             }
             float x;
-            switch(childList[i]->GetHAlignment())
+            switch(child->GetHAlignment())
             {
                 case PAlignment::Left:   x = bounds.left; break;
                 case PAlignment::Right:  x = bounds.right - frame.Width(); break;
-                default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "VLayoutNode::Layout() node '{}' has invalid h-alignment {}", m_View->GetName(), int(childList[i]->GetHAlignment()) );
+                default:
+                    p_system_log<PLogSeverity::ERROR>(
+                        LogCategoryGUITK,
+                        "VLayoutNode::Layout() node '{}' has invalid h-alignment {}",
+                        m_View->GetName(),
+                        int(child->GetHAlignment()));
                 [[fallthrough]];
                 case PAlignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
                 case PAlignment::Stretch: x = 0.0f; break;
@@ -508,11 +523,11 @@ void PVLayoutNode::Layout()
             frame += PPoint(x, y);
             
             float height = frame.Height();
-            PRect borders = childList[i]->GetBorders();
+            PRect borders = child->GetBorders();
             frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
             y += height + vUnusedHeight;
             frame.Floor();
-            childList[i]->SetFrame(frame);
+            child->SetFrame(frame);
         }
     }        
 }
@@ -532,28 +547,29 @@ void PVLayoutNode::ApplyInnerBorders(const PRect& borders, float spacing)
 	}
 	if (childList.size() == 1)
 	{
-		PRect childBorders = childList[0]->GetBorders();
+		PRect childBorders = childList.front()->GetBorders();
 		childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
-		childList[0]->SetBorders(childBorders);
+		childList.front()->SetBorders(childBorders);
 	}
     else
 	{
 		// Apply to top child:
-		PRect childBorders = childList[0]->GetBorders();
+		PRect childBorders = childList.front()->GetBorders();
 		childBorders.Resize(borders.left, borders.top, borders.right, spacing);
-		childList[0]->SetBorders(childBorders);
+		childList.front()->SetBorders(childBorders);
 
 		// Apply to bottom child:
-		childBorders = childList[childList.size() - 1]->GetBorders();
+		childBorders = childList.back()->GetBorders();
 		childBorders.Resize(borders.left, 0.0f, borders.right, borders.bottom);
-		childList[childList.size() - 1]->SetBorders(childBorders);
+		childList.back()->SetBorders(childBorders);
 
 		// Apply to center children:
-		for (size_t i = 1; i < childList.size() - 1; ++i)
-		{
-			childBorders = childList[i]->GetBorders();
-			childBorders.Resize(borders.left, 0.0f, borders.right, spacing);
-			childList[i]->SetBorders(childBorders);
-		}
+        const auto last = std::prev(childList.end());
+        for (auto child = std::next(childList.begin()); child != last; ++child)
+        {
+            childBorders = child->GetBorders();
+            childBorders.Resize(borders.left, 0.0f, borders.right, spacing);
+            child->SetBorders(childBorders);
+        }
 	}
 }

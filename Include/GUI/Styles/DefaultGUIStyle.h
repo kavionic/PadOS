@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <vector>
+#include <Utils/String.h>
 #include <GUI/Color.h>
 #include <GUI/GUIDefines.h>
 #include <GUI/Style/GUIStyle.h>
@@ -17,6 +19,10 @@ class PDefaultGUIStyle : public PGUIStyle
 {
 public:
     explicit PDefaultGUIStyle(PApplication* application = nullptr);
+
+    static PString GetName();
+    static std::vector<PString> GetVariants();
+    static Ptr<const PGUIStyle> CreateStyle(PApplication* application, const PString& variant);
 
     Ptr<const PBrush> GetBackgroundBrush() const override;
 

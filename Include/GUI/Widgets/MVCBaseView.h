@@ -58,6 +58,7 @@ public:
     PMVCBaseView(const PString& name = PString::zero, PMVCBaseViewFlags flags = PMVCBaseViewFlags::zero);
     PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
+    virtual void OnStyleChanged() override;
     virtual void OnLayoutChanged() override;
 
     virtual void Clear() = 0;

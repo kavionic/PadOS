@@ -23,6 +23,7 @@ public:
         , m_Test(std::move(test))
     {
         SetDeleteOnExit(false);
+        SetGUIStyle(nullptr);
     }
 
     virtual void* Run() override

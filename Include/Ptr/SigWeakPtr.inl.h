@@ -33,7 +33,7 @@ template <class T>
 template <class Y> inline
 WeakPtr<T>& WeakPtr<T>::operator=(const SigWeakPtr<Y>& ptr)
 {
-    Set(ptr.m_Object);
+    Set<false>(ptr.m_Object);
     return *this;
 }
 

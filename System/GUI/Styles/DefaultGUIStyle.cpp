@@ -11,6 +11,9 @@
 
 #include <App/Application.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Style/GUIStyleFactory.h>
+#include <GUI/Style/GUIStyleInfo.h>
+#include <Utils/FactoryAutoRegistrator.h>
 #include <GUI/Style/ButtonStyleData.h>
 #include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
@@ -24,6 +27,11 @@
 #include <GUI/View.h>
 #include <GUI/Widgets/TextBox.h>
 #include <System/ExceptionHandling.h>
+
+static PFactoryAutoRegistrator<PDefaultGUIStyle> g_DefaultGUIStyleRegistration([]
+{
+    PGUIStyleFactory::Get().RegisterStyle(DEFAULT_GUI_STYLE_NAME, &PDefaultGUIStyle::GetVariants, &PDefaultGUIStyle::CreateStyle);
+});
 
 struct PDefaultGUIStyle::SliderStyleData : PtrTarget
 {
@@ -107,6 +115,36 @@ struct PDefaultGUIStyle::TabViewGeometry
 PDefaultGUIStyle::PDefaultGUIStyle(PApplication* application)
     : m_Application(ptr_weak_cast((application != nullptr) ? application : PApplication::GetCurrentApplication()))
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PString PDefaultGUIStyle::GetName()
+{
+    return DEFAULT_GUI_STYLE_NAME;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<PString> PDefaultGUIStyle::GetVariants()
+{
+    return {DEFAULT_GUI_STYLE_VARIANT};
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<const PGUIStyle> PDefaultGUIStyle::CreateStyle(PApplication* application, const PString& variant)
+{
+    if (variant != DEFAULT_GUI_STYLE_VARIANT) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return ptr_new<PDefaultGUIStyle>(application);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

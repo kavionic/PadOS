@@ -24,6 +24,10 @@
 #include <ApplicationServer/ServerView.h>
 #include <DeviceControl/InputDevice.h>
 #include <Storage/Directory.h>
+#include <Storage/Path.h>
+#include <Storage/StandardPaths.h>
+#include <GUI/Style/GUIStyleFactory.h>
+#include <pugixml.hpp>
 #include <Utils/Utils.h>
 #include <GUI/View.h>
 
@@ -369,6 +373,10 @@ namespace
         }
     );
 
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
     template<size_t PixelCount>
     PMouseCursorBitmap MakeStandardMouseCursorBitmap(const std::array<PMouseCursorPixel, PixelCount>& raster, PIPoint hotSpot)
     {
@@ -381,6 +389,10 @@ namespace
             .Raster = std::span<const PMouseCursorPixel>(raster.data(), raster.size())
         };
     }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
 
     bool GetStandardMouseCursorBitmap(PMouseCursorID cursorID, PMouseCursorBitmap& outBitmap, bool& outVisible)
     {
@@ -436,6 +448,10 @@ namespace
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 port_id p_get_appserver_port()
 {
     while(g_AppserverPort == INVALID_HANDLE) {
@@ -489,6 +505,11 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     RegisterRemoteSignal(&m_RSGetKeyboardLayouts, &ApplicationServer::SlotGetKeyboardLayouts);
     RegisterRemoteSignal(&m_RSGetKeyboardConfiguration, &ApplicationServer::SlotGetKeyboardConfiguration);
     RegisterRemoteSignal(&m_RSSetKeyboardConfiguration, &ApplicationServer::SlotSetKeyboardConfiguration);
+    RegisterRemoteSignal(&m_RSGetGUIStyles, &ApplicationServer::SlotGetGUIStyles);
+    RegisterRemoteSignal(&m_RSGetGUIStyleConfiguration, &ApplicationServer::SlotGetGUIStyleConfiguration);
+    RegisterRemoteSignal(&m_RSSetGUIStyleConfiguration, &ApplicationServer::SlotSetGUIStyleConfiguration);
+
+    LoadGUIStyleConfiguration();
 
     m_KeyboardManager.SignalKeyEvent.Connect(this, &ApplicationServer::SlotVirtualKeyboardEvent);
     try {
@@ -827,12 +848,16 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
     
     AddHandler(app);
 
-    MsgRegisterApplicationReply reply;
-    reply.m_ServerHandle = app->GetHandle();
-    
-    const PErrorCode result = message_port_send_timeout_ns(replyPort, -1, PAppserverProtocol::REGISTER_APPLICATION_REPLY, &reply, sizeof(reply), 0);
-    if (result != PErrorCode::Success) {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::SlotRegisterApplication() failed to send message: {}", strerror(std::to_underlying(result)));
+    if (!p_post_to_remotesignal<ASRegisterApplicationReply>(
+        replyPort,
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        app->GetHandle(),
+        m_GUIStyleName,
+        m_GUIStyleVariant))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "Unable to send application registration reply: {}", strerror(get_last_error()));
+        RemoveHandler(app);
     }
 }
 
@@ -899,10 +924,18 @@ void ApplicationServer::SlotGetKeyboardLayouts(port_id replyPort, uint32_t reque
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ApplicationServer::SlotGetKeyboardConfiguration(port_id replyPort, uint32_t requestID)
 {
     SendKeyboardConfiguration(replyPort, requestID, m_KeyboardManager.IsConfigured() ? PErrorCode::Success : PErrorCode::NOENT);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void ApplicationServer::SlotSetKeyboardConfiguration(
     port_id replyPort,
@@ -919,6 +952,10 @@ void ApplicationServer::SlotSetKeyboardConfiguration(
     SendKeyboardConfiguration(replyPort, requestID, error);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ApplicationServer::SendKeyboardConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error)
 {
     if (!p_post_to_remotesignal<ASKeyboardConfigurationReply>(
@@ -932,6 +969,170 @@ void ApplicationServer::SendKeyboardConfiguration(port_id replyPort, uint32_t re
         m_KeyboardManager.GetOptions()))
     {
         p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Could not send keyboard configuration reply.");
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotGetGUIStyles(port_id replyPort, uint32_t requestID, size_t firstIndex)
+{
+    PErrorCode error = PErrorCode::Success;
+    size_t totalCount = 0;
+    std::vector<PGUIStyleInfo> page;
+    try
+    {
+        const std::vector<PGUIStyleInfo> styles = PGUIStyleFactory::Get().GetStyles();
+        totalCount = styles.size();
+        if (firstIndex > styles.size()) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        const size_t end = std::min(styles.size(), firstIndex + GUI_STYLE_PAGE_SIZE);
+        for (size_t index = firstIndex; index < end; ++index)
+        {
+            page.push_back(styles[index]);
+            if (ASGetGUIStylesReply::Sender::Serializer::GetSize(requestID, error, firstIndex, totalCount, page) > PAPPSERVER_MSG_BUFFER_SIZE)
+            {
+                page.pop_back();
+                if (page.empty()) {
+                    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+                }
+                break;
+            }
+        }
+    }
+    PERROR_CATCH([&error](PErrorCode result) { error = result; });
+    if (!p_post_to_remotesignal<ASGetGUIStylesReply>(replyPort, INVALID_HANDLE, TimeValNanos::zero, requestID, error, firstIndex, totalCount, page)) {
+        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Unable to send GUI style catalog reply.");
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotGetGUIStyleConfiguration(port_id replyPort, uint32_t requestID)
+{
+    SendGUIStyleConfiguration(replyPort, requestID, PErrorCode::Success);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SlotSetGUIStyleConfiguration(port_id replyPort, uint32_t requestID, const PString& style, const PString& variant)
+{
+    PErrorCode error = PErrorCode::Success;
+    try
+    {
+        if (!PGUIStyleFactory::Get().HasVariant(style, variant)) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        PString selectedStyle = style;
+        PString selectedVariant = variant;
+        SaveGUIStyleConfiguration(selectedStyle, selectedVariant);
+        m_GUIStyleName.swap(selectedStyle);
+        m_GUIStyleVariant.swap(selectedVariant);
+        BroadcastGUIStyleConfiguration();
+    }
+    PERROR_CATCH([&error](PErrorCode result) { error = result; });
+    SendGUIStyleConfiguration(replyPort, requestID, error);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SendGUIStyleConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error)
+{
+    if (!p_post_to_remotesignal<ASGUIStyleConfigurationReply>(
+        replyPort,
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        requestID,
+        error,
+        m_GUIStyleName,
+        m_GUIStyleVariant)) {
+        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Unable to send GUI style configuration reply.");
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::LoadGUIStyleConfiguration()
+{
+    try
+    {
+        const PString directory = PStandardPaths::GetPath(PStandardPath::Settings);
+        pugi::xml_document document;
+        if (!directory.empty() && document.load_file((directory + "/GUIStyle.xml").c_str()))
+        {
+            const pugi::xml_node configuration = document.child("GUIStyle");
+            PString style = configuration.attribute("style").as_string(DEFAULT_GUI_STYLE_NAME);
+            PString variant = configuration.attribute("variant").as_string(DEFAULT_GUI_STYLE_VARIANT);
+            if (!PGUIStyleFactory::Get().HasVariant(style, variant)) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            m_GUIStyleName.swap(style);
+            m_GUIStyleVariant.swap(variant);
+        }
+    }
+    PERROR_CATCH([](PErrorCode error)
+    {
+        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Unable to load saved GUI style configuration: {}", strerror(std::to_underlying(error)));
+    });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SaveGUIStyleConfiguration(const PString& style, const PString& variant)
+{
+    const PString directory = PStandardPaths::GetPath(PStandardPath::Settings);
+    if (directory.empty()) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    const PString filename = directory + "/GUIStyle.xml";
+    const PString temporary = filename + ".tmp";
+    PPath(filename).CreateFolders(false);
+
+    pugi::xml_document document;
+    pugi::xml_node configuration = document.append_child("GUIStyle");
+    configuration.append_attribute("style") = style.c_str();
+    configuration.append_attribute("variant") = variant.c_str();
+    PScopeFail cleanup([&temporary]() { unlink(temporary.c_str()); });
+    if (!document.save_file(temporary.c_str())) {
+        PERROR_THROW_CODE(PErrorCode::IO);
+    }
+    if (rename(temporary.c_str(), filename.c_str()) != 0) {
+        PERROR_THROW_CODE(PErrorCode(errno));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::BroadcastGUIStyleConfiguration()
+{
+    for (const auto& [handle, handler] : GetHandlers())
+    {
+        const Ptr<ServerApplication> application = ptr_dynamic_cast<ServerApplication>(handler);
+        if (application != nullptr)
+        {
+            if (!p_post_to_remotesignal<ASGUIStyleChanged>(
+                application->GetClientPort(),
+                INVALID_HANDLE,
+                TimeValNanos::zero,
+                m_GUIStyleName,
+                m_GUIStyleVariant)) {
+                p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "Unable to send GUI style selection to application {}.", handle);
+            }
+        }
     }
 }
 

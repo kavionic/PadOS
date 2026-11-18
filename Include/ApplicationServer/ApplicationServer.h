@@ -20,6 +20,7 @@
 #include "ApplicationServer/KeyboardManager.h"
 #include "Math/Rect.h"
 #include "GUI/GUIEvent.h"
+#include "GUI/Style/GUIStyleInfo.h"
 #include "Threads/EventTimer.h"
 #include "ServerBitmap.h"
 
@@ -172,6 +173,14 @@ private:
 
     void SendKeyboardConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error);
 
+    void SlotGetGUIStyles(port_id replyPort, uint32_t requestID, size_t firstIndex);
+    void SlotGetGUIStyleConfiguration(port_id replyPort, uint32_t requestID);
+    void SlotSetGUIStyleConfiguration(port_id replyPort, uint32_t requestID, const PString& style, const PString& variant);
+    void SendGUIStyleConfiguration(port_id replyPort, uint32_t requestID, PErrorCode error);
+    void LoadGUIStyleConfiguration();
+    void SaveGUIStyleConfiguration(const PString& style, const PString& variant);
+    void BroadcastGUIStyleConfiguration();
+
     static Ptr<PDisplayDriver>   s_DisplayDriver;
     static Ptr<PSrvBitmap>       s_ScreenBitmap;
 
@@ -185,6 +194,12 @@ private:
     ASGetKeyboardLayouts        m_RSGetKeyboardLayouts;
     ASGetKeyboardConfiguration  m_RSGetKeyboardConfiguration;
     ASSetKeyboardConfiguration  m_RSSetKeyboardConfiguration;
+    ASGetGUIStyles m_RSGetGUIStyles;
+    ASGetGUIStyleConfiguration m_RSGetGUIStyleConfiguration;
+    ASSetGUIStyleConfiguration m_RSSetGUIStyleConfiguration;
+
+    PString m_GUIStyleName = DEFAULT_GUI_STYLE_NAME;
+    PString m_GUIStyleVariant = DEFAULT_GUI_STYLE_VARIANT;
     
     PKeyboardManager    m_KeyboardManager;
     Ptr<PFontManager>   m_FontManager;

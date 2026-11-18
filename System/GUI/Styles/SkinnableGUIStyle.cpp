@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
 #include <string_view>
 #include <App/Application.h>
@@ -18,13 +19,22 @@
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Style/SliderStyleLayout.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
+#include <GUI/Style/GUIStyleFactory.h>
+#include <Utils/FactoryAutoRegistrator.h>
 #include <GUI/View.h>
 #include <GUI/Widgets/TextBox.h>
 #include <GUI/ViewFactory.h>
 #include <Math/Misc.h>
+#include <Storage/Directory.h>
 #include <Storage/Path.h>
+#include <Storage/StandardPaths.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/XMLObjectParser.h>
+
+static PFactoryAutoRegistrator<PSkinnableGUIStyle> g_SkinnableGUIStyleRegistration([]
+{
+    PGUIStyleFactory::Get().RegisterStyle(PSkinnableGUIStyle::GetName(), &PSkinnableGUIStyle::GetVariants, &PSkinnableGUIStyle::CreateStyle);
+});
 
 struct PSkinnableGUIStyle::SkinnedSliderStyleData : PtrTarget
 {
@@ -397,6 +407,68 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
         application)
 {
     m_BackgroundBrush = LoadBackgroundBrush(directory, application);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PString PSkinnableGUIStyle::GetName()
+{
+    return "Skinned";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<PString> PSkinnableGUIStyle::GetVariants()
+{
+    PDirectory directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/{}", GetName())));
+    if (!directory.IsValid())
+    {
+        if (errno != ENOENT) {
+            PERROR_THROW_CODE(PErrorCode(errno));
+        }
+        return {};
+    }
+    std::vector<PString> variants;
+    PString name;
+    for (;;)
+    {
+        errno = 0;
+        if (!directory.GetNextEntry(name))
+        {
+            if (errno != 0) {
+                PERROR_THROW_CODE(PErrorCode(errno));
+            }
+            break;
+        }
+        if (name != "." && name != "..")
+        {
+            const PString stylePath = name + "/Style.xml";
+            struct stat fileStat;
+            if (fstatat(directory.GetFileDescriptor(), stylePath.c_str(), &fileStat, 0) == 0 && S_ISREG(fileStat.st_mode)) {
+                variants.push_back(name);
+            }
+        }
+    }
+    std::sort(variants.begin(), variants.end());
+    return variants;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<const PGUIStyle> PSkinnableGUIStyle::CreateStyle(PApplication* application, const PString& variant)
+{
+    const std::vector<PString> variants = GetVariants();
+    if (std::find(variants.begin(), variants.end(), variant) == variants.end()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/{}/{}", GetName(), variant)));
+    return ptr_new<PSkinnableGUIStyle>(directory, application);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

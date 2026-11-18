@@ -43,6 +43,17 @@ PMVCBaseView::PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& x
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PMVCBaseView::OnStyleChanged()
+{
+    PControl::OnStyleChanged();
+    const PGUIStyle* style = GetStyle();
+    m_ContentView->SetBackgroundBrush((style != nullptr) ? style->GetBackgroundBrush() : nullptr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PMVCBaseView::OnLayoutChanged()
 {
     PControl::OnLayoutChanged();

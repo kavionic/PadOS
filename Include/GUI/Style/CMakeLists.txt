@@ -13,6 +13,8 @@ target_sources(PadOS_GUI PRIVATE
 	ProgressBarStyleData.h
 	GUIStyle.h
 	GUIStyleData.h
+	GUIStyleFactory.h
+	GUIStyleInfo.h
 	ScrollBarStyleData.h
 	SliderStyleData.h
 	SliderStyleLayout.h

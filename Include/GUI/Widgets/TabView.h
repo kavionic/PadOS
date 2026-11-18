@@ -20,6 +20,7 @@ class PTabView : public PStyledView
 public:
     PTabView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
+    virtual ~PTabView() override;
 
     int         AppendTab( const PString& title, Ptr<PView> view = nullptr );
     int         InsertTab(size_t index, const PString& title, Ptr<PView> view = nullptr );
@@ -40,8 +41,8 @@ public:
 
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void    OnStyleChanged() override;
+    virtual void    OnLayoutChanged() override;
     virtual void    Layout(const PPoint& delta);
-    virtual void    OnFrameSized(const PPoint& delta) override;
     virtual void    OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;

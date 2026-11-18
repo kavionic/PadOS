@@ -7,5 +7,6 @@
 
 target_sources(PadOS_GUI PRIVATE
 	ButtonStyleData.cpp
+	GUIStyleFactory.cpp
 	SliderStyleLayout.cpp
 )

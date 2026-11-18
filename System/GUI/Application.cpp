@@ -14,6 +14,7 @@
 
 #include <App/Application.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Style/GUIStyleFactory.h>
 #include <GUI/View.h>
 #include <GUI/Bitmap.h>
 #include <ApplicationServer/ApplicationServer.h>
@@ -57,35 +58,56 @@ PApplication::PApplication(const PString& name) : PLooper(name, 1000, PAPPSERVER
     RegisterRemoteSignal(&m_RSHandleKeyboardEvent, &PApplication::HandleKeyboardEvent);
     RegisterRemoteSignal(&m_RSKeyboardLayoutsReply, &PApplication::HandleKeyboardLayouts);
     RegisterRemoteSignal(&m_RSKeyboardConfigurationReply, &PApplication::HandleKeyboardConfiguration);
+    RegisterRemoteSignal(&m_RSGetGUIStylesReply, &PApplication::HandleGetGUIStylesReply);
+    RegisterRemoteSignal(&m_RSGUIStyleConfigurationReply, &PApplication::HandleGUIStyleConfiguration);
+    RegisterRemoteSignal(&m_RSGUIStyleChanged, &PApplication::HandleGUIStyleChanged);
     RegisterRemoteSignal(&m_RSHandlePointerEvent, &PApplication::HandlePointerEvent);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureRequestReply, &PApplication::HandlePointerCaptureRequestReply);
     RegisterRemoteSignal(&m_RSHandlePointerCaptureLost, &PApplication::HandlePointerCaptureLost);
     RegisterRemoteSignal(&m_RSUpdatePointerRootView, &PApplication::HandlePointerRootViewUpdate);
 
-    p_post_to_remotesignal<ASRegisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
-
-    for(;;)
+    PString initialStyle;
+    PString initialVariant;
+    ASRegisterApplicationReply::Receiver registrationReply;
+    registrationReply.Connect(this, [this, &initialStyle, &initialVariant](handler_id serverHandle, const PString& style, const PString& variant)
     {
-        MsgRegisterApplicationReply reply;
-        int32_t                     code;
-        if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
+        m_ServerHandle = serverHandle;
+        initialStyle = style;
+        initialVariant = variant;
+    });
+
+    if (!p_post_to_remotesignal<ASRegisterApplication>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::infinit,
+        m_ReplyPort.GetHandle(),
+        GetPortID(),
+        GetName())) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+
+    for (;;)
+    {
+        int32_t code;
+        const ssize_t length = m_ReplyPort.ReceiveMessage(nullptr, &code, m_SendBuffer, sizeof(m_SendBuffer));
+        if (length >= 0)
         {
-            if (code == PAppserverProtocol::REGISTER_APPLICATION_REPLY)
+            if (code == ASRegisterApplicationReply::GetID())
             {
-                m_ServerHandle = reply.m_ServerHandle;
-                break;
+                registrationReply.Dispatch(m_SendBuffer, size_t(length));
+                if (m_ServerHandle != INVALID_HANDLE) {
+                    break;
+                }
             }
-            else
-            {
-                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Application() received invalid reply: {}", code);
-            }
+            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Invalid application registration reply: {}", code);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
         else if (get_last_error() != EINTR)
         {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Application() receive failed: {}", strerror(get_last_error()));
-            break;
+            PERROR_THROW_CODE(PErrorCode(get_last_error()));
         }
     }
+    HandleGUIStyleChanged(initialStyle, initialVariant);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,14 +149,33 @@ PApplication::~PApplication()
 void PApplication::SetGUIStyle(Ptr<const PGUIStyle> style)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
-    if (m_StyleSelectionClosed) {
-        PERROR_THROW_CODE(PErrorCode::BUSY);
-    }
     if (style == nullptr) {
         style = ptr_new<PDefaultGUIStyle>(this);
     }
-    m_GUIStyle = std::move(style);
+    if (m_GUIStyle != style)
+    {
+        // Snapshot weak references so callbacks can modify the root view list or destroy views during notification.
+        const std::vector<WeakPtr<PView>> rootViews(m_RootViews.begin(), m_RootViews.end());
+
+        const Ptr<const PGUIStyle> previousStyle = std::move(m_GUIStyle);
+        m_GUIStyle = std::move(style);
+        m_GUIStyleName.clear();
+        m_GUIStyleVariant.clear();
+
+        for (const WeakPtr<PView>& root : rootViews)
+        {
+            const Ptr<PView> view = root.Lock();
+            if (view != nullptr) {
+                NotifyGUIStyleChanged(view);
+            }
+        }
+        InvalidatePointerPaths();
+    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PApplication::Idle()
 {
@@ -179,7 +220,8 @@ bool PApplication::AddView(Ptr<PView> view, PViewDockType dockType, size_t index
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'");
         return false;
     }
-    m_StyleSelectionClosed = true;
+    m_RootViews.push_back(view);
+    PScopeFail removeRootOnFailure([this, &view]() { std::erase(m_RootViews, view); });
     view->HandlePreAttachToScreen(this);
 
     Ptr<PView>   parent       = view->GetParent();
@@ -222,6 +264,8 @@ bool PApplication::RemoveView(Ptr<PView> view)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
+    AdvanceGUIStyleNotificationCursors(view);
+    std::erase(m_RootViews, view);
     const PGUIStyle* previousStyle = view->GetStyle();
     InvalidatePointerPaths();
 
@@ -325,6 +369,10 @@ bool PApplication::RequestKeyboardLayouts(KeyboardLayoutsCallback callback, uint
     return true;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool PApplication::RequestKeyboardConfiguration(KeyboardConfigurationCallback callback)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
@@ -347,6 +395,10 @@ bool PApplication::RequestKeyboardConfiguration(KeyboardConfigurationCallback ca
     rollback.release();
     return true;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool PApplication::SetKeyboardConfiguration(
     KeyboardConfigurationCallback callback,
@@ -382,6 +434,71 @@ bool PApplication::SetKeyboardConfiguration(
     rollback.release();
     return true;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::RequestGUIStyles(GUIStylesCallback callback, size_t firstIndex)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (!callback) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const uint32_t requestID = AllocateGUIStyleRequestID();
+    m_GUIStylesCallbacks.emplace(requestID, std::move(callback));
+    PScopeFail rollback([this, requestID]() { m_GUIStylesCallbacks.erase(requestID); });
+    if (!p_post_to_remotesignal<ASGetGUIStyles>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::zero, GetPortID(), requestID, firstIndex)) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::RequestGUIStyleConfiguration(GUIStyleConfigurationCallback callback)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (!callback) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const uint32_t requestID = AllocateGUIStyleRequestID();
+    m_GUIStyleConfigurationCallbacks.emplace(requestID, std::move(callback));
+    PScopeFail rollback([this, requestID]() { m_GUIStyleConfigurationCallbacks.erase(requestID); });
+    if (!p_post_to_remotesignal<ASGetGUIStyleConfiguration>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::zero, GetPortID(), requestID)) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::SetGUIStyleConfiguration(GUIStyleConfigurationCallback callback, const PString& style, const PString& variant)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (!callback || ASSetGUIStyleConfiguration::Sender::Serializer::GetSize(GetPortID(), uint32_t(0), style, variant) > PAPPSERVER_MSG_BUFFER_SIZE) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    const uint32_t requestID = AllocateGUIStyleRequestID();
+    m_GUIStyleConfigurationCallbacks.emplace(requestID, std::move(callback));
+    PScopeFail rollback([this, requestID]() { m_GUIStyleConfigurationCallbacks.erase(requestID); });
+    if (!p_post_to_remotesignal<ASSetGUIStyleConfiguration>(
+        p_get_appserver_port(),
+        INVALID_HANDLE,
+        TimeValNanos::zero,
+        GetPortID(),
+        requestID,
+        style,
+        variant)) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool PApplication::CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
 {
@@ -451,6 +568,10 @@ Ptr<const PBrush> PApplication::GetStandardBrush(PStandardColorID color)
     return brush;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<const PBrush> PApplication::GetStandardBrush(PNamedColors color)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
@@ -460,6 +581,10 @@ Ptr<const PBrush> PApplication::GetStandardBrush(PNamedColors color)
     }
     return brush;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 handle_id PApplication::CreateBrush(const PBrushDescription& description, handle_id bitmapHandle)
 {
@@ -475,11 +600,19 @@ handle_id PApplication::CreateBrush(const PBrushDescription& description, handle
     return reply.BrushHandle;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PApplication::DeleteBrush(handle_id brushHandle)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
     Post<ASDeleteBrush>(brushHandle);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PApplication::UpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle)
 {
@@ -487,11 +620,19 @@ void PApplication::UpdateBrush(handle_id brushHandle, const PBrushDescription& d
     Post<ASUpdateBrush>(brushHandle, description, bitmapHandle);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PApplication::SetBrushColor(handle_id brushHandle, PColor color)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
     Post<ASSetBrushColor>(brushHandle, color);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 handle_id PApplication::CreateFont(const PFontDescription& description, PFontHeight& outHeight)
 {
@@ -638,6 +779,60 @@ void PApplication::Sync()
             p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Sync() received invalid reply: {}", code);
         }
         
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::NotifyGUIStyleChanged(Ptr<PView> view)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    if (view->GetLooper() == this)
+    {
+        try {
+            view->OnStyleChanged();
+        }
+        PERROR_CATCH([&view](PErrorCode error)
+        {
+            p_system_log<PLogSeverity::ERROR>(
+                LogCategoryGUITK,
+                "Style update failed for view '{}': {}",
+                view->GetName(),
+                strerror(std::to_underlying(error)));
+        });
+
+        if (view->GetLooper() == this && !view->m_ChildrenList.IsEmpty())
+        {
+            m_GUIStyleNotificationStack.push_back(view->m_ChildrenList.GetFirst());
+            PScopeExit popCursor([this]() { m_GUIStyleNotificationStack.pop_back(); });
+            while (m_GUIStyleNotificationStack.back() != nullptr)
+            {
+                Ptr<PView> child = std::move(m_GUIStyleNotificationStack.back());
+                m_GUIStyleNotificationStack.back() = view->m_ChildrenList.GetNext(child);
+                NotifyGUIStyleChanged(std::move(child));
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::AdvanceGUIStyleNotificationCursors(const Ptr<PView>& view)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    for (Ptr<PView>& nextChild : m_GUIStyleNotificationStack)
+    {
+        if (nextChild == view)
+        {
+            const Ptr<PView> parent = view->GetParent();
+            nextChild = (parent != nullptr) ? parent->m_ChildrenList.GetNext(view) : nullptr;
+        }
     }
 }
 
@@ -1239,6 +1434,10 @@ void PApplication::HandleKeyboardLayouts(
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PApplication::HandleKeyboardConfiguration(
     uint32_t requestID,
     PErrorCode error,
@@ -1251,6 +1450,71 @@ void PApplication::HandleKeyboardConfiguration(
     if (!pending.empty()) {
         pending.mapped()(error, layout, variant, options);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t PApplication::AllocateGUIStyleRequestID()
+{
+    for (;;)
+    {
+        const uint32_t requestID = m_NextGUIStyleRequestID++;
+        if (!m_GUIStylesCallbacks.contains(requestID) && !m_GUIStyleConfigurationCallbacks.contains(requestID)) {
+            return requestID;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleGetGUIStylesReply(uint32_t requestID, PErrorCode error, size_t firstIndex, size_t totalCount, const std::vector<PGUIStyleInfo>& styles)
+{
+    auto pending = m_GUIStylesCallbacks.extract(requestID);
+    if (!pending.empty()) {
+        pending.mapped()(error, firstIndex, totalCount, styles);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleGUIStyleConfiguration(uint32_t requestID, PErrorCode error, const PString& style, const PString& variant)
+{
+    auto pending = m_GUIStyleConfigurationCallbacks.extract(requestID);
+    if (!pending.empty()) {
+        pending.mapped()(error, style, variant);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::HandleGUIStyleChanged(const PString& style, const PString& variant)
+{
+    PErrorCode error = PErrorCode::Success;
+    try
+    {
+        if (style != m_GUIStyleName || variant != m_GUIStyleVariant)
+        {
+            PString selectedStyle = style;
+            PString selectedVariant = variant;
+            Ptr<const PGUIStyle> selected = PGUIStyleFactory::Get().CreateStyle(style, variant, this);
+            SetGUIStyle(std::move(selected));
+            m_GUIStyleName.swap(selectedStyle);
+            m_GUIStyleVariant.swap(selectedVariant);
+        }
+    }
+    PERROR_CATCH([&error](PErrorCode result) { error = result; });
+    if (error != PErrorCode::Success) {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Unable to apply GUI style '{}' / '{}': {}", style, variant, strerror(std::to_underlying(error)));
+    }
+    SignalGUIStyleChanged(error, style, variant);
 }
 
 void PApplication::HandlePointerEvent(
@@ -1640,4 +1904,3 @@ void PApplication::LayoutViews()
         view->OnLayoutUpdated();
     }
 }
-

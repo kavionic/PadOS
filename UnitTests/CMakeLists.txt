@@ -13,6 +13,8 @@ target_sources(PadOS_UnitTests PRIVATE
 	FontSelection_unittest.cpp
 	DropdownMenuStyle_unittest.cpp
 	GroupViewStyle_unittest.cpp
+	GUIStyle_unittest.cpp
+	IntrusiveList_unittest.cpp
 	SkinnableGUIStyle_unittest.cpp
 	ProgressBarStyle_unittest.cpp
 	TabViewStyle_unittest.cpp

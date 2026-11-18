@@ -177,7 +177,7 @@ template <class T>
 template <class Y> inline
 WeakPtr<T>& WeakPtr<T>::operator=(const Ptr<Y>& ptr)
 {
-    Set(ptr.m_Object);
+    Set<true>(ptr.m_Object);
     return *this;
 }
 
@@ -252,10 +252,20 @@ bool WeakPtr<T>::operator<( const Ptr<Y>& p ) const noexcept
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T>
-template <class Y> inline
+template <bool SOURCE_IS_STRONG, class Y> inline
 void WeakPtr<T>::Set(Y* obj)
 {
-    if (obj != m_Object)
+    bool hasChanged = obj != m_Object;
+    // A new object can reuse the address of an expired target.
+    if (!hasChanged && obj != nullptr)
+    {
+        if constexpr (SOURCE_IS_STRONG) {
+            hasChanged = Get() != obj;
+        } else {
+            hasChanged = Lock() != obj;
+        }
+    }
+    if (hasChanged)
     {
         if (m_Notifier != nullptr) {
             m_Notifier->Release();

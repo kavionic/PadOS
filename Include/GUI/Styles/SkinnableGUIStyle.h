@@ -287,8 +287,12 @@ public:
         const PGroupViewSkin& groupViewSkin,
         const PProgressBarSkin& progressBarSkin,
         PApplication* application = nullptr);
-    // Load Style.xml, widget XML files and their assets before attaching views.
+    // Load Style.xml, widget XML files and their assets for this instance.
     explicit PSkinnableGUIStyle(const PPath& directory, PApplication* application = nullptr);
+
+    static PString GetName();
+    static std::vector<PString> GetVariants();
+    static Ptr<const PGUIStyle> CreateStyle(PApplication* application, const PString& variant);
 
     Ptr<const PBrush> GetBackgroundBrush() const override;
 

@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cstddef>
+#include <new>
 #include <type_traits>
 #include <gtest/gtest.h>
 #include <Ptr/WeakPtr.h>
@@ -18,6 +20,17 @@ class ComparisonTarget : public PtrTarget
 
 class UnrelatedTarget : public PtrTarget
 {
+};
+
+class AddressReuseTarget : public PtrTarget
+{
+public:
+    virtual bool LastReferenceGone() override
+    {
+        // Destroy the object while retaining its placement storage for reuse.
+        this->~AddressReuseTarget();
+        return true;
+    }
 };
 
 // Reject invalid conversions during overload resolution, while retaining
@@ -86,6 +99,34 @@ TEST(WeakPtrTest, RawPointerComparisonsTrackExpirationInBothDirections)
     const WeakPtr<PtrTarget> empty;
     EXPECT_EQ(empty, nullptr);
     EXPECT_EQ(nullptr, empty);
+}
+
+TEST(WeakPtrTest, AssignmentRecognizesANewObjectAtTheExpiredTargetsAddress)
+{
+    alignas(AddressReuseTarget) std::byte storage[sizeof(AddressReuseTarget)];
+    Ptr<AddressReuseTarget> owner = ptr_new_cast(new (storage) AddressReuseTarget());
+    WeakPtr<PtrTarget> pointer(owner);
+    const WeakPtr<PtrTarget> previousLifetime(pointer);
+
+    owner.Reset();
+    EXPECT_EQ(pointer.Lock(), nullptr);
+    WeakPtr<PtrTarget> expiredCopy(pointer);
+
+    owner = ptr_new_cast(new (storage) AddressReuseTarget());
+    pointer = owner;
+    expiredCopy = owner;
+    EXPECT_EQ(pointer.Lock(), owner);
+    EXPECT_EQ(expiredCopy.Lock(), owner);
+    EXPECT_EQ(previousLifetime.Lock(), nullptr);
+    EXPECT_EQ(owner->GetPtrCount(), 1);
+
+    pointer = owner;
+    EXPECT_EQ(pointer.Lock(), owner);
+    EXPECT_EQ(owner->GetPtrCount(), 1);
+
+    owner.Reset();
+    EXPECT_EQ(pointer.Lock(), nullptr);
+    EXPECT_EQ(expiredCopy.Lock(), nullptr);
 }
 
 }

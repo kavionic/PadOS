@@ -1215,7 +1215,7 @@ void PServerView::ToggleDepth()
     const Ptr<PServerView> parent = GetParent();
     if (parent != nullptr)
     {
-        if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
+        if (parent->m_ChildrenList.GetLast() == self)
         {
             parent->RemoveChild(self);
             parent->AddChild(self, 0);

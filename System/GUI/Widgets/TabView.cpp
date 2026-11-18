@@ -76,6 +76,17 @@ PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PTabView::~PTabView()
+{
+    if (m_TopBarClientView != nullptr) {
+        m_TopBarClientView->SignalPreferredSizeChanged.Disconnect(this, &PTabView::SlotTopBarPreferredSizeChanged);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// Add a tab at the end of the list.
 /// \par Description:
 ///     Add a new tab to the TabView. The new tab will be appended to the list
@@ -375,8 +386,18 @@ void PTabView::OnStyleChanged()
     m_TabViewStyleData.StyleData.Reset();
     m_TabsView->CancelInteraction();
     PStyledView::OnStyleChanged();
-    Layout(PPoint());
+    InvalidateLayout();
     m_TabsView->ContentSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::OnLayoutChanged()
+{
+    PStyledView::OnLayoutChanged();
+    Layout(PPoint());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -416,16 +437,6 @@ void PTabView::Layout(const PPoint& delta)
         Invalidate();
     }
     Flush();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTabView::OnFrameSized(const PPoint& delta)
-{
-    PStyledView::OnFrameSized(delta);
-    Layout(delta);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -535,7 +546,7 @@ void PTabView::NotifyStylePropertyChanged(PTabViewProperties properties, size_t 
     } else {
         PreferredSizeChanged();
     }
-    Layout(PPoint());
+    InvalidateLayout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

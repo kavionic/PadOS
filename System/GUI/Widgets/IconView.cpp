@@ -10,6 +10,7 @@
 #include <GUI/Widgets/BitmapView.h>
 #include <GUI/Widgets/TextView.h>
 #include <GUI/Bitmap.h>
+#include <GUI/Style/GUIStyle.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

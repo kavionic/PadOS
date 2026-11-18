@@ -10,14 +10,15 @@
 
 #include <concepts>
 #include <vector>
+#include <Utils/IntrusiveList.h>
 
 #include "GUIDefines.h"
 
 template<typename ViewType>
-class PViewBase : public PEventHandler, public SignalTarget
+class PViewBase : public PEventHandler, public SignalTarget, public PIntrusiveListNode<ViewType, Ptr<ViewType>>
 {
 public:
-    typedef std::vector<Ptr<ViewType>> ChildList_t;
+    using ChildList_t = PIntrusiveList<ViewType, nullptr, Ptr<ViewType>>;
 
     PViewBase(
         const PString& name,
@@ -67,11 +68,11 @@ public:
     typename ChildList_t::const_reverse_iterator    rbegin() const { return m_ChildrenList.rbegin(); }
     typename ChildList_t::const_reverse_iterator    rend() const   { return m_ChildrenList.rend(); }
         
-    typename ChildList_t::iterator                  GetChildIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
-    typename ChildList_t::const_iterator            GetChildIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
+    typename ChildList_t::iterator                  GetChildIterator(Ptr<ViewType> child)       { return m_ChildrenList.GetIterator(child); }
+    typename ChildList_t::const_iterator            GetChildIterator(Ptr<ViewType> child) const { return m_ChildrenList.GetIterator(child); }
 
-    typename ChildList_t::reverse_iterator          GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
-    typename ChildList_t::const_reverse_iterator    GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
+    typename ChildList_t::reverse_iterator          GetChildRIterator(Ptr<ViewType> child)       { return m_ChildrenList.GetReverseIterator(child); }
+    typename ChildList_t::const_reverse_iterator    GetChildRIterator(Ptr<ViewType> child) const { return m_ChildrenList.GetReverseIterator(child); }
 
     template<typename T = PView, typename DELEGATE>
     Ptr<T> FindChildIf(DELEGATE compareDelegate, bool recursive = true) const
@@ -304,7 +305,7 @@ protected:
     PPoint          m_ScreenPos = PPoint(0.0f, 0.0f);
 
     WeakPtr<ViewType>   m_Parent;
-    std::vector<Ptr<ViewType>>  m_ChildrenList;
+    ChildList_t        m_ChildrenList;
     
     PPoint      m_PenPosition;
     float       m_PenWidth   = 1.0f;
@@ -333,11 +334,15 @@ void PViewBase<ViewType>::LinkChild(Ptr<ViewType> child, size_t index)
 	if (child->m_Parent.Lock() == nullptr)
 	{
 		child->m_Parent = ptr_tmp_cast(static_cast<ViewType*>(this));
-		if (index == INVALID_INDEX) {
-			m_ChildrenList.push_back(child);
-		} else {
-			m_ChildrenList.insert(m_ChildrenList.begin() + index, child);
-		}
+        if (index == INVALID_INDEX || index == m_ChildrenList.GetCount())
+        {
+            m_ChildrenList.Append(child);
+        }
+        else
+        {
+            assert(index < m_ChildrenList.GetCount());
+            m_ChildrenList.Insert(*std::next(m_ChildrenList.begin(), index), child);
+        }
 		child->Added(this, m_Level + 1);
 		child->HandleAddedToParent(ptr_tmp_cast(static_cast<ViewType*>(this)), index);
 	}
@@ -359,7 +364,7 @@ Ptr<ViewType> PViewBase<ViewType>::UnlinkChild(typename  ChildList_t::iterator i
     {
         child->m_Parent = nullptr;
 
-        m_ChildrenList.erase(iterator);
+        m_ChildrenList.Remove(child);
 
         child->HandleRemovedFromParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
     }

@@ -9,24 +9,29 @@
 #include <gtest/gtest.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
 #include <GUI/Widgets/ScrollBar.h>
 
 #include "GUITest.h"
+#include "ViewRendererTest.h"
+#include <GUI/Style/ViewRendererScrollBar.h>
+#include <GUI/Style/ViewStyleScrollBar.h>
 
 TEST(ScrollBarStyle, PreferredSizeUsesTheOrientation)
 {
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("scrollbar_style_target");
-        PScrollBarStyleData data;
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("scrollbar_style_target");
+        PScrollBarStyleData& data = target->GetScrollBarStyleData();
+        PViewRendererTestBinding<PViewRendererScrollBar> renderer(*target, style, PGUIComponentID::ScrollBar);
         PPoint minimumSize;
         PPoint maximumSize;
-        style.ScrollBarGetPreferredSize(*target, data, &minimumSize, &maximumSize);
+        renderer->GetPreferredSize(*target, &minimumSize, &maximumSize, renderer.GetContext());
         EXPECT_EQ(minimumSize, PPoint(16.0f, 0.0f));
         EXPECT_EQ(maximumSize, PPoint(16.0f, COORD_MAX));
         data.Orientation = POrientation::Horizontal;
-        style.ScrollBarGetPreferredSize(*target, data, &minimumSize, &maximumSize);
+        renderer->GetPreferredSize(*target, &minimumSize, &maximumSize, renderer.GetContext());
         EXPECT_EQ(minimumSize, PPoint(0.0f, 16.0f));
         EXPECT_EQ(maximumSize, PPoint(COORD_MAX, 16.0f));
     });
@@ -37,29 +42,30 @@ TEST(ScrollBarStyle, DragMappingMatchesMinimumKnobGeometry)
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("scrollbar_style_target");
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("scrollbar_style_target");
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
             const bool isHorizontal = orientation == POrientation::Horizontal;
             target->SetFrame(isHorizontal ? PRect(0.0f, 0.0f, 200.0f, 16.0f) : PRect(0.0f, 0.0f, 16.0f, 200.0f));
-            PScrollBarStyleData data;
+            PScrollBarStyleData& data = target->GetScrollBarStyleData();
+            PViewRendererTestBinding<PViewRendererScrollBar> renderer(*target, style, PGUIComponentID::ScrollBar);
             data.Orientation = orientation;
             data.Proportion = 0.001f;
             for (float value : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
             {
                 data.Value = value;
-                const PPoint position = style.ScrollBarGetValuePosition(*target, data, value);
-                EXPECT_NEAR(style.ScrollBarGetValueFromPosition(*target, data, position), value, 0.00001f);
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, position), PScrollBarPart::Knob);
+                const PPoint position = renderer->GetValuePosition(*target, value, renderer.GetContext());
+                EXPECT_NEAR(renderer->GetValueFromPosition(*target, position, renderer.GetContext()), value, 0.00001f);
+                EXPECT_EQ(renderer->HitTest(*target, position, renderer.GetContext()), PScrollBarPart::Knob);
             }
-            const PPoint minimumPosition = style.ScrollBarGetValuePosition(*target, data, 0.0f);
-            const PPoint maximumPosition = style.ScrollBarGetValuePosition(*target, data, 1.0f);
-            EXPECT_EQ(style.ScrollBarGetValueFromPosition(*target, data, minimumPosition - PPoint(50.0f, 50.0f)), 0.0f);
-            EXPECT_EQ(style.ScrollBarGetValueFromPosition(*target, data, maximumPosition + PPoint(50.0f, 50.0f)), 1.0f);
+            const PPoint minimumPosition = renderer->GetValuePosition(*target, 0.0f, renderer.GetContext());
+            const PPoint maximumPosition = renderer->GetValuePosition(*target, 1.0f, renderer.GetContext());
+            EXPECT_EQ(renderer->GetValueFromPosition(*target, minimumPosition - PPoint(50.0f, 50.0f), renderer.GetContext()), 0.0f);
+            EXPECT_EQ(renderer->GetValueFromPosition(*target, maximumPosition + PPoint(50.0f, 50.0f), renderer.GetContext()), 1.0f);
 
             data.Value = 0.5f;
-            EXPECT_EQ(style.ScrollBarHitTest(*target, data, minimumPosition + PPoint(1.0f, 1.0f)), PScrollBarPart::PageDecrement);
-            EXPECT_EQ(style.ScrollBarHitTest(*target, data, maximumPosition + PPoint(1.0f, 1.0f)), PScrollBarPart::PageIncrement);
+            EXPECT_EQ(renderer->HitTest(*target, minimumPosition + PPoint(1.0f, 1.0f), renderer.GetContext()), PScrollBarPart::PageDecrement);
+            EXPECT_EQ(renderer->HitTest(*target, maximumPosition + PPoint(1.0f, 1.0f), renderer.GetContext()), PScrollBarPart::PageIncrement);
         }
     });
 }
@@ -69,20 +75,21 @@ TEST(ScrollBarStyle, ValueMappingUsesKnobCenters)
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("scrollbar_style_target");
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("scrollbar_style_target");
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
             const bool isHorizontal = orientation == POrientation::Horizontal;
             target->SetFrame(isHorizontal ? PRect(0.0f, 0.0f, 200.0f, 16.0f) : PRect(0.0f, 0.0f, 16.0f, 200.0f));
             const PPoint trackCenter = isHorizontal ? PPoint(100.0f, 8.0f) : PPoint(8.0f, 100.0f);
-            PScrollBarStyleData data;
+            PScrollBarStyleData& data = target->GetScrollBarStyleData();
+            PViewRendererTestBinding<PViewRendererScrollBar> renderer(*target, style, PGUIComponentID::ScrollBar);
             data.Orientation = orientation;
             data.Value = 0.25f;
             for (float proportion : {0.001f, 0.25f, 0.75f})
             {
                 data.Proportion = proportion;
-                EXPECT_EQ(style.ScrollBarGetValuePosition(*target, data, 0.5f), trackCenter);
-                EXPECT_FLOAT_EQ(style.ScrollBarGetValueFromPosition(*target, data, trackCenter), 0.5f);
+                EXPECT_EQ(renderer->GetValuePosition(*target, 0.5f, renderer.GetContext()), trackCenter);
+                EXPECT_FLOAT_EQ(renderer->GetValueFromPosition(*target, trackCenter, renderer.GetContext()), 0.5f);
             }
         }
     });
@@ -93,11 +100,12 @@ TEST(ScrollBarStyle, HitTestingDistinguishesArrowsAndHandlesShortFrames)
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("scrollbar_style_target");
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("scrollbar_style_target");
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
             const bool isHorizontal = orientation == POrientation::Horizontal;
-            PScrollBarStyleData data;
+            PScrollBarStyleData& data = target->GetScrollBarStyleData();
+            PViewRendererTestBinding<PViewRendererScrollBar> renderer(*target, style, PGUIComponentID::ScrollBar);
             data.Orientation = orientation;
             target->SetFrame(isHorizontal ? PRect(0.0f, 0.0f, 200.0f, 16.0f) : PRect(0.0f, 0.0f, 16.0f, 200.0f));
             struct ArrowHit
@@ -115,19 +123,19 @@ TEST(ScrollBarStyle, HitTestingDistinguishesArrowsAndHandlesShortFrames)
             for (const ArrowHit& arrow : arrows)
             {
                 const PPoint position = isHorizontal ? PPoint(arrow.Position, 8.0f) : PPoint(8.0f, arrow.Position);
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, position), arrow.Part);
+                EXPECT_EQ(renderer->HitTest(*target, position, renderer.GetContext()), arrow.Part);
             }
             data.IsEnabled = false;
-            EXPECT_EQ(style.ScrollBarHitTest(*target, data, PPoint(6.0f, 6.0f)), PScrollBarPart::None);
+            EXPECT_EQ(renderer->HitTest(*target, PPoint(6.0f, 6.0f), renderer.GetContext()), PScrollBarPart::None);
             data.IsEnabled = true;
             target->SetFrame(isHorizontal ? PRect(0.0f, 0.0f, 10.0f, 16.0f) : PRect(0.0f, 0.0f, 16.0f, 10.0f));
             const PPoint startPosition = isHorizontal ? PPoint(2.0f, 8.0f) : PPoint(8.0f, 2.0f);
             const PPoint endPosition(8.0f, 8.0f);
-            EXPECT_EQ(style.ScrollBarHitTest(*target, data, startPosition), PScrollBarPart::DecrementStart);
-            EXPECT_EQ(style.ScrollBarHitTest(*target, data, endPosition), PScrollBarPart::IncrementEnd);
+            EXPECT_EQ(renderer->HitTest(*target, startPosition, renderer.GetContext()), PScrollBarPart::DecrementStart);
+            EXPECT_EQ(renderer->HitTest(*target, endPosition, renderer.GetContext()), PScrollBarPart::IncrementEnd);
             target->SetFrame(PRect());
-            EXPECT_EQ(style.ScrollBarHitTest(*target, data, PPoint()), PScrollBarPart::None);
-            EXPECT_FLOAT_EQ(style.ScrollBarGetValueFromPosition(*target, data, PPoint(50.0f, 50.0f)), data.Value);
+            EXPECT_EQ(renderer->HitTest(*target, PPoint(), renderer.GetContext()), PScrollBarPart::None);
+            EXPECT_FLOAT_EQ(renderer->GetValueFromPosition(*target, PPoint(50.0f, 50.0f), renderer.GetContext()), data.Value);
         }
     });
 }
@@ -137,17 +145,18 @@ TEST(ScrollBarStyle, FullKnobsHaveNoDragTravel)
     RunGUITest([](PApplication&)
     {
         const PDefaultGUIStyle style;
-        Ptr<PView> target = ptr_new<PView>("scrollbar_style_target");
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("scrollbar_style_target");
         target->SetFrame(PRect(0.0f, 0.0f, 16.0f, 200.0f));
-        PScrollBarStyleData data;
+        PScrollBarStyleData& data = target->GetScrollBarStyleData();
+        PViewRendererTestBinding<PViewRendererScrollBar> renderer(*target, style, PGUIComponentID::ScrollBar);
         data.Value = 0.5f;
         data.Proportion = 1.0f;
-        EXPECT_EQ(style.ScrollBarGetValuePosition(*target, data, 0.0f), style.ScrollBarGetValuePosition(*target, data, 1.0f));
-        EXPECT_FLOAT_EQ(style.ScrollBarGetValueFromPosition(*target, data, PPoint(0.0f, 200.0f)), data.Value);
+        EXPECT_EQ(renderer->GetValuePosition(*target, 0.0f, renderer.GetContext()), renderer->GetValuePosition(*target, 1.0f, renderer.GetContext()));
+        EXPECT_FLOAT_EQ(renderer->GetValueFromPosition(*target, PPoint(0.0f, 200.0f), renderer.GetContext()), data.Value);
         data.Proportion = 0.1f;
         data.HasRange = false;
-        EXPECT_EQ(style.ScrollBarGetValuePosition(*target, data, 0.0f), style.ScrollBarGetValuePosition(*target, data, 1.0f));
-        EXPECT_FLOAT_EQ(style.ScrollBarGetValueFromPosition(*target, data, PPoint(0.0f, 200.0f)), data.Value);
+        EXPECT_EQ(renderer->GetValuePosition(*target, 0.0f, renderer.GetContext()), renderer->GetValuePosition(*target, 1.0f, renderer.GetContext()));
+        EXPECT_FLOAT_EQ(renderer->GetValueFromPosition(*target, PPoint(0.0f, 200.0f), renderer.GetContext()), data.Value);
     });
 }
 
@@ -173,18 +182,38 @@ TEST(ScrollBarStyle, DetachedScrollBarsUseTheApplicationStyleWithoutCapturingInp
     });
 }
 
+struct PScrollBarHoverTestState : PtrTarget
+{
+    PScrollBarPart HoveredPart = PScrollBarPart::None;
+};
+
+class PScrollBarHoverTestRenderer : public PViewRendererScrollBarDefault
+{
+public:
+    explicit PScrollBarHoverTestRenderer(Ptr<PScrollBarHoverTestState> state) : m_State(std::move(state)) {}
+
+    virtual void PropertyChanged(PView& target, PScrollBarProperties properties, PtrTarget* context) const override
+    {
+        m_State->HoveredPart = dynamic_cast<const PViewStyleScrollBar&>(target).GetScrollBarStyleData().HoveredPart;
+        PViewRendererScrollBarDefault::PropertyChanged(target, properties, context);
+    }
+
+private:
+    const Ptr<PScrollBarHoverTestState> m_State;
+};
+
 class PScrollBarHoverTestStyle : public PDefaultGUIStyle
 {
 public:
-    void ScrollBarPropertyChanged(PView& target, PScrollBarStyleData& data, PScrollBarProperties properties) const override
+    PScrollBarHoverTestStyle() : m_State(ptr_new<PScrollBarHoverTestState>())
     {
-        m_HoveredPart = data.HoveredPart;
-        PDefaultGUIStyle::ScrollBarPropertyChanged(target, data, properties);
+        SetRenderer(PGUIComponentID::ScrollBar, ptr_new<PScrollBarHoverTestRenderer>(m_State));
     }
-    PScrollBarPart GetHoveredPart() const { return m_HoveredPart; }
+
+    PScrollBarPart GetHoveredPart() const { return m_State->HoveredPart; }
 
 private:
-    mutable PScrollBarPart m_HoveredPart = PScrollBarPart::None;
+    const Ptr<PScrollBarHoverTestState> m_State;
 };
 
 TEST(ScrollBarStyle, HoverTracksPartsAndIgnoresTouchAndBubblingEvents)

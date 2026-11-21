@@ -12,13 +12,14 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/ScrollBar.h>
 #include <Threads/Looper.h>
+#include <GUI/Style/ViewRendererScrollBar.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation orientation, PViewFlags flags)
-    : PControl(name, flags | PViewFlag::WillDraw)
+    : PControl(name, flags | PViewFlag::WillDraw), PViewStyleScrollBar(this)
     , m_Min(min)
     , m_Max(max)
 {
@@ -26,6 +27,7 @@ PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation o
     m_ScrollBarStyleData.HasRange = m_Max > m_Min;
     m_ScrollBarStyleData.Value = GetRelativeValue();
     m_RepeatTimer.SignalTrigged.Connect(this, &PScrollBar::SlotTimerTick);
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -34,6 +36,7 @@ PScrollBar::PScrollBar(const PString& name, float min, float max, POrientation o
 
 PScrollBar::~PScrollBar()
 {
+    ReleaseRenderer();
     if (m_Target != nullptr)
     {
         if (m_ScrollBarStyleData.Orientation == POrientation::Horizontal) {
@@ -113,7 +116,6 @@ void PScrollBar::OnFontChanged(Ptr<const PFont> newFont)
 void PScrollBar::OnStyleChanged()
 {
     m_ScrollBarStyleData.HoveredPart = PScrollBarPart::None;
-    m_ScrollBarStyleData.StyleData.Reset();
     EndInteraction();
     PControl::OnStyleChanged();
 }
@@ -143,12 +145,18 @@ void PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, con
 	if (phase != PEventPhase::Target || !IsEnabled() || m_HitPointerID != PInvalidPointerID) {
 		return;
 	}
-	const PGUIStyle* style = GetStyle();
-	if (style == nullptr) {
+	const PViewRendererScrollBar* renderer = GetRenderer();
+	if (renderer == nullptr) {
 		return;
 	}
-	const PScrollBarPart part = style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position);
+	const PScrollBarPart part = renderer->HitTest(*this, position, GetRendererContext());
 	if (part == PScrollBarPart::None || !SetPointerCapture(pointerID)) {
+		return;
+	}
+	renderer = GetRenderer();
+	if (renderer == nullptr)
+	{
+		ReleasePointerCapture(pointerID);
 		return;
 	}
 	m_HitPointerID = pointerID;
@@ -157,7 +165,7 @@ void PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, con
 	m_ScrollBarStyleData.PressedPart = part;
 	if (part == PScrollBarPart::Knob)
 	{
-		m_HitPos = position - style->ScrollBarGetValuePosition(*this, m_ScrollBarStyleData, m_ScrollBarStyleData.Value);
+		m_HitPos = position - renderer->GetValuePosition(*this, m_ScrollBarStyleData.Value, GetRendererContext());
 	}
 	else if (IsArrowPart(part))
 	{
@@ -181,10 +189,10 @@ void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 	if (phase != PEventPhase::Target || pointerID != m_HitPointerID) {
 		return;
 	}
-	const PGUIStyle* style = GetStyle();
-	if (style != nullptr && IsArrowPart(m_HitPart) && m_FirstTick)
+	const PViewRendererScrollBar* renderer = GetRenderer();
+	if (renderer != nullptr && IsArrowPart(m_HitPart) && m_FirstTick)
 	{
-		if (style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position) == m_HitPart) {
+		if (renderer->HitTest(*this, position, GetRendererContext()) == m_HitPart) {
 			StepValue(m_HitPart);
 		}
 	}
@@ -193,9 +201,13 @@ void PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const
 		SignalValueChanged(GetValue(), true, ptr_tmp_cast(this)); // Send a 'final' event.
 	}
     EndInteraction();
-    if (event.SupportsHover && style != nullptr) {
-        SetHoveredPart(style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position));
-    } else {
+    if (event.SupportsHover)
+    {
+        renderer = GetRenderer();
+        SetHoveredPart((renderer != nullptr) ? renderer->HitTest(*this, position, GetRendererContext()) : PScrollBarPart::None);
+    }
+    else
+    {
         SetHoveredPart(PScrollBarPart::None);
     }
     Flush();
@@ -210,19 +222,23 @@ void PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, con
     if (phase != PEventPhase::Target) {
         return;
     }
-    const PGUIStyle* style = GetStyle();
-    if (style == nullptr) {
+    const PViewRendererScrollBar* renderer = GetRenderer();
+    if (renderer == nullptr) {
         return;
     }
     if (event.SupportsHover && (m_HitPointerID == PInvalidPointerID || pointerID == m_HitPointerID)) {
-        SetHoveredPart(style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position));
+        SetHoveredPart(renderer->HitTest(*this, position, GetRendererContext()));
     }
     if (pointerID != m_HitPointerID) {
         return;
     }
+    renderer = GetRenderer();
+    if (renderer == nullptr) {
+        return;
+    }
 	if (IsArrowPart(m_HitPart))
 	{
-		const bool isHit = style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position) == m_HitPart;
+		const bool isHit = renderer->HitTest(*this, position, GetRendererContext()) == m_HitPart;
 		const PScrollBarPart pressedPart = isHit ? m_HitPart : PScrollBarPart::None;
 		if (pressedPart != m_ScrollBarStyleData.PressedPart)
 		{
@@ -242,7 +258,7 @@ void PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, con
 	}
 	else if (m_HitPart == PScrollBarPart::Knob)
 	{
-		const float relativeValue = style->ScrollBarGetValueFromPosition(*this, m_ScrollBarStyleData, position - m_HitPos);
+		const float relativeValue = renderer->GetValueFromPosition(*this, position - m_HitPos, GetRendererContext());
 		SetValue(m_Min + (m_Max - m_Min) * std::clamp(relativeValue, 0.0f, 1.0f));
 	}
 }
@@ -269,9 +285,9 @@ void PScrollBar::OnPointerOver(PPointerID pointerID, const PPoint& position, con
 {
     if (phase == PEventPhase::Target && event.SupportsHover && m_HitPointerID == PInvalidPointerID)
     {
-        const PGUIStyle* style = GetStyle();
-        if (style != nullptr) {
-            SetHoveredPart(style->ScrollBarHitTest(*this, m_ScrollBarStyleData, position));
+        const PViewRendererScrollBar* renderer = GetRenderer();
+        if (renderer != nullptr) {
+            SetHoveredPart(renderer->HitTest(*this, position, GetRendererContext()));
         }
     }
 }
@@ -329,9 +345,9 @@ void PScrollBar::OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostR
 
 void PScrollBar::OnPaint(const PRect& updateRect)
 {
-	const PGUIStyle* style = GetStyle();
-	if (style != nullptr) {
-		style->ScrollBarPaint(*this, GetNormalizedBounds(), m_ScrollBarStyleData);
+	const PViewRendererScrollBar* renderer = GetRenderer();
+	if (renderer != nullptr) {
+		renderer->Paint(*this, GetNormalizedBounds(), updateRect, GetRendererContext());
 	} else {
 		PView::OnPaint(updateRect);
 	}
@@ -343,9 +359,9 @@ void PScrollBar::OnPaint(const PRect& updateRect)
 
 void PScrollBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->ScrollBarGetPreferredSize(*this, m_ScrollBarStyleData, minSize, maxSize);
+    const PViewRendererScrollBar* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -357,7 +373,7 @@ void PScrollBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool i
 
 void PScrollBar::SlotTimerTick()
 {
-	if (!IsEnabled() || GetStyle() == nullptr || !IsArrowPart(m_ScrollBarStyleData.PressedPart)) {
+	if (!IsEnabled() || GetRenderer() == nullptr || !IsArrowPart(m_ScrollBarStyleData.PressedPart)) {
 		return;
 	}
 	StepValue(m_HitPart);
@@ -537,10 +553,10 @@ float PScrollBar::GetRelativeValue() const
 
 void PScrollBar::NotifyStylePropertyChanged(PScrollBarProperties properties)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererScrollBar* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->ScrollBarPropertyChanged(*this, m_ScrollBarStyleData, properties);
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
     }
     else
     {

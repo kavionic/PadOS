@@ -23,7 +23,6 @@ target_sources(PadOS_GUI PRIVATE
 	LayoutNode.h
 	MouseCursor.h
 	Region.h
-	StyledView.h
 	View.h
 	ViewBase.h
 	ViewFactory.h

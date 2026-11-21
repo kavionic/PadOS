@@ -8,7 +8,6 @@
 #pragma once
 
 #include <GUI/GUIDefines.h>
-#include <GUI/Style/GUIStyleData.h>
 #include <Utils/EnumBitmask.h>
 
 enum class PProgressBarProperty : uint32_t
@@ -20,7 +19,7 @@ enum class PProgressBarProperty : uint32_t
 
 using PProgressBarProperties = PEnumBitmask<PProgressBarProperty>;
 
-struct PProgressBarStyleData : PGUIStyleData
+struct PProgressBarStyleData
 {
     // Relative progress: zero is empty and one is complete.
     float Value = 0.0f;

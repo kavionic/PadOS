@@ -12,6 +12,7 @@
 #include <GUI/Widgets/Slider.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
+#include <GUI/Style/ViewRendererSlider.h>
 
 
 const std::map<PString, PSliderFlags> PSLIDER_FLAG_MAP
@@ -31,7 +32,7 @@ const std::map<PString, PSliderFlags> PSLIDER_FLAG_MAP
 ///////////////////////////////////////////////////////////////////////////////
 
 PSlider::PSlider(const PString& name, PSliderFlags flags, int tickCount, POrientation orientation)
-    : PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
+    : PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize), PViewStyleSlider(this)
 {
     UpdateStyleFlags();
     m_SliderStyleData.Orientation = orientation;
@@ -41,14 +42,14 @@ PSlider::PSlider(const PString& name, PSliderFlags flags, int tickCount, POrient
     m_SliderStyleData.SliderColor2 = m_SliderStyleData.SliderColor1;
     m_SliderStyleData.IsEnabled = IsEnabled();
     m_SliderStyleData.Value = GetRelativeValue(m_Value);
-    PreferredSizeChanged();
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSlider::PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
+PSlider::PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData), PViewStyleSlider(this)
 {
     m_SliderStyleData.Label = context.GetAttribute(xmlData, "label", PString::zero);
     const PSliderFlags flags = context.GetFlagsAttribute<PSliderFlags>(
@@ -80,6 +81,16 @@ PSlider::PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData) : 
 
     SetValueStringFormat(context.GetAttribute(xmlData, "value_format", PString::zero), context.GetAttribute(xmlData, "value_scale", 1.0f));
     SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
+    InitializeRenderer();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSlider::~PSlider()
+{
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -129,11 +140,11 @@ void PSlider::OnLabelChanged(const PString& label)
 
 float PSlider::PosToVal(const PPoint& position) const
 {
-    const PGUIStyle* style = GetStyle();
-    if (style == nullptr) {
+    const PViewRendererSlider* renderer = GetRenderer();
+    if (renderer == nullptr) {
         return GetValue();
     }
-    float relativeValue = style->SliderGetValueFromPosition(*this, m_SliderStyleData, position);
+    float relativeValue = renderer->GetValueFromPosition(*this, position, GetRendererContext());
     if (m_NumSteps > 1)
     {
         // Preserve snapping ties in the direction of increasing screen coordinates.
@@ -153,9 +164,9 @@ float PSlider::PosToVal(const PPoint& position) const
 
 PPoint PSlider::ValToPos(float value) const
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        return style->SliderGetValuePosition(*this, m_SliderStyleData, GetRelativeValue(value));
+    const PViewRendererSlider* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        return renderer->GetValuePosition(*this, GetRelativeValue(value), GetRendererContext());
     } else {
         return PPoint();
     }
@@ -553,7 +564,7 @@ void PSlider::AttachedToScreen()
 void PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
     if (phase != PEventPhase::Target) return;
-    if (!IsEnabled() || GetStyle() == nullptr) return;
+    if (!IsEnabled() || GetRenderer() == nullptr) return;
     if (m_HitPointerID == PInvalidPointerID)
     {
         if (!SetPointerCapture(pointerID, PPointerCaptureMode::Preemptible)) {
@@ -721,21 +732,11 @@ void PSlider::OnFrameSized(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PSlider::OnStyleChanged()
-{
-    m_SliderStyleData.StyleData.Reset();
-    PControl::OnStyleChanged();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void PSlider::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->SliderPaint(*this, GetNormalizedBounds(), m_SliderStyleData);
+    const PViewRendererSlider* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetNormalizedBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -747,9 +748,9 @@ void PSlider::OnPaint(const PRect& updateRect)
 
 void PSlider::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->SliderGetPreferredSize(*this, m_SliderStyleData, minSize, maxSize);
+    const PViewRendererSlider* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -799,10 +800,10 @@ bool PSlider::UpdateValueLabel()
 
 void PSlider::NotifyStylePropertyChanged(PSliderProperties properties)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererSlider* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->SliderPropertyChanged(*this, m_SliderStyleData, properties);
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
     }
     else
     {

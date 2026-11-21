@@ -8,6 +8,8 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include "DropdownMenuPopupView.h"
+#include <GUI/Style/ViewRendererDropdownMenuPopup.h>
+#include <GUI/Style/ViewRendererDropdownMenuPopupFrame.h>
 
 namespace osi
 {
@@ -18,7 +20,7 @@ namespace osi
 ///////////////////////////////////////////////////////////////////////////////
 
 DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection)
-    : PStyledView(PString::zero, PViewFlag::WillDraw)
+    : PView(PString::zero, PViewFlag::WillDraw), PViewStyleDropdownMenuPopupFrame(this)
 {
     m_ContentView = ptr_new<DropdownMenuPopupView>(itemList, selection, SignalSelectionChanged);
     m_ContentView->SignalPreferredSizeChanged.Connect(this, &PView::PreferredSizeChanged);
@@ -26,7 +28,25 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& ite
 
     AddChild(m_ContentView);
     OnFrameSized(PPoint());
-    PreferredSizeChanged();
+    InitializeRenderer();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+DropdownMenuPopupWindow::~DropdownMenuPopupWindow()
+{
+    ReleaseRenderer();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPoint DropdownMenuPopupWindow::GetPopupContentSize() const
+{
+    return m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,8 +68,8 @@ void DropdownMenuPopupWindow::OnFontChanged(Ptr<const PFont> newFont)
 void DropdownMenuPopupWindow::OnStyleChanged()
 {
     m_ContentView->OnStyleChanged();
+    PView::OnStyleChanged();
     OnFrameSized(PPoint());
-    PStyledView::OnStyleChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,9 +78,9 @@ void DropdownMenuPopupWindow::OnStyleChanged()
 
 void DropdownMenuPopupWindow::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->DropdownMenuPopupFramePaint(*this, GetBounds());
+    const PViewRendererDropdownMenuPopupFrame* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -72,8 +92,8 @@ void DropdownMenuPopupWindow::OnPaint(const PRect& updateRect)
 
 void DropdownMenuPopupWindow::OnFrameSized(const PPoint& delta)
 {
-    const PGUIStyle* style = GetStyle();
-    m_ContentView->SetFrame((style != nullptr) ? style->DropdownMenuPopupFrameGetContentFrame(*this) : GetBounds());
+    const PViewRendererDropdownMenuPopupFrame* renderer = GetRenderer();
+    m_ContentView->SetFrame((renderer != nullptr) ? renderer->GetContentFrame(*this, GetRendererContext()) : GetBounds());
     Invalidate();
 }
 
@@ -83,14 +103,10 @@ void DropdownMenuPopupWindow::OnFrameSized(const PPoint& delta)
 
 void DropdownMenuPopupWindow::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
-    {
-        const PPoint contentSize = m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
-        style->DropdownMenuPopupFrameGetPreferredSize(*this, contentSize, minSize, maxSize);
-    }
-    else
-    {
+    const PViewRendererDropdownMenuPopupFrame* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
+    } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
 }
@@ -121,13 +137,22 @@ DropdownMenuPopupView::DropdownMenuPopupView(
     const std::vector<PString>& itemList,
     size_t selection,
     Signal<void, size_t, bool>& signalSelectionChanged)
-    : PStyledView("drop_down_view", PViewFlag::WillDraw)
+    : PView("drop_down_view", PViewFlag::WillDraw), PViewStyleDropdownMenuPopup(this)
     , SignalSelectionChanged(signalSelectionChanged)
     , m_PopupStyleData(itemList)
 {
     m_PopupStyleData.Selection = selection;
     m_OldSelection = m_PopupStyleData.Selection;
-    PreferredSizeChanged();
+    InitializeRenderer();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+DropdownMenuPopupView::~DropdownMenuPopupView()
+{
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,9 +170,8 @@ void DropdownMenuPopupView::OnFontChanged(Ptr<const PFont> newFont)
 
 void DropdownMenuPopupView::OnStyleChanged()
 {
-    m_PopupStyleData.StyleData.Reset();
+    PView::OnStyleChanged();
     ContentSizeChanged();
-    PStyledView::OnStyleChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -156,7 +180,7 @@ void DropdownMenuPopupView::OnStyleChanged()
 
 void DropdownMenuPopupView::OnFrameSized(const PPoint& delta)
 {
-    PStyledView::OnFrameSized(delta);
+    PView::OnFrameSized(delta);
     NotifyStylePropertyChanged(PDropdownMenuPopupProperty::Frame);
 }
 
@@ -166,9 +190,9 @@ void DropdownMenuPopupView::OnFrameSized(const PPoint& delta)
 
 void DropdownMenuPopupView::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->DropdownMenuPopupPaint(*this, updateRect, m_PopupStyleData);
+    const PViewRendererDropdownMenuPopup* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -192,9 +216,9 @@ void DropdownMenuPopupView::Activated(bool isActive)
 
 void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->DropdownMenuPopupGetPreferredSize(*this, m_PopupStyleData, minSize, maxSize);
+    const PViewRendererDropdownMenuPopup* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -206,12 +230,12 @@ void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxS
 
 PPoint DropdownMenuPopupView::CalculateContentSize() const
 {
-    const PGUIStyle* style = GetStyle();
+    const PViewRendererDropdownMenuPopup* renderer = GetRenderer();
     PPoint size;
-    if (style != nullptr)
+    if (renderer != nullptr)
     {
         PPoint maximumSize;
-        style->DropdownMenuPopupGetPreferredSize(*this, m_PopupStyleData, &size, &maximumSize);
+        renderer->GetPreferredSize(*this, &size, &maximumSize, GetRendererContext());
     }
     return size;
 }
@@ -222,7 +246,7 @@ PPoint DropdownMenuPopupView::CalculateContentSize() const
 
 void DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (GetStyle() == nullptr)
+    if (GetRenderer() == nullptr)
     {
         PView::OnPointerDown(pointerID, position, event, phase);
         return;
@@ -265,7 +289,7 @@ void DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
 
 void DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (GetStyle() == nullptr)
+    if (GetRenderer() == nullptr)
     {
         PView::OnPointerUp(pointerID, position, event, phase);
         return;
@@ -307,7 +331,7 @@ void DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
 
 void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    if (GetStyle() == nullptr)
+    if (GetRenderer() == nullptr)
     {
         PView::OnPointerMove(pointerID, position, event, phase);
         return;
@@ -364,12 +388,12 @@ void DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& po
 
 void DropdownMenuPopupView::MakeSelectionVisible()
 {
-    const PGUIStyle* style = GetStyle();
-    if (style == nullptr || m_PopupStyleData.Selection >= m_PopupStyleData.Items.size()) {
+    const PViewRendererDropdownMenuPopup* renderer = GetRenderer();
+    if (renderer == nullptr || m_PopupStyleData.Selection >= m_PopupStyleData.Items.size()) {
         return;
     }
     const PRect bounds = GetBounds();
-    const PRect itemFrame = style->DropdownMenuPopupGetItemFrame(*this, m_PopupStyleData, m_PopupStyleData.Selection);
+    const PRect itemFrame = renderer->GetItemFrame(*this, m_PopupStyleData.Selection, GetRendererContext());
 
     // NOTE: All scroll offsets are negative.
     const float maxScroll = bounds.Height() - GetContentSize().y;
@@ -395,10 +419,10 @@ void DropdownMenuPopupView::ItemsChanged()
 
 void DropdownMenuPopupView::NotifyStylePropertyChanged(PDropdownMenuPopupProperties properties)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererDropdownMenuPopup* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->DropdownMenuPopupPropertyChanged(*this, m_PopupStyleData, properties);
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
     }
     else
     {
@@ -414,8 +438,8 @@ void DropdownMenuPopupView::NotifyStylePropertyChanged(PDropdownMenuPopupPropert
 
 size_t DropdownMenuPopupView::PositionToIndex(const PPoint& position)
 {
-    const PGUIStyle* style = GetStyle();
-    return (style != nullptr) ? style->DropdownMenuPopupGetItemFromPosition(*this, m_PopupStyleData, position) : INVALID_INDEX;
+    const PViewRendererDropdownMenuPopup* renderer = GetRenderer();
+    return (renderer != nullptr) ? renderer->GetItemFromPosition(*this, position, GetRendererContext()) : INVALID_INDEX;
 }
 
 } // namespace osi

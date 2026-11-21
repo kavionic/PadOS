@@ -9,9 +9,10 @@
 #pragma once
 
 #include <GUI/Widgets/ButtonBase.h>
+#include <GUI/Style/ViewRendererButton.h>
 
 
-class PButton : public PButtonBase
+class PButton : public PViewStyle<PViewRendererButton, PButtonBase>
 {
 public:
     PButton(const PString& name, const PString& label, PViewFlags flags = PViewFlags::zero);
@@ -22,9 +23,6 @@ public:
     virtual void AllAttachedToScreen() override { Invalidate(); }
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void OnPaint(const PRect& updateRect) override;
-
-	// From Control:
-    virtual void OnEnableStatusChanged(bool bIsEnabled) override { Invalidate(); Flush(); }
 
 private:
     PButton(const PButton&) = delete;

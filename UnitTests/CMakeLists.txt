@@ -6,11 +6,14 @@
 ###############################################################################
 
 target_sources(PadOS_UnitTests PRIVATE
+	ViewRendererTest.h
+	SkinnableGUIStyleTest.h
 	FontGlyphCache_unittest.cpp
 	Base64Codec_unittest.cpp
 	Exit_unittest.cpp
 	FontProtocol_unittest.cpp
 	FontSelection_unittest.cpp
+	FileCreation_unittest.cpp
 	DropdownMenuStyle_unittest.cpp
 	GroupViewStyle_unittest.cpp
 	GUIStyle_unittest.cpp

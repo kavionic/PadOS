@@ -8,8 +8,10 @@
 #pragma once
 
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
-#include <GUI/StyledView.h>
+#include <GUI/View.h>
 #include <GUI/ViewScroller.h>
+#include <GUI/Style/ViewStyleDropdownMenuPopup.h>
+#include <GUI/Style/ViewStyleDropdownMenuPopupFrame.h>
 
 class PDropdownMenu;
 
@@ -17,10 +19,13 @@ namespace osi
 {
 class DropdownMenuPopupView;
 
-class DropdownMenuPopupWindow : public PStyledView, public PViewScroller
+class DropdownMenuPopupWindow : public PView, public PViewScroller, public PViewStyleDropdownMenuPopupFrame
 {
 public:
     DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection);
+    virtual ~DropdownMenuPopupWindow() override;
+
+    virtual PPoint GetPopupContentSize() const override;
     // From View:
     virtual void OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void OnStyleChanged() override;
@@ -37,10 +42,13 @@ private:
 };
 
 
-class DropdownMenuPopupView : public PStyledView
+class DropdownMenuPopupView : public PView, public PViewStyleDropdownMenuPopup
 {
 public:
     DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged);
+    virtual ~DropdownMenuPopupView() override;
+
+    virtual const PDropdownMenuPopupStyleData& GetDropdownMenuPopupStyleData() const override { return m_PopupStyleData; }
 
     // From View:
     virtual void    OnFontChanged(Ptr<const PFont> newFont) override;

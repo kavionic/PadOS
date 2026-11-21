@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <GUI/StyledView.h>
+#include <GUI/View.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -20,7 +20,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
-class PControl : public PStyledView
+class PControl : public PView
 {
 public:
     static constexpr int32_t INVALID_ID = -1;

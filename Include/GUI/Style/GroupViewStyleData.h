@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <GUI/Style/GUIStyleData.h>
 #include <Utils/EnumBitmask.h>
 #include <Utils/String.h>
 
@@ -20,7 +19,7 @@ enum class PGroupViewProperty : uint32_t
 
 using PGroupViewProperties = PEnumBitmask<PGroupViewProperty>;
 
-struct PGroupViewStyleData : PGUIStyleData
+struct PGroupViewStyleData
 {
     PString Label;
 };

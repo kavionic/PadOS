@@ -23,6 +23,7 @@
 #include <Utils/Utils.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
+#include <GUI/Style/ViewStyle.h>
 
 
 const std::map<PString, PViewFlags> PVIEW_FLAG_MAP
@@ -791,6 +792,30 @@ void PView::OnFontChanged(Ptr<const PFont> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PView::OnStyleChanged()
+{
+    PViewStyleBase* viewStyle = dynamic_cast<PViewStyleBase*>(this);
+    if (viewStyle != nullptr) {
+        viewStyle->HandleStyleChanged();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::OnVisibilityChanged(bool visible)
+{
+    PViewStyleBase* viewStyle = dynamic_cast<PViewStyleBase*>(this);
+    if (viewStyle != nullptr) {
+        viewStyle->HandleVisibilityChanged(visible);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool PView::RefreshLayout(int32_t maxIterations, bool recursive)
 {
     while (!m_IsLayoutValid && maxIterations-- > 0)
@@ -1048,6 +1073,7 @@ void PView::Show(bool visible)
             }
         }
         InvalidatePointerHitTest();
+        OnVisibilityChanged(isVisible);
     }
 }
 
@@ -1809,6 +1835,7 @@ void PView::HandlePreAttachToScreen(PApplication* app)
     AttachedToScreen();
 
     OnStyleChanged();
+    NotifyStyleScreenAttachmentChanged(true);
     PreferredSizeChanged();
 
     for (Ptr<PView> child : m_ChildrenList) {
@@ -1839,12 +1866,25 @@ void PView::HandleAttachedToScreen(PApplication* app)
 
 void PView::HandleDetachedFromScreen()
 {
+    NotifyStyleScreenAttachmentChanged(false);
     DetachedFromScreen();
     for (Ptr<PView> child : m_ChildrenList) {
         child->HandleDetachedFromScreen();
     }
     AllDetachedFromScreen();
 }    
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::NotifyStyleScreenAttachmentChanged(bool attached)
+{
+    PViewStyleBase* viewStyle = dynamic_cast<PViewStyleBase*>(this);
+    if (viewStyle != nullptr) {
+        viewStyle->HandleScreenAttachmentChanged(attached);
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

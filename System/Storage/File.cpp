@@ -49,6 +49,8 @@ PFile::PFile()
 ///     the following flags can be bitwise or'd in to further control
 ///     the operation:
 ///
+///     - O_CREAT       create the file if it does not exist.
+///     - O_EXCL        fail if O_CREAT is set and the file already exists.
 ///     - O_TRUNC       truncate the size to 0.
 ///     - O_APPEND      automatically move the file-pointer to the end
 ///                     of the file before each write (only valid for files)
@@ -56,11 +58,14 @@ PFile::PFile()
 ///                     relevant for named pipes and PTY's.
 ///     - O_NOCTTY      Don't make the file controlling TTY even if \p path
 ///                     points to a PTY.
+/// \param accessMode
+///     Permissions for newly created files; defaults to owner read/write.
+///     Existing file permissions are unchanged.
 ///
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFile::PFile(const PString& path, int openFlags) : PFSNode(path, openFlags)
+PFile::PFile(const PString& path, int openFlags, mode_t accessMode) : PFSNode(path, openFlags, accessMode)
 {
     if (IsDir())
     {
@@ -83,13 +88,15 @@ PFile::PFile(const PString& path, int openFlags) : PFSNode(path, openFlags)
 ///     Flags controlling how to open the file. See
 ///     File(const PString& path, int openFlags)
 ///     for a full description.
+/// \param accessMode
+///     Permissions for newly created files; defaults to owner read/write.
 ///
 /// \sa File( const PString& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
  ///////////////////////////////////////////////////////////////////////////////
 
 
-PFile::PFile(const PDirectory& directory, const PString& path, int openFlags) : PFSNode(directory, path, openFlags)
+PFile::PFile(const PDirectory& directory, const PString& path, int openFlags, mode_t accessMode) : PFSNode(directory, path, openFlags, accessMode)
 {
     if (IsDir())
     {
@@ -110,12 +117,14 @@ PFile::PFile(const PDirectory& directory, const PString& path, int openFlags) : 
 ///     Flags controlling how to open the file. See
 ///     File(const PString& path, int openFlags)
 ///     for a full description.
+/// \param accessMode
+///     Permissions for newly created files; defaults to owner read/write.
 ///
 /// \sa File(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFile::PFile(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags)
+PFile::PFile(const PFileReference& reference, int openFlags, mode_t accessMode) : PFSNode(reference, openFlags, accessMode)
 {
     if (IsDir())
     {

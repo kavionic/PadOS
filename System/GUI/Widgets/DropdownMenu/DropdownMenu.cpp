@@ -11,10 +11,12 @@
 #include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/TextBox.h>
 #include <Utils/Utils.h>
+#include <System/ExceptionHandling.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
 
 #include "DropdownMenuPopupView.h"
+#include <GUI/Style/ViewRendererDropdownMenu.h>
 
 using namespace osi;
 
@@ -33,16 +35,19 @@ const std::map<PString, PDropdownMenuFlags> PDROPDOWN_MENU_FLAG_MAP
  *//////////////////////////////////////////////////////////////////////////////
 
 PDropdownMenu::PDropdownMenu(const PString& name, PDropdownMenuFlags flags) :
-    PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
+    PControl(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize), PViewStyleDropdownMenu(this)
 {
     Initialize();
+    InitializeRenderer();
+    PScopeFail releaseRenderer([this] { ReleaseRenderer(); });
+    LayoutEditor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData)
+PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PControl(context, xmlData), PViewStyleDropdownMenu(this)
 {
     const PDropdownMenuFlags flags = context.GetFlagsAttribute<PDropdownMenuFlags>(
         xmlData,
@@ -51,6 +56,9 @@ PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node&
         PDropdownMenuFlags::zero);
     MergeFlags(flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize);
     Initialize();
+    InitializeRenderer();
+    PScopeFail releaseRenderer([this] { ReleaseRenderer(); });
+    LayoutEditor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,6 +67,7 @@ PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node&
 
 PDropdownMenu::~PDropdownMenu()
 {
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,11 +121,10 @@ void PDropdownMenu::OnFontChanged(Ptr<const PFont> newFont)
 
 void PDropdownMenu::OnStyleChanged()
 {
-    m_DropdownMenuStyleData.StyleData.Reset();
     CloseMenu();
     m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
-    LayoutEditor();
     PControl::OnStyleChanged();
+    LayoutEditor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -125,9 +133,9 @@ void PDropdownMenu::OnStyleChanged()
 
 void PDropdownMenu::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->DropdownMenuGetPreferredSize(*this, m_DropdownMenuStyleData, minSize, maxSize);
+    const PViewRendererDropdownMenu* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -159,8 +167,8 @@ void PDropdownMenu::OnScreenFrameMoved(const PPoint& delta)
 
 void PDropdownMenu::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style == nullptr || !style->DropdownMenuHitTest(*this, m_DropdownMenuStyleData, position))
+    const PViewRendererDropdownMenu* renderer = GetRenderer();
+    if (renderer == nullptr || !renderer->HitTest(*this, position, GetRendererContext()))
     {
         PView::OnPointerDown(pointerID, position, event, phase);
         return;
@@ -185,8 +193,8 @@ void PDropdownMenu::OnPointerMove(PPointerID pointerID, const PPoint& position, 
 {
     if (phase != PEventPhase::Capture && event.SupportsHover)
     {
-        const PGUIStyle* style = GetStyle();
-        SetPointerOver(style != nullptr && style->DropdownMenuHitTest(*this, m_DropdownMenuStyleData, position));
+        const PViewRendererDropdownMenu* renderer = GetRenderer();
+        SetPointerOver(renderer != nullptr && renderer->HitTest(*this, position, GetRendererContext()));
     }
     PControl::OnPointerMove(pointerID, position, event, phase);
 }
@@ -199,8 +207,8 @@ void PDropdownMenu::OnPointerEnter(PPointerID pointerID, const PPoint& position,
 {
     if (phase == PEventPhase::Target && event.SupportsHover)
     {
-        const PGUIStyle* style = GetStyle();
-        SetPointerOver(style != nullptr && style->DropdownMenuHitTest(*this, m_DropdownMenuStyleData, position));
+        const PViewRendererDropdownMenu* renderer = GetRenderer();
+        SetPointerOver(renderer != nullptr && renderer->HitTest(*this, position, GetRendererContext()));
     }
 }
 
@@ -219,13 +227,13 @@ void PDropdownMenu::OnPointerLeave(PPointerID pointerID, const PPoint& position,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
+void PDropdownMenu::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->DropdownMenuPaint(*this, GetBounds(), m_DropdownMenuStyleData);
+    const PViewRendererDropdownMenu* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
-        PView::OnPaint(cUpdateRect);
+        PView::OnPaint(updateRect);
     }
 }
 
@@ -420,7 +428,7 @@ void PDropdownMenu::Initialize()
 void PDropdownMenu::OpenMenu()
 {
     PApplication* application = GetApplication();
-    if (!HasFlags(PViewFlag::IsAttachedToScreen) || application == nullptr || GetStyle() == nullptr) {
+    if (!HasFlags(PViewFlag::IsAttachedToScreen) || application == nullptr || GetRenderer() == nullptr) {
         return;
     }
     Ptr<DropdownMenuPopupWindow> menuView = ptr_new<DropdownMenuPopupWindow>(m_DropdownMenuStyleData.Items, m_Selection);
@@ -509,12 +517,20 @@ void PDropdownMenu::LayoutEditor()
 {
     if (m_EditBox != nullptr)
     {
-        const PGUIStyle* style = GetStyle();
-        if (style != nullptr) {
-            m_EditBox->SetStyle(style->DropdownMenuGetEditorStyle(m_DropdownMenuStyleData));
+        const PViewRendererDropdownMenu* renderer = GetRenderer();
+        if (renderer != nullptr) {
+            m_EditBox->SetStyle(renderer->GetEditorStyle(*this, GetRendererContext()));
         }
-        m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
-        m_EditBox->SetFrame((style != nullptr) ? style->DropdownMenuGetEditorFrame(*this, m_DropdownMenuStyleData) : GetBounds());
+        // SetStyle() can invoke callbacks that change the GUI style and replace
+        // the renderer binding. Reacquire the borrowed pointer before using it.
+        renderer = GetRenderer();
+        const PPoint editorSize = m_EditBox->GetSizeForString(PString::zero);
+        const bool editorSizeChanged = m_DropdownMenuStyleData.EditorSize != editorSize;
+        m_DropdownMenuStyleData.EditorSize = editorSize;
+        m_EditBox->SetFrame((renderer != nullptr) ? renderer->GetEditorFrame(*this, GetRendererContext()) : GetBounds());
+        if (editorSizeChanged) {
+            PreferredSizeChanged();
+        }
     }
 }
 
@@ -532,10 +548,10 @@ void PDropdownMenu::NotifyStylePropertyChanged(PDropdownMenuProperties propertie
             ptr_static_cast<DropdownMenuPopupWindow>(m_MenuWindow)->ItemsChanged();
         }
     }
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererDropdownMenu* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->DropdownMenuPropertyChanged(*this, m_DropdownMenuStyleData, properties);
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
     }
     else
     {

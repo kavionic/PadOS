@@ -6,7 +6,8 @@
 ###############################################################################
 
 target_sources(PadOS_GUI PRIVATE
-	ButtonStyleData.cpp
+	GUIStyle.cpp
 	GUIStyleFactory.cpp
 	SliderStyleLayout.cpp
+	ViewStyle.cpp
 )

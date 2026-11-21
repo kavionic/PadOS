@@ -34,9 +34,9 @@ public:
     PSymLink(const PSymLink& node);
     virtual ~PSymLink();
 
-    virtual bool Open(const PString& path, int openFlags = O_RDONLY) override;
-    virtual bool Open(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY) override;
-    virtual bool Open(const PFileReference& reference, int openFlags = O_RDONLY) override;
+    virtual bool Open(const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR) override;
+    virtual bool Open(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR) override;
+    virtual bool Open(const PFileReference& reference, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR) override;
     virtual bool SetTo(int fileDescriptor, bool takeOwnership) override { return PFSNode::SetTo(fileDescriptor, takeOwnership); }
     virtual bool SetTo(const PFSNode& node) override;
     virtual bool SetTo(PFSNode&& node) override;

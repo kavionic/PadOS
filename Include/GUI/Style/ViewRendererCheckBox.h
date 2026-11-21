@@ -7,12 +7,10 @@
 
 #pragma once
 
-#include <GUI/View.h>
+#include <GUI/Style/ViewRendererButtonBase.h>
 
-class PStyledView : public PView
+class PViewRendererCheckBox : public PViewRendererButtonBase
 {
 public:
-    using PView::PView;
-
-    void OnStyleChanged() override;
+    static constexpr PGUIComponentID COMPONENT_ID = PGUIComponentID::CheckBox;
 };

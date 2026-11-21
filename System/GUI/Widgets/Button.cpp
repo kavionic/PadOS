@@ -9,6 +9,7 @@
 #include <System/Platform.h>
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/Button.h>
+#include <GUI/Style/ViewRendererButton.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -16,18 +17,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PButton::PButton(const PString& name, const PString& label, PViewFlags flags)
-    : PButtonBase(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
+    : PViewStyle(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     SetLabel(label);
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButton::PButton(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PButtonBase(context, xmlData, PAlignment::Center)
+PButton::PButton(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PViewStyle(context, xmlData, PAlignment::Center)
 {
     MergeFlags(PViewFlag::WillDraw);
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -36,6 +39,7 @@ PButton::PButton(PViewFactoryContext& context, const pugi::xml_node& xmlData) : 
 
 PButton::~PButton()
 {
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,9 +48,9 @@ PButton::~PButton()
 
 void PButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->ButtonGetPreferredSize(*this, m_ButtonStyleData, minSize, maxSize);
+    const PViewRendererButton* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -58,9 +62,9 @@ void PButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool incl
 
 void PButton::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->ButtonPaint(*this, GetBounds(), IsEnabled(), m_ButtonStyleData);
+    const PViewRendererButton* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }

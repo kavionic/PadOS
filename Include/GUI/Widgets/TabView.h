@@ -8,19 +8,24 @@
 #pragma once
 
 #include <GUI/Style/TabViewStyleData.h>
-#include <GUI/StyledView.h>
+#include <GUI/View.h>
 
 #include <vector>
 #include <string>
+#include <GUI/Style/ViewStyleTabView.h>
 
 class PScrollView;
 
-class PTabView : public PStyledView
+class PTabView : public PView, public PViewStyleTabView
 {
 public:
     PTabView(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     virtual ~PTabView() override;
+
+    virtual const PTabViewStyleData& GetTabViewStyleData() const override { return m_TabViewStyleData; }
+    virtual PView& GetTabsView() const override { return *m_TabsView; }
+    virtual void GetTabContentSizeLimits(PPoint* minSize, PPoint* maxSize) const override;
 
     int         AppendTab( const PString& title, Ptr<PView> view = nullptr );
     int         InsertTab(size_t index, const PString& title, Ptr<PView> view = nullptr );

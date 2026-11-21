@@ -14,22 +14,24 @@
 #include <GUI/Widgets/ScrollView.h>
 #include <GUI/ViewFactory.h>
 #include <System/ExceptionHandling.h>
+#include <GUI/Style/ViewRendererTabView.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(const PString& name, PViewFlags flags) : PStyledView(name, flags | PViewFlag::WillDraw)
+PTabView::PTabView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw), PViewStyleTabView(this)
 {
     Initialize();
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PStyledView(context, xmlData)
+PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData), PViewStyleTabView(this)
 {
     MergeFlags(PViewFlag::WillDraw);
     Initialize();
@@ -73,6 +75,7 @@ PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
             SetTopBarClientView(topBarClientView);
         }
     }
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -81,8 +84,31 @@ PTabView::PTabView(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
 
 PTabView::~PTabView()
 {
+    ReleaseRenderer();
     if (m_TopBarClientView != nullptr) {
         m_TopBarClientView->SignalPreferredSizeChanged.Disconnect(this, &PTabView::SlotTopBarPreferredSizeChanged);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTabView::GetTabContentSizeLimits(PPoint* minSize, PPoint* maxSize) const
+{
+    *minSize = PPoint();
+    *maxSize = PPoint();
+    for (const Ptr<PView>& view : m_TabViews)
+    {
+        if (view != nullptr)
+        {
+            const PPoint viewMinSize = view->GetPreferredSize(PPrefSizeType::Smallest);
+            const PPoint viewMaxSize = view->GetPreferredSize(PPrefSizeType::Greatest);
+            minSize->x = std::max(minSize->x, viewMinSize.x);
+            minSize->y = std::max(minSize->y, viewMinSize.y);
+            maxSize->x = std::max(maxSize->x, viewMaxSize.x);
+            maxSize->y = std::max(maxSize->y, viewMaxSize.y);
+        }
     }
 }
 
@@ -361,8 +387,8 @@ void PTabView::SetSelection(size_t index, bool notify)
 
 PRect PTabView::GetClientFrame() const
 {
-    const PGUIStyle* style = GetStyle();
-    return (style != nullptr) ? style->TabViewGetFrames(*this, m_TabViewStyleData).ClientFrame : GetNormalizedBounds();
+    const PViewRendererTabView* renderer = GetRenderer();
+    return (renderer != nullptr) ? renderer->GetFrames(*this, GetRendererContext()).ClientFrame : GetNormalizedBounds();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -383,9 +409,8 @@ void PTabView::OnFontChanged(Ptr<const PFont> newFont)
 
 void PTabView::OnStyleChanged()
 {
-    m_TabViewStyleData.StyleData.Reset();
     m_TabsView->CancelInteraction();
-    PStyledView::OnStyleChanged();
+    PView::OnStyleChanged();
     InvalidateLayout();
     m_TabsView->ContentSizeChanged();
 }
@@ -396,7 +421,7 @@ void PTabView::OnStyleChanged()
 
 void PTabView::OnLayoutChanged()
 {
-    PStyledView::OnLayoutChanged();
+    PView::OnLayoutChanged();
     Layout(PPoint());
 }
 
@@ -406,10 +431,10 @@ void PTabView::OnLayoutChanged()
 
 void PTabView::Layout(const PPoint& delta)
 {
-    const PGUIStyle* style = GetStyle();
+    const PViewRendererTabView* renderer = GetRenderer();
     PTabViewFrames frames;
-    if (style != nullptr) {
-        frames = style->TabViewGetFrames(*this, m_TabViewStyleData);
+    if (renderer != nullptr) {
+        frames = renderer->GetFrames(*this, GetRendererContext());
     } else {
         frames.ClientFrame = GetNormalizedBounds();
     }
@@ -427,9 +452,10 @@ void PTabView::Layout(const PPoint& delta)
     if (m_TopBarClientView != nullptr && m_TopBarClientView->GetFrame() != frames.TopBarClientFrame) {
         m_TopBarClientView->SetFrame(frames.TopBarClientFrame);
     }
-    if (style != nullptr)
+    renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->TabViewPropertyChanged(*this, *m_TabsView, m_TabViewStyleData, PTabViewProperty::Frame, INVALID_INDEX);
+        renderer->PropertyChanged(*this, PTabViewProperty::Frame, INVALID_INDEX, GetRendererContext());
     }
     else
     {
@@ -474,33 +500,21 @@ void PTabView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent
 
 void PTabView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style == nullptr)
+    const PViewRendererTabView* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     }
     else
     {
-        *minSize = PPoint();
-        *maxSize = PPoint();
-    }
-    for (const Ptr<PView>& view : m_TabViews)
-    {
-        if (view != nullptr)
-        {
-            const PPoint viewMinSize = view->GetPreferredSize(PPrefSizeType::Smallest);
-            const PPoint viewMaxSize = view->GetPreferredSize(PPrefSizeType::Greatest);
-            minSize->x = std::max(minSize->x, viewMinSize.x);
-            minSize->y = std::max(minSize->y, viewMinSize.y);
-            maxSize->x = std::max(maxSize->x, viewMaxSize.x);
-            maxSize->y = std::max(maxSize->y, viewMaxSize.y);
-        }
-    }
-    if (style != nullptr)
-    {
-        const PPoint contentMinSize = *minSize;
-        const PPoint contentMaxSize = *maxSize;
-        style->TabViewGetPreferredSize(*this, m_TabViewStyleData, contentMinSize, contentMaxSize, minSize, maxSize);
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        PPoint contentMinSize;
+        PPoint contentMaxSize;
+        GetTabContentSizeLimits(&contentMinSize, &contentMaxSize);
+        minSize->x = std::max(minSize->x, contentMinSize.x);
+        minSize->y = std::max(minSize->y, contentMinSize.y);
+        maxSize->x = std::max(maxSize->x, contentMaxSize.x);
+        maxSize->y = std::max(maxSize->y, contentMaxSize.y);
     }
 }
 
@@ -511,9 +525,9 @@ void PTabView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool inc
 
 void PTabView::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->TabViewPaint(*this, *m_TabsView, updateRect, m_TabViewStyleData);
+    const PViewRendererTabView* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -540,9 +554,9 @@ void PTabView::Initialize()
 
 void PTabView::NotifyStylePropertyChanged(PTabViewProperties properties, size_t tabIndex)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->TabViewPropertyChanged(*this, *m_TabsView, m_TabViewStyleData, properties, tabIndex);
+    const PViewRendererTabView* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->PropertyChanged(*this, properties, tabIndex, GetRendererContext());
     } else {
         PreferredSizeChanged();
     }
@@ -575,9 +589,9 @@ void PTabView::SlotTopBarPreferredSizeChanged()
 
 void PTabView::TabsView::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = m_TabView->GetStyle();
-    if (style != nullptr) {
-        style->TabViewTabsPaint(*this, *m_TabView, updateRect, m_TabView->m_TabViewStyleData);
+    const PViewRendererTabView* renderer = m_TabView->GetRenderer();
+    if (renderer != nullptr) {
+        renderer->PaintTabs(*this, *m_TabView, updateRect, m_TabView->GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -589,8 +603,8 @@ void PTabView::TabsView::OnPaint(const PRect& updateRect)
 
 PPoint PTabView::TabsView::CalculateContentSize() const
 {
-    const PGUIStyle* style = m_TabView->GetStyle();
-    return (style != nullptr) ? style->TabViewGetTabsContentSize(*m_TabView, m_TabView->m_TabViewStyleData) : PPoint();
+    const PViewRendererTabView* renderer = m_TabView->GetRenderer();
+    return (renderer != nullptr) ? renderer->GetTabsContentSize(*m_TabView, m_TabView->GetRendererContext()) : PPoint();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -601,9 +615,9 @@ void PTabView::TabsView::OnViewScrolled(const PPoint& delta)
 {
     m_IsHoverSuppressed = true;
     CancelInteraction();
-    const PGUIStyle* style = m_TabView->GetStyle();
-    if (style != nullptr) {
-        style->TabViewPropertyChanged(*m_TabView, *this, m_TabView->m_TabViewStyleData, PTabViewProperty::Scroll, INVALID_INDEX);
+    const PViewRendererTabView* renderer = m_TabView->GetRenderer();
+    if (renderer != nullptr) {
+        renderer->PropertyChanged(*m_TabView, PTabViewProperty::Scroll, INVALID_INDEX, m_TabView->GetRendererContext());
     }
     Flush();
 }
@@ -734,8 +748,8 @@ void PTabView::TabsView::CancelInteraction()
 
 size_t PTabView::TabsView::GetTabFromPosition(const PPoint& position) const
 {
-    const PGUIStyle* style = m_TabView->GetStyle();
-    return (style != nullptr) ? style->TabViewGetTabFromPosition(*m_TabView, *this, m_TabView->m_TabViewStyleData, position) : INVALID_INDEX;
+    const PViewRendererTabView* renderer = m_TabView->GetRenderer();
+    return (renderer != nullptr) ? renderer->GetTabFromPosition(*m_TabView, position, m_TabView->GetRendererContext()) : INVALID_INDEX;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -761,9 +775,9 @@ void PTabView::TabsView::SetHighlightedTab(size_t index)
     {
         data.HighlightedTab = index;
         data.PressedTab = pressedTab;
-        const PGUIStyle* style = m_TabView->GetStyle();
-        if (style != nullptr) {
-            style->TabViewPropertyChanged(*m_TabView, *this, data, PTabViewProperty::Highlight, INVALID_INDEX);
+        const PViewRendererTabView* renderer = m_TabView->GetRenderer();
+        if (renderer != nullptr) {
+            renderer->PropertyChanged(*m_TabView, PTabViewProperty::Highlight, INVALID_INDEX, m_TabView->GetRendererContext());
         } else {
             Invalidate();
         }

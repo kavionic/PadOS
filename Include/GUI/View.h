@@ -136,7 +136,8 @@ public:
     virtual void    OnScreenFrameMoved(const PPoint& delta);
     virtual void    OnViewScrolled(const PPoint& delta);
     virtual void    OnFontChanged(Ptr<const PFont> newFont);
-    virtual void    OnStyleChanged() {}
+    virtual void    OnStyleChanged();
+    virtual void    OnVisibilityChanged(bool visible);
     
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight);
     virtual PPoint  CalculateContentSize() const;
@@ -410,6 +411,7 @@ private:
     void HandlePreAttachToScreen(PApplication* app);
     void HandleAttachedToScreen(PApplication* app);
     void HandleDetachedFromScreen();
+    void NotifyStyleScreenAttachmentChanged(bool attached);
 
     void HandlePaint(const PRect& updateRect);
     void FillTextBackground(const PRect& rect, Ptr<const PBrush> backgroundBrush);

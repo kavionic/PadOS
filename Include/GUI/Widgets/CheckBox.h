@@ -8,6 +8,7 @@
 #pragma once
 
 #include "GUI/Widgets/ButtonBase.h"
+#include <GUI/Style/ViewRendererCheckBox.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -19,7 +20,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class PCheckBox : public PButtonBase
+class PCheckBox : public PViewStyle<PViewRendererCheckBox, PButtonBase>
 {
 public:
     PCheckBox(const PString& name = PString::zero, PViewFlags flags = PViewFlag::WillDraw | PViewFlag::ClearBackground);
@@ -29,9 +30,6 @@ public:
       // From View:
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void OnPaint(const PRect& updateRect) override;
-
-    // From Control:
-    virtual void OnEnableStatusChanged(bool isEnabled) override;
 
 private:
 };

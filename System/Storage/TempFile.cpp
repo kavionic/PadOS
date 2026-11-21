@@ -25,7 +25,7 @@ PTempFile::PTempFile(const PString& prefix, const PString& path, int access) : P
         }
         m_Path = tempName;
         free(tempName);
-        if (!Open(m_Path, O_RDWR | O_CREAT | O_EXCL))
+        if (!Open(m_Path, O_RDWR | O_CREAT | O_EXCL, access))
         {
             if (errno == EEXIST) {
                 continue;

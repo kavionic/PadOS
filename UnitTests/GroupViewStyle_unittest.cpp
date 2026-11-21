@@ -6,13 +6,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
-#include <limits>
 
 #include <gtest/gtest.h>
 #include <GUI/Font.h>
 #include <GUI/LayoutNode.h>
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
+#include <GUI/Styles/Skinned/ViewRendererGroupViewSkinned.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/GroupView.h>
@@ -21,6 +21,9 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
+#include "ViewRendererTest.h"
+#include "SkinnableGUIStyleTest.h"
+#include <GUI/Style/ViewRendererGroupView.h>
 
 TEST(GroupViewStyle, LabelAndFontChangesRefreshManagedPreferredSizes)
 {
@@ -114,17 +117,18 @@ TEST(GroupViewStyle, PaintingRestoresThePenWidth)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("group_paint_target", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("group_paint_target", PViewFlag::WillDraw);
         target->SetFrame(PRect(0.0f, 0.0f, 200.0f, 100.0f));
         target->SetPenWidth(7.0f);
-        PGroupViewStyleData data;
+        PGroupViewStyleData& data = target->GetGroupViewStyleData();
         const PGUIStyle* style = application.GetGUIStyle();
         ASSERT_NE(style, nullptr);
-        style->GroupViewPaint(*target, target->GetBounds(), data);
+        PViewRendererTestBinding<PViewRendererGroupView> renderer(*target, *style, PGUIComponentID::GroupView);
+        renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext());
         EXPECT_EQ(target->GetPenWidth(), 7.0f);
         data.Label = "Group";
-        style->GroupViewPropertyChanged(*target, data, PGroupViewProperty::Label);
-        style->GroupViewPaint(*target, target->GetBounds(), data);
+        renderer->PropertyChanged(*target, PGroupViewProperty::Label, renderer.GetContext());
+        renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext());
         EXPECT_EQ(target->GetPenWidth(), 7.0f);
     });
 }
@@ -188,7 +192,7 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
             const Ptr<PBrush> background = ptr_new<PBrush>(PColor(40, 60, 80));
             parent->SetBackgroundBrush(background);
             parent->SetFrame(PRect(0, 0, 400, 240));
-            Ptr<PView> target = ptr_new<PView>("group_paint_target", PViewFlag::WillDraw);
+            Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("group_paint_target", PViewFlag::WillDraw);
             parent->AddChild(target);
             parent->Hide();
             ASSERT_TRUE(application.AddView(parent, PViewDockType::TopLevelView));
@@ -197,13 +201,14 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
             target->SetDrawingRegion(clip);
             target->SetPenWidth(7.0f);
             target->SetDrawingMode(PDrawingMode::Overlay);
-            PGroupViewStyleData data;
+            PGroupViewStyleData& data = target->GetGroupViewStyleData();
             data.Label = "Skinned group";
+            PViewRendererTestBinding<PViewRendererGroupView> renderer(*target, style, PGUIComponentID::GroupView);
             for (const PPoint& size : {PPoint(240, 160), PPoint(310, 190), PPoint(12, 9), PPoint()})
             {
                 target->SetFrame(PRect::FromSize(size));
-                style.GroupViewPropertyChanged(*target, data, PGroupViewProperty::Frame);
-                EXPECT_NO_THROW(style.GroupViewPaint(*target, target->GetBounds(), data));
+                renderer->PropertyChanged(*target, PGroupViewProperty::Frame, renderer.GetContext());
+                EXPECT_NO_THROW(renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext()));
                 EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
                 EXPECT_EQ(parent->GetBackgroundBrush(), background);
                 EXPECT_EQ(target->GetDrawingRegion(), clip);
@@ -213,12 +218,12 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
             }
             target->SetFrame(PRect(0, 0, 240, 160));
             target->ScrollTo(PPoint(-3, -7));
-            const Ptr<PtrTarget> cache = data.StyleData;
-            style.GroupViewPaint(*target, target->GetBounds().GetResized(10, 10, -10, -10), data);
+            PtrTarget* const cache = renderer.GetContext();
+            renderer->Paint(*target, target->GetBounds(), target->GetBounds().GetResized(10, 10, -10, -10), renderer.GetContext());
             data.Label.clear();
-            style.GroupViewPropertyChanged(*target, data, PGroupViewProperty::Label);
-            style.GroupViewPaint(*target, target->GetBounds(), data);
-            EXPECT_EQ(data.StyleData, cache);
+            renderer->PropertyChanged(*target, PGroupViewProperty::Label, renderer.GetContext());
+            renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext());
+            EXPECT_EQ(renderer.GetContext(), cache);
             EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
         }
         application.Sync();
@@ -227,7 +232,7 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
 
 TEST(GroupViewStyle, SkinGeometryAllowsSignedSpacingAndPreservesSharedImages)
 {
-    RunGUITest([](PApplication& application)
+    RunGUITest([](PApplication&)
     {
         const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(32, 32, PEColorSpace::RGBA32);
         std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 32, 0);
@@ -241,54 +246,45 @@ TEST(GroupViewStyle, SkinGeometryAllowsSignedSpacingAndPreservesSharedImages)
         skin.LabelPadding = PRect(-3, -2, 7, 6);
         skin.LabelGap = -1.0f;
         skin.MinimumSize = PPoint(70, 50);
-        const auto createStyle = [&application](const PGroupViewSkin& groupSkin)
-        {
-            return ptr_new<PSkinnableGUIStyle>(
-                PButtonSkin(),
-                PCheckBoxSkin(),
-                PRadioButtonSkin(),
-                PSliderSkin(),
-                PScrollBarSkin(),
-                PTabViewSkin(),
-                PDropdownMenuSkin(),
-                groupSkin,
-                &application);
-        };
-        const Ptr<PSkinnableGUIStyle> style = createStyle(skin);
-        Ptr<PView> first = ptr_new<PView>("first_group");
-        Ptr<PView> second = ptr_new<PView>("second_group");
+        const Ptr<const PViewRendererGroupView> renderer = ptr_new<PViewRendererGroupViewSkinned>(skin);
+        Ptr<PViewRendererTestView> first = ptr_new<PViewRendererTestView>("first_group");
+        Ptr<PViewRendererTestView> second = ptr_new<PViewRendererTestView>("second_group");
         first->SetFrame(PRect(0, 0, 240, 100));
         second->SetFrame(PRect(0, 0, 180, 140));
-        PGroupViewStyleData firstData;
-        PGroupViewStyleData secondData;
+        PGroupViewStyleData& firstData = first->GetGroupViewStyleData();
+        PViewRendererTestBinding<PViewRendererGroupView> firstRenderer(*first, renderer);
+        PViewRendererTestBinding<PViewRendererGroupView> secondRenderer(*second, renderer);
         PPoint minimum;
         PPoint maximum;
-        style->GroupViewGetPreferredSize(*first, firstData, &minimum, &maximum);
+        firstRenderer->GetPreferredSize(*first, &minimum, &maximum, firstRenderer.GetContext());
         EXPECT_EQ(minimum, PPoint(70, 50));
         firstData.Label = "An overlapping title";
-        style->GroupViewPropertyChanged(*first, firstData, PGroupViewProperty::Label);
-        style->GroupViewPaint(*first, first->GetBounds(), firstData);
-        style->GroupViewPaint(*second, second->GetBounds(), secondData);
-        EXPECT_NE(firstData.StyleData, secondData.StyleData);
+        firstRenderer->PropertyChanged(*first, PGroupViewProperty::Label, firstRenderer.GetContext());
+        firstRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstRenderer.GetContext());
+        secondRenderer->Paint(*second, second->GetBounds(), second->GetBounds(), secondRenderer.GetContext());
+        EXPECT_NE(firstRenderer.GetContext(), secondRenderer.GetContext());
         first->SetFrame(PRect(0, 0, 12, 9));
-        style->GroupViewPaint(*first, first->GetBounds(), firstData);
+        firstRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstRenderer.GetContext());
         EXPECT_EQ(image->GetDescription(), original);
-        skin.LabelGap = std::numeric_limits<float>::quiet_NaN();
-        EXPECT_THROW(createStyle(skin), std::system_error);
-        skin.LabelGap = 4.0f;
-        skin.MinimumSize.x = 0.0f;
-        EXPECT_THROW(createStyle(skin), std::system_error);
-        const PSkinnableGUIStyle fallback;
-        const PDefaultGUIStyle defaultStyle;
-        PGroupViewStyleData fallbackData;
-        PGroupViewStyleData defaultData;
-        fallbackData.Label = "Default";
-        defaultData.Label = fallbackData.Label;
-        PPoint expectedMinimum;
-        PPoint expectedMaximum;
-        fallback.GroupViewGetPreferredSize(*first, fallbackData, &minimum, &maximum);
-        defaultStyle.GroupViewGetPreferredSize(*first, defaultData, &expectedMinimum, &expectedMaximum);
-        EXPECT_EQ(minimum, expectedMinimum);
-        EXPECT_EQ(maximum, expectedMaximum);
+    });
+}
+
+TEST(GroupViewStyle, XMLSkinAllowsSignedSpacingAndRejectsInvalidMetrics)
+{
+    RunGUITest([](PApplication& application)
+    {
+        PSkinnableGUIStyleTestDirectory directory("GroupViewMetrics");
+        ASSERT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+        directory.WriteFile("GroupView.xml", [](pugi::xml_node root)
+        {
+            root.attribute("frame_insets") = "Rect(-2, 3, 4, -5)";
+            root.attribute("label_padding") = "Rect(-3, -2, 7, 6)";
+            root.attribute("label_gap") = "-1";
+        });
+        EXPECT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+        directory.WriteFile("GroupView.xml", [](pugi::xml_node root) { root.attribute("label_gap") = "nan"; });
+        EXPECT_THROW(PSkinnableGUIStyle(directory.GetPath(), &application), std::system_error);
+        directory.WriteFile("GroupView.xml", [](pugi::xml_node root) { root.attribute("minimum_size") = "Point(0, 50)"; });
+        EXPECT_THROW(PSkinnableGUIStyle(directory.GetPath(), &application), std::system_error);
     });
 }

@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <string>
+#include <GUI/Style/ViewStyleDropdownMenu.h>
 
 namespace osi
 {
@@ -44,12 +45,14 @@ extern const std::map<PString, PDropdownMenuFlags> PDROPDOWN_MENU_FLAG_MAP;
  * \author  Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class PDropdownMenu : public PControl
+class PDropdownMenu : public PControl, public PViewStyleDropdownMenu
 {
 public:
     PDropdownMenu(const PString& name = PString::zero, PDropdownMenuFlags flags = PDropdownMenuFlags::zero);
     PDropdownMenu(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PDropdownMenu();
+
+    virtual const PDropdownMenuStyleData& GetDropdownMenuStyleData() const override { return m_DropdownMenuStyleData; }
 
     // From View:
     virtual void    OnFlagsChanged(PViewFlags changedFlags) override;
@@ -63,7 +66,7 @@ public:
     void OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     void OnPointerEnter(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     void OnPointerLeave(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
-    virtual void    OnPaint(const PRect& cUpdateRect) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;

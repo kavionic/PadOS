@@ -10,11 +10,35 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <sys/stat.h>
+#include <type_traits>
 #include <vector>
 
 #include <Utils/String.h>
 #include <Utils/UTF8Utils.h>
+
+static_assert(std::is_default_constructible_v<PString>);
+static_assert(std::is_constructible_v<PString, const char*>);
+static_assert(std::is_constructible_v<PString, const char*, size_t>);
+static_assert(std::is_constructible_v<PString, size_t, char>);
+static_assert(std::is_constructible_v<PString, const std::string&>);
+static_assert(std::is_nothrow_constructible_v<PString, std::string&&>);
+static_assert(std::is_constructible_v<PString, std::string_view>);
+static_assert(std::is_constructible_v<PString, PString&>);
+static_assert(std::is_constructible_v<PString, const PString&>);
+static_assert(std::is_constructible_v<PString, PString&&>);
+static_assert(std::is_constructible_v<PString, const wchar16_t*>);
+static_assert(std::is_constructible_v<PString, const wchar16_t*, size_t>);
+
+static_assert(std::is_convertible_v<const char*, PString>);
+static_assert(std::is_convertible_v<const std::string&, PString>);
+static_assert(std::is_convertible_v<std::string&&, PString>);
+static_assert(!std::is_convertible_v<std::string_view, PString>);
+
+static_assert(!std::is_constructible_v<PString, int>);
+static_assert(!std::is_constructible_v<PString, void*>);
+static_assert(!std::is_constructible_v<PString, std::vector<char>>);
 
 namespace {
 

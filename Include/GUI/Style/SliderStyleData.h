@@ -11,7 +11,6 @@
 
 #include <GUI/Color.h>
 #include <GUI/GUIDefines.h>
-#include <GUI/Style/GUIStyleData.h>
 #include <Utils/EnumBitmask.h>
 #include <Utils/String.h>
 
@@ -36,7 +35,7 @@ enum class PSliderProperty : uint32_t
 
 using PSliderProperties = PEnumBitmask<PSliderProperty>;
 
-struct PSliderStyleData : PGUIStyleData
+struct PSliderStyleData
 {
     PString Label;
     PString ValueLabel;

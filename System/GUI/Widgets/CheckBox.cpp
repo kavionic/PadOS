@@ -8,26 +8,29 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/CheckBox.h>
 #include <Utils/XMLFactory.h>
+#include <GUI/Style/ViewRendererCheckBox.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PCheckBox::PCheckBox(const PString& name, PViewFlags flags) : PButtonBase(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
+PCheckBox::PCheckBox(const PString& name, PViewFlags flags) : PViewStyle(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     SetCheckable(true);
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PCheckBox::PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PButtonBase(context, xmlData, PAlignment::Right)
+PCheckBox::PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PViewStyle(context, xmlData, PAlignment::Right)
 {
     MergeFlags(PViewFlag::WillDraw);
 	SetCheckable(true);
     SetChecked(context.GetAttribute<bool>(xmlData, "value", false));
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -36,6 +39,7 @@ PCheckBox::PCheckBox(PViewFactoryContext& context, const pugi::xml_node& xmlData
 
 PCheckBox::~PCheckBox()
 {
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,9 +48,9 @@ PCheckBox::~PCheckBox()
 
 void PCheckBox::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->CheckBoxGetPreferredSize(*this, m_ButtonStyleData, minSize, maxSize);
+    const PViewRendererCheckBox* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -58,20 +62,10 @@ void PCheckBox::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool in
 
 void PCheckBox::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->CheckBoxPaint(*this, GetBounds(), IsEnabled(), m_ButtonStyleData);
+    const PViewRendererCheckBox* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PCheckBox::OnEnableStatusChanged(bool isEnabled)
-{
-    Invalidate();
-    Flush();
 }

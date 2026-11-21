@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <limits>
 #include <type_traits>
 #include <string_view>
 #include <GUI/BitmapLoader.h>
@@ -16,6 +15,9 @@
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Style/SliderStyleLayout.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
+#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererTabViewSkinned.h>
 #include <GUI/View.h>
 #include <System/ExceptionHandling.h>
 #include <Storage/File.h>
@@ -23,6 +25,21 @@
 #include <Utils/XMLObjectParser.h>
 
 #include "GUITest.h"
+#include "ViewRendererTest.h"
+#include "SkinnableGUIStyleTest.h"
+#include <GUI/Style/ViewRendererButton.h>
+#include <GUI/Style/ViewRendererScrollBar.h>
+#include <GUI/Style/ViewRendererSlider.h>
+#include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/Styles/Skinned/ViewRendererButtonSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererCheckBoxSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererRadioButtonSkinned.h>
+
+static PPoint GetSkinnedTestButtonLabelSize(const PView& target, const PButtonStyleData& data)
+{
+    const PFontHeight fontHeight = target.GetFontHeight();
+    return PPoint(target.GetStringWidth(data.Label), fontHeight.ascender + fontHeight.descender + fontHeight.line_gap);
+}
 
 class PButtonSkinTestStream : public PStreamableIO
 {
@@ -59,7 +76,7 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
             {0x25354a, 0x203b59, 0x25354a, 0x8a96a6, 0x173f63, 0x103b60, 0x153c5c, 0x8297a9},
             {0xeef4fc, 0xffffff, 0xe8f1fc, 0x78879c, 0xf1f8ff, 0xffffff, 0xeaf5ff, 0x8095a9}
         }};
-        Ptr<PView> target = ptr_new<PView>("loaded_skin", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("loaded_skin", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
         target->SetFrame(PRect(0, 0, 160, 48));
@@ -81,7 +98,9 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
             EXPECT_EQ(style.GetBackgroundBrush(), background);
             target->SetBackgroundBrush(background);
             EXPECT_EQ(target->GetBackgroundBrush(), background);
-            PButtonStyleData data;
+            PButtonStyleData& data = target->GetButtonStyleData();
+            data = PButtonStyleData();
+            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, style, PGUIComponentID::Button);
             data.Label = "Loaded button";
             for (size_t index = 0; index < 8; ++index)
             {
@@ -89,7 +108,8 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
                 data.IsChecked = index >= 4;
                 data.IsPointerOver = state >= 1;
                 data.IsPressed = state >= 2;
-                style.ButtonPaint(*target, target->GetBounds(), state != 3, data);
+                target->SetButtonEnabled(state != 3);
+                buttonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), buttonRenderer.GetContext());
                 const Ptr<const PBrush> brush = target->GetBackgroundBrush();
                 ASSERT_NE(brush, nullptr);
                 ASSERT_NE(brush->GetImage(), nullptr);
@@ -103,9 +123,10 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
                 EXPECT_EQ(target->GetFgColor(), PColor::FromRGB32(LABEL_COLORS[themeIndex][index]));
                 PPoint minimum;
                 PPoint maximum;
-                style.ButtonGetPreferredSize(*target, data, &minimum, &maximum);
-                EXPECT_EQ(minimum, data.LabelSize + PPoint(24, 8));
-                style.ButtonPaint(*target, target->GetBounds(), state != 3, data);
+                buttonRenderer->GetPreferredSize(*target, &minimum, &maximum, buttonRenderer.GetContext());
+                EXPECT_EQ(minimum, GetSkinnedTestButtonLabelSize(*target, data) + PPoint(24, 8));
+                target->SetButtonEnabled(state != 3);
+                buttonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), buttonRenderer.GetContext());
                 EXPECT_EQ(target->GetBackgroundBrush(), brush);
             }
         }
@@ -117,7 +138,7 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
     RunGUITest([](PApplication& application)
     {
         constexpr std::array<const char*, 2> THEMES = {"Normal", "Dark"};
-        Ptr<PView> target = ptr_new<PView>("checkbox_skin", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("checkbox_skin", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
         target->SetFrame(PRect(0, 0, 240, 96));
@@ -128,7 +149,10 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", THEMES[themeIndex])));
             PSkinnableGUIStyle style(directory, &application);
-            PButtonStyleData data;
+            PButtonStyleData& data = target->GetButtonStyleData();
+            data = PButtonStyleData();
+            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, style, PGUIComponentID::Button);
+            PViewRendererTestBinding<PViewRendererCheckBox> checkBoxRenderer(*target, style, PGUIComponentID::CheckBox);
             data.Label = "Option";
             for (size_t index = 0; index < 8; ++index)
             {
@@ -136,10 +160,12 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
                 data.IsChecked = index >= 4;
                 data.IsPointerOver = state >= 1;
                 data.IsPressed = state >= 2;
-                style.ButtonPaint(*target, frame, state != 3, data);
+                target->SetButtonEnabled(state != 3);
+                buttonRenderer->Paint(*target, frame, target->GetBounds(), buttonRenderer.GetContext());
                 const PColor expectedLabelColor = target->GetFgColor();
                 target->SetDrawingMode(PDrawingMode::Blend);
-                style.CheckBoxPaint(*target, frame, state != 3, data);
+                target->SetButtonEnabled(state != 3);
+                checkBoxRenderer->Paint(*target, frame, target->GetBounds(), checkBoxRenderer.GetContext());
                 EXPECT_EQ(target->GetFgColor(), expectedLabelColor);
                 EXPECT_EQ(target->GetPenPosition(), PPoint(47, baseline));
                 EXPECT_EQ(target->GetDrawingBrushOrigin(), PPoint(7, 27));
@@ -148,58 +174,44 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
                 EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
                 PPoint minimum;
                 PPoint maximum;
-                style.CheckBoxGetPreferredSize(*target, data, &minimum, &maximum);
-                EXPECT_EQ(minimum, PPoint(data.LabelSize.x + 40, 32));
+                checkBoxRenderer->GetPreferredSize(*target, &minimum, &maximum, checkBoxRenderer.GetContext());
+                EXPECT_EQ(minimum, PPoint(GetSkinnedTestButtonLabelSize(*target, data).x + 40, 32));
                 EXPECT_EQ(maximum, minimum);
             }
             data.Label.clear();
-            data.IsLabelSizeValid = false;
+            buttonRenderer->PropertyChanged(*target, PButtonProperty::Label, buttonRenderer.GetContext());
+            checkBoxRenderer->PropertyChanged(*target, PButtonProperty::Label, checkBoxRenderer.GetContext());
             PPoint minimum;
             PPoint maximum;
-            style.CheckBoxGetPreferredSize(*target, data, &minimum, &maximum);
+            checkBoxRenderer->GetPreferredSize(*target, &minimum, &maximum, checkBoxRenderer.GetContext());
             EXPECT_EQ(minimum, PPoint(32, 32));
-            style.CheckBoxPaint(*target, frame, true, data);
+            target->SetButtonEnabled(true);
+            checkBoxRenderer->Paint(*target, frame, target->GetBounds(), checkBoxRenderer.GetContext());
             EXPECT_EQ(target->GetDrawingBrushOrigin(), PPoint(7, 27));
         }
     });
 }
 
-TEST(SkinnableGUIStyle, UnconfiguredCheckBoxesDelegateToDefaultStyle)
+TEST(SkinnableGUIStyle, XMLIndicatorsRequirePositiveSizesAndAllowNegativeSpacing)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("default_checkbox", PViewFlag::WillDraw);
-        ASSERT_TRUE(application.AddHandler(target));
-        PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
-        target->SetFrame(PRect(0, 0, 180, 40));
-        PButtonStyleData data;
-        data.Label = "Default checkbox";
-        data.IsChecked = true;
-        PDefaultGUIStyle defaultStyle;
-        PPoint expectedMinimum;
-        PPoint expectedMaximum;
-        defaultStyle.CheckBoxGetPreferredSize(*target, data, &expectedMinimum, &expectedMaximum);
-        defaultStyle.CheckBoxPaint(*target, target->GetBounds(), true, data);
-        const PPoint expectedLabelPosition = target->GetPenPosition();
-        const Ptr<const PBrush> expectedBackground = target->GetBackgroundBrush();
-
-        PSkinnableGUIStyle style;
-        EXPECT_EQ(style.GetBackgroundBrush(), application.GetStandardBrush(PStandardColorID::DefaultBackground));
-        PPoint minimum;
-        PPoint maximum;
-        style.CheckBoxGetPreferredSize(*target, data, &minimum, &maximum);
-        EXPECT_EQ(minimum, expectedMinimum);
-        EXPECT_EQ(maximum, expectedMaximum);
-        style.CheckBoxPaint(*target, target->GetBounds(), true, data);
-        EXPECT_EQ(target->GetPenPosition(), expectedLabelPosition);
-        EXPECT_EQ(target->GetBackgroundBrush(), expectedBackground);
-
-        PCheckBoxSkin skin;
-        skin.Size = 0.0f;
-        EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), skin)), std::system_error);
-        skin.Size = 32.0f;
-        skin.LabelSpacing = -1.0f;
-        EXPECT_NO_THROW((PSkinnableGUIStyle(PButtonSkin(), skin)));
+        PSkinnableGUIStyleTestDirectory directory("IndicatorSizes");
+        ASSERT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+        for (const char* fileName : {"CheckBox.xml", "RadioButton.xml"})
+        {
+            directory.WriteFile(fileName, [](pugi::xml_node root) { root.attribute("size").set_value("0"); });
+            EXPECT_THROW(PSkinnableGUIStyle(directory.GetPath(), &application), std::system_error);
+            directory.WriteFile(fileName, [](pugi::xml_node root)
+            {
+                root.attribute("label_spacing").set_value("-1");
+                if (std::string_view(root.name()) == "RadioButton") {
+                    root.attribute("label_vertical_spacing").set_value("-1");
+                }
+            });
+            EXPECT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+            directory.WriteFile(fileName);
+        }
     });
 }
 
@@ -209,7 +221,7 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
     {
         constexpr std::array<const char*, 2> THEMES = {"Normal", "Dark"};
         constexpr std::array<PAlignment, 5> ALIGNMENTS = {PAlignment::Right, PAlignment::Left, PAlignment::Top, PAlignment::Bottom, PAlignment::Center};
-        Ptr<PView> target = ptr_new<PView>("radio_skin", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("radio_skin", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
         const PPoint origin(7, 11);
@@ -219,7 +231,10 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
             PSkinnableGUIStyle style(directory, &application);
-            PButtonStyleData data;
+            PButtonStyleData& data = target->GetButtonStyleData();
+            data = PButtonStyleData();
+            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, style, PGUIComponentID::Button);
+            PViewRendererTestBinding<PViewRendererRadioButton> radioButtonRenderer(*target, style, PGUIComponentID::RadioButton);
             data.Label = "Option";
             const float labelWidth = target->GetStringWidth(data.Label);
             for (PAlignment alignment : ALIGNMENTS)
@@ -230,7 +245,7 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
                     ? PPoint(std::max(32.0f, labelWidth), 38.0f + labelHeight) : PPoint(labelWidth + 40.0f, std::max(32.0f, labelHeight + 2.0f));
                 PPoint minimum;
                 PPoint maximum;
-                style.RadioButtonGetPreferredSize(*target, data, &minimum, &maximum);
+                radioButtonRenderer->GetPreferredSize(*target, &minimum, &maximum, radioButtonRenderer.GetContext());
                 EXPECT_EQ(minimum, expectedSize);
                 EXPECT_EQ(maximum, minimum);
                 target->SetFrame(PRect(PPoint(), expectedSize + PPoint(14, 22)));
@@ -263,10 +278,12 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
                     data.IsChecked = index >= 4;
                     data.IsPointerOver = state >= 1;
                     data.IsPressed = state >= 2;
-                    style.ButtonPaint(*target, frame, state != 3, data);
+                    target->SetButtonEnabled(state != 3);
+                    buttonRenderer->Paint(*target, frame, target->GetBounds(), buttonRenderer.GetContext());
                     const PColor expectedLabelColor = target->GetFgColor();
                     target->SetDrawingMode(PDrawingMode::Blend);
-                    style.RadioButtonPaint(*target, frame, state != 3, data);
+                    target->SetButtonEnabled(state != 3);
+                    radioButtonRenderer->Paint(*target, frame, target->GetBounds(), radioButtonRenderer.GetContext());
                     EXPECT_EQ(target->GetFgColor(), expectedLabelColor);
                     EXPECT_EQ(target->GetPenPosition(), expectedLabel);
                     EXPECT_EQ(target->GetDrawingBrushOrigin(), expectedIndicator);
@@ -276,55 +293,18 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
                 }
             }
             data.Label.clear();
-            data.IsLabelSizeValid = false;
+            radioButtonRenderer->PropertyChanged(*target, PButtonProperty::Label, radioButtonRenderer.GetContext());
+            buttonRenderer->PropertyChanged(*target, PButtonProperty::Label, buttonRenderer.GetContext());
             PPoint minimum;
             PPoint maximum;
-            style.RadioButtonGetPreferredSize(*target, data, &minimum, &maximum);
+            radioButtonRenderer->GetPreferredSize(*target, &minimum, &maximum, radioButtonRenderer.GetContext());
             EXPECT_EQ(minimum, PPoint(32, 32));
             EXPECT_EQ(maximum, minimum);
             target->SetFrame(PRect(0, 0, 120, 90));
-            style.RadioButtonPaint(*target, PRect(7, 11, 107, 75), true, data);
+            target->SetButtonEnabled(true);
+            radioButtonRenderer->Paint(*target, PRect(7, 11, 107, 75), target->GetBounds(), radioButtonRenderer.GetContext());
             EXPECT_EQ(target->GetDrawingBrushOrigin(), PPoint(41, 27));
         }
-    });
-}
-
-TEST(SkinnableGUIStyle, UnconfiguredRadioButtonsDelegateToDefaultStyle)
-{
-    RunGUITest([](PApplication& application)
-    {
-        Ptr<PView> target = ptr_new<PView>("default_radio", PViewFlag::WillDraw);
-        ASSERT_TRUE(application.AddHandler(target));
-        PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
-        target->SetFrame(PRect(0, 0, 180, 40));
-        PButtonStyleData data;
-        data.Label = "Default radio";
-        data.IsChecked = true;
-        PDefaultGUIStyle defaultStyle;
-        PPoint expectedMinimum;
-        PPoint expectedMaximum;
-        defaultStyle.RadioButtonGetPreferredSize(*target, data, &expectedMinimum, &expectedMaximum);
-        defaultStyle.RadioButtonPaint(*target, target->GetBounds(), true, data);
-        const PPoint expectedLabelPosition = target->GetPenPosition();
-        const Ptr<const PBrush> expectedBackground = target->GetBackgroundBrush();
-
-        PSkinnableGUIStyle style;
-        PPoint minimum;
-        PPoint maximum;
-        style.RadioButtonGetPreferredSize(*target, data, &minimum, &maximum);
-        EXPECT_EQ(minimum, expectedMinimum);
-        EXPECT_EQ(maximum, expectedMaximum);
-        style.RadioButtonPaint(*target, target->GetBounds(), true, data);
-        EXPECT_EQ(target->GetPenPosition(), expectedLabelPosition);
-        EXPECT_EQ(target->GetBackgroundBrush(), expectedBackground);
-
-        PRadioButtonSkin skin;
-        skin.Size = 0.0f;
-        EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), skin)), std::system_error);
-        skin.Size = 32.0f;
-        skin.LabelSpacing = -1.0f;
-        skin.LabelVerticalSpacing = -1.0f;
-        EXPECT_NO_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), skin)));
     });
 }
 
@@ -332,14 +312,15 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("overlapping_indicators", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("overlapping_indicators", PViewFlag::WillDraw);
         target->SetFrame(PRect::FromSize(320.0f, 256.0f));
         target->Hide();
         ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
         PScopeExit removeTarget([&application, &target] { application.RemoveView(target); });
         target->ScrollBy(PPoint(-3, -5));
         const Ptr<const PRegion> originalClip = ptr_new<PRegion>(PIRect(4, 6, 300, 240));
-        PButtonStyleData data;
+        PButtonStyleData& data = target->GetButtonStyleData();
+        data = PButtonStyleData();
         data.Label = "Option";
         const float labelWidth = target->GetStringWidth(data.Label);
         const PFontHeight fontHeight = target->GetFontHeight();
@@ -353,7 +334,10 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
             radioSkin.LabelSpacing = spacing;
             radioSkin.LabelVerticalSpacing = spacing;
             radioSkin.States[0].Background = checkBoxSkin.States[0].Background;
-            PSkinnableGUIStyle style(PButtonSkin(), checkBoxSkin, radioSkin);
+            const Ptr<const PViewRendererCheckBox> sharedCheckBoxRenderer = ptr_new<PViewRendererCheckBoxSkinned>(checkBoxSkin);
+            const Ptr<const PViewRendererRadioButton> sharedRadioButtonRenderer = ptr_new<PViewRendererRadioButtonSkinned>(radioSkin);
+            PViewRendererTestBinding<PViewRendererCheckBox> checkBoxRenderer(*target, sharedCheckBoxRenderer);
+            PViewRendererTestBinding<PViewRendererRadioButton> radioButtonRenderer(*target, sharedRadioButtonRenderer);
             for (bool checkBox : {false, true})
             {
                 for (PAlignment alignment : ALIGNMENTS)
@@ -365,18 +349,23 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
                     PPoint minimum;
                     PPoint maximum;
                     if (checkBox) {
-                        style.CheckBoxGetPreferredSize(*target, data, &minimum, &maximum);
+                        checkBoxRenderer->GetPreferredSize(*target, &minimum, &maximum, checkBoxRenderer.GetContext());
                     } else {
-                        style.RadioButtonGetPreferredSize(*target, data, &minimum, &maximum);
+                        radioButtonRenderer->GetPreferredSize(*target, &minimum, &maximum, radioButtonRenderer.GetContext());
                     }
                     EXPECT_EQ(maximum, minimum);
                     const PRect frame(PPoint(11, 13), PPoint(11, 13) + minimum);
                     target->SetDrawingRegion(originalClip);
                     target->SetDrawingMode(PDrawingMode::Blend);
-                    if (checkBox) {
-                        style.CheckBoxPaint(*target, frame, true, data);
-                    } else {
-                        style.RadioButtonPaint(*target, frame, true, data);
+                    if (checkBox)
+                    {
+                        target->SetButtonEnabled(true);
+                        checkBoxRenderer->Paint(*target, frame, target->GetBounds(), checkBoxRenderer.GetContext());
+                    }
+                    else
+                    {
+                        target->SetButtonEnabled(true);
+                        radioButtonRenderer->Paint(*target, frame, target->GetBounds(), radioButtonRenderer.GetContext());
                     }
                     EXPECT_EQ(target->GetDrawingRegion(), originalClip);
                     EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
@@ -403,11 +392,13 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
                 }
             }
             target->ClearDrawingRegion();
-            style.RadioButtonPaint(*target, target->GetBounds(), true, data);
+            target->SetButtonEnabled(true);
+            radioButtonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), radioButtonRenderer.GetContext());
             EXPECT_EQ(target->GetDrawingRegion(), nullptr);
             target->SetDrawingRegion(PRegion());
             const Ptr<const PRegion> emptyClip = target->GetDrawingRegion();
-            style.CheckBoxPaint(*target, target->GetBounds(), true, data);
+            target->SetButtonEnabled(true);
+            checkBoxRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), checkBoxRenderer.GetContext());
             EXPECT_EQ(target->GetDrawingRegion(), emptyClip);
             EXPECT_TRUE(target->GetDrawingRegion()->IsEmpty());
         }
@@ -415,41 +406,33 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
     });
 }
 
-TEST(SkinnableGUIStyle, IndicatorSkinsRejectNonFiniteMetrics)
+TEST(SkinnableGUIStyle, XMLIndicatorSkinsRejectNonFiniteMetrics)
 {
-    RunGUITest([](PApplication&)
+    RunGUITest([](PApplication& application)
     {
-        constexpr std::array<float, 3> NON_FINITE_VALUES =
+        PSkinnableGUIStyleTestDirectory directory("IndicatorMetrics");
+        ASSERT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+        for (const char* fileName : {"CheckBox.xml", "RadioButton.xml"})
         {
-            std::numeric_limits<float>::infinity(),
-            -std::numeric_limits<float>::infinity(),
-            std::numeric_limits<float>::quiet_NaN()
-        };
-        constexpr std::array<float PButtonIndicatorSkin::*, 3> METRICS =
-        {
-            &PButtonIndicatorSkin::Size,
-            &PButtonIndicatorSkin::LabelSpacing,
-            &PButtonIndicatorSkin::LabelVerticalOffset
-        };
-        for (float value : NON_FINITE_VALUES)
-        {
-            for (float PButtonIndicatorSkin::* metric : METRICS)
+            for (const char* metric : {"size", "label_spacing", "label_vertical_offset"})
             {
-                PCheckBoxSkin checkBoxSkin;
-                checkBoxSkin.*metric = value;
-                EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), checkBoxSkin)), std::system_error);
-                PRadioButtonSkin radioButtonSkin;
-                radioButtonSkin.*metric = value;
-                EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), radioButtonSkin)), std::system_error);
+                for (const char* value : {"inf", "-inf", "nan"})
+                {
+                    directory.WriteFile(fileName, [metric, value](pugi::xml_node root) { root.attribute(metric).set_value(value); });
+                    EXPECT_THROW(PSkinnableGUIStyle(directory.GetPath(), &application), std::system_error);
+                }
             }
-            PRadioButtonSkin radioButtonSkin;
-            radioButtonSkin.LabelVerticalSpacing = value;
-            EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), radioButtonSkin)), std::system_error);
+            directory.WriteFile(fileName);
+        }
+        for (const char* value : {"inf", "-inf", "nan"})
+        {
+            directory.WriteFile("RadioButton.xml", [value](pugi::xml_node root) { root.attribute("label_vertical_spacing").set_value(value); });
+            EXPECT_THROW(PSkinnableGUIStyle(directory.GetPath(), &application), std::system_error);
         }
     });
 }
 
-TEST(SliderStyleLayout, MeasuresAndTracksDamageWithoutUsingTheStylePayload)
+TEST(SliderStyleLayout, MeasuresAndTracksDamageIndependentlyOfOtherLayouts)
 {
     RunGUITest([](PApplication& application)
     {
@@ -458,6 +441,7 @@ TEST(SliderStyleLayout, MeasuresAndTracksDamageWithoutUsingTheStylePayload)
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
             PSliderStyleLayout layout;
+            PSliderStyleLayout otherLayout;
             layout.SetKnobBounds(PRect(-5.0f, -10.0f, 12.0f, 20.0f));
             PSliderStyleData data;
             data.Orientation = orientation;
@@ -474,12 +458,12 @@ TEST(SliderStyleLayout, MeasuresAndTracksDamageWithoutUsingTheStylePayload)
             const PPoint position = layout.GetValuePosition(*target, data, 0.5f);
             EXPECT_NEAR(layout.GetValueFromPosition(*target, data, position), 0.5f, 0.01f);
             EXPECT_FALSE(layout.HasVisualState());
-            EXPECT_EQ(data.StyleData, nullptr);
+            EXPECT_FALSE(otherLayout.HasVisualState());
             layout.PropertyChanged(*target, data, PSliderProperty::Appearance);
             EXPECT_TRUE(layout.HasVisualState());
             data.Value = 0.75f;
             layout.PropertyChanged(*target, data, PSliderProperty::Value);
-            EXPECT_EQ(data.StyleData, nullptr);
+            EXPECT_FALSE(otherLayout.HasVisualState());
         }
     });
 }
@@ -488,7 +472,7 @@ TEST(SkinnableGUIStyle, XMLSlidersKeepGeometryAndDrawingStateStableAcrossStatesF
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("slider_skins", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("slider_skins", PViewFlag::WillDraw);
         target->SetFrame(PRect::FromSize(240.0f, 200.0f));
         target->Hide();
         ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
@@ -505,20 +489,26 @@ TEST(SkinnableGUIStyle, XMLSlidersKeepGeometryAndDrawingStateStableAcrossStatesF
                 for (size_t shape = 0; shape < 4; ++shape)
                 {
                     const bool isHorizontal = orientation == POrientation::Horizontal;
-                    PSliderStyleData geometryData;
+                    PSliderStyleData& geometryData = target->GetSliderStyleData();
+                    geometryData = PSliderStyleData();
+                    PViewRendererTestBinding<PViewRendererSlider> geometrySliderRenderer(*target, style, PGUIComponentID::Slider);
                     geometryData.Orientation = orientation;
                     geometryData.KnobPointUp = shape % 2 != 0;
                     geometryData.KnobPointDown = shape >= 2;
                     PPoint nativeMinimum;
                     PPoint nativeMaximum;
-                    style.SliderGetPreferredSize(*target, geometryData, &nativeMinimum, &nativeMaximum);
+                    geometrySliderRenderer->GetPreferredSize(*target, &nativeMinimum, &nativeMaximum, geometrySliderRenderer.GetContext());
                     const PPoint expectedSize = isHorizontal ? BITMAP_SIZES[shape] : PPoint(BITMAP_SIZES[shape].y, BITMAP_SIZES[shape].x);
                     const PPoint expectedAnchor = isHorizontal ? ANCHORS[shape] : PPoint(ANCHORS[shape].y, ANCHORS[shape].x);
                     EXPECT_EQ(nativeMinimum, expectedSize);
                     target->SetFrame(PRect::FromSize(isHorizontal ? PPoint(240.0f, nativeMinimum.y) : PPoint(nativeMinimum.x, 200.0f)));
-                    EXPECT_EQ(style.SliderGetValuePosition(*target, geometryData, isHorizontal ? 0.0f : 1.0f), expectedAnchor);
+                    EXPECT_EQ(
+                        geometrySliderRenderer->GetValuePosition(*target, isHorizontal ? 0.0f : 1.0f, geometrySliderRenderer.GetContext()),
+                        expectedAnchor);
                     target->SetFrame(PRect::FromSize(240.0f, 200.0f));
-                    PSliderStyleData data;
+                    PSliderStyleData& data = target->GetSliderStyleData();
+                    data = PSliderStyleData();
+                    PViewRendererTestBinding<PViewRendererSlider> sliderRenderer(*target, style, PGUIComponentID::Slider);
                     data.Orientation = orientation;
                     data.KnobPointUp = shape % 2 != 0;
                     data.KnobPointDown = shape >= 2;
@@ -531,36 +521,36 @@ TEST(SkinnableGUIStyle, XMLSlidersKeepGeometryAndDrawingStateStableAcrossStatesF
                     data.ShadowValues = {0.2f, 0.8f};
                     PPoint minimum;
                     PPoint maximum;
-                    style.SliderGetPreferredSize(*target, data, &minimum, &maximum);
+                    sliderRenderer->GetPreferredSize(*target, &minimum, &maximum, sliderRenderer.GetContext());
                     EXPECT_GT(minimum.x, 0.0f);
                     EXPECT_GT(minimum.y, 0.0f);
                     EXPECT_GE(maximum.x, minimum.x);
                     EXPECT_GE(maximum.y, minimum.y);
-                    const Ptr<PtrTarget> privateState = data.StyleData;
+                    PtrTarget* const privateState = sliderRenderer.GetContext();
                     for (float value : {0.0f, 0.5f, 1.0f})
                     {
                         data.Value = value;
-                        const PPoint position = style.SliderGetValuePosition(*target, data, value);
-                        EXPECT_NEAR(style.SliderGetValueFromPosition(*target, data, position), value, 0.01f);
-                        style.SliderPropertyChanged(*target, data, PSliderProperty::Value);
+                        const PPoint position = sliderRenderer->GetValuePosition(*target, value, sliderRenderer.GetContext());
+                        EXPECT_NEAR(sliderRenderer->GetValueFromPosition(*target, position, sliderRenderer.GetContext()), value, 0.01f);
+                        sliderRenderer->PropertyChanged(*target, PSliderProperty::Value, sliderRenderer.GetContext());
                         for (size_t state = 0; state < 4; ++state)
                         {
                             data.IsPointerOver = state >= 1;
                             data.IsPressed = state >= 2;
                             data.IsEnabled = state != 3;
-                            style.SliderPropertyChanged(
+                            sliderRenderer->PropertyChanged(
                                 *target,
-                                data,
-                                PSliderProperties(PSliderProperty::Pressed, PSliderProperty::Hovered, PSliderProperty::Enabled));
+                                PSliderProperties(PSliderProperty::Pressed, PSliderProperty::Hovered, PSliderProperty::Enabled),
+                                sliderRenderer.GetContext());
                             target->SetDrawingRegion(clip);
                             target->SetDrawingMode(PDrawingMode::Blend);
-                            style.SliderPaint(*target, target->GetNormalizedBounds(), data);
+                            sliderRenderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), sliderRenderer.GetContext());
                             EXPECT_EQ(target->GetDrawingRegion(), clip);
                             EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
                             EXPECT_EQ(target->GetBrush(), nullptr);
                             EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
-                            EXPECT_EQ(data.StyleData, privateState);
-                            EXPECT_EQ(style.SliderGetValuePosition(*target, data, value), position);
+                            EXPECT_EQ(sliderRenderer.GetContext(), privateState);
+                            EXPECT_EQ(sliderRenderer->GetValuePosition(*target, value, sliderRenderer.GetContext()), position);
                         }
                     }
                 }
@@ -576,7 +566,7 @@ TEST(SkinnableGUIStyle, SliderLayoutUsesBitmapSizesAndAsymmetricAnchorsAcrossSta
     {
         Ptr<PBitmap> trackBitmap = ptr_new<PBitmap>(16, 5, PEColorSpace::RGBA32);
         Ptr<PImage> track = ptr_new<PImage>(trackBitmap);
-        Ptr<PView> target = ptr_new<PView>("slider_anchor_layout");
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("slider_anchor_layout");
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
             const bool isHorizontal = orientation == POrientation::Horizontal;
@@ -594,12 +584,14 @@ TEST(SkinnableGUIStyle, SliderLayoutUsesBitmapSizesAndAsymmetricAnchorsAcrossSta
             skin.Vertical.Track = track;
             skin.Horizontal.Knobs.fill(knob);
             skin.Vertical.Knobs.fill(knob);
-            PSkinnableGUIStyle style(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), skin);
+            const Ptr<const PViewRendererSlider> sharedRenderer = ptr_new<PViewRendererSliderSkinned>(skin);
             for (size_t appearance = 0; appearance < 16; ++appearance)
             {
                 const size_t knobShape = appearance % 4;
                 const size_t tickSides = appearance / 4;
-                PSliderStyleData data;
+                PSliderStyleData& data = target->GetSliderStyleData();
+                data = PSliderStyleData();
+                PViewRendererTestBinding<PViewRendererSlider> sliderRenderer(*target, sharedRenderer);
                 data.Orientation = orientation;
                 data.KnobPointUp = knobShape % 2 != 0;
                 data.KnobPointDown = knobShape >= 2;
@@ -611,21 +603,21 @@ TEST(SkinnableGUIStyle, SliderLayoutUsesBitmapSizesAndAsymmetricAnchorsAcrossSta
                 target->SetFrame(PRect::FromSize(isHorizontal ? PPoint(200.0f, thickness) : PPoint(thickness, 200.0f)));
                 PPoint minimum;
                 PPoint maximum;
-                style.SliderGetPreferredSize(*target, data, &minimum, &maximum);
+                sliderRenderer->GetPreferredSize(*target, &minimum, &maximum, sliderRenderer.GetContext());
                 EXPECT_EQ(minimum, isHorizontal ? PPoint(41.0f, thickness) : PPoint(thickness, 41.0f));
                 for (size_t state = 0; state < 4; ++state)
                 {
                     data.IsPointerOver = state == 1;
                     data.IsPressed = state == 2;
                     data.IsEnabled = state != 3;
-                    const PPoint first = style.SliderGetValuePosition(*target, data, isHorizontal ? 0.0f : 1.0f);
-                    const PPoint last = style.SliderGetValuePosition(*target, data, isHorizontal ? 1.0f : 0.0f);
+                    const PPoint first = sliderRenderer->GetValuePosition(*target, isHorizontal ? 0.0f : 1.0f, sliderRenderer.GetContext());
+                    const PPoint last = sliderRenderer->GetValuePosition(*target, isHorizontal ? 1.0f : 0.0f, sliderRenderer.GetContext());
                     EXPECT_EQ(first, isHorizontal ? PPoint(9.0f, leadingSpace) : PPoint(leadingSpace, 9.0f));
                     EXPECT_EQ(last, isHorizontal ? PPoint(168.0f, leadingSpace) : PPoint(leadingSpace, 168.0f));
                     for (float value : {0.0f, 0.5f, 1.0f})
                     {
-                        const PPoint position = style.SliderGetValuePosition(*target, data, value);
-                        EXPECT_NEAR(style.SliderGetValueFromPosition(*target, data, position), value, 0.01f);
+                        const PPoint position = sliderRenderer->GetValuePosition(*target, value, sliderRenderer.GetContext());
+                        EXPECT_NEAR(sliderRenderer->GetValueFromPosition(*target, position, sliderRenderer.GetContext()), value, 0.01f);
                     }
                 }
             }
@@ -633,47 +625,23 @@ TEST(SkinnableGUIStyle, SliderLayoutUsesBitmapSizesAndAsymmetricAnchorsAcrossSta
     });
 }
 
-TEST(SkinnableGUIStyle, SliderAnchorsAllowOffsetsOutsideTheBitmapAndRejectNonfiniteCoordinates)
-{
-    RunGUITest([](PApplication&)
-    {
-        PSliderSkin skin;
-        PSliderKnobAppearance& appearance = skin.Horizontal.Knobs[0].States[std::to_underlying(PButtonSkinState::Normal)];
-        appearance.Bitmap = ptr_new<PBitmap>(31, 19, PEColorSpace::RGBA32);
-        appearance.Anchor = PPoint(-4.0f, 23.0f);
-        EXPECT_EQ(appearance.GetBounds(), PRect(4.0f, -23.0f, 35.0f, -4.0f));
-        EXPECT_NO_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), skin)));
-        for (float value : {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
-        {
-            appearance.Anchor = PPoint(value, 0.0f);
-            EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), skin)), std::system_error);
-            appearance.Anchor = PPoint(0.0f, value);
-            EXPECT_THROW((PSkinnableGUIStyle(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), skin)), std::system_error);
-        }
-    });
-}
-
-TEST(SkinnableGUIStyle, UnconfiguredSlidersUseDefaultGeometryAndPainting)
+TEST(SkinnableGUIStyle, XMLSliderAnchorsAllowOffsetsOutsideTheBitmapAndRejectNonfiniteCoordinates)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("default_slider_skin", PViewFlag::WillDraw);
-        target->SetFrame(PRect::FromSize(180.0f, 60.0f));
-        PSliderStyleData data;
-        data.Value = 0.4f;
-        PDefaultGUIStyle defaultStyle;
-        PSkinnableGUIStyle style;
-        PPoint expectedMinimum;
-        PPoint expectedMaximum;
-        defaultStyle.SliderGetPreferredSize(*target, data, &expectedMinimum, &expectedMaximum);
-        PPoint minimum;
-        PPoint maximum;
-        style.SliderGetPreferredSize(*target, data, &minimum, &maximum);
-        EXPECT_EQ(minimum, expectedMinimum);
-        EXPECT_EQ(maximum, expectedMaximum);
-        style.SliderPaint(*target, target->GetNormalizedBounds(), data);
-        EXPECT_EQ(target->GetBackgroundBrush(), application.GetStandardBrush(PStandardColorID::SliderTrackNormal));
-        EXPECT_EQ(style.SliderGetValuePosition(*target, data, 0.4f), defaultStyle.SliderGetValuePosition(*target, data, 0.4f));
+        PSliderKnobAppearance appearance;
+        appearance.Bitmap = ptr_new<PBitmap>(31, 19, PEColorSpace::RGBA32);
+        appearance.Anchor = PPoint(-4.0f, 23.0f);
+        EXPECT_EQ(appearance.GetBounds(), PRect(4.0f, -23.0f, 35.0f, -4.0f));
+        PSkinnableGUIStyleTestDirectory directory("SliderAnchors");
+        ASSERT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+        directory.WriteFile("Slider.xml", [](pugi::xml_node root) { root.child("Horizontal").child("Plain").attribute("anchor").set_value("Point(-4, 23)"); });
+        EXPECT_NO_THROW(PSkinnableGUIStyle(directory.GetPath(), &application));
+        for (const char* anchor : {"Point(inf, 0)", "Point(-inf, 0)", "Point(nan, 0)", "Point(0, inf)", "Point(0, -inf)", "Point(0, nan)"})
+        {
+            directory.WriteFile("Slider.xml", [anchor](pugi::xml_node root) { root.child("Horizontal").child("Plain").attribute("anchor").set_value(anchor); });
+            EXPECT_THROW(PSkinnableGUIStyle(directory.GetPath(), &application), std::system_error);
+        }
     });
 }
 
@@ -694,34 +662,41 @@ TEST(SkinnableGUIStyle, SliderTrackSourcesStayImmutableAcrossViewsResizingAndCol
         std::fill_n(reinterpret_cast<uint32_t*>(knob->LockRaster().Get()), 30 * 42, PColor(220, 230, 240, 128).GetColor32());
         skin.Horizontal.Knobs[0].States[std::to_underlying(PButtonSkinState::Normal)] = {knob, PPoint(14.0f, 20.0f)};
         skin.Vertical.Knobs[0].States[std::to_underlying(PButtonSkinState::Normal)] = {knob, PPoint(14.0f, 20.0f)};
-        PSkinnableGUIStyle style(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), skin);
-        Ptr<PView> first = ptr_new<PView>("first_slider");
-        Ptr<PView> second = ptr_new<PView>("second_slider");
+        const Ptr<const PViewRendererSlider> sharedRenderer = ptr_new<PViewRendererSliderSkinned>(skin);
+        Ptr<PViewRendererTestView> first = ptr_new<PViewRendererTestView>("first_slider");
+        Ptr<PViewRendererTestView> second = ptr_new<PViewRendererTestView>("second_slider");
         first->SetFrame(PRect::FromSize(160.0f, 60.0f));
         second->SetFrame(PRect::FromSize(280.0f, 90.0f));
         const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(2, 3, 158, 58));
         first->SetDrawingRegion(clip);
-        PSliderStyleData firstData;
-        PSliderStyleData secondData;
+        PSliderStyleData& firstData = first->GetSliderStyleData();
+        firstData = PSliderStyleData();
+        PViewRendererTestBinding<PViewRendererSlider> firstSliderRenderer(*first, sharedRenderer);
+        PSliderStyleData& secondData = second->GetSliderStyleData();
+        secondData = PSliderStyleData();
+        PViewRendererTestBinding<PViewRendererSlider> secondSliderRenderer(*second, sharedRenderer);
         firstData.HasCustomSliderColors = true;
         firstData.SliderColor1 = PColor(180, 40, 30);
         firstData.SliderColor2 = PColor(20, 160, 80);
         secondData.Value = 0.75f;
-        style.SliderPaint(*first, first->GetNormalizedBounds(), firstData);
-        style.SliderPaint(*second, second->GetNormalizedBounds(), secondData);
-        EXPECT_NE(firstData.StyleData, secondData.StyleData);
+        firstSliderRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstSliderRenderer.GetContext());
+        secondSliderRenderer->Paint(*second, second->GetNormalizedBounds(), second->GetBounds(), secondSliderRenderer.GetContext());
+        EXPECT_NE(firstSliderRenderer.GetContext(), secondSliderRenderer.GetContext());
         EXPECT_EQ(first->GetDrawingRegion(), clip);
         EXPECT_EQ(first->GetBrush(), nullptr);
         EXPECT_EQ(source->GetDescription(), description);
         first->SetFrame(PRect::FromSize(220.0f, 80.0f));
         firstData.SliderSize = 9.0f;
         firstData.SliderColor1 = PColor(20, 60, 200, 128);
-        style.SliderPropertyChanged(*first, firstData, PSliderProperties(PSliderProperty::SliderSize, PSliderProperty::SliderColors));
-        style.SliderPaint(*first, first->GetNormalizedBounds(), firstData);
+        firstSliderRenderer->PropertyChanged(
+            *first,
+            PSliderProperties(PSliderProperty::SliderSize, PSliderProperty::SliderColors),
+            firstSliderRenderer.GetContext());
+        firstSliderRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstSliderRenderer.GetContext());
         EXPECT_EQ(source->GetDescription(), description);
         EXPECT_EQ(PColor::FromRGB32A(reinterpret_cast<const uint32_t*>(mask->LockRaster().Get())[0]), PColor(128, 128, 128));
         first->SetFrame(PRect());
-        EXPECT_NO_THROW(style.SliderPaint(*first, first->GetNormalizedBounds(), firstData));
+        EXPECT_NO_THROW(firstSliderRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstSliderRenderer.GetContext()));
         application.Sync();
     });
 }
@@ -730,7 +705,7 @@ TEST(SkinnableGUIStyle, XMLScrollBarsUseSkinGeometryForBothOrientationsAndAllSta
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("scrollbar_skins", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("scrollbar_skins", PViewFlag::WillDraw);
         target->SetFrame(PRect::FromSize(200, 20));
         target->Hide();
         ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
@@ -743,18 +718,28 @@ TEST(SkinnableGUIStyle, XMLScrollBarsUseSkinGeometryForBothOrientationsAndAllSta
             {
                 const bool horizontal = orientation == POrientation::Horizontal;
                 target->SetFrame(PRect::FromSize(horizontal ? PPoint(200, 20) : PPoint(20, 200)));
-                PScrollBarStyleData data;
+                PScrollBarStyleData& data = target->GetScrollBarStyleData();
+                data = PScrollBarStyleData();
+                PViewRendererTestBinding<PViewRendererScrollBar> scrollBarRenderer(*target, style, PGUIComponentID::ScrollBar);
                 data.Orientation = orientation;
                 data.Proportion = 0.1f;
                 PPoint minimum;
                 PPoint maximum;
-                style.ScrollBarGetPreferredSize(*target, data, &minimum, &maximum);
+                scrollBarRenderer->GetPreferredSize(*target, &minimum, &maximum, scrollBarRenderer.GetContext());
                 EXPECT_EQ(minimum, horizontal ? PPoint(64, 20) : PPoint(20, 64));
                 EXPECT_EQ(maximum, horizontal ? PPoint(COORD_MAX, 20) : PPoint(20, COORD_MAX));
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, horizontal ? PPoint(9, 10) : PPoint(10, 9)), PScrollBarPart::DecrementStart);
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, horizontal ? PPoint(27, 10) : PPoint(10, 27)), PScrollBarPart::IncrementStart);
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, horizontal ? PPoint(173, 10) : PPoint(10, 173)), PScrollBarPart::DecrementEnd);
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, horizontal ? PPoint(191, 10) : PPoint(10, 191)), PScrollBarPart::IncrementEnd);
+                EXPECT_EQ(
+                    scrollBarRenderer->HitTest(*target, horizontal ? PPoint(9, 10) : PPoint(10, 9), scrollBarRenderer.GetContext()),
+                    PScrollBarPart::DecrementStart);
+                EXPECT_EQ(
+                    scrollBarRenderer->HitTest(*target, horizontal ? PPoint(27, 10) : PPoint(10, 27), scrollBarRenderer.GetContext()),
+                    PScrollBarPart::IncrementStart);
+                EXPECT_EQ(
+                    scrollBarRenderer->HitTest(*target, horizontal ? PPoint(173, 10) : PPoint(10, 173), scrollBarRenderer.GetContext()),
+                    PScrollBarPart::DecrementEnd);
+                EXPECT_EQ(
+                    scrollBarRenderer->HitTest(*target, horizontal ? PPoint(191, 10) : PPoint(10, 191), scrollBarRenderer.GetContext()),
+                    PScrollBarPart::IncrementEnd);
                 const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(target->GetNormalizedBounds()));
                 target->SetDrawingRegion(clip);
                 for (float proportion : {0.001f, 0.25f, 0.75f})
@@ -763,9 +748,9 @@ TEST(SkinnableGUIStyle, XMLScrollBarsUseSkinGeometryForBothOrientationsAndAllSta
                     for (float value : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
                     {
                         data.Value = value;
-                        const PPoint position = style.ScrollBarGetValuePosition(*target, data, value);
-                        EXPECT_NEAR(style.ScrollBarGetValueFromPosition(*target, data, position), value, 0.025f);
-                        EXPECT_EQ(style.ScrollBarHitTest(*target, data, position), PScrollBarPart::Knob);
+                        const PPoint position = scrollBarRenderer->GetValuePosition(*target, value, scrollBarRenderer.GetContext());
+                        EXPECT_NEAR(scrollBarRenderer->GetValueFromPosition(*target, position, scrollBarRenderer.GetContext()), value, 0.025f);
+                        EXPECT_EQ(scrollBarRenderer->HitTest(*target, position, scrollBarRenderer.GetContext()), PScrollBarPart::Knob);
                         for (PScrollBarPart part : {PScrollBarPart::Knob, PScrollBarPart::DecrementStart, PScrollBarPart::PageIncrement})
                         {
                             for (size_t state = 0; state < std::to_underlying(PButtonSkinState::Count); ++state)
@@ -774,25 +759,27 @@ TEST(SkinnableGUIStyle, XMLScrollBarsUseSkinGeometryForBothOrientationsAndAllSta
                                 data.HoveredPart = (state == std::to_underlying(PButtonSkinState::Hovered)) ? part : PScrollBarPart::None;
                                 data.PressedPart = (state == std::to_underlying(PButtonSkinState::Pressed)) ? part : PScrollBarPart::None;
                                 target->SetDrawingMode(PDrawingMode::Overlay);
-                                style.ScrollBarPaint(*target, target->GetNormalizedBounds(), data);
+                                scrollBarRenderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), scrollBarRenderer.GetContext());
                                 EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
                                 EXPECT_EQ(target->GetDrawingRegion(), clip);
                                 EXPECT_EQ(target->GetBrush(), nullptr);
                                 EXPECT_NE(target->GetBackgroundBrush(), nullptr);
-                                EXPECT_EQ(style.ScrollBarGetValuePosition(*target, data, value), position);
+                                EXPECT_EQ(scrollBarRenderer->GetValuePosition(*target, value, scrollBarRenderer.GetContext()), position);
                             }
                         }
                         data.IsEnabled = true;
                     }
                 }
                 data.HasRange = false;
-                EXPECT_EQ(style.ScrollBarHitTest(*target, data, PPoint(9, 9)), PScrollBarPart::None);
-                EXPECT_EQ(style.ScrollBarGetValuePosition(*target, data, 0.0f), style.ScrollBarGetValuePosition(*target, data, 1.0f));
+                EXPECT_EQ(scrollBarRenderer->HitTest(*target, PPoint(9, 9), scrollBarRenderer.GetContext()), PScrollBarPart::None);
+                EXPECT_EQ(
+                    scrollBarRenderer->GetValuePosition(*target, 0.0f, scrollBarRenderer.GetContext()),
+                    scrollBarRenderer->GetValuePosition(*target, 1.0f, scrollBarRenderer.GetContext()));
                 target->SetDrawingRegion(nullptr);
                 target->SetFrame(PRect::FromSize(horizontal ? PPoint(10, 20) : PPoint(20, 10)));
-                EXPECT_NO_THROW(style.ScrollBarPaint(*target, target->GetNormalizedBounds(), data));
+                EXPECT_NO_THROW(scrollBarRenderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), scrollBarRenderer.GetContext()));
                 target->SetFrame(PRect());
-                EXPECT_NO_THROW(style.ScrollBarPaint(*target, target->GetNormalizedBounds(), data));
+                EXPECT_NO_THROW(scrollBarRenderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), scrollBarRenderer.GetContext()));
             }
         }
         application.Sync();
@@ -825,35 +812,43 @@ TEST(SkinnableGUIStyle, ScrollBarMetricsAndImagesAreIndependentOfDefaultGeometry
         skin.Vertical.ArrowLength = 11;
         skin.Vertical.MinimumKnobLength = 18;
         skin.Vertical.KnobInsets = PRect(2, 3, 4, 5);
-        PSkinnableGUIStyle style(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), PSliderSkin(), skin);
-        Ptr<PView> first = ptr_new<PView>("first_scrollbar");
-        Ptr<PView> second = ptr_new<PView>("second_scrollbar");
+        const Ptr<const PViewRendererScrollBar> sharedRenderer = ptr_new<PViewRendererScrollBarSkinned>(skin);
+        Ptr<PViewRendererTestView> first = ptr_new<PViewRendererTestView>("first_scrollbar");
+        Ptr<PViewRendererTestView> second = ptr_new<PViewRendererTestView>("second_scrollbar");
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
             const bool horizontal = orientation == POrientation::Horizontal;
-            PScrollBarStyleData firstData;
+            PScrollBarStyleData& firstData = first->GetScrollBarStyleData();
+            firstData = PScrollBarStyleData();
+            PViewRendererTestBinding<PViewRendererScrollBar> firstScrollBarRenderer(*first, sharedRenderer);
             firstData.Orientation = orientation;
             firstData.Proportion = 0.001f;
             first->SetFrame(PRect::FromSize(horizontal ? PPoint(200, 22) : PPoint(26, 200)));
             PPoint minimum;
             PPoint maximum;
-            style.ScrollBarGetPreferredSize(*first, firstData, &minimum, &maximum);
+            firstScrollBarRenderer->GetPreferredSize(*first, &minimum, &maximum, firstScrollBarRenderer.GetContext());
             EXPECT_EQ(minimum, horizontal ? PPoint(74, 22) : PPoint(26, 48));
-            EXPECT_EQ(style.ScrollBarGetValuePosition(*first, firstData, 0.0f), horizontal ? PPoint(36, 10) : PPoint(12, 34));
-            EXPECT_EQ(style.ScrollBarGetValuePosition(*first, firstData, 1.0f), horizontal ? PPoint(162, 10) : PPoint(12, 164));
-            PScrollBarStyleData secondData;
+            EXPECT_EQ(
+                firstScrollBarRenderer->GetValuePosition(*first, 0.0f, firstScrollBarRenderer.GetContext()),
+                horizontal ? PPoint(36, 10) : PPoint(12, 34));
+            EXPECT_EQ(
+                firstScrollBarRenderer->GetValuePosition(*first, 1.0f, firstScrollBarRenderer.GetContext()),
+                horizontal ? PPoint(162, 10) : PPoint(12, 164));
+            PScrollBarStyleData& secondData = second->GetScrollBarStyleData();
+            secondData = PScrollBarStyleData();
+            PViewRendererTestBinding<PViewRendererScrollBar> secondScrollBarRenderer(*second, sharedRenderer);
             secondData.Orientation = orientation;
             secondData.Value = 0.75f;
             second->SetFrame(PRect::FromSize(horizontal ? PPoint(280, 22) : PPoint(26, 280)));
-            style.ScrollBarPaint(*first, first->GetNormalizedBounds(), firstData);
-            style.ScrollBarPaint(*second, second->GetNormalizedBounds(), secondData);
-            EXPECT_NE(firstData.StyleData, secondData.StyleData);
+            firstScrollBarRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstScrollBarRenderer.GetContext());
+            secondScrollBarRenderer->Paint(*second, second->GetNormalizedBounds(), second->GetBounds(), secondScrollBarRenderer.GetContext());
+            EXPECT_NE(firstScrollBarRenderer.GetContext(), secondScrollBarRenderer.GetContext());
             EXPECT_NE(first->GetBackgroundBrush(), second->GetBackgroundBrush());
             EXPECT_EQ(source->GetDescription(), original);
             first->SetFrame(second->GetFrame());
             firstData.PressedPart = PScrollBarPart::Knob;
-            style.ScrollBarPropertyChanged(*first, firstData, PScrollBarProperty::Frame);
-            style.ScrollBarPaint(*first, first->GetNormalizedBounds(), firstData);
+            firstScrollBarRenderer->PropertyChanged(*first, PScrollBarProperty::Frame, firstScrollBarRenderer.GetContext());
+            firstScrollBarRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstScrollBarRenderer.GetContext());
             EXPECT_EQ(source->GetDescription(), original);
         }
     });
@@ -898,38 +893,6 @@ TEST(BitmapLoader, ShortReadsPreserveAlphaAndTruncatedPNGIsRejected)
     });
 }
 
-TEST(SkinnableGUIStyle, UnconfiguredStyleDelegatesToDefaultButtons)
-{
-    RunGUITest([](PApplication& application)
-    {
-        Ptr<PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>();
-        application.SetGUIStyle(style);
-        EXPECT_EQ(application.GetGUIStyle(), Ptr<const PGUIStyle>(style));
-        Ptr<PView> target = ptr_new<PView>("skin_test", PViewFlag::WillDraw);
-        ASSERT_TRUE(application.AddHandler(target));
-        PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
-        target->SetFrame(PRect(0, 0, 160, 60));
-        PButtonStyleData data;
-        data.Label = "Default button";
-        PPoint defaultMinimum;
-        PPoint defaultMaximum;
-        PDefaultGUIStyle defaultStyle;
-        defaultStyle.ButtonGetPreferredSize(*target, data, &defaultMinimum, &defaultMaximum);
-        PPoint minimum;
-        PPoint maximum;
-        style->ButtonGetPreferredSize(*target, data, &minimum, &maximum);
-        EXPECT_EQ(minimum, defaultMinimum);
-        EXPECT_EQ(maximum, defaultMaximum);
-        style->ButtonPaint(*target, target->GetBounds(), true, data);
-        EXPECT_NE(target->GetBackgroundBrush(), nullptr);
-        EXPECT_NE(target->GetBrush(), nullptr);
-        EXPECT_EQ(target->GetBackgroundBrush(), application.GetStandardBrush(PStandardColorID::ButtonBackground));
-        EXPECT_EQ(target->GetBrush(), target->GetBackgroundBrush());
-        application.SetGUIStyle(nullptr);
-        EXPECT_NE(application.GetGUIStyle(), nullptr);
-    });
-}
-
 TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
 {
     RunGUITest([](PApplication& application)
@@ -940,17 +903,19 @@ TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
             skin.States[index].Background = ptr_new<PBrush>(PColor(uint8_t(index * 50), 0, 0));
             skin.CheckedStates[index].Background = ptr_new<PBrush>(PColor(0, uint8_t(index * 50), 0));
         }
-        PSkinnableGUIStyle style(skin);
-        Ptr<PView> target = ptr_new<PView>("skin_states", PViewFlag::WillDraw);
+        const Ptr<const PViewRendererButton> sharedRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("skin_states", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
         target->SetFrame(PRect(0, 0, 160, 60));
-        PButtonStyleData data;
+        PButtonStyleData& data = target->GetButtonStyleData();
+        data = PButtonStyleData();
+        PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, sharedRenderer);
         data.Label = "Stable size";
         PPoint normalMinimum;
         PPoint normalMaximum;
-        style.ButtonGetPreferredSize(*target, data, &normalMinimum, &normalMaximum);
-        EXPECT_EQ(normalMinimum, data.LabelSize + PPoint(16, 8));
+        buttonRenderer->GetPreferredSize(*target, &normalMinimum, &normalMaximum, buttonRenderer.GetContext());
+        EXPECT_EQ(normalMinimum, GetSkinnedTestButtonLabelSize(*target, data) + PPoint(16, 8));
         for (bool checked : {false, true})
         {
             data.IsChecked = checked;
@@ -959,21 +924,24 @@ TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
                 data.IsPointerOver = index >= 1;
                 data.IsPressed = index >= 2;
                 const bool enabled = index != 3;
-                style.ButtonPaint(*target, target->GetBounds(), enabled, data);
+                target->SetButtonEnabled(enabled);
+                buttonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), buttonRenderer.GetContext());
                 const PButtonSkinAppearance& appearance = checked ? skin.CheckedStates[index] : skin.States[index];
                 EXPECT_EQ(target->GetBackgroundBrush(), appearance.Background);
                 EXPECT_EQ(target->GetBrush(), nullptr);
                 EXPECT_EQ(target->GetFgColor(), appearance.LabelColor);
                 PPoint minimum;
                 PPoint maximum;
-                style.ButtonGetPreferredSize(*target, data, &minimum, &maximum);
+                buttonRenderer->GetPreferredSize(*target, &minimum, &maximum, buttonRenderer.GetContext());
                 EXPECT_EQ(minimum, normalMinimum);
                 EXPECT_EQ(maximum, normalMaximum);
             }
         }
         skin.CheckedStates[std::to_underlying(PButtonSkinState::Disabled)].Background = nullptr;
-        PSkinnableGUIStyle fallback(skin);
-        fallback.ButtonPaint(*target, target->GetBounds(), false, data);
+        const Ptr<const PViewRendererButton> fallbackRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
+        PViewRendererTestBinding<PViewRendererButton> fallbackButtonRenderer(*target, fallbackRenderer);
+        target->SetButtonEnabled(false);
+        fallbackButtonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), fallbackButtonRenderer.GetContext());
         EXPECT_EQ(target->GetBackgroundBrush(), skin.States[0].Background);
     });
 }
@@ -990,15 +958,17 @@ TEST(SkinnableGUIStyle, SliceBordersSetMinimumWithoutAddingLabelPaddingAndBrushC
         Ptr<PImage> image = ptr_new<PImage>(bitmap);
         image->SetSliceRect(PRect(15, 11, 17, 13));
         skin.CheckedStates[2].Background = ptr_new<PBrush>(image);
-        PSkinnableGUIStyle style(skin);
-        Ptr<PView> target = ptr_new<PView>("skin_bindings", PViewFlag::WillDraw);
+        const Ptr<const PViewRendererButton> sharedRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("skin_bindings", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
-        PButtonStyleData data;
+        PButtonStyleData& data = target->GetButtonStyleData();
+        data = PButtonStyleData();
+        PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, sharedRenderer);
         PPoint minimum;
         PPoint maximum;
-        style.ButtonGetPreferredSize(*target, data, &minimum, &maximum);
-        EXPECT_EQ(minimum, PPoint(30, data.LabelSize.y + 2));
+        buttonRenderer->GetPreferredSize(*target, &minimum, &maximum, buttonRenderer.GetContext());
+        EXPECT_EQ(minimum, PPoint(30, GetSkinnedTestButtonLabelSize(*target, data).y + 2));
         const Ptr<const PBrush> standard = application.GetStandardBrush(PStandardColorID::DefaultBackground);
         target->SetBackgroundBrush(skin.States[0].Background);
         target->SetBackgroundBrushOrigin(PPoint(12, 34));
@@ -1247,18 +1217,24 @@ TEST(SkinnableGUIStyle, DifferentButtonSizesShareTheConfiguredImageAndBrush)
         const PImageDescription description = image->GetDescription();
         PButtonSkin skin;
         skin.States[0].Background = ptr_new<PBrush>(image);
-        PSkinnableGUIStyle style(skin);
-        Ptr<PView> first = ptr_new<PView>("first_size", PViewFlag::WillDraw);
-        Ptr<PView> second = ptr_new<PView>("second_size", PViewFlag::WillDraw);
+        const Ptr<const PViewRendererButton> sharedRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
+        Ptr<PViewRendererTestView> first = ptr_new<PViewRendererTestView>("first_size", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> second = ptr_new<PViewRendererTestView>("second_size", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(first));
         ASSERT_TRUE(application.AddHandler(second));
         PScopeExit removeViews([&application, &first, &second] { application.RemoveHandler(first); application.RemoveHandler(second); });
         first->SetFrame(PRect(0, 0, 120, 40));
         second->SetFrame(PRect(0, 0, 180, 60));
-        PButtonStyleData firstData;
-        PButtonStyleData secondData;
-        style.ButtonPaint(*first, first->GetBounds(), true, firstData);
-        style.ButtonPaint(*second, second->GetBounds(), true, secondData);
+        PButtonStyleData& firstData = first->GetButtonStyleData();
+        firstData = PButtonStyleData();
+        PViewRendererTestBinding<PViewRendererButton> firstButtonRenderer(*first, sharedRenderer);
+        PButtonStyleData& secondData = second->GetButtonStyleData();
+        secondData = PButtonStyleData();
+        PViewRendererTestBinding<PViewRendererButton> secondButtonRenderer(*second, sharedRenderer);
+        first->SetButtonEnabled(true);
+        firstButtonRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstButtonRenderer.GetContext());
+        second->SetButtonEnabled(true);
+        secondButtonRenderer->Paint(*second, second->GetBounds(), second->GetBounds(), secondButtonRenderer.GetContext());
         const Ptr<const PBrush> firstBrush = first->GetBackgroundBrush();
         EXPECT_EQ(firstBrush, skin.States[0].Background);
         EXPECT_EQ(firstBrush, second->GetBackgroundBrush());
@@ -1269,7 +1245,8 @@ TEST(SkinnableGUIStyle, DifferentButtonSizesShareTheConfiguredImageAndBrush)
         EXPECT_EQ(image->GetLayoutSize(), PPoint(1, 1));
         EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::ViewRelative);
         first->SetFrame(PRect(0, 0, 140, 50));
-        style.ButtonPaint(*first, first->GetBounds(), true, firstData);
+        first->SetButtonEnabled(true);
+        firstButtonRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstButtonRenderer.GetContext());
         EXPECT_EQ(first->GetBackgroundBrush(), firstBrush);
         EXPECT_EQ(second->GetBackgroundBrush(), firstBrush);
         EXPECT_EQ(image->GetDescription(), description);
@@ -1277,7 +1254,8 @@ TEST(SkinnableGUIStyle, DifferentButtonSizesShareTheConfiguredImageAndBrush)
         EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::ViewRelative);
         EXPECT_EQ(firstBrush->GetDescription().Image.LayoutSize, PPoint(0.5f, 0.5f));
         image->SetLayoutSize(PPoint(6, 6), PImageLayoutMode::Absolute);
-        style.ButtonPaint(*first, first->GetBounds(), true, firstData);
+        first->SetButtonEnabled(true);
+        firstButtonRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstButtonRenderer.GetContext());
         EXPECT_EQ(first->GetBackgroundBrush(), firstBrush);
         EXPECT_EQ(image->GetLayoutSize(), PPoint(6, 6));
         EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::Absolute);
@@ -1293,7 +1271,7 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
             const PSkinnableGUIStyle style(directory, &application);
-            Ptr<PView> target = ptr_new<PView>("tab_frame", PViewFlag::WillDraw);
+            Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("tab_frame", PViewFlag::WillDraw);
             Ptr<PView> tabsTarget = ptr_new<PView>("tab_strip", PViewFlag::WillDraw);
             target->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
             tabsTarget->SetFont(target->GetFont());
@@ -1302,15 +1280,18 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
             target->Hide();
             ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
             PScopeExit removeTarget([&application, &target] { application.RemoveView(target); });
-            PTabViewStyleData data;
+            PTabViewStyleData& data = target->GetTabViewStyleData();
+            data = PTabViewStyleData();
+            target->SetTabsView(*tabsTarget);
+            PViewRendererTestBinding<PViewRendererTabView> tabViewRenderer(*target, style, PGUIComponentID::TabView);
             data.Titles = {"First long tab", "Second long tab", "Third long tab"};
             data.Selection = 0;
             data.HasTopBarClient = true;
             data.TopBarMinSize = PPoint(50, 20);
             data.TopBarMaxSize = PPoint(70, 20);
-            PTabViewFrames frames = style.TabViewGetFrames(*target, data);
+            PTabViewFrames frames = tabViewRenderer->GetFrames(*target, tabViewRenderer.GetContext());
             tabsTarget->SetFrame(frames.TabsFrame);
-            const PPoint content = style.TabViewGetTabsContentSize(*target, data);
+            const PPoint content = tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext());
             EXPECT_GT(content.x, frames.TabsFrame.Width());
             EXPECT_EQ(content.y, frames.TabsFrame.Height());
             EXPECT_FLOAT_EQ(frames.ClientFrame.left, 3.0f);
@@ -1320,8 +1301,8 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
             EXPECT_LE(frames.TabsFrame.right, frames.TopBarClientFrame.left);
             EXPECT_GE(frames.TopBarClientFrame.Width(), 50.0f);
             const PPoint firstPosition(10.0f, frames.TabsFrame.Height() * 0.5f);
-            EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, firstPosition), 0u);
-            EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, PPoint(-1, firstPosition.y)), INVALID_INDEX);
+            EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, firstPosition, tabViewRenderer.GetContext()), 0u);
+            EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, PPoint(-1, firstPosition.y), tabViewRenderer.GetContext()), INVALID_INDEX);
             const PTabViewProperties appearanceProperties(PTabViewProperty::Selection, PTabViewProperty::Highlight);
             for (size_t selected = 0; selected < data.Titles.size(); ++selected)
             {
@@ -1330,51 +1311,51 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
                 {
                     data.HighlightedTab = (appearance == PTabSkinState::Normal) ? INVALID_INDEX : selected;
                     data.PressedTab = (appearance == PTabSkinState::Pressed) ? selected : INVALID_INDEX;
-                    style.TabViewPropertyChanged(*target, *tabsTarget, data, appearanceProperties, INVALID_INDEX);
+                    tabViewRenderer->PropertyChanged(*target, appearanceProperties, INVALID_INDEX, tabViewRenderer.GetContext());
                     tabsTarget->SetDrawingMode(PDrawingMode::Overlay);
                     const Ptr<const PRegion> region = ptr_new<PRegion>(PIRect(tabsTarget->GetNormalizedBounds()));
                     tabsTarget->SetDrawingRegion(region);
-                    style.TabViewPaint(*target, *tabsTarget, target->GetBounds(), data);
-                    style.TabViewTabsPaint(*tabsTarget, *target, tabsTarget->GetBounds(), data);
+                    tabViewRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), tabViewRenderer.GetContext());
+                    tabViewRenderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), tabViewRenderer.GetContext());
                     EXPECT_EQ(tabsTarget->GetDrawingMode(), PDrawingMode::Overlay);
                     EXPECT_EQ(tabsTarget->GetDrawingRegion(), region);
                     EXPECT_EQ(tabsTarget->GetBrush(), nullptr);
                     EXPECT_EQ(target->GetBackgroundBrush(), style.GetBackgroundBrush());
-                    EXPECT_EQ(style.TabViewGetFrames(*target, data).ClientFrame, frames.ClientFrame);
+                    EXPECT_EQ(tabViewRenderer->GetFrames(*target, tabViewRenderer.GetContext()).ClientFrame, frames.ClientFrame);
                 }
             }
             tabsTarget->SetDrawingRegion(nullptr);
             tabsTarget->ScrollTo(PPoint(frames.TabsFrame.Width() - content.x, 0.0f));
             const PPoint lastPosition(tabsTarget->GetBounds().right - 10.0f, firstPosition.y);
-            EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, lastPosition), 2u);
-            style.TabViewTabsPaint(*tabsTarget, *target, tabsTarget->GetBounds(), data);
+            EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, lastPosition, tabViewRenderer.GetContext()), 2u);
+            tabViewRenderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), tabViewRenderer.GetContext());
             const float oldWidth = content.x;
             data.Titles[1] = "A much longer renamed tab";
-            style.TabViewPropertyChanged(*target, *tabsTarget, data, PTabViewProperty::Title, 1);
-            EXPECT_GT(style.TabViewGetTabsContentSize(*target, data).x, oldWidth);
-            const PPoint smallFontContent = style.TabViewGetTabsContentSize(*target, data);
+            tabViewRenderer->PropertyChanged(*target, PTabViewProperty::Title, 1, tabViewRenderer.GetContext());
+            EXPECT_GT(tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext()).x, oldWidth);
+            const PPoint smallFontContent = tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext());
             target->SetFont(ptr_new<PFont>(PFontID::e_FontLarge));
             tabsTarget->SetFont(target->GetFont());
-            style.TabViewPropertyChanged(*target, *tabsTarget, data, PTabViewProperty::Font, INVALID_INDEX);
-            EXPECT_GT(style.TabViewGetTabsContentSize(*target, data).x, smallFontContent.x);
-            EXPECT_GT(style.TabViewGetTabsContentSize(*target, data).y, smallFontContent.y);
+            tabViewRenderer->PropertyChanged(*target, PTabViewProperty::Font, INVALID_INDEX, tabViewRenderer.GetContext());
+            EXPECT_GT(tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext()).x, smallFontContent.x);
+            EXPECT_GT(tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext()).y, smallFontContent.y);
             for (const PPoint& size : {PPoint(1200, 140), PPoint(10, 5), PPoint(0, 0)})
             {
                 target->SetFrame(PRect::FromSize(size));
-                frames = style.TabViewGetFrames(*target, data);
+                frames = tabViewRenderer->GetFrames(*target, tabViewRenderer.GetContext());
                 EXPECT_GE(frames.ClientFrame.Width(), 0.0f);
                 EXPECT_GE(frames.ClientFrame.Height(), 0.0f);
                 EXPECT_GE(frames.TabsFrame.Width(), 0.0f);
                 tabsTarget->SetFrame(frames.TabsFrame);
-                style.TabViewPaint(*target, *tabsTarget, target->GetBounds(), data);
-                style.TabViewTabsPaint(*tabsTarget, *target, tabsTarget->GetBounds(), data);
+                tabViewRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), tabViewRenderer.GetContext());
+                tabViewRenderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), tabViewRenderer.GetContext());
             }
             data.Titles.clear();
             data.Selection = INVALID_INDEX;
             data.HighlightedTab = INVALID_INDEX;
             data.PressedTab = INVALID_INDEX;
-            style.TabViewPropertyChanged(*target, *tabsTarget, data, PTabViewProperty::TabDeleted, 0);
-            EXPECT_EQ(style.TabViewGetTabsContentSize(*target, data), PPoint());
+            tabViewRenderer->PropertyChanged(*target, PTabViewProperty::TabDeleted, 0, tabViewRenderer.GetContext());
+            EXPECT_EQ(tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext()), PPoint());
         }
         application.Sync();
     });
@@ -1399,8 +1380,10 @@ TEST(SkinnableGUIStyle, TabViewMetricsAreDataDrivenAndSharedImagesRemainUnchange
         skin.InactiveTopInset = 4.0f;
         skin.OverflowWidth = 10.0f;
         skin.States[0].LabelOffset = PPoint(-100, -100);
-        const PSkinnableGUIStyle style(PButtonSkin(), PCheckBoxSkin(), PRadioButtonSkin(), PSliderSkin(), PScrollBarSkin(), skin, &application);
-        Ptr<PView> target = ptr_new<PView>("custom_tabs", PViewFlag::WillDraw);
+        const Ptr<const PViewRendererTabView> sharedRenderer = ptr_new<PViewRendererTabViewSkinned>(
+            skin,
+            application.GetStandardBrush(PStandardColorID::DefaultBackground));
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("custom_tabs", PViewFlag::WillDraw);
         Ptr<PView> tabsTarget = ptr_new<PView>("custom_strip", PViewFlag::WillDraw);
         target->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
         tabsTarget->SetFont(target->GetFont());
@@ -1409,35 +1392,49 @@ TEST(SkinnableGUIStyle, TabViewMetricsAreDataDrivenAndSharedImagesRemainUnchange
         target->Hide();
         ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
         PScopeExit removeTarget([&application, &target] { application.RemoveView(target); });
-        PTabViewStyleData data;
+        PTabViewStyleData& data = target->GetTabViewStyleData();
+        data = PTabViewStyleData();
+        target->SetTabsView(*tabsTarget);
+        PViewRendererTestBinding<PViewRendererTabView> tabViewRenderer(*target, sharedRenderer);
         data.Titles = {"A", "B"};
-        const PTabViewFrames frames = style.TabViewGetFrames(*target, data);
+        const PTabViewFrames frames = tabViewRenderer->GetFrames(*target, tabViewRenderer.GetContext());
         EXPECT_EQ(frames.ClientFrame, PRect(7, 39, 591, 194));
         tabsTarget->SetFrame(frames.TabsFrame);
-        EXPECT_EQ(style.TabViewGetTabsContentSize(*target, data), PPoint(152, 39));
+        EXPECT_EQ(tabViewRenderer->GetTabsContentSize(*target, tabViewRenderer.GetContext()), PPoint(152, 39));
         PPoint minimum;
         PPoint maximum;
-        style.TabViewGetPreferredSize(*target, data, PPoint(200, 100), PPoint(400, 300), &minimum, &maximum);
+        target->SetTabContentSizeLimits(PPoint(200, 100), PPoint(400, 300));
+        tabViewRenderer->GetPreferredSize(*target, &minimum, &maximum, tabViewRenderer.GetContext());
         EXPECT_EQ(minimum, PPoint(216, 145));
         EXPECT_EQ(maximum, PPoint(416, 345));
-        EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, PPoint(75, 20)), 1u);
+        EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, PPoint(75, 20), tabViewRenderer.GetContext()), 1u);
         data.Selection = 0;
-        EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, PPoint(75, 20)), 0u);
-        EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, PPoint(20, 37)), 0u);
-        EXPECT_EQ(style.TabViewGetTabFromPosition(*target, *tabsTarget, data, PPoint(110, 37)), INVALID_INDEX);
+        EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, PPoint(75, 20), tabViewRenderer.GetContext()), 0u);
+        EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, PPoint(20, 37), tabViewRenderer.GetContext()), 0u);
+        EXPECT_EQ(tabViewRenderer->GetTabFromPosition(*target, PPoint(110, 37), tabViewRenderer.GetContext()), INVALID_INDEX);
         const Ptr<const PRegion> region = ptr_new<PRegion>(PIRect(tabsTarget->GetNormalizedBounds()));
         tabsTarget->SetDrawingRegion(region);
-        style.TabViewPaint(*target, *tabsTarget, target->GetBounds(), data);
-        style.TabViewTabsPaint(*tabsTarget, *target, tabsTarget->GetBounds(), data);
+        tabViewRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), tabViewRenderer.GetContext());
+        tabViewRenderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), tabViewRenderer.GetContext());
         EXPECT_EQ(tabsTarget->GetDrawingRegion(), region);
         EXPECT_EQ(image->GetDescription(), description);
-        PTabViewStyleData otherData;
+        Ptr<PViewRendererTestView> otherTarget = ptr_new<PViewRendererTestView>("other_tabs", PViewFlag::WillDraw);
+        Ptr<PView> otherTabsTarget = ptr_new<PView>("other_strip", PViewFlag::WillDraw);
+        otherTarget->SetFont(target->GetFont());
+        otherTabsTarget->SetFont(target->GetFont());
+        otherTarget->SetFrame(PRect(0, 0, 180, 80));
+        otherTarget->AddChild(otherTabsTarget);
+        otherTarget->Hide();
+        ASSERT_TRUE(application.AddView(otherTarget, PViewDockType::TopLevelView));
+        PScopeExit removeOtherTarget([&application, &otherTarget] { application.RemoveView(otherTarget); });
+        PTabViewStyleData& otherData = otherTarget->GetTabViewStyleData();
         otherData.Titles = {"A different view"};
-        target->SetFrame(PRect(0, 0, 180, 80));
-        tabsTarget->SetFrame(style.TabViewGetFrames(*target, otherData).TabsFrame);
-        style.TabViewPaint(*target, *tabsTarget, target->GetBounds(), otherData);
-        style.TabViewTabsPaint(*tabsTarget, *target, tabsTarget->GetBounds(), otherData);
-        EXPECT_NE(data.StyleData, otherData.StyleData);
+        otherTarget->SetTabsView(*otherTabsTarget);
+        PViewRendererTestBinding<PViewRendererTabView> otherTabViewRenderer(*otherTarget, sharedRenderer);
+        otherTabsTarget->SetFrame(otherTabViewRenderer->GetFrames(*otherTarget, otherTabViewRenderer.GetContext()).TabsFrame);
+        otherTabViewRenderer->Paint(*otherTarget, otherTarget->GetBounds(), otherTarget->GetBounds(), otherTabViewRenderer.GetContext());
+        otherTabViewRenderer->PaintTabs(*otherTabsTarget, *otherTarget, otherTabsTarget->GetBounds(), otherTabViewRenderer.GetContext());
+        EXPECT_NE(tabViewRenderer.GetContext(), otherTabViewRenderer.GetContext());
         EXPECT_EQ(image->GetDescription(), description);
         application.Sync();
     });

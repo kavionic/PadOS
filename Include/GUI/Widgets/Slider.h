@@ -9,6 +9,7 @@
 
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Widgets/Control.h>
+#include <GUI/Style/ViewStyleSlider.h>
 
 
 enum class PSliderFlag : uint32_t
@@ -35,7 +36,7 @@ extern const std::map<PString, PSliderFlags> PSLIDER_FLAG_MAP;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class PSlider : public PControl
+class PSlider : public PControl, public PViewStyleSlider
 {
 public:
     PSlider(
@@ -45,7 +46,9 @@ public:
         POrientation orientation = POrientation::Horizontal);
     PSlider(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
-    ~PSlider() override = default;
+    virtual ~PSlider() override;
+
+    virtual const PSliderStyleData& GetSliderStyleData() const override { return m_SliderStyleData; }
 
     // From View:
     virtual void OnFlagsChanged(PViewFlags changedFlags) override;
@@ -105,7 +108,6 @@ public:
     virtual void OnPointerCaptureLost(PPointerID pointerID, PPointerCaptureLostReason reason) override;
     virtual void OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void OnFrameSized(const PPoint& delta) override;
-    virtual void OnStyleChanged() override;
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 

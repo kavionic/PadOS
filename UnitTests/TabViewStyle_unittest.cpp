@@ -12,6 +12,7 @@
 #include <GUI/Font.h>
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/TabView.h>
@@ -19,6 +20,9 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
+#include "ViewRendererTest.h"
+#include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/Style/ViewStyleTabView.h>
 
 TEST(TabViewStyle, TitleAndFontChangesRefreshManagedSizes)
 {
@@ -112,36 +116,38 @@ TEST(TabViewStyle, OverflowHitTestingAndScrollingRespectTheTopBarClient)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("target", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("target", PViewFlag::WillDraw);
         Ptr<PView> tabsTarget = ptr_new<PView>("tabs_target", PViewFlag::WillDraw);
         target->SetFrame(PRect(0.0f, 0.0f, 220.0f, 120.0f));
-        PTabViewStyleData data;
+        target->SetTabsView(*tabsTarget);
+        PTabViewStyleData& data = target->GetTabViewStyleData();
         data.Titles = {"First long tab", "Second long tab"};
         data.HasTopBarClient = true;
         data.TopBarMinSize = PPoint(60.0f, 20.0f);
         data.TopBarMaxSize = PPoint(80.0f, 20.0f);
         const PGUIStyle* style = application.GetGUIStyle();
         ASSERT_NE(style, nullptr);
-        PTabViewFrames frames = style->TabViewGetFrames(*target, data);
+        PViewRendererTestBinding<PViewRendererTabView> renderer(*target, *style, PGUIComponentID::TabView);
+        PTabViewFrames frames = renderer->GetFrames(*target, renderer.GetContext());
         ASSERT_TRUE(frames.TabsFrame.IsValid());
         EXPECT_LE(frames.TabsFrame.right, frames.TopBarClientFrame.left);
         EXPECT_GE(frames.TopBarClientFrame.Width(), 60.0f);
         tabsTarget->SetFrame(PRect::FromSize(frames.TabsFrame.Size()));
         const PPoint firstTabPosition(4.0f, tabsTarget->GetBounds().Center().y);
-        EXPECT_EQ(style->TabViewGetTabFromPosition(*target, *tabsTarget, data, firstTabPosition), 0u);
-        EXPECT_EQ(style->TabViewGetTabFromPosition(*target, *tabsTarget, data, PPoint(-1.0f, firstTabPosition.y)), INVALID_INDEX);
+        EXPECT_EQ(renderer->GetTabFromPosition(*target, firstTabPosition, renderer.GetContext()), 0u);
+        EXPECT_EQ(renderer->GetTabFromPosition(*target, PPoint(-1.0f, firstTabPosition.y), renderer.GetContext()), INVALID_INDEX);
         EXPECT_LE(frames.TabsFrame.bottom, frames.ClientFrame.top);
-        const PPoint contentSize = style->TabViewGetTabsContentSize(*target, data);
+        const PPoint contentSize = renderer->GetTabsContentSize(*target, renderer.GetContext());
         EXPECT_GT(contentSize.x, frames.TabsFrame.Width());
         EXPECT_FLOAT_EQ(contentSize.y, frames.TabsFrame.Height());
         tabsTarget->ScrollTo(PPoint(frames.TabsFrame.Width() - contentSize.x, 0.0f));
         const PPoint lastTabPosition(tabsTarget->GetBounds().right - 8.0f, tabsTarget->GetBounds().Center().y);
-        EXPECT_EQ(style->TabViewGetTabFromPosition(*target, *tabsTarget, data, lastTabPosition), 1u);
+        EXPECT_EQ(renderer->GetTabFromPosition(*target, lastTabPosition, renderer.GetContext()), 1u);
         target->SetFrame(PRect(0.0f, 0.0f, 1200.0f, 120.0f));
-        frames = style->TabViewGetFrames(*target, data);
-        EXPECT_LE(style->TabViewGetTabsContentSize(*target, data).x, frames.TabsFrame.Width());
+        frames = renderer->GetFrames(*target, renderer.GetContext());
+        EXPECT_LE(renderer->GetTabsContentSize(*target, renderer.GetContext()).x, frames.TabsFrame.Width());
         target->SetFrame(PRect(0.0f, 0.0f, 10.0f, 5.0f));
-        frames = style->TabViewGetFrames(*target, data);
+        frames = renderer->GetFrames(*target, renderer.GetContext());
         EXPECT_GE(frames.TabsFrame.Width(), 0.0f);
         EXPECT_GE(frames.ClientFrame.Width(), 0.0f);
         EXPECT_GE(frames.ClientFrame.Height(), 0.0f);
@@ -532,18 +538,42 @@ TEST(TabViewStyle, ScrollPreservesSelectionChangedByNotification)
     });
 }
 
+struct PTabViewInteractionTestState : PtrTarget
+{
+    size_t HighlightedTab = INVALID_INDEX;
+    size_t PressedTab = INVALID_INDEX;
+};
+
+class PTabViewInteractionTestRenderer : public PViewRendererTabViewDefault
+{
+public:
+    explicit PTabViewInteractionTestRenderer(Ptr<PTabViewInteractionTestState> state) : m_State(std::move(state)) {}
+
+    virtual void PropertyChanged(PView& target, PTabViewProperties properties, size_t tabIndex, PtrTarget* context) const override
+    {
+        const PTabViewStyleData& data = dynamic_cast<const PViewStyleTabView&>(target).GetTabViewStyleData();
+        m_State->HighlightedTab = data.HighlightedTab;
+        m_State->PressedTab = data.PressedTab;
+        PViewRendererTabViewDefault::PropertyChanged(target, properties, tabIndex, context);
+    }
+
+private:
+    const Ptr<PTabViewInteractionTestState> m_State;
+};
+
 class PTabViewInteractionTestStyle : public PDefaultGUIStyle
 {
 public:
-    void TabViewPropertyChanged(PView& target, PView& tabsTarget, PTabViewStyleData& data, PTabViewProperties properties, size_t tabIndex) const override
+    PTabViewInteractionTestStyle() : m_State(ptr_new<PTabViewInteractionTestState>())
     {
-        m_HighlightedTab = data.HighlightedTab;
-        m_PressedTab = data.PressedTab;
-        PDefaultGUIStyle::TabViewPropertyChanged(target, tabsTarget, data, properties, tabIndex);
+        SetRenderer(PGUIComponentID::TabView, ptr_new<PTabViewInteractionTestRenderer>(m_State));
     }
 
-    mutable size_t m_HighlightedTab = INVALID_INDEX;
-    mutable size_t m_PressedTab = INVALID_INDEX;
+    size_t GetHighlightedTab() const { return m_State->HighlightedTab; }
+    size_t GetPressedTab() const { return m_State->PressedTab; }
+
+private:
+    const Ptr<PTabViewInteractionTestState> m_State;
 };
 
 TEST(TabViewStyle, PressedAppearanceClearsOnReleaseEvenWhenTheTabRemainsHovered)
@@ -570,28 +600,28 @@ TEST(TabViewStyle, PressedAppearanceClearsOnReleaseEvenWhenTheTabRemainsHovered)
         mouse.ToolType = PMotionToolType::Mouse;
         mouse.SupportsHover = true;
         tabsView->OnPointerOver(mouse.PointerID, position, mouse, PEventPhase::Target);
-        EXPECT_EQ(style->m_HighlightedTab, 0u);
-        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        EXPECT_EQ(style->GetHighlightedTab(), 0u);
+        EXPECT_EQ(style->GetPressedTab(), INVALID_INDEX);
         mouse.Button = PMouseButton::Left;
         mouse.Buttons = GetPointerButtonMask(PMouseButton::Left);
         SendTabViewPointerEvent(*tabs, *tabsView, mouse, PPointerEventType::Down, position);
         ASSERT_TRUE(tabsView->HasPointerCapture(mouse.PointerID));
-        EXPECT_EQ(style->m_PressedTab, 0u);
+        EXPECT_EQ(style->GetPressedTab(), 0u);
         tabsView->OnPointerMove(mouse.PointerID, PPoint(12, -10), mouse, PEventPhase::Target);
-        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        EXPECT_EQ(style->GetPressedTab(), INVALID_INDEX);
         tabsView->OnPointerMove(mouse.PointerID, position, mouse, PEventPhase::Target);
-        EXPECT_EQ(style->m_PressedTab, 0u);
+        EXPECT_EQ(style->GetPressedTab(), 0u);
         mouse.Buttons = PPointerButtonMaskNone;
         SendTabViewPointerEvent(*tabs, *tabsView, mouse, PPointerEventType::Up, position);
-        EXPECT_EQ(style->m_HighlightedTab, 0u);
-        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        EXPECT_EQ(style->GetHighlightedTab(), 0u);
+        EXPECT_EQ(style->GetPressedTab(), INVALID_INDEX);
         mouse.Button = PMouseButton::Left;
         mouse.Buttons = GetPointerButtonMask(PMouseButton::Left);
         SendTabViewPointerEvent(*tabs, *tabsView, mouse, PPointerEventType::Down, position);
-        EXPECT_EQ(style->m_PressedTab, 0u);
+        EXPECT_EQ(style->GetPressedTab(), 0u);
         tabs->SetTabTitle(0, "Renamed during press");
         EXPECT_FALSE(tabsView->HasPointerCapture(mouse.PointerID));
-        EXPECT_EQ(style->m_HighlightedTab, INVALID_INDEX);
-        EXPECT_EQ(style->m_PressedTab, INVALID_INDEX);
+        EXPECT_EQ(style->GetHighlightedTab(), INVALID_INDEX);
+        EXPECT_EQ(style->GetPressedTab(), INVALID_INDEX);
     });
 }

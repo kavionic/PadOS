@@ -7,13 +7,21 @@
 
 #include <algorithm>
 #include <array>
+#include <stdexcept>
+#include <typeinfo>
+#include <type_traits>
+#include <utility>
 #include <unistd.h>
 #include <gtest/gtest.h>
 #include <ApplicationServer/GUIStyleProtocol.h>
 #include <GUI/Style/GUIStyleFactory.h>
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Styles/Default/ViewRendererSliderDefault.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
+#include <GUI/Widgets/Button.h>
+#include <GUI/Widgets/CheckBox.h>
+#include <GUI/Widgets/RadioButton.h>
 #include <GUI/Widgets/Slider.h>
 #include <GUI/Widgets/TabView.h>
 #include <Storage/File.h>
@@ -22,22 +30,242 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
+#include <GUI/Style/ViewRenderer.h>
+#include <GUI/Style/ViewRendererContext.h>
+#include <GUI/Style/ViewRendererButton.h>
+#include <GUI/Style/ViewRendererSlider.h>
+#include <GUI/Style/ViewStyle.h>
+#include <GUI/Style/ViewStyleSlider.h>
+
+struct PGUIRendererLifecycleTestState : PtrTarget
+{
+    WeakPtr<PtrTarget> LastContext;
+    size_t SetupCount = 0;
+    size_t PaintCount = 0;
+    size_t TeardownCount = 0;
+    size_t AttachmentCount = 0;
+    size_t DetachmentCount = 0;
+    size_t VisibilityChangeCount = 0;
+    bool TeardownTargetValid = false;
+    bool TeardownContextValid = false;
+    bool Visible = true;
+    bool FailPreferredSize = false;
+    bool FailAttachment = false;
+};
+
+class PGUIStyleLifecycleTestRenderer : public PViewRendererSliderDefault
+{
+public:
+    explicit PGUIStyleLifecycleTestRenderer(Ptr<PGUIRendererLifecycleTestState> state) : m_State(std::move(state)) {}
+
+    virtual Ptr<PtrTarget> Setup(PView& target) const override
+    {
+        Ptr<PtrTarget> context = PViewRendererSliderDefault::Setup(target);
+        m_State->LastContext = context;
+        ++m_State->SetupCount;
+        return context;
+    }
+
+    virtual void Teardown(PView& target, PtrTarget* context) const noexcept override
+    {
+        ++m_State->TeardownCount;
+        m_State->TeardownTargetValid = dynamic_cast<const PViewStyleSlider*>(&target) != nullptr;
+        m_State->TeardownContextValid = context != nullptr;
+        PViewRendererSliderDefault::Teardown(target, context);
+    }
+
+    virtual void GetPreferredSize(const PView& target, PPoint* minSize, PPoint* maxSize, PtrTarget* context) const override
+    {
+        if (m_State->FailPreferredSize) {
+            throw std::runtime_error("Renderer preferred-size failure");
+        }
+        PViewRendererSliderDefault::GetPreferredSize(target, minSize, maxSize, context);
+    }
+
+    virtual void AttachedToScreen(PView& target, PtrTarget* context) const override
+    {
+        ++m_State->AttachmentCount;
+        if (m_State->FailAttachment) {
+            throw std::runtime_error("Renderer attachment failure");
+        }
+    }
+
+    virtual void DetachedFromScreen(PView& target, PtrTarget* context) const noexcept override
+    {
+        ++m_State->DetachmentCount;
+    }
+
+    virtual void VisibilityChanged(PView& target, bool visible, PtrTarget* context) const override
+    {
+        ++m_State->VisibilityChangeCount;
+        m_State->Visible = visible;
+    }
+
+private:
+    const Ptr<PGUIRendererLifecycleTestState> m_State;
+};
+
+class PGUIStyleGenericTestRenderer : public PViewRenderer
+{
+public:
+    static constexpr PGUIComponentID COMPONENT_ID = PGUIComponentID::Button;
+
+    explicit PGUIStyleGenericTestRenderer(Ptr<PGUIRendererLifecycleTestState> state) : m_State(std::move(state)) {}
+
+    virtual Ptr<PtrTarget> Setup(PView& target) const override
+    {
+        Ptr<PtrTarget> context = ptr_new<PViewRendererContext<PViewStyleBase>>(target);
+        m_State->LastContext = context;
+        ++m_State->SetupCount;
+        return context;
+    }
+
+    virtual void Teardown(PView& target, PtrTarget* context) const noexcept override
+    {
+        ++m_State->TeardownCount;
+        m_State->TeardownTargetValid = dynamic_cast<const PViewStyleBase*>(&target) != nullptr;
+        const PViewRendererContext<PViewStyleBase>* state = dynamic_cast<const PViewRendererContext<PViewStyleBase>*>(context);
+        m_State->TeardownContextValid = state != nullptr && &state->GetView() == &target;
+    }
+
+    virtual void Paint(PView& target, const PRect& frame, const PRect& updateRect, PtrTarget* context) const override
+    {
+        ++m_State->PaintCount;
+    }
+
+    virtual void GetPreferredSize(const PView& target, PPoint* minSize, PPoint* maxSize, PtrTarget* context) const override
+    {
+        *minSize = PPoint(80.0f, 24.0f);
+        *maxSize = *minSize;
+    }
+
+    virtual void AttachedToScreen(PView& target, PtrTarget* context) const override
+    {
+        ++m_State->AttachmentCount;
+    }
+
+    virtual void DetachedFromScreen(PView& target, PtrTarget* context) const noexcept override
+    {
+        ++m_State->DetachmentCount;
+    }
+
+    virtual void VisibilityChanged(PView& target, bool visible, PtrTarget* context) const override
+    {
+        ++m_State->VisibilityChangeCount;
+        m_State->Visible = visible;
+    }
+
+private:
+    const Ptr<PGUIRendererLifecycleTestState> m_State;
+};
+
+class PGUIStyleGenericTestView : public PView, public PViewStyle<PGUIStyleGenericTestRenderer>
+{
+public:
+    explicit PGUIStyleGenericTestView(bool initializeRenderer = true) : PView("generic_style", PViewFlag::WillDraw), PViewStyle(this)
+    {
+        if (initializeRenderer) {
+            InitializeRenderer();
+        }
+    }
+
+    virtual ~PGUIStyleGenericTestView() override
+    {
+        ReleaseRenderer();
+    }
+
+    using PViewStyle::InitializeRenderer;
+    using PViewStyle::ReleaseRenderer;
+
+    virtual void OnPaint(const PRect& updateRect) override
+    {
+        const PViewRenderer* renderer = GetRenderer();
+        if (renderer != nullptr) {
+            renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
+        } else {
+            PView::OnPaint(updateRect);
+        }
+    }
+
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override
+    {
+        const PViewRenderer* renderer = GetRenderer();
+        if (renderer != nullptr) {
+            renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
+        } else {
+            PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        }
+    }
+};
 
 class PGUIStylePayloadTestStyle : public PDefaultGUIStyle
 {
 public:
-    using PDefaultGUIStyle::PDefaultGUIStyle;
-
-    virtual void SliderGetPreferredSize(const PView& target, const PSliderStyleData& data, PPoint* minSize, PPoint* maxSize) const override
+    explicit PGUIStylePayloadTestStyle(PApplication* application, bool failPreferredSize = false, bool failAttachment = false)
+        : PDefaultGUIStyle(application), m_State(ptr_new<PGUIRendererLifecycleTestState>())
     {
-        PDefaultGUIStyle::SliderGetPreferredSize(target, data, minSize, maxSize);
-        m_LastPayload = data.StyleData;
+        m_State->FailPreferredSize = failPreferredSize;
+        m_State->FailAttachment = failAttachment;
+        SetRenderer(PGUIComponentID::Slider, ptr_new<PGUIStyleLifecycleTestRenderer>(m_State));
     }
 
-    WeakPtr<PtrTarget> GetLastPayload() const { return m_LastPayload; }
+    WeakPtr<PtrTarget> GetLastPayload() const { return m_State->LastContext; }
+    const PGUIRendererLifecycleTestState& GetState() const { return *m_State; }
 
 private:
-    mutable WeakPtr<PtrTarget> m_LastPayload;
+    const Ptr<PGUIRendererLifecycleTestState> m_State;
+};
+
+class PGUIStyleWrongRendererTestStyle : public PDefaultGUIStyle
+{
+public:
+    explicit PGUIStyleWrongRendererTestStyle(PApplication* application) : PDefaultGUIStyle(application)
+    {
+        SetRenderer(PGUIComponentID::Slider, GetRenderer(PGUIComponentID::Button));
+    }
+};
+
+class PGUIStyleCustomSliderTestView : public PView, public PViewStyleSlider
+{
+public:
+    explicit PGUIStyleCustomSliderTestView(const PString& name) : PView(name), PViewStyleSlider(this)
+    {
+        InitializeRenderer();
+    }
+
+    virtual ~PGUIStyleCustomSliderTestView() override
+    {
+        ReleaseRenderer();
+    }
+
+    virtual const PSliderStyleData& GetSliderStyleData() const override { return m_Data; }
+
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override
+    {
+        const PViewRendererSlider* renderer = GetRenderer();
+        if (renderer != nullptr) {
+            renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
+        } else {
+            PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        }
+    }
+
+private:
+    PSliderStyleData m_Data;
+};
+
+class PGUIStyleMissingInterfaceTestView : public PView, public PViewStyle<PViewRendererSlider>
+{
+public:
+    PGUIStyleMissingInterfaceTestView() : PView("missing_interface"), PViewStyle(this)
+    {
+        InitializeRenderer();
+    }
+
+    virtual ~PGUIStyleMissingInterfaceTestView() override
+    {
+        ReleaseRenderer();
+    }
 };
 
 TEST(GUIStyleFactory, ListsRegisteredClassesAndTheirVariants)
@@ -136,7 +364,49 @@ TEST(GUIStyleFactory, ConstructsEachVariantWithApplicationOwnedResources)
     });
 }
 
-TEST(GUIStyle, AttachedWidgetsReleasePreviousStylePayloadsInOnStyleChanged)
+TEST(GUIStyle, DefaultRenderersAreCachedForEveryComponent)
+{
+    const PDefaultGUIStyle style;
+    for (size_t index = std::to_underlying(PGUIComponentID::Button); index < std::to_underlying(PGUIComponentID::Count); ++index)
+    {
+        const PGUIComponentID componentID = PGUIComponentID(index);
+        const Ptr<const PViewRenderer> renderer = style.GetRenderer(componentID);
+        ASSERT_NE(renderer, nullptr);
+        EXPECT_EQ(style.GetRenderer(componentID), renderer);
+    }
+}
+
+TEST(GUIStyle, ExplicitRenderersReplaceDefaultsAndClearingRestoresFallback)
+{
+    PDefaultGUIStyle style;
+    const Ptr<const PViewRenderer> originalRenderer = style.GetRenderer(PGUIComponentID::Slider);
+    const Ptr<const PViewRenderer> replacementRenderer = PGUIStyle::CreateDefaultRenderer(PGUIComponentID::Slider);
+    ASSERT_NE(replacementRenderer, nullptr);
+    EXPECT_NE(replacementRenderer, originalRenderer);
+    style.SetRenderer(PGUIComponentID::Slider, replacementRenderer);
+    EXPECT_EQ(style.GetRenderer<PViewRendererSlider>(PGUIComponentID::Slider), replacementRenderer);
+    EXPECT_EQ(style.GetRenderer<PViewRendererButton>(PGUIComponentID::Slider), nullptr);
+
+    style.SetRenderer(PGUIComponentID::Slider, nullptr);
+    const Ptr<const PViewRendererSlider> restoredRenderer = style.GetRenderer<PViewRendererSlider>(PGUIComponentID::Slider);
+    ASSERT_NE(restoredRenderer, nullptr);
+    EXPECT_NE(restoredRenderer, originalRenderer);
+    EXPECT_NE(restoredRenderer, replacementRenderer);
+    EXPECT_EQ(style.GetRenderer(PGUIComponentID::Slider), restoredRenderer);
+}
+
+TEST(GUIStyle, UnsupportedComponentsDoNotCreateRenderers)
+{
+    PDefaultGUIStyle style;
+    for (PGUIComponentID componentID : {PGUIComponentID::None, PGUIComponentID::Count, PGUIComponentID(0xff)})
+    {
+        EXPECT_EQ(PGUIStyle::CreateDefaultRenderer(componentID), nullptr);
+        EXPECT_EQ(style.GetRenderer(componentID), nullptr);
+        EXPECT_THROW(style.SetRenderer(componentID, nullptr), std::system_error);
+    }
+}
+
+TEST(GUIStyle, AttachedWidgetsTeardownPreviousRendererBeforeRebinding)
 {
     RunGUITest([](PApplication& application)
     {
@@ -153,9 +423,314 @@ TEST(GUIStyle, AttachedWidgetsReleasePreviousStylePayloadsInOnStyleChanged)
         const Ptr<PGUIStylePayloadTestStyle> secondStyle = ptr_new<PGUIStylePayloadTestStyle>(&application);
         application.SetGUIStyle(secondStyle);
         EXPECT_EQ(previousPayload.Lock(), nullptr);
+        EXPECT_EQ(firstStyle->GetState().SetupCount, 1u);
+        EXPECT_EQ(firstStyle->GetState().TeardownCount, 1u);
+        EXPECT_TRUE(firstStyle->GetState().TeardownTargetValid);
+        EXPECT_TRUE(firstStyle->GetState().TeardownContextValid);
+        EXPECT_EQ(firstStyle->GetState().DetachmentCount, 1u);
+        EXPECT_EQ(secondStyle->GetState().SetupCount, 1u);
+        EXPECT_EQ(secondStyle->GetState().AttachmentCount, 1u);
         EXPECT_NE(secondStyle->GetLastPayload().Lock(), nullptr);
         EXPECT_EQ(slider->GetStyle(), Ptr<const PGUIStyle>(secondStyle));
         application.Idle();
+        application.Sync();
+    });
+}
+
+TEST(GUIStyle, DetachedWidgetsRefreshRendererBindingsWhenUsed)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIStylePayloadTestStyle> firstStyle = ptr_new<PGUIStylePayloadTestStyle>(&application);
+        application.SetGUIStyle(firstStyle);
+        const Ptr<PSlider> slider = ptr_new<PSlider>("detached_style_slider");
+        slider->SetValue(0.75f, false);
+        const WeakPtr<PtrTarget> previousContext = firstStyle->GetLastPayload();
+        ASSERT_NE(previousContext.Lock(), nullptr);
+        const Ptr<PGUIStylePayloadTestStyle> secondStyle = ptr_new<PGUIStylePayloadTestStyle>(&application);
+        application.SetGUIStyle(secondStyle);
+        EXPECT_EQ(firstStyle->GetState().TeardownCount, 0u);
+        EXPECT_EQ(slider->GetRenderer(), secondStyle->GetRenderer<PViewRendererSlider>(PGUIComponentID::Slider));
+        EXPECT_EQ(previousContext.Lock(), nullptr);
+        EXPECT_EQ(firstStyle->GetState().TeardownCount, 1u);
+        EXPECT_EQ(secondStyle->GetState().SetupCount, 1u);
+        EXPECT_FLOAT_EQ(slider->GetValue(), 0.75f);
+    });
+}
+
+TEST(GUIStyle, CustomTargetsShareRenderersWithoutSharingContextOrOwningTheView)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIStylePayloadTestStyle> style = ptr_new<PGUIStylePayloadTestStyle>(&application);
+        application.SetGUIStyle(style);
+        Ptr<PGUIStyleCustomSliderTestView> first = ptr_new<PGUIStyleCustomSliderTestView>("first_custom_slider");
+        Ptr<PGUIStyleCustomSliderTestView> second = ptr_new<PGUIStyleCustomSliderTestView>("second_custom_slider");
+        EXPECT_EQ(first->GetRenderer(), second->GetRenderer());
+        EXPECT_NE(first->GetRendererContext(), second->GetRendererContext());
+        first->PreferredSizeChanged();
+        EXPECT_GT(first->GetPreferredSize(PPrefSizeType::Smallest).x, 0.0f);
+        const WeakPtr<PView> firstView = first;
+        const WeakPtr<PtrTarget> firstContext = ptr_tmp_cast(first->GetRendererContext());
+        const WeakPtr<PtrTarget> secondContext = ptr_tmp_cast(second->GetRendererContext());
+        first.Reset();
+        EXPECT_EQ(firstView.Lock(), nullptr);
+        EXPECT_EQ(firstContext.Lock(), nullptr);
+        EXPECT_NE(secondContext.Lock(), nullptr);
+        EXPECT_EQ(style->GetState().TeardownCount, 1u);
+        EXPECT_TRUE(style->GetState().TeardownTargetValid);
+        second.Reset();
+        EXPECT_EQ(secondContext.Lock(), nullptr);
+        EXPECT_EQ(style->GetState().SetupCount, 2u);
+        EXPECT_EQ(style->GetState().TeardownCount, 2u);
+    });
+}
+
+TEST(GUIStyle, GenericViewStyleMixinReceivesLifecycleCallbacksThroughPView)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIRendererLifecycleTestState> firstState = ptr_new<PGUIRendererLifecycleTestState>();
+        const Ptr<PDefaultGUIStyle> firstStyle = ptr_new<PDefaultGUIStyle>(&application);
+        firstStyle->SetRenderer(PGUIComponentID::Button, ptr_new<PGUIStyleGenericTestRenderer>(firstState));
+        application.SetGUIStyle(firstStyle);
+        Ptr<PGUIStyleGenericTestView> view = ptr_new<PGUIStyleGenericTestView>();
+        const WeakPtr<PView> weakView = view;
+        const WeakPtr<PtrTarget> firstContext = firstState->LastContext;
+        view->SetFrame(PRect::FromSize(80.0f, 24.0f));
+        view->OnPaint(view->GetBounds());
+        EXPECT_EQ(firstState->PaintCount, 1u);
+        view->MoveTo(PApplication::GetScreenFrame().BottomRight());
+        view->Hide();
+        ASSERT_TRUE(application.AddView(view, PViewDockType::TopLevelView));
+        PScopeExit removeView([&application, &view]()
+        {
+            if (view != nullptr && view->HasFlags(PViewFlag::IsAttachedToScreen)) {
+                application.RemoveView(view);
+            }
+        });
+        EXPECT_EQ(firstState->AttachmentCount, 1u);
+        EXPECT_EQ(view->GetPreferredSize(PPrefSizeType::Smallest), PPoint(80.0f, 24.0f));
+        view->Show();
+        EXPECT_TRUE(firstState->Visible);
+        view->Hide();
+        EXPECT_FALSE(firstState->Visible);
+        EXPECT_EQ(firstState->VisibilityChangeCount, 3u);
+
+        const Ptr<PGUIRendererLifecycleTestState> secondState = ptr_new<PGUIRendererLifecycleTestState>();
+        const Ptr<PDefaultGUIStyle> secondStyle = ptr_new<PDefaultGUIStyle>(&application);
+        secondStyle->SetRenderer(PGUIComponentID::Button, ptr_new<PGUIStyleGenericTestRenderer>(secondState));
+        application.SetGUIStyle(secondStyle);
+        EXPECT_EQ(firstContext.Lock(), nullptr);
+        EXPECT_EQ(firstState->DetachmentCount, 1u);
+        EXPECT_EQ(firstState->TeardownCount, 1u);
+        EXPECT_TRUE(firstState->TeardownTargetValid);
+        EXPECT_TRUE(firstState->TeardownContextValid);
+        EXPECT_EQ(secondState->SetupCount, 1u);
+        EXPECT_EQ(secondState->AttachmentCount, 1u);
+        EXPECT_EQ(view->GetRenderer(), secondStyle->GetRenderer(PGUIComponentID::Button));
+
+        ASSERT_TRUE(application.RemoveView(view));
+        EXPECT_EQ(secondState->DetachmentCount, 1u);
+        view.Reset();
+        EXPECT_EQ(weakView.Lock(), nullptr);
+        EXPECT_EQ(secondState->LastContext.Lock(), nullptr);
+        EXPECT_EQ(secondState->TeardownCount, 1u);
+        EXPECT_TRUE(secondState->TeardownTargetValid);
+        EXPECT_TRUE(secondState->TeardownContextValid);
+        application.Sync();
+    });
+}
+
+TEST(GUIStyle, ViewReferenceBindingWaitsForInitializationAndCanBeReinitializedAfterRelease)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIRendererLifecycleTestState> state = ptr_new<PGUIRendererLifecycleTestState>();
+        const Ptr<PDefaultGUIStyle> style = ptr_new<PDefaultGUIStyle>(&application);
+        style->SetRenderer(PGUIComponentID::Button, ptr_new<PGUIStyleGenericTestRenderer>(state));
+        application.SetGUIStyle(style);
+        const Ptr<PGUIStyleGenericTestView> view = ptr_new<PGUIStyleGenericTestView>(false);
+
+        for (size_t iteration = 0; iteration < 2; ++iteration)
+        {
+            view->OnStyleChanged();
+            view->HandleScreenAttachmentChanged(true);
+            view->OnVisibilityChanged(false);
+            view->HandleScreenAttachmentChanged(false);
+            EXPECT_EQ(view->GetRenderer(), nullptr);
+            EXPECT_EQ(view->GetRendererContext(), nullptr);
+            EXPECT_EQ(state->SetupCount, iteration);
+            EXPECT_EQ(state->TeardownCount, iteration);
+            EXPECT_EQ(state->AttachmentCount, 0u);
+            EXPECT_EQ(state->DetachmentCount, 0u);
+            EXPECT_EQ(state->VisibilityChangeCount, 0u);
+
+            view->InitializeRenderer();
+            EXPECT_EQ(state->SetupCount, iteration + 1);
+            EXPECT_EQ(view->GetRenderer(), style->GetRenderer(PGUIComponentID::Button));
+            ASSERT_NE(state->LastContext.Lock(), nullptr);
+            view->ReleaseRenderer();
+            EXPECT_EQ(state->LastContext.Lock(), nullptr);
+            EXPECT_EQ(state->TeardownCount, iteration + 1);
+            EXPECT_TRUE(state->TeardownTargetValid);
+            EXPECT_TRUE(state->TeardownContextValid);
+        }
+    });
+}
+
+TEST(GUIStyle, RendererBindingRejectsIncompatibleRendererAndTargetInterfaces)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIStyleWrongRendererTestStyle> wrongStyle = ptr_new<PGUIStyleWrongRendererTestStyle>(&application);
+        application.SetGUIStyle(wrongStyle);
+        EXPECT_THROW(ptr_new<PSlider>("incompatible_renderer"), std::system_error);
+        application.SetGUIStyle(ptr_new<PDefaultGUIStyle>(&application));
+        EXPECT_THROW(ptr_new<PGUIStyleMissingInterfaceTestView>(), std::bad_cast);
+    });
+}
+
+TEST(GUIStyle, ButtonWidgetsSelectTheirOwnRendererAndPreserveCommonButtonBehavior)
+{
+    static_assert(std::is_same_v<decltype(std::declval<const PButton&>().GetRenderer()), const PViewRendererButton*>);
+    static_assert(std::is_same_v<decltype(std::declval<const PCheckBox&>().GetRenderer()), const PViewRendererCheckBox*>);
+    static_assert(std::is_same_v<decltype(std::declval<const PRadioButton&>().GetRenderer()), const PViewRendererRadioButton*>);
+
+    RunGUITest([](PApplication& application)
+    {
+        const std::array<PGUIStyleInfo, 2> selections = {{{"Default", {"Normal"}}, {"Skinned", {"Normal"}}}};
+        for (const PGUIStyleInfo& selection : selections)
+        {
+            SCOPED_TRACE(selection.Name.c_str());
+            const Ptr<const PGUIStyle> style = PGUIStyleFactory::Get().CreateStyle(selection.Name, selection.Variants.front(), &application);
+            application.SetGUIStyle(style);
+            const Ptr<PButton> button = ptr_new<PButton>("typed_button", PString::zero);
+            const Ptr<PCheckBox> checkBox = ptr_new<PCheckBox>("typed_check_box");
+            const Ptr<PRadioButton> radioButton = ptr_new<PRadioButton>("typed_radio_button");
+            EXPECT_EQ(button->GetRenderer(), style->GetRenderer(PGUIComponentID::Button));
+            EXPECT_EQ(checkBox->GetRenderer(), style->GetRenderer(PGUIComponentID::CheckBox));
+            EXPECT_EQ(radioButton->GetRenderer(), style->GetRenderer(PGUIComponentID::RadioButton));
+
+            const std::array<Ptr<PButtonBase>, 3> buttons = {button, checkBox, radioButton};
+            for (const Ptr<PButtonBase>& target : buttons)
+            {
+                target->SetLabel("A");
+                const PPoint beforeSize = target->GetPreferredSize(PPrefSizeType::Smallest);
+                const PtrTarget* context = target->GetRendererContext();
+                ASSERT_NE(context, nullptr);
+                target->SetLabel("A much longer button label");
+                EXPECT_GT(target->GetPreferredSize(PPrefSizeType::Smallest).x, beforeSize.x);
+                EXPECT_EQ(target->GetRendererContext(), context);
+            }
+        }
+    });
+}
+
+TEST(GUIStyle, ButtonWidgetsRejectOtherButtonFamilyRenderers)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const std::array<PGUIComponentID, 3> componentIDs = {PGUIComponentID::Button, PGUIComponentID::CheckBox, PGUIComponentID::RadioButton};
+        for (PGUIComponentID requestedComponentID : componentIDs)
+        {
+            for (PGUIComponentID suppliedComponentID : componentIDs)
+            {
+                if (requestedComponentID != suppliedComponentID)
+                {
+                    SCOPED_TRACE(std::to_underlying(requestedComponentID));
+                    SCOPED_TRACE(std::to_underlying(suppliedComponentID));
+                    const Ptr<PDefaultGUIStyle> style = ptr_new<PDefaultGUIStyle>(&application);
+                    style->SetRenderer(requestedComponentID, PGUIStyle::CreateDefaultRenderer(suppliedComponentID));
+                    application.SetGUIStyle(style);
+                    switch (requestedComponentID)
+                    {
+                        case PGUIComponentID::Button:
+                            EXPECT_THROW(ptr_new<PButton>("wrong_button_renderer", "Button"), std::system_error);
+                            break;
+                        case PGUIComponentID::CheckBox:
+                            EXPECT_THROW(ptr_new<PCheckBox>("wrong_check_box_renderer"), std::system_error);
+                            break;
+                        case PGUIComponentID::RadioButton:
+                            EXPECT_THROW(ptr_new<PRadioButton>("wrong_radio_button_renderer"), std::system_error);
+                            break;
+                        default:
+                            FAIL() << "Unexpected button component ID";
+                            break;
+                    }
+                }
+            }
+        }
+    });
+}
+
+TEST(GUIStyle, RendererInitializationDoesNotCalculatePreferredSize)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIStylePayloadTestStyle> style = ptr_new<PGUIStylePayloadTestStyle>(&application, true);
+        application.SetGUIStyle(style);
+        Ptr<PGUIStyleCustomSliderTestView> target = ptr_new<PGUIStyleCustomSliderTestView>("deferred_preferred_size");
+        EXPECT_EQ(style->GetState().SetupCount, 1u);
+        EXPECT_EQ(style->GetState().TeardownCount, 0u);
+        ASSERT_NE(target->GetRendererContext(), nullptr);
+        EXPECT_THROW(target->PreferredSizeChanged(), std::runtime_error);
+        EXPECT_EQ(style->GetState().TeardownCount, 0u);
+        target.Reset();
+        EXPECT_EQ(style->GetState().TeardownCount, 1u);
+        EXPECT_TRUE(style->GetState().TeardownTargetValid);
+        EXPECT_TRUE(style->GetState().TeardownContextValid);
+        EXPECT_EQ(style->GetLastPayload().Lock(), nullptr);
+    });
+}
+
+TEST(GUIStyle, FailedRendererAttachmentReleasesThePartiallyActivatedContext)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIStylePayloadTestStyle> style = ptr_new<PGUIStylePayloadTestStyle>(&application, false, true);
+        application.SetGUIStyle(style);
+        const Ptr<PGUIStyleCustomSliderTestView> target = ptr_new<PGUIStyleCustomSliderTestView>("failed_attachment");
+        const WeakPtr<PtrTarget> context = style->GetLastPayload();
+        EXPECT_THROW(target->HandleScreenAttachmentChanged(true), std::runtime_error);
+        EXPECT_EQ(style->GetState().AttachmentCount, 1u);
+        EXPECT_EQ(style->GetState().DetachmentCount, 1u);
+        EXPECT_EQ(style->GetState().TeardownCount, 1u);
+        EXPECT_EQ(context.Lock(), nullptr);
+        EXPECT_EQ(target->GetRendererContext(), nullptr);
+        target->HandleScreenAttachmentChanged(false);
+    });
+}
+
+TEST(GUIStyle, RendererActivationTracksAttachmentAndVisibilityWithoutRecreatingContext)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const Ptr<PGUIStylePayloadTestStyle> style = ptr_new<PGUIStylePayloadTestStyle>(&application);
+        application.SetGUIStyle(style);
+        const Ptr<PSlider> slider = ptr_new<PSlider>("activation_slider");
+        slider->SetFrame(PRect::FromSize(240.0f, 80.0f));
+        slider->MoveTo(PApplication::GetScreenFrame().BottomRight());
+        slider->Hide();
+        const WeakPtr<PtrTarget> context = style->GetLastPayload();
+        ASSERT_TRUE(application.AddView(slider, PViewDockType::TopLevelView));
+        PScopeExit removeSlider([&application, &slider]
+        {
+            if (slider->HasFlags(PViewFlag::IsAttachedToScreen)) {
+                application.RemoveView(slider);
+            }
+        });
+        EXPECT_EQ(style->GetState().AttachmentCount, 1u);
+        slider->Show();
+        EXPECT_TRUE(style->GetState().Visible);
+        slider->Hide();
+        EXPECT_FALSE(style->GetState().Visible);
+        EXPECT_EQ(style->GetState().VisibilityChangeCount, 3u);
+        ASSERT_TRUE(application.RemoveView(slider));
+        EXPECT_EQ(style->GetState().DetachmentCount, 1u);
+        EXPECT_EQ(style->GetState().SetupCount, 1u);
+        EXPECT_EQ(style->GetState().TeardownCount, 0u);
+        EXPECT_NE(context.Lock(), nullptr);
         application.Sync();
     });
 }

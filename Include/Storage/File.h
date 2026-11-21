@@ -24,9 +24,9 @@ class PFile : public PSeekableIO, public PFSNode
 public:
     enum { DEFAULT_BUFFER_SIZE=0 };
     PFile();
-    PFile(const PString& path, int openFlags = O_RDONLY);
-    PFile(const PDirectory& directory, const PString& name, int openFlags = O_RDONLY);
-    PFile(const PFileReference& reference, int openFlags = O_RDONLY);
+    PFile(const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
+    PFile(const PDirectory& directory, const PString& name, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
+    PFile(const PFileReference& reference, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
     PFile(const PFSNode& node);
     PFile(int fileDescriptor, bool takeOwnership);
     PFile(const PFile& file);

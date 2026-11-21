@@ -9,7 +9,6 @@
 
 #include <vector>
 
-#include <GUI/Style/GUIStyleData.h>
 #include <Math/Point.h>
 #include <Utils/EnumBitmask.h>
 #include <Utils/String.h>
@@ -28,7 +27,7 @@ enum class PDropdownMenuProperty : uint32_t
 
 using PDropdownMenuProperties = PEnumBitmask<PDropdownMenuProperty>;
 
-struct PDropdownMenuStyleData : PGUIStyleData
+struct PDropdownMenuStyleData
 {
     std::vector<PString> Items;
     // Borrows the editor's string object; the editor retains ownership.

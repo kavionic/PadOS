@@ -49,9 +49,9 @@ class PFSNode
 {
 public:
     PFSNode();
-    PFSNode(const PString& path, int openFlags = O_RDONLY);
-    PFSNode(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY);
-    PFSNode(const PFileReference& reference, int openFlags = O_RDONLY);
+    PFSNode(const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
+    PFSNode(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
+    PFSNode(const PFileReference& reference, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
     PFSNode(int fileDescriptor, bool takeOwnership);
     PFSNode(const PFSNode& node);
     PFSNode(PFSNode&& node);
@@ -59,10 +59,13 @@ public:
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer);
     
-    bool            Open(const PPath& path, int openFlags = O_RDONLY) { return Open(path.GetPath(), openFlags); }
-    virtual bool    Open(const PString& path, int openFlags = O_RDONLY);
-    virtual bool    Open(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY);
-    virtual bool    Open(const PFileReference& reference, int openFlags = O_RDONLY);
+    bool Open(const PPath& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR)
+    {
+        return Open(path.GetPath(), openFlags, accessMode);
+    }
+    virtual bool    Open(const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
+    virtual bool    Open(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
+    virtual bool    Open(const PFileReference& reference, int openFlags = O_RDONLY, mode_t accessMode = S_IRUSR | S_IWUSR);
     virtual bool    SetTo(int fileDescriptor, bool takeOwnership);
     virtual bool    SetTo(const PFSNode& node);
     virtual bool    SetTo(PFSNode&& node);

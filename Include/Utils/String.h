@@ -10,6 +10,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <optional>
 
@@ -51,8 +52,10 @@ enum class PUnitSystem
 class PString : public std::string
 {
 public:
-    template<typename... ARGS>
-    PString(ARGS&&... args) : std::string(args...) {}
+    using std::string::string;
+
+    PString(const std::string& value) : std::string(value) {}
+    PString(std::string&& value) noexcept : std::string(std::move(value)) {}
     PString(const wchar16_t* utf16, size_t length = npos);
 
     PString& assign_utf16(const wchar16_t* source, size_t length = npos);

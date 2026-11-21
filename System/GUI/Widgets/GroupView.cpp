@@ -11,24 +11,36 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/GroupView.h>
 #include <Utils/XMLFactory.h>
+#include <GUI/Style/ViewRendererGroupView.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PGroupView::PGroupView(const PString& name, PViewFlags flags) : PStyledView(name, flags | PViewFlag::WillDraw)
+PGroupView::PGroupView(const PString& name, PViewFlags flags) : PView(name, flags | PViewFlag::WillDraw), PViewStyleGroupView(this)
 {
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PGroupView::PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PStyledView(context, xmlData)
+PGroupView::PGroupView(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData), PViewStyleGroupView(this)
 {
     MergeFlags(PViewFlag::WillDraw);
     m_GroupViewStyleData.Label = context.GetAttribute(xmlData, "label", PString::zero);
+    InitializeRenderer();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PGroupView::~PGroupView()
+{
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,19 +56,9 @@ void PGroupView::OnFontChanged(Ptr<const PFont> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PGroupView::OnStyleChanged()
-{
-    m_GroupViewStyleData.StyleData.Reset();
-    PStyledView::OnStyleChanged();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void PGroupView::OnFrameSized(const PPoint& delta)
 {
-    PStyledView::OnFrameSized(delta);
+    PView::OnFrameSized(delta);
     NotifyStylePropertyChanged(PGroupViewProperty::Frame);
 }
 
@@ -66,9 +68,9 @@ void PGroupView::OnFrameSized(const PPoint& delta)
 
 void PGroupView::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->GroupViewPaint(*this, updateRect, m_GroupViewStyleData);
+    const PViewRendererGroupView* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -81,12 +83,12 @@ void PGroupView::OnPaint(const PRect& updateRect)
 void PGroupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererGroupView* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
         PPoint frameMinSize;
         PPoint frameMaxSize;
-        style->GroupViewGetPreferredSize(*this, m_GroupViewStyleData, &frameMinSize, &frameMaxSize);
+        renderer->GetPreferredSize(*this, &frameMinSize, &frameMaxSize, GetRendererContext());
         if (includeWidth)
         {
             minSize->x = std::max(minSize->x, frameMinSize.x);
@@ -128,10 +130,10 @@ const PString& PGroupView::GetLabel() const
 
 void PGroupView::NotifyStylePropertyChanged(PGroupViewProperties properties)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererGroupView* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->GroupViewPropertyChanged(*this, m_GroupViewStyleData, properties);
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
     }
     else
     {

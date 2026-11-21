@@ -9,7 +9,6 @@
 
 #include <vector>
 
-#include <GUI/Style/GUIStyleData.h>
 #include <Math/Rect.h>
 #include <Utils/EnumBitmask.h>
 #include <Utils/String.h>
@@ -30,7 +29,7 @@ enum class PTabViewProperty : uint32_t
 
 using PTabViewProperties = PEnumBitmask<PTabViewProperty>;
 
-struct PTabViewStyleData : PGUIStyleData
+struct PTabViewStyleData
 {
     std::vector<PString> Titles;
     size_t Selection = INVALID_INDEX;

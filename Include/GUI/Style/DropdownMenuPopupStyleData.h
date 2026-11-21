@@ -9,7 +9,6 @@
 
 #include <vector>
 
-#include <GUI/Style/GUIStyleData.h>
 #include <Utils/EnumBitmask.h>
 #include <Utils/String.h>
 #include <Utils/Utils.h>
@@ -25,7 +24,7 @@ enum class PDropdownMenuPopupProperty : uint32_t
 
 using PDropdownMenuPopupProperties = PEnumBitmask<PDropdownMenuPopupProperty>;
 
-struct PDropdownMenuPopupStyleData : PGUIStyleData
+struct PDropdownMenuPopupStyleData
 {
     explicit PDropdownMenuPopupStyleData(const std::vector<PString>& items) : Items(items) {}
 

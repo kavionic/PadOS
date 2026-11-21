@@ -8,25 +8,28 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Widgets/RadioButton.h>
 #include <Utils/XMLFactory.h>
+#include <GUI/Style/ViewRendererRadioButton.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PRadioButton::PRadioButton(const PString& name, PViewFlags flags) : PButtonBase(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
+PRadioButton::PRadioButton(const PString& name, PViewFlags flags) : PViewStyle(name, flags | PViewFlag::WillDraw | PViewFlag::FullUpdateOnResize)
 {
     SetCheckable(true);
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PRadioButton::PRadioButton(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PButtonBase(context, xmlData, PAlignment::Right)
+PRadioButton::PRadioButton(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PViewStyle(context, xmlData, PAlignment::Right)
 {
     MergeFlags(PViewFlag::WillDraw);
     SetCheckable(true);
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,6 +38,7 @@ PRadioButton::PRadioButton(PViewFactoryContext& context, const pugi::xml_node& x
 
 PRadioButton::~PRadioButton()
 {
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -43,9 +47,9 @@ PRadioButton::~PRadioButton()
 
 void PRadioButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->RadioButtonGetPreferredSize(*this, m_ButtonStyleData, minSize, maxSize);
+    const PViewRendererRadioButton* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -57,20 +61,10 @@ void PRadioButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool
 
 void PRadioButton::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->RadioButtonPaint(*this, GetBounds(), IsEnabled(), m_ButtonStyleData);
+    const PViewRendererRadioButton* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PRadioButton::OnEnableStatusChanged(bool isEnabled)
-{
-    Invalidate();
-    Flush();
 }

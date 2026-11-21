@@ -10,13 +10,14 @@
 #include <GUI/Widgets/ButtonGroup.h>
 #include <Utils/XMLObjectParser.h>
 #include <Utils/Beep.h>
+#include <GUI/Style/ViewRendererButtonBase.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonBase::PButtonBase(const PString& name, PViewFlags flags) : PControl(name, flags)
+PButtonBase::PButtonBase(const PString& name, PViewFlags flags) : PControl(name, flags), PViewStyleButtonBase(this)
 {
 }
 
@@ -24,7 +25,8 @@ PButtonBase::PButtonBase(const PString& name, PViewFlags flags) : PControl(name,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonBase::PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment) : PControl(context, xmlData)
+PButtonBase::PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment)
+    : PControl(context, xmlData), PViewStyleButtonBase(this)
 {
     m_ButtonStyleData.Label = context.GetAttribute(xmlData, "label", PString::zero);
     m_ButtonStyleData.LabelAlignment = context.GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
@@ -81,19 +83,17 @@ Ptr<PButtonGroup> PButtonBase::FindButtonGroup(Ptr<PView> root, const PString& n
 
 void PButtonBase::OnFontChanged(Ptr<const PFont> newFont)
 {
-    m_ButtonStyleData.IsLabelSizeValid = false;
-    PreferredSizeChanged();
-    Invalidate();
+    NotifyRendererPropertyChanged(PButtonProperty::Font);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PButtonBase::OnStyleChanged()
+void PButtonBase::OnFrameSized(const PPoint& delta)
 {
-    m_ButtonStyleData.IsLabelSizeValid = false;
-    PControl::OnStyleChanged();
+    PControl::OnFrameSized(delta);
+    NotifyRendererPropertyChanged(PButtonProperty::Frame);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -163,12 +163,10 @@ void PButtonBase::OnPointerMove(PPointerID pointerID, const PPoint& position, co
 
 void PButtonBase::OnPointerOver(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
 {
-    if (phase == PEventPhase::Target)
+    if (phase == PEventPhase::Target && !m_ButtonStyleData.IsPointerOver)
     {
         m_ButtonStyleData.IsPointerOver = true;
-        if (IsEnabled()) {
-            Invalidate();
-        }
+        NotifyRendererPropertyChanged(PButtonProperty::Hovered);
     }
 }
 
@@ -178,12 +176,10 @@ void PButtonBase::OnPointerOver(PPointerID pointerID, const PPoint& position, co
 
 void PButtonBase::OnPointerOut(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent, PEventPhase phase)
 {
-    if (phase == PEventPhase::Target)
+    if (phase == PEventPhase::Target && m_ButtonStyleData.IsPointerOver)
     {
         m_ButtonStyleData.IsPointerOver = false;
-        if (IsEnabled()) {
-            Invalidate();
-        }
+        NotifyRendererPropertyChanged(PButtonProperty::Hovered);
     }
 }
 
@@ -210,7 +206,8 @@ void PButtonBase::SetLabel(const PString& label)
     if (label != m_ButtonStyleData.Label)
     {
         m_ButtonStyleData.Label = label;
-        m_ButtonStyleData.IsLabelSizeValid = false;
+        NotifyRendererPropertyChanged(PButtonProperty::Label);
+        Flush();
         OnLabelChanged(m_ButtonStyleData.Label);
     }
 }
@@ -222,10 +219,22 @@ void PButtonBase::SetLabel(const PString& label)
 void PButtonBase::SetLabelAlignment(PAlignment alignment)
 {
     m_ButtonStyleData.LabelAlignment = alignment;
-    m_ButtonStyleData.IsLabelSizeValid = false;
-    PreferredSizeChanged();
-    Invalidate();
+    NotifyRendererPropertyChanged(PButtonProperty::LabelAlignment);
     Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::SetCheckable(bool value)
+{
+    if (m_ButtonStyleData.IsCheckable != value)
+    {
+        m_ButtonStyleData.IsCheckable = value;
+        NotifyRendererPropertyChanged(PButtonProperty::Checkable);
+        Flush();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -237,21 +246,10 @@ void PButtonBase::SetChecked(bool isChecked)
     if (isChecked != m_ButtonStyleData.IsChecked)
     {
         m_ButtonStyleData.IsChecked = isChecked;
+        NotifyRendererPropertyChanged(PButtonProperty::Checked);
+        Flush();
         OnCheckedStateChanged(m_ButtonStyleData.IsChecked);
         SignalToggled(isChecked, this);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PButtonBase::SetPressedState(bool isPressed)
-{
-    if (isPressed != m_ButtonStyleData.IsPressed)
-    {
-        m_ButtonStyleData.IsPressed = isPressed;
-        OnPressedStateChanged(m_ButtonStyleData.IsPressed);
     }
 }
 
@@ -268,7 +266,8 @@ void PButtonBase::OnEnableStatusChanged(bool isEnabled)
             SetPressedState(false);
         }
     }
-    PControl::OnEnableStatusChanged(isEnabled);
+    NotifyRendererPropertyChanged(PButtonProperty::Enabled);
+    Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -278,6 +277,21 @@ void PButtonBase::OnEnableStatusChanged(bool isEnabled)
 Ptr<PButtonGroup> PButtonBase::GetButtonGroup() const
 {
     return m_ButtonGroup;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::SetPressedState(bool isPressed)
+{
+    if (isPressed != m_ButtonStyleData.IsPressed)
+    {
+        m_ButtonStyleData.IsPressed = isPressed;
+        NotifyRendererPropertyChanged(PButtonProperty::Pressed);
+        Flush();
+        OnPressedStateChanged(m_ButtonStyleData.IsPressed);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -300,4 +314,24 @@ void PButtonBase::ActivateCheckableButton()
 void PButtonBase::SetButtonGroup(Ptr<PButtonGroup> group)
 {
     m_ButtonGroup = group;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PButtonBase::NotifyRendererPropertyChanged(PButtonProperties properties)
+{
+    const PViewRendererButtonBase* renderer = GetRenderer();
+    if (renderer != nullptr)
+    {
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
+    }
+    else
+    {
+        if (properties.HasAny(PButtonProperties(PButtonProperty::Label, PButtonProperty::Font, PButtonProperty::LabelAlignment, PButtonProperty::Checkable))) {
+            PreferredSizeChanged();
+        }
+        Invalidate();
+    }
 }

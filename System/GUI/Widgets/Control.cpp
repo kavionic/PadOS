@@ -15,7 +15,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PControl::PControl(const PString& name, PViewFlags flags)
-    : PStyledView(name, flags)
+    : PView(name, flags)
 {
     m_IsEnabled	= true;
 }
@@ -25,7 +25,7 @@ PControl::PControl(const PString& name, PViewFlags flags)
 ///////////////////////////////////////////////////////////////////////////////
 
 PControl::PControl(PViewFactoryContext& context, const pugi::xml_node& xmlData)
-    : PStyledView(context, xmlData)
+    : PView(context, xmlData)
 {
     m_IsEnabled = context.GetAttribute<bool>(xmlData, "enabled", true);
 }

@@ -16,7 +16,6 @@ target_sources(PadOS_GUI PRIVATE
 	Font.cpp
 	KeyboardView.cpp
 	LayoutNode.cpp
-	StyledView.cpp
 	View.cpp
 	ViewFactory.cpp
 	ViewFactoryContext.cpp

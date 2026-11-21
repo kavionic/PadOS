@@ -10,22 +10,26 @@
 
 #include <GUI/Style/ButtonStyleData.h>
 #include <GUI/Widgets/Control.h>
+#include <GUI/Style/ViewStyleButtonBase.h>
 
 
 class PButtonGroup;
 
-class PButtonBase : public PControl
+class PButtonBase : public PControl, public PViewStyleButtonBase
 {
 public:
     PButtonBase(const PString& name = PString::zero, PViewFlags flags = PViewFlags::zero);
     PButtonBase(PViewFactoryContext& context, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment);
     ~PButtonBase();
 
+    virtual const PButtonStyleData& GetButtonStyleData() const override { return m_ButtonStyleData; }
+    virtual bool IsButtonEnabled() const override { return IsEnabled(); }
+
     static Ptr<PButtonGroup> FindButtonGroup(Ptr<PView> root, const PString& name);
 
     virtual void AllAttachedToScreen() override { Invalidate(); }
     virtual void OnFontChanged(Ptr<const PFont> newFont) override;
-    virtual void OnStyleChanged() override;
+    virtual void OnFrameSized(const PPoint& delta) override;
 
     virtual void OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
     virtual void OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event, PEventPhase phase) override;
@@ -40,7 +44,7 @@ public:
     void SetLabelAlignment(PAlignment alignment);
     PAlignment GetLabelAlignment() const { return m_ButtonStyleData.LabelAlignment; }
 
-    void SetCheckable(bool value) { m_ButtonStyleData.IsCheckable = value; }
+    void SetCheckable(bool value);
     bool IsCheckable() const { return m_ButtonStyleData.IsCheckable; }
 
     void SetChecked(bool isChecked);
@@ -50,9 +54,9 @@ public:
     virtual void OnEnableStatusChanged(bool isEnabled) override;
 
     // From ButtonBase:
-    virtual void OnLabelChanged(const PString& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
-    virtual void OnPressedStateChanged(bool isPressed) { Invalidate(); Flush(); }
-    virtual void OnCheckedStateChanged(bool isChecked) { Invalidate(); Flush(); }
+    virtual void OnLabelChanged(const PString& label) {}
+    virtual void OnPressedStateChanged(bool isPressed) {}
+    virtual void OnCheckedStateChanged(bool isChecked) {}
 
     Ptr<PButtonGroup> GetButtonGroup() const;
 
@@ -72,6 +76,7 @@ private:
 
     void ActivateCheckableButton();
     void SetButtonGroup(Ptr<PButtonGroup> group);
+    void NotifyRendererPropertyChanged(PButtonProperties properties);
     PPointerID           m_HitPointerID = PInvalidPointerID;
     Ptr<PButtonGroup>        m_ButtonGroup;
 

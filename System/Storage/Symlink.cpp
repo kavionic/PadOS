@@ -90,27 +90,27 @@ PSymLink::~PSymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSymLink::Open(const PString& path, int openFlags)
+bool PSymLink::Open(const PString& path, int openFlags, mode_t accessMode)
 {
-    return SetTo(PFSNode(path, openFlags | O_PATH | O_NOFOLLOW));
+    return SetTo(PFSNode(path, openFlags | O_PATH | O_NOFOLLOW, accessMode));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSymLink::Open(const PDirectory& directory, const PString& path, int openFlags)
+bool PSymLink::Open(const PDirectory& directory, const PString& path, int openFlags, mode_t accessMode)
 {
-    return SetTo(PFSNode(directory, path, openFlags | O_PATH | O_NOFOLLOW));
+    return SetTo(PFSNode(directory, path, openFlags | O_PATH | O_NOFOLLOW, accessMode));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSymLink::Open(const PFileReference& reference, int openFlags)
+bool PSymLink::Open(const PFileReference& reference, int openFlags, mode_t accessMode)
 {
-    return SetTo(PFSNode(reference, openFlags | O_PATH | O_NOFOLLOW));
+    return SetTo(PFSNode(reference, openFlags | O_PATH | O_NOFOLLOW, accessMode));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

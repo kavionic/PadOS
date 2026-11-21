@@ -9,6 +9,7 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ProgressBar.h>
+#include <GUI/Style/ViewRendererProgressBar.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -16,21 +17,30 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 PProgressBar::PProgressBar(const PString& name, POrientation orientation, PViewFlags flags)
-    : PStyledView(name, flags | PViewFlag::WillDraw | PViewFlag::ClearBackground)
+    : PView(name, flags | PViewFlag::WillDraw | PViewFlag::ClearBackground), PViewStyleProgressBar(this)
 {
     m_ProgressBarStyleData.Orientation = orientation;
-    PreferredSizeChanged();
+    InitializeRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PStyledView(context, xmlData)
+PProgressBar::PProgressBar(PViewFactoryContext& context, const pugi::xml_node& xmlData) : PView(context, xmlData), PViewStyleProgressBar(this)
 {
     MergeFlags(PViewFlag::WillDraw | PViewFlag::ClearBackground);
     m_ProgressBarStyleData.Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
-    PreferredSizeChanged();
+    InitializeRenderer();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PProgressBar::~PProgressBar()
+{
+    ReleaseRenderer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -46,21 +56,11 @@ void PProgressBar::OnFontChanged(Ptr<const PFont> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PProgressBar::OnStyleChanged()
-{
-    m_ProgressBarStyleData.StyleData.Reset();
-    PStyledView::OnStyleChanged();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void PProgressBar::OnPaint(const PRect& updateRect)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->ProgressBarPaint(*this, GetNormalizedBounds(), m_ProgressBarStyleData);
+    const PViewRendererProgressBar* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->Paint(*this, GetNormalizedBounds(), updateRect, GetRendererContext());
     } else {
         PView::OnPaint(updateRect);
     }
@@ -72,7 +72,7 @@ void PProgressBar::OnPaint(const PRect& updateRect)
 
 void PProgressBar::OnFrameSized(const PPoint& delta)
 {
-    PStyledView::OnFrameSized(delta);
+    PView::OnFrameSized(delta);
     NotifyStylePropertyChanged(PProgressBarProperty::Frame);
     Flush();
 }
@@ -83,9 +83,9 @@ void PProgressBar::OnFrameSized(const PPoint& delta)
 
 void PProgressBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        style->ProgressBarGetPreferredSize(*this, m_ProgressBarStyleData, minSize, maxSize);
+    const PViewRendererProgressBar* renderer = GetRenderer();
+    if (renderer != nullptr) {
+        renderer->GetPreferredSize(*this, minSize, maxSize, GetRendererContext());
     } else {
         PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
@@ -117,10 +117,10 @@ float PProgressBar::GetProgress() const
 
 void PProgressBar::NotifyStylePropertyChanged(PProgressBarProperties properties)
 {
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr)
+    const PViewRendererProgressBar* renderer = GetRenderer();
+    if (renderer != nullptr)
     {
-        style->ProgressBarPropertyChanged(*this, m_ProgressBarStyleData, properties);
+        renderer->PropertyChanged(*this, properties, GetRendererContext());
     }
     else
     {

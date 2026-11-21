@@ -18,6 +18,8 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
+#include "ViewRendererTest.h"
+#include <GUI/Style/ViewRendererSlider.h>
 
 static void ExpectFontSelectionHandle(PApplication& application, handle_id fontHandle, PErrorCode expectedError)
 {
@@ -306,6 +308,7 @@ TEST(FontSelection, SliderGeometryUsesTheStyleBeforeAndAfterHandlerRegistration)
             slider->SetValue(20.0f, false);
             slider->SetFrame(PRect(0.0f, 0.0f, 200.0f, 200.0f));
             EXPECT_EQ(slider->GetStyle(), application.GetGUIStyle());
+            slider->PreferredSizeChanged();
             const PPoint detachedSize = slider->GetPreferredSize(PPrefSizeType::Smallest);
             const PPoint detachedPosition = slider->ValToPos(20.0f);
             EXPECT_GT(detachedSize.x, 0.0f);
@@ -352,7 +355,7 @@ TEST(FontSelection, SliderPropertyChangesRefreshPrivateMeasurements)
 {
     RunGUITest([](PApplication& application)
     {
-        Ptr<PView> target = ptr_new<PView>("slider_style_target", PViewFlag::WillDraw);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("slider_style_target", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
         Ptr<PFont> font = ptr_new<PFont>(PFontID::e_FontSmall);
@@ -361,39 +364,40 @@ TEST(FontSelection, SliderPropertyChangesRefreshPrivateMeasurements)
         const PGUIStyle* style = target->GetStyle();
         ASSERT_NE(style, nullptr);
 
-        PSliderStyleData data;
+        PSliderStyleData& data = target->GetSliderStyleData();
         data.Orientation = POrientation::Vertical;
         data.MinLabel = "i";
         data.MaxLabel = "i";
+        PViewRendererTestBinding<PViewRendererSlider> renderer(*target, *style, PGUIComponentID::Slider);
         PPoint initialSize;
         PPoint maximumSize;
-        style->SliderGetPreferredSize(*target, data, &initialSize, &maximumSize);
-        Ptr<PtrTarget> privateData = data.StyleData;
+        renderer->GetPreferredSize(*target, &initialSize, &maximumSize, renderer.GetContext());
+        const PtrTarget* privateData = renderer.GetContext();
         ASSERT_NE(privateData, nullptr);
 
         // Measurement queries must not consume the pending property change.
         data.MinLabel = "A substantially longer minimum label";
-        style->SliderPropertyChanged(*target, data, PSliderProperty::MinLabel);
+        renderer->PropertyChanged(*target, PSliderProperty::MinLabel, renderer.GetContext());
         PPoint changedSize;
-        style->SliderGetPreferredSize(*target, data, &changedSize, &maximumSize);
+        renderer->GetPreferredSize(*target, &changedSize, &maximumSize, renderer.GetContext());
         EXPECT_GT(changedSize.x, initialSize.x);
-        EXPECT_EQ(data.StyleData, privateData);
+        EXPECT_EQ(renderer.GetContext(), privateData);
 
         // Batch both endpoints, with no intervening paint.
         data.MinLabel = "i";
         data.MaxLabel = "i";
-        style->SliderPropertyChanged(*target, data, PSliderProperties(PSliderProperty::MinLabel, PSliderProperty::MaxLabel));
-        style->SliderGetPreferredSize(*target, data, &changedSize, &maximumSize);
+        renderer->PropertyChanged(*target, PSliderProperties(PSliderProperty::MinLabel, PSliderProperty::MaxLabel), renderer.GetContext());
+        renderer->GetPreferredSize(*target, &changedSize, &maximumSize, renderer.GetContext());
         EXPECT_EQ(changedSize, initialSize);
 
         data.MaxLabel = "Maximum";
-        style->SliderPropertyChanged(*target, data, PSliderProperty::MaxLabel);
+        renderer->PropertyChanged(*target, PSliderProperty::MaxLabel, renderer.GetContext());
         PPoint smallFontSize;
-        style->SliderGetPreferredSize(*target, data, &smallFontSize, &maximumSize);
+        renderer->GetPreferredSize(*target, &smallFontSize, &maximumSize, renderer.GetContext());
         font->Set(PFontID::e_FontLarge);
         target->SetFont(font);
-        style->SliderPropertyChanged(*target, data, PSliderProperty::Font);
-        style->SliderGetPreferredSize(*target, data, &changedSize, &maximumSize);
+        renderer->PropertyChanged(*target, PSliderProperty::Font, renderer.GetContext());
+        renderer->GetPreferredSize(*target, &changedSize, &maximumSize, renderer.GetContext());
         EXPECT_GT(changedSize.x, smallFontSize.x);
         EXPECT_GT(changedSize.y, smallFontSize.y);
     });

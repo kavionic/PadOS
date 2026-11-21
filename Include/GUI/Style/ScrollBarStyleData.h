@@ -8,7 +8,6 @@
 #pragma once
 
 #include <GUI/GUIDefines.h>
-#include <GUI/Style/GUIStyleData.h>
 #include <Utils/EnumBitmask.h>
 
 enum class PScrollBarPart : uint8_t
@@ -37,7 +36,7 @@ enum class PScrollBarProperty : uint32_t
 
 using PScrollBarProperties = PEnumBitmask<PScrollBarProperty>;
 
-struct PScrollBarStyleData : PGUIStyleData
+struct PScrollBarStyleData
 {
     // Relative value: zero at the minimum and one at the maximum.
     float Value = 0.0f;

@@ -41,9 +41,9 @@ PFSNode::PFSNode()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFSNode::PFSNode(const PString& path, int openFlags)
+PFSNode::PFSNode(const PString& path, int openFlags, mode_t accessMode)
 {
-    Open(path, openFlags);
+    Open(path, openFlags, accessMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,9 +58,9 @@ PFSNode::PFSNode(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFSNode::PFSNode(const PDirectory& directory, const PString& path, int openFlags)
+PFSNode::PFSNode(const PDirectory& directory, const PString& path, int openFlags, mode_t accessMode)
 {
-    Open(directory, path, openFlags);
+    Open(directory, path, openFlags, accessMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,9 +75,9 @@ PFSNode::PFSNode(const PDirectory& directory, const PString& path, int openFlags
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFSNode::PFSNode(const PFileReference& reference, int openFlags)
+PFSNode::PFSNode(const PFileReference& reference, int openFlags, mode_t accessMode)
 {
-    Open(reference, openFlags);
+    Open(reference, openFlags, accessMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -193,14 +193,17 @@ bool PFSNode::IsValid() const
 ///
 ///     The \p openFlags should be a combination of any of the O_*
 ///     flags defined in <fcntl.h>. Their meaning is the same as when
-///     opening a file with the open() POSIX function except you can
-///     not create a file by setting the O_CREAT flag.
+///     opening a file with the open() POSIX function. When O_CREAT creates
+///     a file, accessMode specifies its permissions; it does not change
+///     permissions on an existing file.
 ///
 ///     The following flags are accepted:
 ///
 ///     - O_RDONLY  open the node read-only
 ///     - O_WRONLY  open the node write-only
 ///     - O_RDWR    open the node for both reading and writing
+///     - O_CREAT   create the file if it does not exist
+///     - O_EXCL    fail if O_CREAT is set and the file already exists
 ///     - O_TRUNC   truncate the size to 0 (only valid for files)
 ///     - O_APPEND  automatically move the file-pointer to the end
 ///             of the file before each write (only valid for files)
@@ -216,6 +219,8 @@ bool PFSNode::IsValid() const
 ///     Path pointing at the node to open.
 /// \param openFlags
 ///     Flags controlling how to open the node.
+/// \param accessMode
+///     Permissions for newly created files; defaults to owner read/write.
 /// \return
 ///     On success 0 is returned. On error -1 is returned and a
 ///     error code is assigned to the global variable "errno".
@@ -224,7 +229,7 @@ bool PFSNode::IsValid() const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PFSNode::Open(const PString& path, int openFlags)
+bool PFSNode::Open(const PString& path, int openFlags, mode_t accessMode)
 {
     int newFileDescriptor = -1;
     if (path.size() > 1 && path[0] == '~' && path[1] == '/')
@@ -237,7 +242,7 @@ bool PFSNode::Open(const PString& path, int openFlags)
         }
         PString realPath = home;
         realPath.insert(realPath.end(), path.begin() + 1, path.end());
-        newFileDescriptor = open(realPath.c_str(), openFlags);
+        newFileDescriptor = open(realPath.c_str(), openFlags, accessMode);
     }
     /*else if (path.size() > 1 && path[0] == '^' && path[1] == '/')
     {
@@ -254,7 +259,7 @@ bool PFSNode::Open(const PString& path, int openFlags)
     }*/
     else
     {
-        newFileDescriptor = open(path.c_str(), openFlags);
+        newFileDescriptor = open(path.c_str(), openFlags, accessMode);
     }
 
     if (newFileDescriptor < 0) {
@@ -314,6 +319,8 @@ bool PFSNode::Open(const PString& path, int openFlags)
 ///     Flags controlling how to open the node. See
 ///     Open( const PString& path, int openFlags )
 ///     for a full description of the various flags.
+/// \param accessMode
+///     Permissions for newly created files; defaults to owner read/write.
 ///
 /// \return
 ///     On success 0 is returned. On error -1 is returned and a
@@ -325,14 +332,14 @@ bool PFSNode::Open(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PFSNode::Open(const PDirectory& directory, const PString& path, int openFlags)
+bool PFSNode::Open(const PDirectory& directory, const PString& path, int openFlags, mode_t accessMode)
 {
     if (!directory.IsValid())
     {
         errno = EINVAL;
         return false;
     }
-    int newFileDescriptor = openat(directory.GetFileDescriptor(), path.c_str(), openFlags);
+    int newFileDescriptor = openat(directory.GetFileDescriptor(), path.c_str(), openFlags, accessMode);
     if (newFileDescriptor < 0) {
         return false;
     }
@@ -366,6 +373,8 @@ bool PFSNode::Open(const PDirectory& directory, const PString& path, int openFla
 ///     Same semantics Open(const PString& path, int openFlags)
 ///     except that the node to open is targeted by a file reference
 ///     rather than a regular path.
+/// \param accessMode
+///     Permissions for newly created files; defaults to owner read/write.
 /// \par Note:
 ///     If this call fail the old state of the FSNode will remain
 ///     unchanged
@@ -378,14 +387,14 @@ bool PFSNode::Open(const PDirectory& directory, const PString& path, int openFla
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PFSNode::Open(const PFileReference& reference, int openFlags)
+bool PFSNode::Open(const PFileReference& reference, int openFlags, mode_t accessMode)
 {
     if (!reference.IsValid())
     {
         errno = EINVAL;
         return false;
     }
-    int newFileDescriptor = openat(reference.GetDirectory().GetFileDescriptor(), reference.GetName().c_str(), openFlags);
+    int newFileDescriptor = openat(reference.GetDirectory().GetFileDescriptor(), reference.GetName().c_str(), openFlags, accessMode);
     if (newFileDescriptor < 0) {
         return false;
     }

@@ -12,13 +12,14 @@
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Widgets/Control.h>
 #include <Threads/EventTimer.h>
+#include <GUI/Style/ViewStyleScrollBar.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class PScrollBar : public PControl
+class PScrollBar : public PControl, public PViewStyleScrollBar
 {
 public:
     PScrollBar(
@@ -28,6 +29,8 @@ public:
         POrientation orientation = POrientation::Vertical,
         PViewFlags flags = PViewFlags::zero);
     ~PScrollBar();
+
+    virtual const PScrollBarStyleData& GetScrollBarStyleData() const override { return m_ScrollBarStyleData; }
 
     void  SetScrollTarget(Ptr<PView> target);
     Ptr<PView> GetScrollTarget();

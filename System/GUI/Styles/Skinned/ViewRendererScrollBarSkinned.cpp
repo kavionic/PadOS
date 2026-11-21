@@ -7,13 +7,14 @@
 
 #include <algorithm>
 #include <cmath>
+
+#include <GUI/Style/ViewRendererContext.h>
+#include <GUI/Style/ViewStyleScrollBar.h>
 #include <GUI/Styles/Skinned/SkinnedImage.h>
+#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
 #include <GUI/View.h>
 #include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
-#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
-#include <GUI/Style/ViewRendererContext.h>
-#include <GUI/Style/ViewStyleScrollBar.h>
 
 struct PViewRendererScrollBarSkinned::SkinnedScrollBarPart
 {

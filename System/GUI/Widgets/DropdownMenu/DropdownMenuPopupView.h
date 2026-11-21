@@ -8,10 +8,10 @@
 #pragma once
 
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
-#include <GUI/View.h>
-#include <GUI/ViewScroller.h>
 #include <GUI/Style/ViewStyleDropdownMenuPopup.h>
 #include <GUI/Style/ViewStyleDropdownMenuPopupFrame.h>
+#include <GUI/View.h>
+#include <GUI/ViewScroller.h>
 
 class PDropdownMenu;
 

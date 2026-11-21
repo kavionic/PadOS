@@ -7,14 +7,15 @@
 
 #include <algorithm>
 #include <cmath>
-#include <GUI/Styles/Skinned/SkinnedImage.h>
-#include <GUI/View.h>
-#include <Math/Misc.h>
-#include <System/ExceptionHandling.h>
-#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
+
 #include <GUI/Style/SliderStyleLayout.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleSlider.h>
+#include <GUI/Styles/Skinned/SkinnedImage.h>
+#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
+#include <GUI/View.h>
+#include <Math/Misc.h>
+#include <System/ExceptionHandling.h>
 
 struct PViewRendererSliderSkinned::Context : PViewRendererContext<PViewStyleSlider>
 {

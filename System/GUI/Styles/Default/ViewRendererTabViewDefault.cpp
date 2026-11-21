@@ -5,14 +5,13 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
-#include <GUI/View.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleTabView.h>
+#include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
+#include <GUI/View.h>
 
 struct PViewRendererTabViewDefault::Context : PViewRendererContext<PViewStyleTabView>
 {

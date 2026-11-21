@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewStyleButtonBase.h>
 #include <GUI/Style/ViewRendererRadioButton.h>
+#include <GUI/Style/ViewStyleButtonBase.h>
 
 class PViewStyleRadioButton : public PViewStyle<PViewRendererRadioButton, PViewStyleButtonBase>
 {

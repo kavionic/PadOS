@@ -5,10 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Skinned/ViewRendererButtonSkinnedBase.h>
-
 #include <algorithm>
 #include <cmath>
+
+#include <GUI/Styles/Skinned/ViewRendererButtonSkinnedBase.h>
 #include <System/ExceptionHandling.h>
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -9,8 +9,8 @@
 #pragma once
 
 #include <GUI/Style/GroupViewStyleData.h>
-#include <GUI/View.h>
 #include <GUI/Style/ViewStyleGroupView.h>
+#include <GUI/View.h>
 
 
 class PGroupView : public PView, public PViewStyleGroupView

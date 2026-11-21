@@ -5,14 +5,16 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <assert.h>
 #include <cmath>
+
+#include <assert.h>
 #include <stdio.h>
+
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererSlider.h>
 #include <GUI/Widgets/Slider.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
-#include <GUI/Style/ViewRendererSlider.h>
 
 
 const std::map<PString, PSliderFlags> PSLIDER_FLAG_MAP

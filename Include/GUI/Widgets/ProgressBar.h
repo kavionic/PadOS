@@ -8,8 +8,8 @@
 #pragma once
 
 #include <GUI/Style/ProgressBarStyleData.h>
-#include <GUI/View.h>
 #include <GUI/Style/ViewStyleProgressBar.h>
+#include <GUI/View.h>
 
 
 /** 

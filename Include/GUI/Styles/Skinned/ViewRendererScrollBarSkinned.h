@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Style/ViewRendererScrollBar.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
 
 class PViewRendererScrollBarSkinned : public PViewRendererScrollBar
 {

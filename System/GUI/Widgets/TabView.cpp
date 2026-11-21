@@ -10,11 +10,11 @@
 #include <cstring>
 
 #include <GUI/Style/GUIStyle.h>
-#include <GUI/Widgets/TabView.h>
-#include <GUI/Widgets/ScrollView.h>
-#include <GUI/ViewFactory.h>
-#include <System/ExceptionHandling.h>
 #include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/ViewFactory.h>
+#include <GUI/Widgets/ScrollView.h>
+#include <GUI/Widgets/TabView.h>
+#include <System/ExceptionHandling.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

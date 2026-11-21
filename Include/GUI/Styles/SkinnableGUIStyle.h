@@ -10,6 +10,7 @@
 #include <array>
 #include <utility>
 #include <vector>
+
 #include <GUI/Brush.h>
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/ScrollBarStyleData.h>

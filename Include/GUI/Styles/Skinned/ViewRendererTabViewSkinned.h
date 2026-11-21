@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
 
 class PViewRendererTabViewSkinned : public PViewRendererTabView
 {

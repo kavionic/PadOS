@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewStyleButtonBase.h>
 #include <GUI/Style/ViewRendererCheckBox.h>
+#include <GUI/Style/ViewStyleButtonBase.h>
 
 class PViewStyleCheckBox : public PViewStyle<PViewRendererCheckBox, PViewStyleButtonBase>
 {

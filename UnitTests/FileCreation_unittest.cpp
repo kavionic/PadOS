@@ -7,8 +7,10 @@
 
 #include <cerrno>
 #include <cstdlib>
-#include <unistd.h>
+
 #include <gtest/gtest.h>
+#include <unistd.h>
+
 #include <Storage/Directory.h>
 #include <Storage/File.h>
 #include <Storage/FileReference.h>

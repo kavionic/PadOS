@@ -8,9 +8,11 @@
 #include <algorithm>
 
 #include <gtest/gtest.h>
+
 #include <GUI/Font.h>
 #include <GUI/LayoutNode.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererGroupView.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Styles/Skinned/ViewRendererGroupViewSkinned.h>
 #include <GUI/ViewFactoryContext.h>
@@ -21,9 +23,8 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
-#include "ViewRendererTest.h"
 #include "SkinnableGUIStyleTest.h"
-#include <GUI/Style/ViewRendererGroupView.h>
+#include "ViewRendererTest.h"
 
 TEST(GroupViewStyle, LabelAndFontChangesRefreshManagedPreferredSizes)
 {

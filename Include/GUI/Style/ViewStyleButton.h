@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewStyleButtonBase.h>
 #include <GUI/Style/ViewRendererButton.h>
+#include <GUI/Style/ViewStyleButtonBase.h>
 
 class PViewStyleButton : public PViewStyle<PViewRendererButton, PViewStyleButtonBase>
 {

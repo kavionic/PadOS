@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/ProgressBarStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 class PViewRendererProgressBar : public PViewRenderer
 {

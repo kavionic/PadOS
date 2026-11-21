@@ -9,7 +9,9 @@
 #include <limits>
 
 #include <gtest/gtest.h>
+
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererProgressBar.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Styles/Skinned/ViewRendererProgressBarSkinned.h>
@@ -21,9 +23,8 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
-#include "ViewRendererTest.h"
 #include "SkinnableGUIStyleTest.h"
-#include <GUI/Style/ViewRendererProgressBar.h>
+#include "ViewRendererTest.h"
 
 TEST(ProgressBarStyle, PreferredSizesFollowTheConstructorAndXmlOrientations)
 {

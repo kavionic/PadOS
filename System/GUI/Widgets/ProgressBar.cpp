@@ -7,9 +7,9 @@
 
 
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererProgressBar.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ProgressBar.h>
-#include <GUI/Style/ViewRendererProgressBar.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

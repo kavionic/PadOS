@@ -5,11 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererCheckBoxDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
+#include <GUI/Styles/Default/ViewRendererCheckBoxDefault.h>
 #include <GUI/View.h>
 
 ///////////////////////////////////////////////////////////////////////////////

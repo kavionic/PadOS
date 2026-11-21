@@ -6,20 +6,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GUI/Style/GUIStyle.h>
-
+#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Styles/Default/ViewRendererButtonDefault.h>
 #include <GUI/Styles/Default/ViewRendererCheckBoxDefault.h>
-#include <GUI/Styles/Default/ViewRendererRadioButtonDefault.h>
-#include <GUI/Styles/Default/ViewRendererSliderDefault.h>
-#include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
 #include <GUI/Styles/Default/ViewRendererDropdownMenuDefault.h>
-#include <GUI/Styles/Default/ViewRendererDropdownMenuPopupFrameDefault.h>
 #include <GUI/Styles/Default/ViewRendererDropdownMenuPopupDefault.h>
+#include <GUI/Styles/Default/ViewRendererDropdownMenuPopupFrameDefault.h>
 #include <GUI/Styles/Default/ViewRendererGroupViewDefault.h>
 #include <GUI/Styles/Default/ViewRendererProgressBarDefault.h>
+#include <GUI/Styles/Default/ViewRendererRadioButtonDefault.h>
+#include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
+#include <GUI/Styles/Default/ViewRendererSliderDefault.h>
 #include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
 #include <System/ExceptionHandling.h>
-#include <GUI/Style/ViewRenderer.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

@@ -6,10 +6,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GUI/Style/GUIStyle.h>
-#include <GUI/Widgets/DropdownMenu.h>
-#include "DropdownMenuPopupView.h"
 #include <GUI/Style/ViewRendererDropdownMenuPopup.h>
 #include <GUI/Style/ViewRendererDropdownMenuPopupFrame.h>
+#include <GUI/Widgets/DropdownMenu.h>
+
+#include "DropdownMenuPopupView.h"
 
 namespace osi
 {

@@ -5,14 +5,13 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererProgressBarDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
-#include <GUI/View.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleProgressBar.h>
+#include <GUI/Styles/Default/ViewRendererProgressBarDefault.h>
+#include <GUI/View.h>
 
 struct PViewRendererProgressBarDefault::Context : PViewRendererContext<PViewStyleProgressBar>
 {

@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include <GUI/Style/ViewStyle.h>
-#include <GUI/Style/ViewRendererGroupView.h>
 #include <GUI/Style/GroupViewStyleData.h>
+#include <GUI/Style/ViewRendererGroupView.h>
+#include <GUI/Style/ViewStyle.h>
 
 // Property references remain owned by the widget; renderer caches belong
 // to the context.

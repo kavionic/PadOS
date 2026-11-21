@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <type_traits>
+
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/ViewRenderer.h>
 

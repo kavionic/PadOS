@@ -6,13 +6,14 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
-#include <assert.h>
 #include <cmath>
 
+#include <assert.h>
+
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererScrollBar.h>
 #include <GUI/Widgets/ScrollBar.h>
 #include <Threads/Looper.h>
-#include <GUI/Style/ViewRendererScrollBar.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

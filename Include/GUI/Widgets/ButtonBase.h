@@ -9,8 +9,8 @@
 #pragma once
 
 #include <GUI/Style/ButtonStyleData.h>
-#include <GUI/Widgets/Control.h>
 #include <GUI/Style/ViewStyleButtonBase.h>
+#include <GUI/Widgets/Control.h>
 
 
 class PButtonGroup;

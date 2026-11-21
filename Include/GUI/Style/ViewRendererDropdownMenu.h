@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/DropdownMenuStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 struct PTextBoxStyle;
 

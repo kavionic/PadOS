@@ -8,8 +8,8 @@
 #pragma once
 
 #include <GUI/Style/SliderStyleData.h>
-#include <GUI/Widgets/Control.h>
 #include <GUI/Style/ViewStyleSlider.h>
+#include <GUI/Widgets/Control.h>
 
 
 enum class PSliderFlag : uint32_t

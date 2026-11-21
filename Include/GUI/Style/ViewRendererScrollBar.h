@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/ScrollBarStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 class PViewRendererScrollBar : public PViewRenderer
 {

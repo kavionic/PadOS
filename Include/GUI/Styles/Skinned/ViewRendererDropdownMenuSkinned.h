@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Style/ViewRendererDropdownMenu.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
 
 class PViewRendererDropdownMenuSkinned : public PViewRendererDropdownMenu
 {

@@ -10,20 +10,22 @@
 
 
 #include <algorithm>
+
 #include <stddef.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
+
 #include <pugixml.hpp>
 
-#include <GUI/View.h>
-#include <GUI/Widgets/ScrollBar.h>
+#include <App/Application.h>
 #include <GUI/Bitmap.h>
 #include <GUI/NamedColors.h>
-#include <App/Application.h>
+#include <GUI/Style/ViewStyle.h>
+#include <GUI/View.h>
+#include <GUI/Widgets/ScrollBar.h>
 #include <Utils/Utils.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
-#include <GUI/Style/ViewStyle.h>
 
 
 const std::map<PString, PViewFlags> PVIEW_FLAG_MAP

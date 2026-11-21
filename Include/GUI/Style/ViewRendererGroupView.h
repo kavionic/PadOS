@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/GroupViewStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 class PViewRendererGroupView : public PViewRenderer
 {

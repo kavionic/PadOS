@@ -8,7 +8,6 @@
 #pragma once
 
 #include <GUI/Style/GUIStyle.h>
-#include <System/ExceptionHandling.h>
 #include <GUI/Style/ViewStyleButton.h>
 #include <GUI/Style/ViewStyleDropdownMenu.h>
 #include <GUI/Style/ViewStyleDropdownMenuPopup.h>
@@ -18,6 +17,7 @@
 #include <GUI/Style/ViewStyleScrollBar.h>
 #include <GUI/Style/ViewStyleSlider.h>
 #include <GUI/Style/ViewStyleTabView.h>
+#include <System/ExceptionHandling.h>
 
 class PViewRendererTestView :
     public PView,

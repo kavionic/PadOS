@@ -5,11 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererRadioButtonDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
+#include <GUI/Styles/Default/ViewRendererRadioButtonDefault.h>
 #include <GUI/View.h>
 
 ///////////////////////////////////////////////////////////////////////////////

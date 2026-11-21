@@ -9,9 +9,9 @@
 #include <algorithm>
 
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererGroupView.h>
 #include <GUI/Widgets/GroupView.h>
 #include <Utils/XMLFactory.h>
-#include <GUI/Style/ViewRendererGroupView.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

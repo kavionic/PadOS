@@ -9,20 +9,21 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+
 #include <GUI/Font.h>
 #include <GUI/Style/GUIStyle.h>
-#include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/Style/ViewStyleTabView.h>
 #include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
-#include <GUI/Widgets/TabView.h>
 #include <GUI/Widgets/ScrollView.h>
+#include <GUI/Widgets/TabView.h>
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
 #include "ViewRendererTest.h"
-#include <GUI/Style/ViewRendererTabView.h>
-#include <GUI/Style/ViewStyleTabView.h>
 
 TEST(TabViewStyle, TitleAndFontChangesRefreshManagedSizes)
 {

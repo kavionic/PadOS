@@ -7,15 +7,16 @@
 
 
 #include <gtest/gtest.h>
+
 #include <GUI/Style/ScrollBarStyleData.h>
-#include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Style/ViewRendererScrollBar.h>
+#include <GUI/Style/ViewStyleScrollBar.h>
 #include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/Widgets/ScrollBar.h>
 
 #include "GUITest.h"
 #include "ViewRendererTest.h"
-#include <GUI/Style/ViewRendererScrollBar.h>
-#include <GUI/Style/ViewStyleScrollBar.h>
 
 TEST(ScrollBarStyle, PreferredSizeUsesTheOrientation)
 {

@@ -7,12 +7,12 @@
 
 #pragma once
 
-#include <GUI/Style/TabViewStyleData.h>
-#include <GUI/View.h>
-
-#include <vector>
 #include <string>
+#include <vector>
+
+#include <GUI/Style/TabViewStyleData.h>
 #include <GUI/Style/ViewStyleTabView.h>
+#include <GUI/View.h>
 
 class PScrollView;
 

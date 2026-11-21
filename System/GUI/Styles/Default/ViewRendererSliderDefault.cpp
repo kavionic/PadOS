@@ -5,15 +5,14 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererSliderDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
-#include <GUI/View.h>
 #include <GUI/Style/SliderStyleLayout.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleSlider.h>
+#include <GUI/Styles/Default/ViewRendererSliderDefault.h>
+#include <GUI/View.h>
 
 struct PViewRendererSliderDefault::Context : PViewRendererContext<PViewStyleSlider>
 {

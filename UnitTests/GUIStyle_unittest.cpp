@@ -8,16 +8,24 @@
 #include <algorithm>
 #include <array>
 #include <stdexcept>
-#include <typeinfo>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
-#include <unistd.h>
+
 #include <gtest/gtest.h>
+#include <unistd.h>
+
 #include <ApplicationServer/GUIStyleProtocol.h>
 #include <GUI/Style/GUIStyleFactory.h>
 #include <GUI/Style/SliderStyleData.h>
-#include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Style/ViewRenderer.h>
+#include <GUI/Style/ViewRendererButton.h>
+#include <GUI/Style/ViewRendererContext.h>
+#include <GUI/Style/ViewRendererSlider.h>
+#include <GUI/Style/ViewStyle.h>
+#include <GUI/Style/ViewStyleSlider.h>
 #include <GUI/Styles/Default/ViewRendererSliderDefault.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Widgets/Button.h>
 #include <GUI/Widgets/CheckBox.h>
@@ -30,12 +38,6 @@
 #include <System/ExceptionHandling.h>
 
 #include "GUITest.h"
-#include <GUI/Style/ViewRenderer.h>
-#include <GUI/Style/ViewRendererContext.h>
-#include <GUI/Style/ViewRendererButton.h>
-#include <GUI/Style/ViewRendererSlider.h>
-#include <GUI/Style/ViewStyle.h>
-#include <GUI/Style/ViewStyleSlider.h>
 
 struct PGUIRendererLifecycleTestState : PtrTarget
 {

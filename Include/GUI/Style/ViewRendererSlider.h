@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/SliderStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 class PViewRendererSlider : public PViewRenderer
 {

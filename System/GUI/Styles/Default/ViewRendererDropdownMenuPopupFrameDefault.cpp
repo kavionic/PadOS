@@ -5,14 +5,13 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererDropdownMenuPopupFrameDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
-#include <GUI/View.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleDropdownMenuPopupFrame.h>
+#include <GUI/Styles/Default/ViewRendererDropdownMenuPopupFrameDefault.h>
+#include <GUI/View.h>
 
 struct PViewRendererDropdownMenuPopupFrameDefault::Context : PViewRendererContext<PViewStyleDropdownMenuPopupFrame>
 {

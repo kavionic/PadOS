@@ -8,16 +8,16 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
-#include <optional>
 
 #include <stdarg.h>
 
-#include <System/Types.h>
 #include <System/TimeValue.h>
+#include <System/Types.h>
 #include <Utils/UTF8Utils.h>
 
 #ifdef PADOS_OPT_USE_FMT_FORMATTING

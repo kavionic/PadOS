@@ -8,32 +8,33 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <type_traits>
 #include <string_view>
+#include <type_traits>
+
 #include <GUI/BitmapLoader.h>
 #include <GUI/Style/ButtonStyleData.h>
 #include <GUI/Style/SliderStyleData.h>
 #include <GUI/Style/SliderStyleLayout.h>
-#include <GUI/Styles/SkinnableGUIStyle.h>
-#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererTabViewSkinned.h>
-#include <GUI/View.h>
-#include <System/ExceptionHandling.h>
-#include <Storage/File.h>
-#include <Storage/StandardPaths.h>
-#include <Utils/XMLObjectParser.h>
-
-#include "GUITest.h"
-#include "ViewRendererTest.h"
-#include "SkinnableGUIStyleTest.h"
 #include <GUI/Style/ViewRendererButton.h>
 #include <GUI/Style/ViewRendererScrollBar.h>
 #include <GUI/Style/ViewRendererSlider.h>
 #include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Styles/Skinned/ViewRendererButtonSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererCheckBoxSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererRadioButtonSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererTabViewSkinned.h>
+#include <GUI/View.h>
+#include <Storage/File.h>
+#include <Storage/StandardPaths.h>
+#include <System/ExceptionHandling.h>
+#include <Utils/XMLObjectParser.h>
+
+#include "GUITest.h"
+#include "SkinnableGUIStyleTest.h"
+#include "ViewRendererTest.h"
 
 static PPoint GetSkinnedTestButtonLabelSize(const PView& target, const PButtonStyleData& data)
 {

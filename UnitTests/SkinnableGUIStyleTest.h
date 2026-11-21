@@ -10,10 +10,12 @@
 #include <array>
 #include <cerrno>
 #include <functional>
-#include <sys/stat.h>
-#include <unistd.h>
+
 #include <gtest/gtest.h>
 #include <pugixml.hpp>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <Storage/File.h>
 #include <Storage/Path.h>
 #include <Storage/StandardPaths.h>

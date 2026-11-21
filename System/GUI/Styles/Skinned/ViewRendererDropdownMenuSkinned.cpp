@@ -7,13 +7,14 @@
 
 #include <algorithm>
 #include <cmath>
+
+#include <GUI/Style/ViewRendererContext.h>
+#include <GUI/Style/ViewStyleDropdownMenu.h>
 #include <GUI/Styles/Skinned/SkinnedImage.h>
+#include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
 #include <GUI/View.h>
 #include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
-#include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
-#include <GUI/Style/ViewRendererContext.h>
-#include <GUI/Style/ViewStyleDropdownMenu.h>
 
 struct PViewRendererDropdownMenuSkinned::Context : PViewRendererContext<PViewStyleDropdownMenu>
 {

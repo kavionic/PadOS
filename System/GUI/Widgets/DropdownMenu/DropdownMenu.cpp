@@ -8,15 +8,15 @@
 #include <stdio.h>
 
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererDropdownMenu.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/TextBox.h>
-#include <Utils/Utils.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
 
 #include "DropdownMenuPopupView.h"
-#include <GUI/Style/ViewRendererDropdownMenu.h>
 
 using namespace osi;
 

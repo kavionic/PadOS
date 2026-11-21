@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/DropdownMenuPopupStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 class PViewRendererDropdownMenuPopup : public PViewRenderer
 {

@@ -8,8 +8,8 @@
 
 #include <System/Platform.h>
 #include <GUI/Style/GUIStyle.h>
-#include <GUI/Widgets/Button.h>
 #include <GUI/Style/ViewRendererButton.h>
+#include <GUI/Widgets/Button.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

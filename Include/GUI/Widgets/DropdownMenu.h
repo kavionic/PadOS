@@ -7,13 +7,13 @@
 
 #pragma once
 
-#include <GUI/Style/DropdownMenuStyleData.h>
-#include <GUI/Widgets/Control.h>
-#include <GUI/Font.h>
-
-#include <vector>
 #include <string>
+#include <vector>
+
+#include <GUI/Font.h>
+#include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/ViewStyleDropdownMenu.h>
+#include <GUI/Widgets/Control.h>
 
 namespace osi
 {

@@ -9,31 +9,32 @@
 #include <cerrno>
 #include <cmath>
 #include <string_view>
+
 #include <App/Application.h>
 #include <GUI/BitmapLoader.h>
-#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
+#include <GUI/Style/GUIStyleFactory.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
+#include <GUI/Styles/Skinned/ViewRendererButtonSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererCheckBoxSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererDropdownMenuPopupFrameSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererDropdownMenuPopupSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererGroupViewSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererProgressBarSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererRadioButtonSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererTabViewSkinned.h>
-#include <GUI/Styles/SkinnableGUIStyle.h>
-#include <GUI/Style/GUIStyleFactory.h>
-#include <Utils/FactoryAutoRegistrator.h>
 #include <GUI/View.h>
-#include <GUI/Widgets/TextBox.h>
 #include <GUI/ViewFactory.h>
+#include <GUI/Widgets/TextBox.h>
 #include <Math/Misc.h>
 #include <Storage/Directory.h>
 #include <Storage/Path.h>
 #include <Storage/StandardPaths.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/FactoryAutoRegistrator.h>
 #include <Utils/XMLObjectParser.h>
-#include <GUI/Styles/Skinned/ViewRendererButtonSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererCheckBoxSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererRadioButtonSkinned.h>
 
 static PFactoryAutoRegistrator<PSkinnableGUIStyle> g_SkinnableGUIStyleRegistration([]
 {

@@ -5,13 +5,12 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/DefaultGUIStyle.h>
-
 #include <App/Application.h>
 #include <GUI/Style/GUIStyleFactory.h>
 #include <GUI/Style/GUIStyleInfo.h>
-#include <Utils/FactoryAutoRegistrator.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/FactoryAutoRegistrator.h>
 
 static PFactoryAutoRegistrator<PDefaultGUIStyle> g_DefaultGUIStyleRegistration([]
 {

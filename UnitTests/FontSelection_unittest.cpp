@@ -6,10 +6,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <gtest/gtest.h>
+
 #include <App/Application.h>
 #include <ApplicationServer/Protocol.h>
 #include <GUI/Font.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/ViewRendererSlider.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/Button.h>
 #include <GUI/Widgets/Slider.h>
@@ -19,7 +21,6 @@
 
 #include "GUITest.h"
 #include "ViewRendererTest.h"
-#include <GUI/Style/ViewRendererSlider.h>
 
 static void ExpectFontSelectionHandle(PApplication& application, handle_id fontHandle, PErrorCode expectedError)
 {

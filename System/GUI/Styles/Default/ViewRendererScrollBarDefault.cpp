@@ -5,15 +5,14 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
-#include <GUI/View.h>
 #include <GUI/Bitmap.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleScrollBar.h>
+#include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
+#include <GUI/View.h>
 
 struct PViewRendererScrollBarDefault::Context : PViewRendererContext<PViewStyleScrollBar>
 {

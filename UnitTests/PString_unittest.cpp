@@ -5,15 +5,15 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <limits>
 #include <string>
 #include <string_view>
-#include <sys/stat.h>
 #include <type_traits>
 #include <vector>
+
+#include <gtest/gtest.h>
+#include <sys/stat.h>
 
 #include <Utils/String.h>
 #include <Utils/UTF8Utils.h>

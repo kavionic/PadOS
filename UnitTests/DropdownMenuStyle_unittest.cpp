@@ -8,25 +8,26 @@
 #include <cmath>
 
 #include <gtest/gtest.h>
-#include <GUI/Style/DropdownMenuStyleData.h>
-#include <GUI/Style/DropdownMenuPopupStyleData.h>
-#include <GUI/Styles/DefaultGUIStyle.h>
-#include <GUI/Styles/SkinnableGUIStyle.h>
-#include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererDropdownMenuPopupFrameSkinned.h>
-#include <GUI/Styles/Skinned/ViewRendererDropdownMenuPopupSkinned.h>
-#include <Storage/Path.h>
-#include <Storage/StandardPaths.h>
-#include <GUI/Widgets/DropdownMenu.h>
-#include <GUI/Widgets/TextBox.h>
-#include <System/ExceptionHandling.h>
 
-#include "GUITest.h"
-#include "ViewRendererTest.h"
-#include "../System/GUI/Widgets/DropdownMenu/DropdownMenuPopupView.h"
+#include <GUI/Style/DropdownMenuPopupStyleData.h>
+#include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/ViewRendererDropdownMenu.h>
 #include <GUI/Style/ViewRendererDropdownMenuPopup.h>
 #include <GUI/Style/ViewRendererDropdownMenuPopupFrame.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
+#include <GUI/Styles/SkinnableGUIStyle.h>
+#include <GUI/Styles/Skinned/ViewRendererDropdownMenuPopupFrameSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererDropdownMenuPopupSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
+#include <GUI/Widgets/DropdownMenu.h>
+#include <GUI/Widgets/TextBox.h>
+#include <Storage/Path.h>
+#include <Storage/StandardPaths.h>
+#include <System/ExceptionHandling.h>
+
+#include "../System/GUI/Widgets/DropdownMenu/DropdownMenuPopupView.h"
+#include "GUITest.h"
+#include "ViewRendererTest.h"
 
 TEST(DropdownMenuStyle, EditorLayoutAndHitTestingRespectReadOnlyAndEnabledState)
 {

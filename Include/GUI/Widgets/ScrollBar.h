@@ -10,9 +10,9 @@
 #include <limits>
 
 #include <GUI/Style/ScrollBarStyleData.h>
+#include <GUI/Style/ViewStyleScrollBar.h>
 #include <GUI/Widgets/Control.h>
 #include <Threads/EventTimer.h>
-#include <GUI/Style/ViewStyleScrollBar.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

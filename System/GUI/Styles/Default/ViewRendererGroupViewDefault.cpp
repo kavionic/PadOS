@@ -5,14 +5,13 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Styles/Default/ViewRendererGroupViewDefault.h>
-
 #include <algorithm>
 #include <cmath>
 
-#include <GUI/View.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleGroupView.h>
+#include <GUI/Styles/Default/ViewRendererGroupViewDefault.h>
+#include <GUI/View.h>
 
 struct PViewRendererGroupViewDefault::Context : PViewRendererContext<PViewStyleGroupView>
 {

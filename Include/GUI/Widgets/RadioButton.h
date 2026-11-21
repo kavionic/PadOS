@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Widgets/ButtonBase.h>
 #include <GUI/Style/ViewRendererRadioButton.h>
+#include <GUI/Widgets/ButtonBase.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

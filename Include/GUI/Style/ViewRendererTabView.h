@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/Style/ViewRenderer.h>
 #include <GUI/Style/TabViewStyleData.h>
+#include <GUI/Style/ViewRenderer.h>
 
 class PViewRendererTabView : public PViewRenderer
 {

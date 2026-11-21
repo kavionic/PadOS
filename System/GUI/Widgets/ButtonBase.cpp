@@ -6,11 +6,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 28.06.2020 12:56
 
+#include <GUI/Style/ViewRendererButtonBase.h>
 #include <GUI/Widgets/ButtonBase.h>
 #include <GUI/Widgets/ButtonGroup.h>
-#include <Utils/XMLObjectParser.h>
 #include <Utils/Beep.h>
-#include <GUI/Style/ViewRendererButtonBase.h>
+#include <Utils/XMLObjectParser.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////

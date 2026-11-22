@@ -1,0 +1,29 @@
+// This file is part of PadOS.
+//
+// Copyright (c) 2026 Kurt Skauen
+//
+// SPDX-License-Identifier: Apache-2.0
+///////////////////////////////////////////////////////////////////////////////
+
+#include <ApplicationServer/ApplicationServer.h>
+
+#include "CachedSrvBitmap.h"
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+CachedSrvBitmap::CachedSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, const CacheKey& key)
+    : PSrvBitmap(size, colorSpace, nullptr, 0, true)
+    , m_CacheKey(key)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool CachedSrvBitmap::LastReferenceGone()
+{
+    return (m_CacheOwner != nullptr) ? m_CacheOwner->BitmapReleased(this) : PSrvBitmap::LastReferenceGone();
+}

@@ -11,6 +11,7 @@ target_sources(PadOS_GUI PRIVATE
 	Image.cpp
 	Application.cpp
 	Bitmap.cpp
+	BitmapDecoder.cpp
 	BitmapLoader.cpp
 	Color.cpp
 	Font.cpp

@@ -8,11 +8,14 @@
 target_sources(PadOS_ApplicationServer PRIVATE
 	ServerViewBrush.cpp
 	ApplicationServer.cpp
+	CachedSrvBitmap.cpp
+	CachedSrvBitmap.h
 	DisplayDriver.cpp
 	KeyboardManager.cpp
 	ServerApplication.cpp
 	ServerApplication.h
 	ServerBitmap.cpp
+	ServerBitmapLoader.h
 	ServerBrush.cpp
 	ServerView.cpp
 	ServerView.h

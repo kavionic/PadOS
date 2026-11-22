@@ -90,6 +90,9 @@ public:
     PBitmap(int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags = 0, PApplication* application = nullptr);
     PBitmap(int width, int height, PEColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags = 0, PApplication* application = nullptr);
 
+    // Take ownership of an existing handle belonging to application.
+    PBitmap(handle_id handle, const PIRect& bounds, PEColorSpace colorSpace, const uint8_t* raster, size_t bytesPerRow, PApplication* application);
+
     virtual ~PBitmap();
 
     bool            IsValid() const;

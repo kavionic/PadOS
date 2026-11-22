@@ -29,8 +29,8 @@ public:
     bool LoadBitmap(const PPath& path);
     bool LoadBitmap(PStreamableIO& file);
 
-    void SetBitmap(Ptr<PBitmap> bitmap);
-    Ptr<PBitmap> GetBitmap() const;
+    void SetBitmap(Ptr<const PBitmap> bitmap);
+    Ptr<const PBitmap> GetBitmap() const;
 
     void ClearBitmap();
 
@@ -43,5 +43,5 @@ private:
     PPoint m_Scale = PPoint(1.0f, 1.0f);
     bool   m_IsScaled = false;
 
-    Ptr<PBitmap> m_Bitmap;
+    Ptr<const PBitmap> m_Bitmap;
 };

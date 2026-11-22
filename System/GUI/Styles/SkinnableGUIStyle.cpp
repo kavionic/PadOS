@@ -11,7 +11,7 @@
 #include <string_view>
 
 #include <App/Application.h>
-#include <GUI/BitmapLoader.h>
+#include <GUI/Bitmap.h>
 #include <GUI/Style/GUIStyleFactory.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Styles/Skinned/ViewRendererButtonSkinned.h>
@@ -95,6 +95,12 @@ PRect PSliderKnobSkin::GetBounds() const
 
 PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* application) : PGUIStyle(application)
 {
+    if (application == nullptr) {
+        application = PApplication::GetCurrentApplication();
+    }
+    if (application == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
     LoadStyle(directory, application);
     const Ptr<const PBrush> background = GetBrush(PGUIColorID::Background);
     const PButtonSkin buttonSkin = LoadButtonSkin(directory, application);
@@ -454,7 +460,13 @@ void PSkinnableGUIStyle::LoadStyle(const PPath& directory, PApplication* applica
     {
         PPath texturePath(directory);
         texturePath.Append(texture);
-        const Ptr<PBitmap> bitmap = PBitmapLoader::Load(texturePath, application);
+        Ptr<const PBitmap> bitmap;
+        try
+        {
+            bitmap = application->LoadBitmap(texturePath);
+        }
+        // Keep the palette background when the optional texture cannot be loaded.
+        PERROR_CATCH([](PErrorCode) {});
         if (bitmap != nullptr) {
             SetBrush(PGUIColorID::Background, ptr_new<PBrush>(bitmap));
         }
@@ -625,7 +637,7 @@ PSliderOrientationSkin PSkinnableGUIStyle::LoadSliderOrientation(const pugi::xml
 {
     PSliderOrientationSkin skin;
     const pugi::xml_node trackNode = node.child("Track");
-    const Ptr<PBitmap> bitmap = LoadSkinBitmap(trackNode, directory, application);
+    const Ptr<const PBitmap> bitmap = LoadSkinBitmap(trackNode, directory, application);
     if (bitmap->GetColorSpace() != PEColorSpace::RGB32 && bitmap->GetColorSpace() != PEColorSpace::RGBA32) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Slider track masks must decode to RGB32 or RGBA32");
     }
@@ -717,7 +729,7 @@ PScrollBarSkinPart PSkinnableGUIStyle::LoadScrollBarPart(const pugi::xml_node& n
     for (size_t index = 0; index < STATE_NAMES.size(); ++index)
     {
         const pugi::xml_node state = node.child(STATE_NAMES[index]);
-        const Ptr<PBitmap> bitmap = LoadSkinBitmap(state, directory, application);
+        const Ptr<const PBitmap> bitmap = LoadSkinBitmap(state, directory, application);
         const PRect borders = ParseSkinAttribute<PRect>(state, "borders");
         const PIRect bounds = bitmap->GetBounds();
         Ptr<PImage> image = ptr_new<PImage>(bitmap);
@@ -901,7 +913,7 @@ PProgressBarOrientationSkin PSkinnableGUIStyle::LoadProgressBarOrientation(const
 
 Ptr<const PImage> PSkinnableGUIStyle::LoadSkinImage(const pugi::xml_node& node, const PPath& directory, PApplication* application)
 {
-    const Ptr<PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
+    const Ptr<const PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
     const PRect borders = ParseSkinAttribute<PRect>(node, "borders");
     const PIRect bounds = bitmap->GetBounds();
     Ptr<PImage> image = ptr_new<PImage>(bitmap);
@@ -932,7 +944,7 @@ void PSkinnableGUIStyle::LoadIndicatorSkin(const pugi::xml_node& root, const PPa
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PBitmap> PSkinnableGUIStyle::LoadSkinBitmap(const pugi::xml_node& node, const PPath& directory, PApplication* application)
+Ptr<const PBitmap> PSkinnableGUIStyle::LoadSkinBitmap(const pugi::xml_node& node, const PPath& directory, PApplication* application)
 {
     const PString filename = ParseSkinAttribute<PString>(node, "image");
     if (filename.empty()) {
@@ -940,11 +952,14 @@ Ptr<PBitmap> PSkinnableGUIStyle::LoadSkinBitmap(const pugi::xml_node& node, cons
     }
     PPath path(directory);
     path.Append(filename);
-    Ptr<PBitmap> bitmap = PBitmapLoader::Load(path, application);
-    if (bitmap == nullptr) {
-        PERROR_THROW_CODE_WHAT(PErrorCode(get_last_error()), PString::format_string("Unable to load skin image '{}'", path.GetPath()));
+    try
+    {
+        return application->LoadBitmap(path);
     }
-    return bitmap;
+    PERROR_CATCH_RET([&path](const std::exception&, PErrorCode error) -> Ptr<const PBitmap>
+    {
+        PERROR_THROW_CODE_WHAT(error, PString::format_string("Unable to load skin image '{}'", path.GetPath()));
+    });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -959,7 +974,7 @@ PButtonSkinAppearance PSkinnableGUIStyle::LoadAppearance(
     PImageLayoutMode imageLayout)
 {
     const PRect borders = ParseSkinAttribute<PRect>(node, "borders");
-    Ptr<PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
+    Ptr<const PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
     Ptr<PImage> image = ptr_new<PImage>(bitmap);
     image->SetLayoutSize(imageSize, imageLayout);
     const PIRect bounds = bitmap->GetBounds();

@@ -23,8 +23,10 @@
 #include <ApplicationServer/Protocol.h>
 #include <GUI/Style/GUIStyleInfo.h>
 
+class PBitmap;
 class PBrush;
 class PGUIStyle;
+class PPath;
 class PView;
 
 
@@ -99,6 +101,10 @@ public:
     void RequestGUIStyles(GUIStylesCallback callback, size_t firstIndex = 0);
     void RequestGUIStyleConfiguration(GUIStyleConfigurationCallback callback);
     void SetGUIStyleConfiguration(GUIStyleConfigurationCallback callback, const PString& style, const PString& variant);
+
+    // Load through the server's shared cache. Hold this application's mutex.
+    // The returned bitmap owns an application-local handle. Failures throw.
+    Ptr<const PBitmap> LoadBitmap(const PPath& path);
 
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);

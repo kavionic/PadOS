@@ -67,6 +67,7 @@ namespace PAppserverProtocol
         SET_KEYBOARD_FOCUS,
         CREATE_BITMAP,
         DELETE_BITMAP,
+        LOAD_BITMAP,
         CREATE_FONT,
         DELETE_FONT,
         MEASURE_FONT,
@@ -128,6 +129,7 @@ namespace PAppserverProtocol
         REGISTER_APPLICATION_REPLY,
         CREATE_VIEW_REPLY,
         CREATE_BITMAP_REPLY,
+        LOAD_BITMAP_REPLY,
         PAINT_VIEW,
         VIEW_FRAME_CHANGED,
         VIEW_SCREEN_POSITION_CHANGED,
@@ -187,6 +189,16 @@ struct MsgCreateBitmapReply
     handler_id  m_BitmapHandle = INVALID_HANDLE;
     uint8_t*    m_Framebuffer = nullptr;
     size_t      m_BytesPerRow = 0;
+};
+
+struct MsgLoadBitmapReply
+{
+    handle_id       BitmapHandle = INVALID_HANDLE;
+    const uint8_t*  Framebuffer = nullptr;
+    size_t          BytesPerRow = 0;
+    PIRect          Bounds;
+    PEColorSpace    ColorSpace  = PEColorSpace::NO_COLOR_SPACE;
+    PErrorCode      Error       = PErrorCode::Success;
 };
 
 struct MsgCreateBrushReply
@@ -264,6 +276,8 @@ using ASCreateBitmap = PRemoteSignal<PAppserverProtocol::CREATE_BITMAP,
         uint32_t    flags
         )
 >;
+
+using ASLoadBitmap = PRemoteSignal<PAppserverProtocol::LOAD_BITMAP, void(port_id replyPort, const PString& path)>;
 
 using ASDeleteBitmap        = PRemoteSignal<PAppserverProtocol::DELETE_BITMAP,        void(handler_id handle)>;
 using ASPushMouseCursor     = PRemoteSignal<PAppserverProtocol::PUSH_MOUSE_CURSOR,    void(PMouseCursorToken token, PMouseCursorID cursorID)>;

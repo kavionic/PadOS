@@ -30,42 +30,43 @@ handle_id ServerApplication::s_NextFontHandle = 1;
 
 ServerApplication::ServerApplication(ApplicationServer* server, const PString& name, port_id clientPort) : PEventHandler(name), m_Server(server), m_ClientPort(clientPort)
 {
-    RegisterRemoteSignal(&RSSync,               &ServerApplication::SlotSync);
-    RegisterRemoteSignal(&RSCreateView,         &ServerApplication::SlotCreateView);
-    RegisterRemoteSignal(&RSDeleteView,         &ServerApplication::SlotDeleteView);
-    RegisterRemoteSignal(&RSSetPointerCapture,  &ServerApplication::SlotSetPointerCapture);
-    RegisterRemoteSignal(&RSReleasePointerCapture, &ServerApplication::SlotReleasePointerCapture);
-    RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
-    RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
-    RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
-    RegisterRemoteSignal(&RSCreateBrush, &ServerApplication::SlotCreateBrush);
-    RegisterRemoteSignal(&RSDeleteBrush, &ServerApplication::SlotDeleteBrush);
-    RegisterRemoteSignal(&RSUpdateBrush, &ServerApplication::SlotUpdateBrush);
-    RegisterRemoteSignal(&RSSetBrushColor, &ServerApplication::SlotSetBrushColor);
-    RegisterRemoteSignal(&RSCreateFont,       &ServerApplication::SlotCreateFont);
-    RegisterRemoteSignal(&RSDeleteFont,       &ServerApplication::SlotDeleteFont);
-    RegisterRemoteSignal(&RSMeasureFont,      &ServerApplication::SlotMeasureFont);
-    RegisterRemoteSignal(&RSPushMouseCursor,    &ServerApplication::SlotPushMouseCursor);
-    RegisterRemoteSignal(&RSPopMouseCursor,     &ServerApplication::SlotPopMouseCursor);
-    RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
-    RegisterRemoteSignal(&RSViewInvalidate,     &ServerApplication::SlotViewInvalidate);
-    RegisterRemoteSignal(&RSViewAddChild,       &ServerApplication::SlotViewAddChild);
-    RegisterRemoteSignal(&RSViewSetDrawRegion,  &ServerApplication::SlotViewSetDrawRegion);
-    RegisterRemoteSignal(&RSViewToggleDepth,    &ServerApplication::SlotViewToggleDepth);
-    RegisterRemoteSignal(&RSViewBeginUpdate,    &ServerApplication::SlotViewBeginUpdate);
-    RegisterRemoteSignal(&RSViewEndUpdate,      &ServerApplication::SlotViewEndUpdate);
+    RegisterRemoteSignal(&RSSync,                   &ServerApplication::SlotSync);
+    RegisterRemoteSignal(&RSCreateView,             &ServerApplication::SlotCreateView);
+    RegisterRemoteSignal(&RSDeleteView,             &ServerApplication::SlotDeleteView);
+    RegisterRemoteSignal(&RSSetPointerCapture,      &ServerApplication::SlotSetPointerCapture);
+    RegisterRemoteSignal(&RSReleasePointerCapture,  &ServerApplication::SlotReleasePointerCapture);
+    RegisterRemoteSignal(&RSSetKeyboardFocus,       &ServerApplication::SlotSetKeyboardFocus);
+    RegisterRemoteSignal(&RSCreateBitmap,           &ServerApplication::SlotCreateBitmap);
+    RegisterRemoteSignal(&RSLoadBitmap,             &ServerApplication::SlotLoadBitmap);
+    RegisterRemoteSignal(&RSDeleteBitmap,           &ServerApplication::SlotDeleteBitmap);
+    RegisterRemoteSignal(&RSCreateBrush,            &ServerApplication::SlotCreateBrush);
+    RegisterRemoteSignal(&RSDeleteBrush,            &ServerApplication::SlotDeleteBrush);
+    RegisterRemoteSignal(&RSUpdateBrush,            &ServerApplication::SlotUpdateBrush);
+    RegisterRemoteSignal(&RSSetBrushColor,          &ServerApplication::SlotSetBrushColor);
+    RegisterRemoteSignal(&RSCreateFont,             &ServerApplication::SlotCreateFont);
+    RegisterRemoteSignal(&RSDeleteFont,             &ServerApplication::SlotDeleteFont);
+    RegisterRemoteSignal(&RSMeasureFont,            &ServerApplication::SlotMeasureFont);
+    RegisterRemoteSignal(&RSPushMouseCursor,        &ServerApplication::SlotPushMouseCursor);
+    RegisterRemoteSignal(&RSPopMouseCursor,         &ServerApplication::SlotPopMouseCursor);
+    RegisterRemoteSignal(&RSViewSetFrame,           &ServerApplication::SlotViewSetFrame);
+    RegisterRemoteSignal(&RSViewInvalidate,         &ServerApplication::SlotViewInvalidate);
+    RegisterRemoteSignal(&RSViewAddChild,           &ServerApplication::SlotViewAddChild);
+    RegisterRemoteSignal(&RSViewSetDrawRegion,      &ServerApplication::SlotViewSetDrawRegion);
+    RegisterRemoteSignal(&RSViewToggleDepth,        &ServerApplication::SlotViewToggleDepth);
+    RegisterRemoteSignal(&RSViewBeginUpdate,        &ServerApplication::SlotViewBeginUpdate);
+    RegisterRemoteSignal(&RSViewEndUpdate,          &ServerApplication::SlotViewEndUpdate);
 
     RegisterRemoteSignal(&RSViewShow,                   &ServerApplication::SlotViewShow);
     RegisterRemoteSignal(&RSViewSetHitMode,             &ServerApplication::SlotViewSetHitMode);
     RegisterRemoteSignal(&RSViewSetFgColor,             &ServerApplication::SlotViewSetFgColor);
-    RegisterRemoteSignal(&RSViewSetBrush, &ServerApplication::SlotViewSetBrush);
-    RegisterRemoteSignal(&RSViewSetBrushOrigin, &ServerApplication::SlotViewSetBrushOrigin);
-    RegisterRemoteSignal(&RSViewSetBackgroundBrush, &ServerApplication::SlotViewSetBackgroundBrush);
+    RegisterRemoteSignal(&RSViewSetBrush,               &ServerApplication::SlotViewSetBrush);
+    RegisterRemoteSignal(&RSViewSetBrushOrigin,         &ServerApplication::SlotViewSetBrushOrigin);
+    RegisterRemoteSignal(&RSViewSetBackgroundBrush,     &ServerApplication::SlotViewSetBackgroundBrush);
     RegisterRemoteSignal(&RSViewSetBackgroundBrushOrigin, &ServerApplication::SlotViewSetBackgroundBrushOrigin);
-    RegisterRemoteSignal(&RSViewEraseRect, &ServerApplication::SlotViewEraseRect);
+    RegisterRemoteSignal(&RSViewEraseRect,              &ServerApplication::SlotViewEraseRect);
     RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
-    RegisterRemoteSignal(&RSViewSetFont,              &ServerApplication::SlotViewSetFont);
+    RegisterRemoteSignal(&RSViewSetFont,                &ServerApplication::SlotViewSetFont);
     RegisterRemoteSignal(&RSViewSetPenWidth,            &ServerApplication::SlotViewSetPenWidth);
     RegisterRemoteSignal(&RSViewSetCapStyle,            &ServerApplication::SlotViewSetCapStyle);
     RegisterRemoteSignal(&RSViewSetJointStyle,          &ServerApplication::SlotViewSetJointStyle);
@@ -89,7 +90,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewAddTriangle,            &ServerApplication::SlotViewAddTriangle);
     RegisterRemoteSignal(&RSViewEndTriangles,           &ServerApplication::SlotViewEndTriangles);
     RegisterRemoteSignal(&RSViewDrawString,             &ServerApplication::SlotViewDrawString);
-    RegisterRemoteSignal(&RSViewDrawStringWidth,       &ServerApplication::SlotViewDrawStringWidth);
+    RegisterRemoteSignal(&RSViewDrawStringWidth,        &ServerApplication::SlotViewDrawStringWidth);
     RegisterRemoteSignal(&RSViewScrollBy,               &ServerApplication::SlotViewScrollBy);
     RegisterRemoteSignal(&RSViewCopyRect,               &ServerApplication::SlotViewCopyRect);
     RegisterRemoteSignal(&RSViewDrawBitmap,             &ServerApplication::SlotViewDrawBitmap);
@@ -148,6 +149,24 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
     }
     PERROR_CATCH([this](PErrorCode error) { m_Server->HandleDisplayDriverError(error); });
     return wasHandled;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+handle_id ServerApplication::AllocateBitmapHandle()
+{
+    const handle_id firstHandle = m_NextBitmapHandle;
+    do
+    {
+        const handle_id handle = m_NextBitmapHandle;
+        m_NextBitmapHandle = (handle == std::numeric_limits<handle_id>::max()) ? 1 : handle + 1;
+        if (!m_BitmapMap.contains(handle)) {
+            return handle;
+        }
+    } while (m_NextBitmapHandle != firstHandle);
+    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -626,7 +645,7 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
         const Ptr<PSrvBitmap> bitmap = ptr_new<PSrvBitmap>(
             PIPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow, (flags & PBitmap::READ_ONLY) != 0);
         m_Server->GetDisplayDriver()->RegisterBitmap(ptr_raw_pointer_cast(bitmap));
-        const handle_id handle = m_NextBitmapHandle++;
+        const handle_id handle = AllocateBitmapHandle();
         m_BitmapMap.emplace(handle, bitmap);
         reply.m_BitmapHandle = handle;
         reply.m_Framebuffer = bitmap->m_Raster;
@@ -636,6 +655,30 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
     if (!PMessagePort(replyPort).SendMessageTimeout(
         INVALID_HANDLE, PAppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), TimeValNanos::zero)) {
         m_BitmapMap.erase(reply.m_BitmapHandle);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotLoadBitmap(port_id replyPort, const PString& path)
+{
+    MsgLoadBitmapReply reply;
+    try
+    {
+        Ptr<PSrvBitmap> bitmap = m_Server->LoadBitmap(path);
+        const handle_id handle = AllocateBitmapHandle();
+        m_BitmapMap.emplace(handle, bitmap);
+        reply.BitmapHandle = handle;
+        reply.Framebuffer = bitmap->m_Raster;
+        reply.BytesPerRow = bitmap->m_BytesPerLine;
+        reply.Bounds = PIRect(PIPoint(0, 0), bitmap->m_Size);
+        reply.ColorSpace = bitmap->m_ColorSpace;
+    }
+    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
+    if (!PMessagePort(replyPort).SendMessageTimeout(INVALID_HANDLE, PAppserverProtocol::LOAD_BITMAP_REPLY, &reply, sizeof(reply), TimeValNanos::zero)) {
+        m_BitmapMap.erase(reply.BitmapHandle);
     }
 }
 

@@ -90,7 +90,7 @@ bool PIconView::LoadBitmap(PStreamableIO& file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PIconView::SetBitmap(Ptr<PBitmap> bitmap)
+void PIconView::SetBitmap(Ptr<const PBitmap> bitmap)
 {
     m_IconView->SetBitmap(bitmap);
 }
@@ -99,7 +99,7 @@ void PIconView::SetBitmap(Ptr<PBitmap> bitmap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PBitmap> PIconView::GetBitmap() const
+Ptr<const PBitmap> PIconView::GetBitmap() const
 {
     return m_IconView->GetBitmap();
 }

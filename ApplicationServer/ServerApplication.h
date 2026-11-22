@@ -38,6 +38,7 @@ public:
     void HandlePointerCaptureLost(PPointerID pointerID, PPointerCaptureID captureID, PPointerCaptureLostReason reason);
 
 private:
+    handle_id AllocateBitmapHandle();
     handle_id AllocateBrushHandle();
     handle_id AllocateFontHandle();
 
@@ -77,6 +78,7 @@ private:
     void SlotReleasePointerCapture(PPointerID pointerID, PPointerCaptureID captureID);
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
+    void SlotLoadBitmap(port_id replyPort, const PString& path);
     void SlotDeleteBitmap(handle_id bitmapHandle);
     void SlotCreateBrush(port_id replyPort, const PBrushDescription& description, handle_id bitmapHandle);
     void SlotDeleteBrush(handle_id brushHandle);
@@ -221,6 +223,7 @@ private:
     ASReleasePointerCapture     RSReleasePointerCapture;
     ASSetKeyboardFocus          RSSetKeyboardFocus;
     ASCreateBitmap              RSCreateBitmap;
+    ASLoadBitmap                RSLoadBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
     ASCreateBrush RSCreateBrush;
     ASDeleteBrush RSDeleteBrush;

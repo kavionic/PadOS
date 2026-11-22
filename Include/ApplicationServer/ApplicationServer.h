@@ -11,8 +11,11 @@
 #include <array>
 #include <map>
 #include <queue>
+#include <utility>
 #include <stdint.h>
 #include <vector>
+
+#include <sys/types.h>
 
 #include "Threads/Looper.h"
 #include "Signals/SignalTarget.h"
@@ -22,11 +25,13 @@
 #include "GUI/GUIEvent.h"
 #include "GUI/Style/GUIStyleInfo.h"
 #include "Threads/EventTimer.h"
+#include "Utils/IntrusiveList.h"
 #include "ServerBitmap.h"
 
 
 PDEFINE_LOG_CATEGORY(LogCategoryAppServer, "APPSERV", PLogSeverity::INFO_HIGH_VOL);
 
+class CachedSrvBitmap;
 class PServerView;
 class PDisplayDriver;
 class ServerApplication;
@@ -53,9 +58,13 @@ public:
     bool            RegisterView(Ptr<PServerView> view);
     Ptr<PServerView> FindView(handler_id handle) const;
 
-    // Appserver-looper only.
     // The font catalog is loaded on first use.
     Ptr<PServerFontInstance> GetFont(const PFontDescription& description);
+
+    // Cache identity is the opened file's device/inode.
+    Ptr<PSrvBitmap> LoadBitmap(const PString& path);
+    // Called by a cached bitmap's final-reference hook; returns true if deleted.
+    bool BitmapReleased(CachedSrvBitmap* bitmap) noexcept;
 
     void ViewDetached(PServerView* view);
     void ServerApplicationDestructed(ServerApplication* application);
@@ -74,6 +83,9 @@ public:
 
     void            PowerLost(bool hasPower);
 private:
+    bool TrimBitmapCache(const CachedSrvBitmap* releasingBitmap = nullptr) noexcept;
+    void RemoveCachedBitmap(CachedSrvBitmap* bitmap) noexcept;
+
     static constexpr size_t INPUT_EVENT_BUFFER_SIZE = 8192;
     static constexpr PMouseButton TOUCH_POINTER_BUTTON = PMouseButton::Left;
 
@@ -184,6 +196,11 @@ private:
     static Ptr<PDisplayDriver>   s_DisplayDriver;
     static Ptr<PSrvBitmap>       s_ScreenBitmap;
 
+    std::map<std::pair<dev_t, ino_t>, CachedSrvBitmap*> m_BitmapCache;
+    PIntrusiveList<CachedSrvBitmap> m_UnusedBitmaps;
+    size_t m_BitmapCacheSizeLimit = 4 * 1024 * 1024;
+    size_t m_BitmapCacheSize = 0;
+
     std::queue<PPointerEvent> m_PointerEventQueue;
 
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
@@ -211,6 +228,7 @@ private:
     bool                                    m_PointerRoutesInvalid = false;
     bool                                    m_IsMouseCursorRequestedVisible = false;
     bool                                    m_HasPower = true;
+    bool                                    m_TrimmingBitmapCache = false;
     PServerView*                            m_KeyboardFocusView = nullptr;
 
     std::vector<MouseCursorStackEntry> m_MouseCursorStack;

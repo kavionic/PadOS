@@ -8,6 +8,7 @@
 
 
 #include <algorithm>
+#include <cassert>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -24,6 +25,7 @@
 #include <ApplicationServer/ServerView.h>
 #include <DeviceControl/InputDevice.h>
 #include <Storage/Directory.h>
+#include <Storage/File.h>
 #include <Storage/Path.h>
 #include <Storage/StandardPaths.h>
 #include <GUI/Style/GUIStyleFactory.h>
@@ -31,15 +33,18 @@
 #include <Utils/Utils.h>
 #include <GUI/View.h>
 
+#include <System/ExceptionHandling.h>
 #include <System/SystemMessageIDs.h>
 
+#include "CachedSrvBitmap.h"
 #include "ServerApplication.h"
+#include "ServerBitmapLoader.h"
 
 
 static volatile port_id g_AppserverPort = -1;
 
-Ptr<PDisplayDriver>  ApplicationServer::s_DisplayDriver;
-Ptr<PSrvBitmap>          ApplicationServer::s_ScreenBitmap;
+Ptr<PDisplayDriver> ApplicationServer::s_DisplayDriver;
+Ptr<PSrvBitmap>     ApplicationServer::s_ScreenBitmap;
 
 namespace
 {
@@ -534,6 +539,11 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
 ApplicationServer::~ApplicationServer()
 {
+    while (!m_BitmapCache.empty())
+    {
+        Ptr<CachedSrvBitmap> bitmap = ptr_tmp_cast(m_BitmapCache.begin()->second);
+        RemoveCachedBitmap(ptr_raw_pointer_cast(bitmap));
+    }
     for (InputDevice& inputDevice : m_InputDevices)
     {
         GetWaitGroup().RemoveFile(inputDevice.FileDescriptor);
@@ -689,6 +699,8 @@ Ptr<PServerView> ApplicationServer::FindView(handler_id handle) const
 
 Ptr<PServerFontInstance> ApplicationServer::GetFont(const PFontDescription& description)
 {
+    assert(!IsRunning() || GetMutex().IsLocked());
+
     if (m_FontManager == nullptr)
     {
         Ptr<PFontManager> manager = ptr_new<PFontManager>();
@@ -696,6 +708,49 @@ Ptr<PServerFontInstance> ApplicationServer::GetFont(const PFontDescription& desc
         m_FontManager = std::move(manager);
     }
     return m_FontManager->GetFont(description);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PSrvBitmap> ApplicationServer::LoadBitmap(const PString& path)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    PFile file(path);
+    struct stat fileInfo;
+    if (!file.IsValid() || !file.GetStat(&fileInfo, false)) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+    const CachedSrvBitmap::CacheKey key(fileInfo.st_dev, fileInfo.st_ino);
+    const auto cached = m_BitmapCache.find(key);
+    if (cached != m_BitmapCache.end())
+    {
+        CachedSrvBitmap* bitmap = cached->second;
+        if (bitmap->IsListMember()) {
+            m_UnusedBitmaps.Remove(bitmap);
+        }
+        return ptr_tmp_cast(bitmap);
+    }
+
+    Ptr<CachedSrvBitmap> bitmap = ServerBitmapLoader::Load(file, key);
+    GetDisplayDriver()->RegisterBitmap(ptr_raw_pointer_cast(bitmap));
+    m_BitmapCache.emplace(key, ptr_raw_pointer_cast(bitmap));
+    bitmap->SetCacheOwner(this);
+    m_BitmapCacheSize += bitmap->GetRasterSize();
+    TrimBitmapCache();
+    return bitmap;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ApplicationServer::BitmapReleased(CachedSrvBitmap* bitmap) noexcept
+{
+    m_UnusedBitmaps.Append(bitmap);
+    return TrimBitmapCache(bitmap);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1134,6 +1189,48 @@ void ApplicationServer::BroadcastGUIStyleConfiguration()
             }
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ApplicationServer::TrimBitmapCache(const CachedSrvBitmap* releasingBitmap) noexcept
+{
+    // Unregistering a bitmap can release other queued bitmap references.
+    // The outer trim consumes entries added by those nested releases.
+    if (m_TrimmingBitmapCache) {
+        return false;
+    }
+    m_TrimmingBitmapCache = true;
+    PScopeExit finishTrim([this] { m_TrimmingBitmapCache = false; });
+    bool releasingBitmapDeleted = false;
+    while (m_BitmapCacheSize > m_BitmapCacheSizeLimit && !m_UnusedBitmaps.IsEmpty())
+    {
+        CachedSrvBitmap* bitmap = m_UnusedBitmaps.GetFirst();
+        RemoveCachedBitmap(bitmap);
+        if (bitmap == releasingBitmap) {
+            releasingBitmapDeleted = true;
+        }
+        delete bitmap;
+    }
+    return releasingBitmapDeleted;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::RemoveCachedBitmap(CachedSrvBitmap* bitmap) noexcept
+{
+    if (bitmap->IsListMember()) {
+        m_UnusedBitmaps.Remove(bitmap);
+    }
+    [[maybe_unused]] const size_t erased = m_BitmapCache.erase(bitmap->GetCacheKey());
+    assert(erased == 1);
+    assert(m_BitmapCacheSize >= bitmap->GetRasterSize());
+    m_BitmapCacheSize -= bitmap->GetRasterSize();
+    bitmap->SetCacheOwner(nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

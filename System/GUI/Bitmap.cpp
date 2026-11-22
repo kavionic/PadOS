@@ -40,6 +40,20 @@ PBitmap::PBitmap(int width, int height, PEColorSpace colorSpace, const void* ras
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PBitmap::PBitmap(handle_id handle, const PIRect& bounds, PEColorSpace colorSpace, const uint8_t* raster, size_t bytesPerRow, PApplication* application)
+    : m_Application(application)
+    , m_Handle(handle)
+    , m_ColorSpace(colorSpace)
+    , m_BytesPerRow(bytesPerRow)
+    , m_Bounds(bounds)
+    , m_Raster(const_cast<uint8_t*>(raster))
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PBitmap::Initialize(int width, int height, PEColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, PApplication* application)
 {
     m_Bounds = PIRect(0, 0, width, height);

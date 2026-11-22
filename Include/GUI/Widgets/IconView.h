@@ -33,8 +33,8 @@ public:
     bool LoadBitmap(const PPath& path);
     bool LoadBitmap(PStreamableIO& file);
 
-    void        SetBitmap(Ptr<PBitmap> bitmap);
-    Ptr<PBitmap> GetBitmap() const;
+    void        SetBitmap(Ptr<const PBitmap> bitmap);
+    Ptr<const PBitmap> GetBitmap() const;
 
     void SetLabel(const PString& label);
 

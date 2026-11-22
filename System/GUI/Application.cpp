@@ -19,6 +19,7 @@
 #include <GUI/Bitmap.h>
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
+#include <Storage/Path.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/UTF8Utils.h>
 
@@ -494,6 +495,30 @@ void PApplication::SetGUIStyleConfiguration(GUIStyleConfigurationCallback callba
         variant)) {
         PERROR_THROW_CODE(PErrorCode(get_last_error()));
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<const PBitmap> PApplication::LoadBitmap(const PPath& path)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+    if (m_ServerHandle == INVALID_HANDLE) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    if (ASLoadBitmap::Sender::Serializer::GetSize(m_ReplyPort.GetHandle(), path.GetPath()) > PAPPSERVER_MSG_BUFFER_SIZE) {
+        PERROR_THROW_CODE(PErrorCode::OVERFLOW);
+    }
+    Flush();
+    if (!p_post_to_remotesignal<ASLoadBitmap>(p_get_appserver_port(), m_ServerHandle, TimeValNanos::infinit, m_ReplyPort.GetHandle(), path.GetPath())) {
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
+    }
+    MsgLoadBitmapReply reply;
+    ReceiveReply(PAppserverProtocol::LOAD_BITMAP_REPLY, &reply, sizeof(reply));
+    PERROR_ERRORCODE_THROW_ON_FAIL(reply.Error);
+    PScopeFail releaseHandle([this, &reply] { DeleteBitmap(reply.BitmapHandle); });
+    return ptr_new<PBitmap>(reply.BitmapHandle, reply.Bounds, reply.ColorSpace, reply.Framebuffer, reply.BytesPerRow, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

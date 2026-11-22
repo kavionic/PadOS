@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <GUI/GUIDefines.h>
 #include <DeviceControl/Display.h>
+#include <GUI/GUIDefines.h>
 #include <Ptr/PtrTarget.h>
 
 

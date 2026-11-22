@@ -6,12 +6,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.05.2025 22:30
 
-#include <GUI/Widgets/BitmapView.h>
+#include <App/Application.h>
 #include <GUI/Bitmap.h>
 #include <GUI/BitmapLoader.h>
-#include <Storage/StreamableIO.h>
-#include <Storage/File.h>
+#include <GUI/Widgets/BitmapView.h>
 #include <Storage/Path.h>
+#include <Storage/StreamableIO.h>
+#include <System/ExceptionHandling.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -86,8 +87,19 @@ void PBitmapView::OnFrameSized(const PPoint& delta)
 
 bool PBitmapView::LoadBitmap(const PPath& path)
 {
-    PFile file(path);
-    return file.IsValid() && LoadBitmap(file);
+    Ptr<const PBitmap> bitmap;
+    try
+    {
+        PApplication* application = GetApplication();
+        if (application == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
+        }
+        bitmap = application->LoadBitmap(path);
+    }
+    PERROR_CATCH_SET_ERRNO(false);
+
+    SetBitmap(bitmap);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -96,7 +108,7 @@ bool PBitmapView::LoadBitmap(const PPath& path)
 
 bool PBitmapView::LoadBitmap(PStreamableIO& file)
 {
-    Ptr<PBitmap> bitmap = PBitmapLoader::Load(file, GetApplication());
+    Ptr<const PBitmap> bitmap = PBitmapLoader::Load(file, GetApplication());
     SetBitmap(bitmap);
     return bitmap != nullptr;
 }
@@ -105,7 +117,7 @@ bool PBitmapView::LoadBitmap(PStreamableIO& file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PBitmapView::SetBitmap(Ptr<PBitmap> bitmap)
+void PBitmapView::SetBitmap(Ptr<const PBitmap> bitmap)
 {
     m_Bitmap = bitmap;
     UpdateIsScaled();
@@ -117,7 +129,7 @@ void PBitmapView::SetBitmap(Ptr<PBitmap> bitmap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PBitmap> PBitmapView::GetBitmap() const
+Ptr<const PBitmap> PBitmapView::GetBitmap() const
 {
     return m_Bitmap;
 }

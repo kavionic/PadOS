@@ -6,6 +6,7 @@
 ###############################################################################
 
 target_sources(PadOS_UnitTests PRIVATE
+	BitmapCache_unittest.cpp
 	ViewRendererTest.h
 	SkinnableGUIStyleTest.h
 	FontGlyphCache_unittest.cpp

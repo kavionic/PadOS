@@ -274,7 +274,7 @@ private:
     static PProgressBarOrientationSkin LoadProgressBarOrientation(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static Ptr<const PImage> LoadSkinImage(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static void LoadIndicatorSkin(const pugi::xml_node& root, const PPath& directory, PApplication* application, PButtonIndicatorSkin& skin);
-    static Ptr<PBitmap> LoadSkinBitmap(const pugi::xml_node& node, const PPath& directory, PApplication* application);
+    static Ptr<const PBitmap> LoadSkinBitmap(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static PButtonSkinAppearance LoadAppearance(
         const pugi::xml_node& node,
         const PPath& directory,

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleGroupView.h>
 #include <GUI/Styles/Default/ViewRendererGroupViewDefault.h>
@@ -43,7 +44,7 @@ void PViewRendererGroupViewDefault::Paint(PView& target, const PRect& frame, con
     if (!data.Label.empty())
     {
         target.SetBrush(nullptr);
-        target.SetFgColor(PStandardColorID::Shadow);
+        target.SetFgColor(target.GetStyle()->GetColor(PGUIColorID::GroupLabel));
         target.DrawString(data.Label, PPoint(GROUP_VIEW_LABEL_OFFSET, state.LabelAscender), target.GetBounds());
     }
     else

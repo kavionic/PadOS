@@ -50,7 +50,7 @@ void PViewRendererButtonSkinned::Paint(PView& target, const PRect& bounds, const
         position += m_ButtonSkin.PressedLabelOffset;
     }
     position.y += target.GetFontHeight().ascender;
-    target.SetFgColor(appearance.LabelColor);
+    target.SetFgColor(target.GetStyle()->GetColor(GetLabelColorID(BUTTON_LABEL_COLORS, isEnabled, data)));
     const PDrawingMode previousMode = target.GetDrawingMode();
     target.SetDrawingMode(PDrawingMode::Copy);
     target.DrawString(data.Label, position, bounds);

@@ -37,7 +37,6 @@ enum class PButtonSkinState : uint8_t
 struct PButtonSkinAppearance
 {
     Ptr<const PBrush> Background;
-    PColor LabelColor = PColor(0, 0, 0);
 };
 
 struct PButtonSkin
@@ -47,8 +46,6 @@ struct PButtonSkin
     // Text insets are independent of the image's nine-slice borders.
     PRect LabelPadding = PRect(8.0f, 4.0f, 8.0f, 4.0f);
     PPoint PressedLabelOffset = PPoint(1.0f, 1.0f);
-
-    PButtonSkin();
 };
 
 struct PButtonIndicatorSkin
@@ -152,7 +149,6 @@ enum class PTabSkinState : uint8_t
 struct PTabSkinAppearance
 {
     Ptr<const PImage> Image;
-    PColor LabelColor = PColor(0, 0, 0);
     PPoint LabelOffset;
 };
 
@@ -214,7 +210,6 @@ struct PGroupViewSkin
     PRect FrameInsets;
     PRect LabelPadding = PRect(14.0f, 0.0f, 14.0f, 0.0f);
     PPoint MinimumSize = PPoint(28.0f, 28.0f);
-    PColor LabelColor = PColor(0, 0, 0);
     float LabelGap = 4.0f;
 };
 
@@ -243,8 +238,6 @@ public:
     static std::vector<PString> GetVariants();
     static Ptr<const PGUIStyle> CreateStyle(PApplication* application, const PString& variant);
 
-    virtual Ptr<const PBrush> GetBackgroundBrush() const override;
-
 private:
     static constexpr std::array<const char*, std::to_underlying(PButtonSkinState::Count)> STATE_NAMES = {"Normal", "Hovered", "Pressed", "Disabled"};
 
@@ -259,7 +252,8 @@ private:
     static void ValidateDropdownMenuSkin(const PDropdownMenuSkin& skin);
     static void ValidateGroupViewSkin(const PGroupViewSkin& skin);
     static void ValidateProgressBarSkin(const PProgressBarSkin& skin);
-    static Ptr<const PBrush> LoadBackgroundBrush(const PPath& directory, PApplication* application);
+    void LoadStyle(const PPath& directory, PApplication* application);
+    void LoadPalette(const pugi::xml_node& root);
     static PButtonSkin LoadButtonSkin(const PPath& directory, PApplication* application);
     static PCheckBoxSkin LoadCheckBoxSkin(const PPath& directory, PApplication* application);
     static PRadioButtonSkin LoadRadioButtonSkin(const PPath& directory, PApplication* application);
@@ -287,6 +281,4 @@ private:
         PApplication* application,
         const PPoint& imageSize = PPoint(1.0f),
         PImageLayoutMode imageLayout = PImageLayoutMode::ViewRelative);
-
-    Ptr<const PBrush> m_BackgroundBrush;
 };

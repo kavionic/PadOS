@@ -20,9 +20,4 @@ public:
     static PString GetName();
     static std::vector<PString> GetVariants();
     static Ptr<const PGUIStyle> CreateStyle(PApplication* application, const PString& variant);
-
-    virtual Ptr<const PBrush> GetBackgroundBrush() const override;
-
-private:
-    WeakPtr<PApplication> m_Application;
 };

@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <GUI/View.h>
 
 
@@ -31,6 +33,11 @@ public:
     void SetText(const PString& text);
     const PString& GetText() const { return m_Text; }
 
+    // Pass std::nullopt to follow the current style's foreground color.
+    void SetTextColor(std::optional<PColor> color);
+    std::optional<PColor> GetTextColor() const { return m_TextColor; }
+
+    virtual void OnStyleChanged() override;
     virtual void OnFontChanged(Ptr<const PFont> newFont) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
@@ -38,9 +45,11 @@ public:
     virtual void OnPaint(const PRect& updateRect) override;
         
 private:
+    void UpdateTextColor();
     bool UpdateWordWrapping();
 
     PString m_Text;
+    std::optional<PColor> m_TextColor;
     float   m_AspectRatio = 3.0f;
     float   m_TextWidth = 0.0f;
     bool    m_IsWordWrappingValid = true;

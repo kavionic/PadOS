@@ -35,7 +35,8 @@ protected:
         const PButtonIndicatorSkin& skin,
         const PPoint& indicatorPosition,
         const PPoint& labelPosition,
-        bool labelOverlapsIndicator);
+        bool labelOverlapsIndicator,
+        PGUIColorID labelColorID);
     static void PaintOverlappingIndicator(
         PView& target,
         const PRect& frame,

@@ -404,7 +404,7 @@ void PViewRendererTabViewSkinned::PaintSkinnedTab(
         padding.top + (geometry.HeaderHeight - padding.top - padding.bottom - labelHeight) * 0.5f + state.FontHeight.ascender)
         + appearance.LabelOffset).GetRounded();
     target.SetBrushOrigin(frame.TopLeft());
-    target.SetFgColor(appearance.LabelColor);
+    target.SetFgColor(target.GetStyle()->GetColor(GetLabelColorID(data, index)));
     const PRect labelBounds(baseline.x, baseline.y - state.FontHeight.ascender, baseline.x + tab.LabelWidth, baseline.y + state.FontHeight.descender);
     if ((labelBounds & frame) == labelBounds)
     {

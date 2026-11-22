@@ -307,7 +307,7 @@ TEST(GUIStyleFactory, DiscoversSkinVariantsInstalledAndRemovedAfterRegistration)
 
     PFile styleFile(stylePath.GetPath(), O_WRONLY | O_CREAT | O_EXCL);
     ASSERT_TRUE(styleFile.IsValid());
-    ASSERT_TRUE(styleFile.Write(PString("<Style background_color=\"#000000\" />")));
+    ASSERT_TRUE(styleFile.Write(PString("<Style color_background=\"#000000\" />")));
     styleFile.Close();
 
     std::vector<PString> expectedVariants = originalVariants;
@@ -356,13 +356,60 @@ TEST(GUIStyleFactory, ConstructsEachVariantWithApplicationOwnedResources)
             {
                 const Ptr<const PGUIStyle> style = factory.CreateStyle(definition.Name, variant, &application);
                 ASSERT_NE(style, nullptr);
-                ASSERT_NE(style->GetBackgroundBrush(), nullptr);
-                EXPECT_EQ(style->GetBackgroundBrush()->GetApplication(), &application);
+                for (size_t index = 0; index < std::to_underlying(PGUIColorID::Count); ++index)
+                {
+                    const PGUIColorID colorID = PGUIColorID(index);
+                    EXPECT_EQ(style->GetColor(colorID).GetAlpha(), 255);
+                    const Ptr<const PBrush> brush = style->GetBrush(colorID);
+                    ASSERT_NE(brush, nullptr);
+                    EXPECT_EQ(brush->GetApplication(), &application);
+                    if (brush->GetType() == PBrushType::Solid) {
+                        EXPECT_EQ(brush->GetDescription().Color, style->GetColor(colorID));
+                    }
+                    EXPECT_EQ(style->GetBrush(colorID), brush);
+                }
+                EXPECT_THROW(style->GetBrush(PGUIColorID::Count), std::system_error);
             }
         }
         EXPECT_THROW(factory.CreateStyle("Skinned", "Missing", &application), std::system_error);
         EXPECT_THROW(factory.CreateStyle("Missing", "Normal", &application), std::system_error);
         EXPECT_THROW(factory.CreateStyle("Default", "Normal", nullptr), std::system_error);
+    });
+}
+
+TEST(GUIStyle, PaletteBrushesRemainBoundToTheirOwningApplication)
+{
+    RunGUITest([](PApplication& currentApplication)
+    {
+        Ptr<PApplication> application = ptr_new<PApplication>("palette_brush_owner");
+        const PDefaultGUIStyle style(ptr_raw_pointer_cast(application));
+        EXPECT_EQ(style.GetBrush(PGUIColorID::Foreground)->GetApplication(), application);
+        EXPECT_EQ(style.GetBrush(PGUIColorID::Background)->GetApplication(), application);
+        application.Reset();
+        EXPECT_EQ(PApplication::GetCurrentApplication(), &currentApplication);
+        EXPECT_THROW(style.GetBrush(PGUIColorID::Foreground), std::system_error);
+        EXPECT_THROW(style.GetBrush(PGUIColorID::Background), std::system_error);
+    });
+}
+
+TEST(GUIStyle, DefaultPaletteAndBackgroundAreIndependentOfLegacyColors)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const PColor original = pget_standard_color(PStandardColorID::DefaultBackground);
+        PScopeExit restore([original] { pset_standard_color(PStandardColorID::DefaultBackground, original); });
+        pset_standard_color(PStandardColorID::DefaultBackground, PColor(12, 34, 56));
+        const PDefaultGUIStyle style(&application);
+        EXPECT_EQ(style.GetColor(PGUIColorID::Foreground), PColor(0, 0, 0));
+        EXPECT_EQ(style.GetColor(PGUIColorID::Background), PColor(169, 169, 169));
+        const Ptr<const PBrush> background = style.GetBrush(PGUIColorID::Background);
+        ASSERT_NE(background, nullptr);
+        EXPECT_EQ(background->GetApplication(), &application);
+        EXPECT_EQ(background->GetType(), PBrushType::Solid);
+        EXPECT_EQ(background->GetDescription().Color, style.GetColor(PGUIColorID::Background));
+        pset_standard_color(PStandardColorID::DefaultBackground, PColor(65, 43, 21));
+        EXPECT_EQ(style.GetBrush(PGUIColorID::Background), background);
+        EXPECT_EQ(background->GetDescription().Color, style.GetColor(PGUIColorID::Background));
     });
 }
 

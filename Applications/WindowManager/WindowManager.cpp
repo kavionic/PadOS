@@ -62,6 +62,8 @@ WindowManager::~WindowManager()
 
 void WindowManager::ThreadStarted()
 {
+    SignalGUIStyleChanged.Connect(this, &WindowManager::SlotStyleChanged);
+
     m_TopView = PViewFactory::Get().LoadView(nullptr, PStandardPaths::GetPath(PStandardPath::System, "WindowManagerLayout.xml"));
     if (m_TopView != nullptr)
     {
@@ -75,12 +77,8 @@ void WindowManager::ThreadStarted()
         if (m_DesktopView != nullptr) {
             m_DesktopView->SetFrame(m_TopView->GetBounds());
         }
-        if (m_SidebarView != nullptr) {
-            m_SidebarView->SetBackgroundBrush(PStandardColorID::DefaultBackground);
-        }
-        if (m_ClientsView != nullptr) {
-            m_ClientsView->SetBackgroundBrush(PStandardColorID::DefaultBackground);
-        }
+
+        SlotStyleChanged();
         AddView(m_TopView, PViewDockType::RootLevelView);
     }
 }
@@ -258,6 +256,21 @@ void WindowManager::SlotKeyboardAnimTimer()
         }
     }
     Sync();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void WindowManager::SlotStyleChanged()
+{
+    if (m_SidebarView != nullptr) {
+        m_SidebarView->SetBackgroundBrush(PGUIColorID::Background);
+        m_SidebarView->Invalidate();
+    }
+    if (m_ClientsView != nullptr) {
+        m_ClientsView->SetBackgroundBrush(PGUIColorID::Background);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

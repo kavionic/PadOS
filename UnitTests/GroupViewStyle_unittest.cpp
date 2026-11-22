@@ -188,7 +188,8 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
         for (const char* theme : {"Normal", "Dark"})
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
-            const PSkinnableGUIStyle style(directory, &application);
+            const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
             Ptr<PView> parent = ptr_new<PView>("group_parent");
             const Ptr<PBrush> background = ptr_new<PBrush>(PColor(40, 60, 80));
             parent->SetBackgroundBrush(background);
@@ -204,12 +205,13 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
             target->SetDrawingMode(PDrawingMode::Overlay);
             PGroupViewStyleData& data = target->GetGroupViewStyleData();
             data.Label = "Skinned group";
-            PViewRendererTestBinding<PViewRendererGroupView> renderer(*target, style, PGUIComponentID::GroupView);
+            PViewRendererTestBinding<PViewRendererGroupView> renderer(*target, *style, PGUIComponentID::GroupView);
             for (const PPoint& size : {PPoint(240, 160), PPoint(310, 190), PPoint(12, 9), PPoint()})
             {
                 target->SetFrame(PRect::FromSize(size));
                 renderer->PropertyChanged(*target, PGroupViewProperty::Frame, renderer.GetContext());
                 EXPECT_NO_THROW(renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext()));
+                EXPECT_EQ(target->GetFgColor(), style->GetColor(PGUIColorID::GroupLabel));
                 EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
                 EXPECT_EQ(parent->GetBackgroundBrush(), background);
                 EXPECT_EQ(target->GetDrawingRegion(), clip);

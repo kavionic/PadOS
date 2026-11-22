@@ -24,8 +24,7 @@ public:
     virtual void OnStyleChanged() override
     {
         PScrollableView::OnStyleChanged();
-        const PGUIStyle* style = GetStyle();
-        SetBackgroundBrush((style != nullptr) ? style->GetBackgroundBrush() : nullptr);
+        SetBackgroundBrush(PGUIColorID::Background);
     }
 };
 

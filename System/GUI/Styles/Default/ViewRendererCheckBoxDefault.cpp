@@ -23,7 +23,7 @@ void PViewRendererCheckBoxDefault::Paint(PView& target, const PRect& frame, cons
     const PStandardColorID backgroundColor = (isEnabled && data.IsPointerOver) ? PStandardColorID::ButtonBackgroundHover : PStandardColorID::DefaultBackground;
     const PFontHeight fontHeight = target.GetFontHeight();
     const float baseline = frame.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender;
-    target.SetFgColor(0, 0, 0);
+    target.SetFgColor(target.GetStyle()->GetColor(GetLabelColorID(CHECK_BOX_LABEL_COLORS, isEnabled, data)));
     target.SetBrush(PStandardColorID::DefaultBackground);
     target.DrawString(target.GetBrush(), data.Label, PPoint(CHECK_BOX_SIZE + CHECK_BOX_LABEL_SPACING, baseline), frame);
 

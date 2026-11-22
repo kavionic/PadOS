@@ -38,7 +38,7 @@ void PViewRendererButtonDefault::Paint(PView& target, const PRect& frame, const 
     }
 
     labelPosition.y += target.GetFontHeight().ascender;
-    target.SetFgColor(isEnabled ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
+    target.SetFgColor(target.GetStyle()->GetColor(GetLabelColorID(BUTTON_LABEL_COLORS, isEnabled, data)));
     target.SetBrush(backgroundColor);
     target.DrawString(data.Label, labelPosition, bounds.GetFloored().GetResized(2.0f, 2.0f, -2.0f, -2.0f));
 }

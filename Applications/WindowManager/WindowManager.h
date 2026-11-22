@@ -33,6 +33,7 @@ private:
     void SlotEnableVKeyboard(const PRect& focusViewEditArea, bool numerical);
     void SlotDisableVKeyboard();
     void SlotKeyboardAnimTimer();
+    void SlotStyleChanged();
 
     ASWindowManagerRegisterView::Receiver       RSWindowManagerRegisterView;
     ASWindowManagerUnregisterView::Receiver     RSWindowManagerUnregisterView;

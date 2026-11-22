@@ -19,6 +19,7 @@
 #include <GUI/Style/ViewRendererScrollBar.h>
 #include <GUI/Style/ViewRendererSlider.h>
 #include <GUI/Style/ViewRendererTabView.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/Styles/SkinnableGUIStyle.h>
 #include <GUI/Styles/Skinned/ViewRendererButtonSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererCheckBoxSkinned.h>
@@ -67,6 +68,17 @@ private:
     size_t m_Offset = 0;
 };
 
+class PGUILabelPaletteTestStyle : public PDefaultGUIStyle
+{
+public:
+    explicit PGUILabelPaletteTestStyle(PApplication* application, uint8_t colorOffset) : PDefaultGUIStyle(application)
+    {
+        for (size_t index = 0; index < std::to_underlying(PGUIColorID::Count); ++index) {
+            SetColor(PGUIColorID(index), PColor(uint8_t(index + colorOffset), 20, 40));
+        }
+    }
+};
+
 TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
 {
     RunGUITest([](PApplication& application)
@@ -84,8 +96,9 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
         for (size_t themeIndex = 0; themeIndex < THEMES.size(); ++themeIndex)
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", THEMES[themeIndex])));
-            const PSkinnableGUIStyle style(directory, &application);
-            const Ptr<const PBrush> background = style.GetBackgroundBrush();
+            const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
+            const Ptr<const PBrush> background = style->GetBrush(PGUIColorID::Background);
             ASSERT_NE(background, nullptr);
             EXPECT_EQ(background->GetApplication(), &application);
             EXPECT_EQ(background->GetType(), PBrushType::Bitmap);
@@ -96,12 +109,12 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
             EXPECT_EQ(background->GetDescription().Image.LayoutMode, PImageLayoutMode::Absolute);
             EXPECT_EQ(background->GetDescription().Image.LayoutSize, PPoint(64, 64));
             EXPECT_EQ(background->GetScale(), PPoint(1.0f));
-            EXPECT_EQ(style.GetBackgroundBrush(), background);
-            target->SetBackgroundBrush(background);
+            EXPECT_EQ(style->GetBrush(PGUIColorID::Background), background);
+            target->SetBackgroundBrush(PGUIColorID::Background);
             EXPECT_EQ(target->GetBackgroundBrush(), background);
             PButtonStyleData& data = target->GetButtonStyleData();
             data = PButtonStyleData();
-            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, style, PGUIComponentID::Button);
+            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, *style, PGUIComponentID::Button);
             data.Label = "Loaded button";
             for (size_t index = 0; index < 8; ++index)
             {
@@ -134,11 +147,51 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
     });
 }
 
+TEST(SkinnableGUIStyle, StyleColorsRemainAvailableWithAndWithoutBackgroundTextures)
+{
+    RunGUITest([](PApplication& application)
+    {
+        PSkinnableGUIStyleTestDirectory directory("StyleColorsTest");
+        for (bool textured : {true, false})
+        {
+            directory.WriteFile("Style.xml", [textured](pugi::xml_node root)
+            {
+                root.attribute("color_foreground").set_value("#E1D2C3");
+                root.attribute("color_background").set_value("#123456");
+                if (!textured) {
+                    root.remove_attribute("background_texture");
+                }
+            });
+            const PSkinnableGUIStyle style(directory.GetPath(), &application);
+            EXPECT_EQ(style.GetColor(PGUIColorID::Foreground), PColor::FromRGB32(0xe1d2c3));
+            EXPECT_EQ(style.GetColor(PGUIColorID::Background), PColor::FromRGB32(0x123456));
+            const Ptr<const PBrush> background = style.GetBrush(PGUIColorID::Background);
+            ASSERT_NE(background, nullptr);
+            EXPECT_EQ(background->GetType(), textured ? PBrushType::Bitmap : PBrushType::Solid);
+            EXPECT_EQ(style.GetBrush(PGUIColorID::Background), background);
+            if (!textured) {
+                EXPECT_EQ(background->GetDescription().Color, style.GetColor(PGUIColorID::Background));
+            }
+        }
+    });
+}
+
 TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllStates)
 {
     RunGUITest([](PApplication& application)
     {
         constexpr std::array<const char*, 2> THEMES = {"Normal", "Dark"};
+        constexpr std::array<PGUIColorID, 8> LABEL_COLORS =
+        {
+            PGUIColorID::CheckBoxLabelNormal,
+            PGUIColorID::CheckBoxLabelHovered,
+            PGUIColorID::CheckBoxLabelPressed,
+            PGUIColorID::CheckBoxLabelDisabled,
+            PGUIColorID::CheckBoxLabelCheckedNormal,
+            PGUIColorID::CheckBoxLabelCheckedHovered,
+            PGUIColorID::CheckBoxLabelCheckedPressed,
+            PGUIColorID::CheckBoxLabelCheckedDisabled
+        };
         Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("checkbox_skin", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
         PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
@@ -149,11 +202,11 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
         for (size_t themeIndex = 0; themeIndex < THEMES.size(); ++themeIndex)
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", THEMES[themeIndex])));
-            PSkinnableGUIStyle style(directory, &application);
+            const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
             PButtonStyleData& data = target->GetButtonStyleData();
             data = PButtonStyleData();
-            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, style, PGUIComponentID::Button);
-            PViewRendererTestBinding<PViewRendererCheckBox> checkBoxRenderer(*target, style, PGUIComponentID::CheckBox);
+            PViewRendererTestBinding<PViewRendererCheckBox> checkBoxRenderer(*target, *style, PGUIComponentID::CheckBox);
             data.Label = "Option";
             for (size_t index = 0; index < 8; ++index)
             {
@@ -162,8 +215,7 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
                 data.IsPointerOver = state >= 1;
                 data.IsPressed = state >= 2;
                 target->SetButtonEnabled(state != 3);
-                buttonRenderer->Paint(*target, frame, target->GetBounds(), buttonRenderer.GetContext());
-                const PColor expectedLabelColor = target->GetFgColor();
+                const PColor expectedLabelColor = style->GetColor(LABEL_COLORS[index]);
                 target->SetDrawingMode(PDrawingMode::Blend);
                 target->SetButtonEnabled(state != 3);
                 checkBoxRenderer->Paint(*target, frame, target->GetBounds(), checkBoxRenderer.GetContext());
@@ -180,7 +232,6 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
                 EXPECT_EQ(maximum, minimum);
             }
             data.Label.clear();
-            buttonRenderer->PropertyChanged(*target, PButtonProperty::Label, buttonRenderer.GetContext());
             checkBoxRenderer->PropertyChanged(*target, PButtonProperty::Label, checkBoxRenderer.GetContext());
             PPoint minimum;
             PPoint maximum;
@@ -221,6 +272,17 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
     RunGUITest([](PApplication& application)
     {
         constexpr std::array<const char*, 2> THEMES = {"Normal", "Dark"};
+        constexpr std::array<PGUIColorID, 8> LABEL_COLORS =
+        {
+            PGUIColorID::RadioButtonLabelNormal,
+            PGUIColorID::RadioButtonLabelHovered,
+            PGUIColorID::RadioButtonLabelPressed,
+            PGUIColorID::RadioButtonLabelDisabled,
+            PGUIColorID::RadioButtonLabelCheckedNormal,
+            PGUIColorID::RadioButtonLabelCheckedHovered,
+            PGUIColorID::RadioButtonLabelCheckedPressed,
+            PGUIColorID::RadioButtonLabelCheckedDisabled
+        };
         constexpr std::array<PAlignment, 5> ALIGNMENTS = {PAlignment::Right, PAlignment::Left, PAlignment::Top, PAlignment::Bottom, PAlignment::Center};
         Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("radio_skin", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
@@ -231,11 +293,11 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
         for (const char* theme : THEMES)
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
-            PSkinnableGUIStyle style(directory, &application);
+            const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
             PButtonStyleData& data = target->GetButtonStyleData();
             data = PButtonStyleData();
-            PViewRendererTestBinding<PViewRendererButton> buttonRenderer(*target, style, PGUIComponentID::Button);
-            PViewRendererTestBinding<PViewRendererRadioButton> radioButtonRenderer(*target, style, PGUIComponentID::RadioButton);
+            PViewRendererTestBinding<PViewRendererRadioButton> radioButtonRenderer(*target, *style, PGUIComponentID::RadioButton);
             data.Label = "Option";
             const float labelWidth = target->GetStringWidth(data.Label);
             for (PAlignment alignment : ALIGNMENTS)
@@ -280,8 +342,7 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
                     data.IsPointerOver = state >= 1;
                     data.IsPressed = state >= 2;
                     target->SetButtonEnabled(state != 3);
-                    buttonRenderer->Paint(*target, frame, target->GetBounds(), buttonRenderer.GetContext());
-                    const PColor expectedLabelColor = target->GetFgColor();
+                    const PColor expectedLabelColor = style->GetColor(LABEL_COLORS[index]);
                     target->SetDrawingMode(PDrawingMode::Blend);
                     target->SetButtonEnabled(state != 3);
                     radioButtonRenderer->Paint(*target, frame, target->GetBounds(), radioButtonRenderer.GetContext());
@@ -295,7 +356,6 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
             }
             data.Label.clear();
             radioButtonRenderer->PropertyChanged(*target, PButtonProperty::Label, radioButtonRenderer.GetContext());
-            buttonRenderer->PropertyChanged(*target, PButtonProperty::Label, buttonRenderer.GetContext());
             PPoint minimum;
             PPoint maximum;
             radioButtonRenderer->GetPreferredSize(*target, &minimum, &maximum, radioButtonRenderer.GetContext());
@@ -861,6 +921,15 @@ TEST(SkinnableGUIStyle, MissingXMLAndInvalidTextColorsAreRejected)
     {
         const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, "Styles/Skinned/Normal/Button/ButtonNormal.png"));
         EXPECT_THROW(PSkinnableGUIStyle(directory, &application), std::system_error);
+        PSkinnableGUIStyleTestDirectory paletteDirectory("InvalidPaletteTest");
+        for (const char* attribute : {"color_foreground_disabled", "color_group_label", "color_button_label_checked_disabled",
+                                     "color_check_box_label_normal", "color_radio_button_label_pressed", "color_tab_label_selected_hovered"})
+        {
+            paletteDirectory.WriteFile("Style.xml", [attribute](pugi::xml_node root) { root.remove_attribute(attribute); });
+            EXPECT_THROW(PSkinnableGUIStyle(paletteDirectory.GetPath(), &application), std::system_error);
+            paletteDirectory.WriteFile("Style.xml", [attribute](pugi::xml_node root) { root.attribute(attribute).set_value("#GGGGGG"); });
+            EXPECT_THROW(PSkinnableGUIStyle(paletteDirectory.GetPath(), &application), std::system_error);
+        }
     });
     PColor color;
     EXPECT_TRUE(p_xml_object_parser::parse("#25354A", color));
@@ -891,6 +960,127 @@ TEST(BitmapLoader, ShortReadsPreserveAlphaAndTruncatedPNGIsRejected)
 
         PButtonSkinTestStream truncated(std::string_view(data.data(), data.size() - 12));
         EXPECT_EQ(PBitmapLoader::Load(truncated, &application), nullptr);
+    });
+}
+
+TEST(SkinnableGUIStyle, SharedButtonRenderersReadTheActivePalette)
+{
+    RunGUITest([](PApplication& application)
+    {
+        constexpr std::array<std::array<PGUIColorID, 8>, 3> LABEL_COLORS =
+        {{
+            {
+                PGUIColorID::ButtonLabelNormal,
+                PGUIColorID::ButtonLabelHovered,
+                PGUIColorID::ButtonLabelPressed,
+                PGUIColorID::ButtonLabelDisabled,
+                PGUIColorID::ButtonLabelCheckedNormal,
+                PGUIColorID::ButtonLabelCheckedHovered,
+                PGUIColorID::ButtonLabelCheckedPressed,
+                PGUIColorID::ButtonLabelCheckedDisabled
+            },
+            {
+                PGUIColorID::CheckBoxLabelNormal,
+                PGUIColorID::CheckBoxLabelHovered,
+                PGUIColorID::CheckBoxLabelPressed,
+                PGUIColorID::CheckBoxLabelDisabled,
+                PGUIColorID::CheckBoxLabelCheckedNormal,
+                PGUIColorID::CheckBoxLabelCheckedHovered,
+                PGUIColorID::CheckBoxLabelCheckedPressed,
+                PGUIColorID::CheckBoxLabelCheckedDisabled
+            },
+            {
+                PGUIColorID::RadioButtonLabelNormal,
+                PGUIColorID::RadioButtonLabelHovered,
+                PGUIColorID::RadioButtonLabelPressed,
+                PGUIColorID::RadioButtonLabelDisabled,
+                PGUIColorID::RadioButtonLabelCheckedNormal,
+                PGUIColorID::RadioButtonLabelCheckedHovered,
+                PGUIColorID::RadioButtonLabelCheckedPressed,
+                PGUIColorID::RadioButtonLabelCheckedDisabled
+            }
+        }};
+        const Ptr<const PBrush> background = ptr_new<PBrush>(PColor(90, 90, 90), &application);
+        PButtonSkin buttonSkin;
+        buttonSkin.States[0].Background = background;
+        PCheckBoxSkin checkBoxSkin;
+        checkBoxSkin.States[0].Background = background;
+        PRadioButtonSkin radioButtonSkin;
+        radioButtonSkin.States[0].Background = background;
+        const std::array<Ptr<const PViewRendererButtonBase>, 4> renderers =
+        {
+            ptr_new<PViewRendererButtonSkinned>(buttonSkin),
+            ptr_new<PViewRendererCheckBoxSkinned>(checkBoxSkin),
+            ptr_new<PViewRendererRadioButtonSkinned>(radioButtonSkin),
+            ptr_dynamic_cast<const PViewRendererButtonBase>(PGUIStyle::CreateDefaultRenderer(PGUIComponentID::Button))
+        };
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("active_palette", PViewFlag::WillDraw);
+        ASSERT_TRUE(application.AddHandler(target));
+        PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
+        target->SetFrame(PRect(0, 0, 240, 60));
+        PButtonStyleData& data = target->GetButtonStyleData();
+        data.Label = "Palette label";
+        for (size_t rendererIndex = 0; rendererIndex < renderers.size(); ++rendererIndex)
+        {
+            PViewRendererTestBinding<PViewRendererButtonBase> renderer(*target, renderers[rendererIndex]);
+            for (uint8_t colorOffset : {uint8_t(20), uint8_t(100)})
+            {
+                application.SetGUIStyle(ptr_new<PGUILabelPaletteTestStyle>(&application, colorOffset));
+                const std::array<PGUIColorID, 8>& colors = LABEL_COLORS[rendererIndex % LABEL_COLORS.size()];
+                for (size_t index = 0; index < colors.size(); ++index)
+                {
+                    const size_t state = index % 4;
+                    data.IsChecked = index >= 4;
+                    data.IsPointerOver = state >= 1;
+                    data.IsPressed = state >= 2;
+                    target->SetButtonEnabled(state != 3);
+                    renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext());
+                    EXPECT_EQ(target->GetFgColor(), PColor(uint8_t(std::to_underlying(colors[index]) + colorOffset), 20, 40));
+                }
+            }
+        }
+    });
+}
+
+TEST(SkinnableGUIStyle, TabLabelsReadAllStatesFromTheActivePalette)
+{
+    RunGUITest([](PApplication& application)
+    {
+        constexpr std::array<PGUIColorID, 6> LABEL_COLORS =
+        {
+            PGUIColorID::TabLabelNormal,
+            PGUIColorID::TabLabelHovered,
+            PGUIColorID::TabLabelPressed,
+            PGUIColorID::TabLabelSelectedNormal,
+            PGUIColorID::TabLabelSelectedHovered,
+            PGUIColorID::TabLabelSelectedPressed
+        };
+        const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, "Styles/Skinned/Normal"));
+        const PSkinnableGUIStyle skinnedStyle(directory, &application);
+        Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("palette_tab", PViewFlag::WillDraw);
+        Ptr<PView> tabsTarget = ptr_new<PView>("palette_tab_strip", PViewFlag::WillDraw);
+        target->AddChild(tabsTarget);
+        target->SetTabsView(*tabsTarget);
+        ASSERT_TRUE(application.AddHandler(target));
+        PScopeExit removeTarget([&application, &target] { application.RemoveHandler(target); });
+        target->SetFrame(PRect(0, 0, 240, 140));
+        PTabViewStyleData& data = target->GetTabViewStyleData();
+        data.Titles = {"Palette tab"};
+        PViewRendererTestBinding<PViewRendererTabView> renderer(*target, skinnedStyle, PGUIComponentID::TabView);
+        for (uint8_t colorOffset : {uint8_t(20), uint8_t(100)})
+        {
+            application.SetGUIStyle(ptr_new<PGUILabelPaletteTestStyle>(&application, colorOffset));
+            for (size_t index = 0; index < LABEL_COLORS.size(); ++index)
+            {
+                const size_t state = index % 3;
+                data.Selection = (index >= 3) ? 0 : INVALID_INDEX;
+                data.HighlightedTab = (state >= 1) ? 0 : INVALID_INDEX;
+                data.PressedTab = (state == 2) ? 0 : INVALID_INDEX;
+                tabsTarget->SetFrame(renderer->GetFrames(*target, renderer.GetContext()).TabsFrame);
+                renderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), renderer.GetContext());
+                EXPECT_EQ(tabsTarget->GetFgColor(), PColor(uint8_t(std::to_underlying(LABEL_COLORS[index]) + colorOffset), 20, 40));
+            }
+        }
     });
 }
 
@@ -930,7 +1120,8 @@ TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
                 const PButtonSkinAppearance& appearance = checked ? skin.CheckedStates[index] : skin.States[index];
                 EXPECT_EQ(target->GetBackgroundBrush(), appearance.Background);
                 EXPECT_EQ(target->GetBrush(), nullptr);
-                EXPECT_EQ(target->GetFgColor(), appearance.LabelColor);
+                const PGUIColorID labelColor = enabled ? PGUIColorID::ButtonLabelNormal : PGUIColorID::ButtonLabelDisabled;
+                EXPECT_EQ(target->GetFgColor(), target->GetStyle()->GetColor(labelColor));
                 PPoint minimum;
                 PPoint maximum;
                 buttonRenderer->GetPreferredSize(*target, &minimum, &maximum, buttonRenderer.GetContext());
@@ -1271,7 +1462,8 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
         for (const char* theme : {"Normal", "Dark"})
         {
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", theme)));
-            const PSkinnableGUIStyle style(directory, &application);
+            const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
+            application.SetGUIStyle(style);
             Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("tab_frame", PViewFlag::WillDraw);
             Ptr<PView> tabsTarget = ptr_new<PView>("tab_strip", PViewFlag::WillDraw);
             target->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
@@ -1284,7 +1476,7 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
             PTabViewStyleData& data = target->GetTabViewStyleData();
             data = PTabViewStyleData();
             target->SetTabsView(*tabsTarget);
-            PViewRendererTestBinding<PViewRendererTabView> tabViewRenderer(*target, style, PGUIComponentID::TabView);
+            PViewRendererTestBinding<PViewRendererTabView> tabViewRenderer(*target, *style, PGUIComponentID::TabView);
             data.Titles = {"First long tab", "Second long tab", "Third long tab"};
             data.Selection = 0;
             data.HasTopBarClient = true;
@@ -1321,7 +1513,7 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
                     EXPECT_EQ(tabsTarget->GetDrawingMode(), PDrawingMode::Overlay);
                     EXPECT_EQ(tabsTarget->GetDrawingRegion(), region);
                     EXPECT_EQ(tabsTarget->GetBrush(), nullptr);
-                    EXPECT_EQ(target->GetBackgroundBrush(), style.GetBackgroundBrush());
+                    EXPECT_EQ(target->GetBackgroundBrush(), style->GetBrush(PGUIColorID::Background));
                     EXPECT_EQ(tabViewRenderer->GetFrames(*target, tabViewRenderer.GetContext()).ClientFrame, frames.ClientFrame);
                 }
             }

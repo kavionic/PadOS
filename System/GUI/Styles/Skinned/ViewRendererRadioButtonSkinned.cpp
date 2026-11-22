@@ -73,7 +73,8 @@ void PViewRendererRadioButtonSkinned::Paint(PView& target, const PRect& frame, c
             overlaps = skin.LabelSpacing < 0.0f;
         }
     }
-    PaintIndicatorButton(target, frame, isEnabled, data, skin, indicatorPosition, labelPosition, overlaps);
+    const PGUIColorID labelColorID = GetLabelColorID(RADIO_BUTTON_LABEL_COLORS, isEnabled, data);
+    PaintIndicatorButton(target, frame, isEnabled, data, skin, indicatorPosition, labelPosition, overlaps, labelColorID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

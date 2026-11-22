@@ -79,7 +79,8 @@ void PViewRendererButtonSkinnedBase::PaintIndicatorButton(
     const PButtonIndicatorSkin& skin,
     const PPoint& indicatorPosition,
     const PPoint& labelPosition,
-    bool labelOverlapsIndicator)
+    bool labelOverlapsIndicator,
+    PGUIColorID labelColorID)
 {
     const PButtonSkinState state = GetButtonState(isEnabled, data);
     const PButtonSkinAppearance& appearance = data.IsChecked ? skin.CheckedStates[std::to_underlying(state)] : skin.States[std::to_underlying(state)];
@@ -87,7 +88,7 @@ void PViewRendererButtonSkinnedBase::PaintIndicatorButton(
     const Ptr<const PBrush>& brush = (appearance.Background != nullptr) ? appearance.Background : normal;
     target.SetBackgroundBrush(nullptr);
     target.SetBrush(nullptr);
-    target.SetFgColor(appearance.LabelColor);
+    target.SetFgColor(target.GetStyle()->GetColor(labelColorID));
     target.SetBrushOrigin(indicatorPosition);
     const PDrawingMode previousMode = target.GetDrawingMode();
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });

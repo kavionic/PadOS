@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Rounded nine-slice frame; title padding and gap are pixels. -->
 <GroupView frame_insets="Rect(0, 0, 0, 0)" label_padding="Rect(14, 0, 14, 0)"
-           label_gap="4" minimum_size="Point(28, 28)" text_color="#CFDDEC">
+           label_gap="4" minimum_size="Point(28, 28)">
     <Frame image="GroupView/GroupViewFrame.png" borders="Rect(8, 8, 8, 8)"/>
 </GroupView>

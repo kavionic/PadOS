@@ -74,7 +74,7 @@ void PViewRendererGroupViewSkinned::Paint(PView& target, const PRect& componentF
         if (damage.IsValid()) {
             target.EraseRect(damage);
         }
-        target.SetFgColor(m_GroupViewSkin.LabelColor);
+        target.SetFgColor(target.GetStyle()->GetColor(PGUIColorID::GroupLabel));
         target.DrawString(data.Label, position, state.LabelSize.x);
     }
 }

@@ -46,8 +46,7 @@ PMVCBaseView::PMVCBaseView(PViewFactoryContext& context, const pugi::xml_node& x
 void PMVCBaseView::OnStyleChanged()
 {
     PControl::OnStyleChanged();
-    const PGUIStyle* style = GetStyle();
-    m_ContentView->SetBackgroundBrush((style != nullptr) ? style->GetBackgroundBrush() : nullptr);
+    m_ContentView->SetBackgroundBrush(PGUIColorID::Background);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -389,10 +388,7 @@ void PMVCBaseView::Construct()
 {
     m_ScrollView = ptr_new<PScrollView>();
     m_ContentView = ptr_new<PView>(PString::zero, PViewFlag::WillDraw);
-    const PGUIStyle* style = GetStyle();
-    if (style != nullptr) {
-        m_ContentView->SetBackgroundBrush(style->GetBackgroundBrush());
-    }
+    m_ContentView->SetBackgroundBrush(PGUIColorID::Background);
 
     m_ContentView->VFCalculateContentSize.Connect(this, &PView::GetContentSize);
     m_ContentView->SignalFrameSized.Connect(this, &PMVCBaseView::OnContentViewFrameSized);

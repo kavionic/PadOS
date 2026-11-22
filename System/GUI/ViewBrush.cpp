@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/View.h>
 #include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
@@ -53,6 +54,19 @@ void PView::SetBackgroundBrush(Ptr<const PBrush> brush)
             Invalidate();
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::SetBackgroundBrush(PGUIColorID color)
+{
+    const PGUIStyle* style = GetStyle();
+    if (style == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    SetBackgroundBrush(style->GetBrush(color));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

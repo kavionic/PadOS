@@ -6,13 +6,13 @@
     <OverflowLeft image="TabView/TabViewOverflowLeft.png"/>
     <OverflowRight image="TabView/TabViewOverflowRight.png"/>
     <Tab>
-        <Normal image="TabView/TabViewTabNormal.png" borders="Rect(6, 6, 6, 4)" text_color="#EAF2FC" text_offset="Point(0, 0)"/>
-        <Hovered image="TabView/TabViewTabHovered.png" borders="Rect(6, 6, 6, 4)" text_color="#FFFFFF" text_offset="Point(0, 0)"/>
-        <Pressed image="TabView/TabViewTabPressed.png" borders="Rect(6, 6, 6, 4)" text_color="#DCEFFF" text_offset="Point(1, 1)"/>
+        <Normal image="TabView/TabViewTabNormal.png" borders="Rect(6, 6, 6, 4)" text_offset="Point(0, 0)"/>
+        <Hovered image="TabView/TabViewTabHovered.png" borders="Rect(6, 6, 6, 4)" text_offset="Point(0, 0)"/>
+        <Pressed image="TabView/TabViewTabPressed.png" borders="Rect(6, 6, 6, 4)" text_offset="Point(1, 1)"/>
     </Tab>
     <Selected>
-        <Normal image="TabView/TabViewSelectedNormal.png" borders="Rect(11, 7, 11, 9)" text_color="#F1F8FF" text_offset="Point(0, 0)"/>
-        <Hovered image="TabView/TabViewSelectedHovered.png" borders="Rect(11, 7, 11, 9)" text_color="#FFFFFF" text_offset="Point(0, 0)"/>
-        <Pressed image="TabView/TabViewSelectedPressed.png" borders="Rect(11, 7, 11, 9)" text_color="#EAF5FF" text_offset="Point(1, 1)"/>
+        <Normal image="TabView/TabViewSelectedNormal.png" borders="Rect(11, 7, 11, 9)" text_offset="Point(0, 0)"/>
+        <Hovered image="TabView/TabViewSelectedHovered.png" borders="Rect(11, 7, 11, 9)" text_offset="Point(0, 0)"/>
+        <Pressed image="TabView/TabViewSelectedPressed.png" borders="Rect(11, 7, 11, 9)" text_offset="Point(1, 1)"/>
     </Selected>
 </TabView>

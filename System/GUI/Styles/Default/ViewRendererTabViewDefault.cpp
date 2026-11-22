@@ -512,7 +512,7 @@ void PViewRendererTabViewDefault::DrawTabViewTitles(PView& target, const PTabVie
     const float glyphHeight = state.GlyphHeight;
     float x = geometry.Overflow ? 0.0f : -TAB_VIEW_BORDER;
     target.SetBrush(PStandardColorID::DefaultBackground);
-    target.SetFgColor(0, 0, 0);
+    const PGUIStyle* style = target.GetStyle();
     PRect highlightedFrame;
     PPoint highlightedBaseline;
     float backgroundLeft = bounds.left;
@@ -533,6 +533,7 @@ void PViewRendererTabViewDefault::DrawTabViewTitles(PView& target, const PTabVie
         }
         else
         {
+            target.SetFgColor(style->GetColor(GetLabelColorID(data, i)));
             target.DrawString(target.GetBrush(), data.Titles[i], baseline, background);
         }
         backgroundLeft = right;
@@ -586,7 +587,7 @@ void PViewRendererTabViewDefault::DrawTabViewHighlight(PView& target, const PTab
 
     const PDrawingMode previousMode = target.GetDrawingMode();
     target.SetDrawingMode(PDrawingMode::Overlay);
-    target.SetFgColor(0, 0, 0);
+    target.SetFgColor(target.GetStyle()->GetColor(GetLabelColorID(data, data.HighlightedTab)));
     target.DrawString(target.GetBrush(), data.Titles[data.HighlightedTab], baseline, frame.right - baseline.x);
     target.SetDrawingMode(previousMode);
 }

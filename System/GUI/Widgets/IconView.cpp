@@ -169,17 +169,15 @@ void PIconView::Construct()
 
 void PIconView::UpdateHighlightColor()
 {
-    Ptr<const PBrush> brush;
     if (m_IsSelected && m_IsHighlighted) {
-        brush = GetStandardBrush(PNamedColors::darkblue);
+        SetBackgroundBrush(PNamedColors::darkblue);
     } else if (m_IsSelected) {
-        brush = GetStandardBrush(PNamedColors::royalblue);
+        SetBackgroundBrush(PNamedColors::royalblue);
     } else if (m_IsHighlighted) {
-        brush = GetStandardBrush(PNamedColors::lightblue);
+        SetBackgroundBrush(PNamedColors::lightblue);
     } else {
-        brush = GetStyle()->GetBackgroundBrush();
+        SetBackgroundBrush(PGUIColorID::Background);
     }
-    SetBackgroundBrush(brush);
     m_IconView->SetBackgroundBrush(nullptr);
     m_IconView->SetBrush(nullptr);
     m_LabelView->SetBackgroundBrush(nullptr);

@@ -34,7 +34,8 @@ void PViewRendererCheckBoxSkinned::Paint(PView& target, const PRect& frame, cons
     const PPoint labelPosition(contentLeft + labelOffset, labelTop + fontHeight.ascender + m_CheckBoxSkin.LabelVerticalOffset);
     const PPoint indicatorPosition(contentLeft, std::round(frame.top + (frame.Height() - m_CheckBoxSkin.Size) * 0.5f));
     const bool overlaps = !data.Label.empty() && m_CheckBoxSkin.LabelSpacing < 0.0f;
-    PaintIndicatorButton(target, frame, isEnabled, data, m_CheckBoxSkin, indicatorPosition, labelPosition, overlaps);
+    const PGUIColorID labelColorID = GetLabelColorID(CHECK_BOX_LABEL_COLORS, isEnabled, data);
+    PaintIndicatorButton(target, frame, isEnabled, data, m_CheckBoxSkin, indicatorPosition, labelPosition, overlaps, labelColorID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

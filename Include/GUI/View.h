@@ -37,6 +37,8 @@ class xml_node;
 
 #define DEFINE_FLAG_MAP_ENTRY(NAMESPACE, FLAG) {#FLAG, NAMESPACE::FLAG}
 
+enum class PGUIColorID : uint8_t;
+
 class PGUIStyle;
 class PScrollBar;
 class PButtonGroup;
@@ -232,6 +234,7 @@ public:
     Ptr<const PBrush> GetBackgroundBrush() const noexcept { return m_BackgroundBrush; }
     Ptr<const PBrush> GetBrush() const noexcept { return m_DrawingBrush; }
     void SetBackgroundBrush(Ptr<const PBrush> brush);
+    void SetBackgroundBrush(PGUIColorID color);
     void SetBackgroundBrush(PStandardColorID color) { SetBackgroundBrush(GetStandardBrush(color)); }
     void SetBackgroundBrush(PNamedColors color) { SetBackgroundBrush(GetStandardBrush(color)); }
     void SetBrush(Ptr<const PBrush> brush);

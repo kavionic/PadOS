@@ -12,6 +12,7 @@
 #include <GUI/Font.h>
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/ViewRendererSlider.h>
+#include <GUI/Styles/DefaultGUIStyle.h>
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/Button.h>
 #include <GUI/Widgets/Slider.h>
@@ -33,18 +34,52 @@ static void ExpectFontSelectionHandle(PApplication& application, handle_id fontH
     EXPECT_EQ(error, expectedError);
 }
 
-TEST(FontSelection, TextViewsDefaultToOpaqueBlack)
+class PTextViewColorTestStyle : public PDefaultGUIStyle
 {
-    RunGUITest([](PApplication&)
+public:
+    PTextViewColorTestStyle(PApplication* application, PColor foreground) : PDefaultGUIStyle(application)
     {
+        SetColor(PGUIColorID::Foreground, foreground);
+    }
+};
+
+TEST(FontSelection, TextViewsFollowStyleColorsAndPreserveExplicitOverrides)
+{
+    RunGUITest([](PApplication& application)
+    {
+        const PColor firstColor(20, 40, 60);
+        const PColor secondColor(220, 230, 240);
+        application.SetGUIStyle(ptr_new<PTextViewColorTestStyle>(&application, firstColor));
         Ptr<PTextView> label = ptr_new<PTextView>("label", "Test label");
-        EXPECT_EQ(label->GetFgColor(), PColor(0, 0, 0));
+        EXPECT_EQ(label->GetFgColor(), firstColor);
 
         pugi::xml_document document;
         const pugi::xml_node xmlData = document.append_child("TextView");
         PViewFactoryContext context;
         Ptr<PTextView> xmlLabel = ptr_new<PTextView>(context, xmlData);
-        EXPECT_EQ(xmlLabel->GetFgColor(), PColor(0, 0, 0));
+        EXPECT_EQ(xmlLabel->GetFgColor(), firstColor);
+        xmlLabel->SetTextColor(PNamedColors::white);
+
+        Ptr<PView> root = ptr_new<PView>("text_color_root");
+        root->AddChild(label);
+        root->AddChild(xmlLabel);
+        root->Hide();
+        ASSERT_TRUE(application.AddView(root, PViewDockType::TopLevelView));
+        PScopeExit removeRoot([&application, &root] { application.RemoveView(root); });
+        EXPECT_EQ(xmlLabel->GetFgColor(), PColor(PNamedColors::white));
+
+        application.SetGUIStyle(ptr_new<PTextViewColorTestStyle>(&application, secondColor));
+        EXPECT_EQ(label->GetFgColor(), secondColor);
+        EXPECT_EQ(xmlLabel->GetFgColor(), PColor(PNamedColors::white));
+
+        xmlLabel->SetTextColor(std::nullopt);
+        EXPECT_EQ(xmlLabel->GetFgColor(), secondColor);
+
+        application.RemoveView(root);
+        application.SetGUIStyle(ptr_new<PTextViewColorTestStyle>(&application, firstColor));
+        ASSERT_TRUE(application.AddView(root, PViewDockType::TopLevelView));
+        EXPECT_EQ(label->GetFgColor(), firstColor);
+        EXPECT_EQ(xmlLabel->GetFgColor(), firstColor);
     });
 }
 

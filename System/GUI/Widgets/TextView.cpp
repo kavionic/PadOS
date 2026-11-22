@@ -6,12 +6,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.04.2018 16:38:59
 
-#include "System/Platform.h"
-
-#include "GUI/Widgets/TextView.h"
-#include "Utils/Utils.h"
+#include <GUI/Style/GUIStyle.h>
+#include <GUI/Widgets/TextView.h>
+#include <System/Platform.h>
 #include <Utils/UTF8Utils.h>
-#include "Utils/XMLObjectParser.h"
+#include <Utils/Utils.h>
+#include <Utils/XMLObjectParser.h>
 
 
 const std::map<PString, PTextViewFlags> PTEXT_VIEW_FLAG_MAP
@@ -27,6 +27,7 @@ const std::map<PString, PTextViewFlags> PTEXT_VIEW_FLAG_MAP
 PTextView::PTextView(const PString& name, const PString& text, PTextViewFlags flags) : PView(name, flags | PViewFlag::WillDraw)
 {
     SetText(text);
+    UpdateTextColor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -39,6 +40,7 @@ PTextView::PTextView(PViewFactoryContext& context, const pugi::xml_node& xmlData
     MergeFlags(flags | PViewFlag::WillDraw);
 
     SetText(context.GetAttribute(xmlData, "text", PString::zero));
+    UpdateTextColor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,6 +67,29 @@ void PTextView::SetText(const PString& text)
     }
     PreferredSizeChanged();
     Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTextView::SetTextColor(std::optional<PColor> color)
+{
+    if (m_TextColor != color)
+    {
+        m_TextColor = color;
+        UpdateTextColor();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTextView::OnStyleChanged()
+{
+    PView::OnStyleChanged();
+    UpdateTextColor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -202,6 +227,31 @@ void PTextView::OnPaint(const PRect& updateRect)
     else
     {
         DrawString(m_Text, baseline, bounds);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PTextView::UpdateTextColor()
+{
+    PColor color = GetFgColor();
+    if (m_TextColor.has_value())
+    {
+        color = *m_TextColor;
+    }
+    else
+    {
+        const PGUIStyle* style = GetStyle();
+        if (style != nullptr) {
+            color = style->GetColor(PGUIColorID::Foreground);
+        }
+    }
+    if (color != GetFgColor())
+    {
+        SetFgColor(color);
+        Invalidate();
     }
 }
 

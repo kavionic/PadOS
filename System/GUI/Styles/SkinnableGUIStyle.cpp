@@ -59,21 +59,6 @@ template<typename ValueType> static ValueType ParseSkinAttribute(const pugi::xml
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PButtonSkin::PButtonSkin()
-{
-    for (size_t i = 0; i < States.size(); ++i)
-    {
-        const PStandardColorID color = (i == std::to_underlying(PButtonSkinState::Disabled))
-            ? PStandardColorID::ButtonLabelDisabled : PStandardColorID::ButtonLabelNormal;
-        States[i].LabelColor = pget_standard_color(color);
-        CheckedStates[i].LabelColor = States[i].LabelColor;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 PRect PSliderKnobAppearance::GetBounds() const
 {
     if (Bitmap != nullptr) {
@@ -108,9 +93,10 @@ PRect PSliderKnobSkin::GetBounds() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* application)
-    : m_BackgroundBrush(LoadBackgroundBrush(directory, application))
+PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* application) : PGUIStyle(application)
 {
+    LoadStyle(directory, application);
+    const Ptr<const PBrush> background = GetBrush(PGUIColorID::Background);
     const PButtonSkin buttonSkin = LoadButtonSkin(directory, application);
     const PCheckBoxSkin checkBoxSkin = LoadCheckBoxSkin(directory, application);
     const PRadioButtonSkin radioButtonSkin = LoadRadioButtonSkin(directory, application);
@@ -155,7 +141,7 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
         SetRenderer(PGUIComponentID::DropdownMenu, ptr_new<PViewRendererDropdownMenuSkinned>(dropdownMenuSkin));
     }
     if (dropdownMenuSkin.PopupFrame != nullptr) {
-        SetRenderer(PGUIComponentID::DropdownMenuPopupFrame, ptr_new<PViewRendererDropdownMenuPopupFrameSkinned>(dropdownMenuSkin, m_BackgroundBrush));
+        SetRenderer(PGUIComponentID::DropdownMenuPopupFrame, ptr_new<PViewRendererDropdownMenuPopupFrameSkinned>(dropdownMenuSkin, background));
     }
     if (dropdownMenuSkin.PopupFrame != nullptr) {
         SetRenderer(PGUIComponentID::DropdownMenuPopup, ptr_new<PViewRendererDropdownMenuPopupSkinned>(dropdownMenuSkin));
@@ -167,7 +153,7 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
         SetRenderer(PGUIComponentID::ProgressBar, ptr_new<PViewRendererProgressBarSkinned>(progressBarSkin));
     }
     if (tabViewSkin.Frame != nullptr) {
-        SetRenderer(PGUIComponentID::TabView, ptr_new<PViewRendererTabViewSkinned>(tabViewSkin, m_BackgroundBrush));
+        SetRenderer(PGUIComponentID::TabView, ptr_new<PViewRendererTabViewSkinned>(tabViewSkin, background));
     }
 }
 
@@ -231,15 +217,6 @@ Ptr<const PGUIStyle> PSkinnableGUIStyle::CreateStyle(PApplication* application, 
     }
     const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/{}/{}", GetName(), variant)));
     return ptr_new<PSkinnableGUIStyle>(directory, application);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<const PBrush> PSkinnableGUIStyle::GetBackgroundBrush() const
-{
-    return m_BackgroundBrush;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -459,7 +436,7 @@ void PSkinnableGUIStyle::ValidateProgressBarSkin(const PProgressBarSkin& skin)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PSkinnableGUIStyle::LoadBackgroundBrush(const PPath& directory, PApplication* application)
+void PSkinnableGUIStyle::LoadStyle(const PPath& directory, PApplication* application)
 {
     PPath path(directory);
     path.Append("Style.xml");
@@ -471,6 +448,7 @@ Ptr<const PBrush> PSkinnableGUIStyle::LoadBackgroundBrush(const PPath& directory
     if (std::string_view(root.name()) != "Style") {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Style.xml must have a Style root element");
     }
+    LoadPalette(root);
     const PString texture = root.attribute("background_texture").as_string();
     if (!texture.empty())
     {
@@ -478,10 +456,51 @@ Ptr<const PBrush> PSkinnableGUIStyle::LoadBackgroundBrush(const PPath& directory
         texturePath.Append(texture);
         const Ptr<PBitmap> bitmap = PBitmapLoader::Load(texturePath, application);
         if (bitmap != nullptr) {
-            return ptr_new<PBrush>(bitmap);
+            SetBrush(PGUIColorID::Background, ptr_new<PBrush>(bitmap));
         }
     }
-    return ptr_new<PBrush>(ParseSkinAttribute<PColor>(root, "background_color"), application);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PSkinnableGUIStyle::LoadPalette(const pugi::xml_node& root)
+{
+    SetColor(PGUIColorID::Foreground, ParseSkinAttribute<PColor>(root, "color_foreground"));
+    SetColor(PGUIColorID::Background, ParseSkinAttribute<PColor>(root, "color_background"));
+    SetColor(PGUIColorID::ForegroundDisabled, ParseSkinAttribute<PColor>(root, "color_foreground_disabled"));
+    SetColor(PGUIColorID::GroupLabel, ParseSkinAttribute<PColor>(root, "color_group_label"));
+    SetColor(PGUIColorID::ButtonLabelNormal, ParseSkinAttribute<PColor>(root, "color_button_label_normal"));
+    SetColor(PGUIColorID::ButtonLabelHovered, ParseSkinAttribute<PColor>(root, "color_button_label_hovered"));
+    SetColor(PGUIColorID::ButtonLabelPressed, ParseSkinAttribute<PColor>(root, "color_button_label_pressed"));
+    SetColor(PGUIColorID::ButtonLabelDisabled, ParseSkinAttribute<PColor>(root, "color_button_label_disabled"));
+    SetColor(PGUIColorID::ButtonLabelCheckedNormal, ParseSkinAttribute<PColor>(root, "color_button_label_checked_normal"));
+    SetColor(PGUIColorID::ButtonLabelCheckedHovered, ParseSkinAttribute<PColor>(root, "color_button_label_checked_hovered"));
+    SetColor(PGUIColorID::ButtonLabelCheckedPressed, ParseSkinAttribute<PColor>(root, "color_button_label_checked_pressed"));
+    SetColor(PGUIColorID::ButtonLabelCheckedDisabled, ParseSkinAttribute<PColor>(root, "color_button_label_checked_disabled"));
+    SetColor(PGUIColorID::CheckBoxLabelNormal, ParseSkinAttribute<PColor>(root, "color_check_box_label_normal"));
+    SetColor(PGUIColorID::CheckBoxLabelHovered, ParseSkinAttribute<PColor>(root, "color_check_box_label_hovered"));
+    SetColor(PGUIColorID::CheckBoxLabelPressed, ParseSkinAttribute<PColor>(root, "color_check_box_label_pressed"));
+    SetColor(PGUIColorID::CheckBoxLabelDisabled, ParseSkinAttribute<PColor>(root, "color_check_box_label_disabled"));
+    SetColor(PGUIColorID::CheckBoxLabelCheckedNormal, ParseSkinAttribute<PColor>(root, "color_check_box_label_checked_normal"));
+    SetColor(PGUIColorID::CheckBoxLabelCheckedHovered, ParseSkinAttribute<PColor>(root, "color_check_box_label_checked_hovered"));
+    SetColor(PGUIColorID::CheckBoxLabelCheckedPressed, ParseSkinAttribute<PColor>(root, "color_check_box_label_checked_pressed"));
+    SetColor(PGUIColorID::CheckBoxLabelCheckedDisabled, ParseSkinAttribute<PColor>(root, "color_check_box_label_checked_disabled"));
+    SetColor(PGUIColorID::RadioButtonLabelNormal, ParseSkinAttribute<PColor>(root, "color_radio_button_label_normal"));
+    SetColor(PGUIColorID::RadioButtonLabelHovered, ParseSkinAttribute<PColor>(root, "color_radio_button_label_hovered"));
+    SetColor(PGUIColorID::RadioButtonLabelPressed, ParseSkinAttribute<PColor>(root, "color_radio_button_label_pressed"));
+    SetColor(PGUIColorID::RadioButtonLabelDisabled, ParseSkinAttribute<PColor>(root, "color_radio_button_label_disabled"));
+    SetColor(PGUIColorID::RadioButtonLabelCheckedNormal, ParseSkinAttribute<PColor>(root, "color_radio_button_label_checked_normal"));
+    SetColor(PGUIColorID::RadioButtonLabelCheckedHovered, ParseSkinAttribute<PColor>(root, "color_radio_button_label_checked_hovered"));
+    SetColor(PGUIColorID::RadioButtonLabelCheckedPressed, ParseSkinAttribute<PColor>(root, "color_radio_button_label_checked_pressed"));
+    SetColor(PGUIColorID::RadioButtonLabelCheckedDisabled, ParseSkinAttribute<PColor>(root, "color_radio_button_label_checked_disabled"));
+    SetColor(PGUIColorID::TabLabelNormal, ParseSkinAttribute<PColor>(root, "color_tab_label_normal"));
+    SetColor(PGUIColorID::TabLabelHovered, ParseSkinAttribute<PColor>(root, "color_tab_label_hovered"));
+    SetColor(PGUIColorID::TabLabelPressed, ParseSkinAttribute<PColor>(root, "color_tab_label_pressed"));
+    SetColor(PGUIColorID::TabLabelSelectedNormal, ParseSkinAttribute<PColor>(root, "color_tab_label_selected_normal"));
+    SetColor(PGUIColorID::TabLabelSelectedHovered, ParseSkinAttribute<PColor>(root, "color_tab_label_selected_hovered"));
+    SetColor(PGUIColorID::TabLabelSelectedPressed, ParseSkinAttribute<PColor>(root, "color_tab_label_selected_pressed"));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -749,7 +768,6 @@ PTabViewSkin PSkinnableGUIStyle::LoadTabViewSkin(const PPath& directory, PApplic
             const pugi::xml_node node = group.child(TAB_STATE_NAMES[index]);
             PTabSkinAppearance& appearance = (selected == 0) ? skin.States[index] : skin.SelectedStates[index];
             appearance.Image = LoadSkinImage(node, directory, application);
-            appearance.LabelColor = ParseSkinAttribute<PColor>(node, "text_color");
             appearance.LabelOffset = ParseSkinAttribute<PPoint>(node, "text_offset");
         }
     }
@@ -789,9 +807,9 @@ PDropdownMenuSkin PSkinnableGUIStyle::LoadDropdownMenuSkin(const PPath& director
         editor->BackgroundColor = ParseSkinAttribute<PColor>(node, "background_color");
         editor->ReadOnlyBackgroundColor = editor->BackgroundColor;
         editor->DisabledBackgroundColor = editor->BackgroundColor;
-        editor->TextColor = field.LabelColor;
-        editor->ReadOnlyTextColor = field.LabelColor;
-        editor->DisabledTextColor = field.LabelColor;
+        editor->TextColor = ParseSkinAttribute<PColor>(node, "text_color");
+        editor->ReadOnlyTextColor = editor->TextColor;
+        editor->DisabledTextColor = editor->TextColor;
         editor->Borders = PRect();
         editor->HasFrame = false;
         appearance.Editor = editor;
@@ -836,7 +854,6 @@ PGroupViewSkin PSkinnableGUIStyle::LoadGroupViewSkin(const PPath& directory, PAp
     skin.FrameInsets = ParseSkinAttribute<PRect>(root, "frame_insets");
     skin.LabelPadding = ParseSkinAttribute<PRect>(root, "label_padding");
     skin.LabelGap = ParseSkinAttribute<float>(root, "label_gap");
-    skin.LabelColor = ParseSkinAttribute<PColor>(root, "text_color");
     skin.MinimumSize = ParseSkinAttribute<PPoint>(root, "minimum_size");
     return skin;
 }
@@ -942,7 +959,6 @@ PButtonSkinAppearance PSkinnableGUIStyle::LoadAppearance(
     PImageLayoutMode imageLayout)
 {
     const PRect borders = ParseSkinAttribute<PRect>(node, "borders");
-    const PColor labelColor = ParseSkinAttribute<PColor>(node, "text_color");
     Ptr<PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
     Ptr<PImage> image = ptr_new<PImage>(bitmap);
     image->SetLayoutSize(imageSize, imageLayout);
@@ -951,6 +967,5 @@ PButtonSkinAppearance PSkinnableGUIStyle::LoadAppearance(
 
     PButtonSkinAppearance appearance;
     appearance.Background = ptr_new<PBrush>(image);
-    appearance.LabelColor = labelColor;
     return appearance;
 }

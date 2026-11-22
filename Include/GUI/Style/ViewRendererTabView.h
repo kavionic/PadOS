@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/TabViewStyleData.h>
 #include <GUI/Style/ViewRenderer.h>
 
@@ -23,4 +24,17 @@ public:
     virtual PPoint GetTabsContentSize(const PView& target, PtrTarget* context) const = 0;
     // The position is expressed in the tabs view's scrolled content coordinates.
     virtual size_t GetTabFromPosition(const PView& target, const PPoint& position, PtrTarget* context) const = 0;
+
+protected:
+    static PGUIColorID GetLabelColorID(const PTabViewStyleData& data, size_t index)
+    {
+        const bool selected = index == data.Selection;
+        if (index == data.PressedTab) {
+            return selected ? PGUIColorID::TabLabelSelectedPressed : PGUIColorID::TabLabelPressed;
+        } else if (index == data.HighlightedTab) {
+            return selected ? PGUIColorID::TabLabelSelectedHovered : PGUIColorID::TabLabelHovered;
+        } else {
+            return selected ? PGUIColorID::TabLabelSelectedNormal : PGUIColorID::TabLabelNormal;
+        }
+    }
 };

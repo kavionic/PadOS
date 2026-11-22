@@ -122,7 +122,7 @@ TEST(ViewApplication, DetachedViewsUseTheCurrentApplicationForStylesAndBrushes)
         EXPECT_FALSE(view->HasFlags(PViewFlag::IsAttachedToScreen));
         EXPECT_EQ(view->GetApplication(), &application);
         EXPECT_EQ(view->GetStyle(), application.GetGUIStyle());
-        EXPECT_EQ(view->GetStyle()->GetBackgroundBrush(), application.GetStandardBrush(PStandardColorID::DefaultBackground));
+        EXPECT_EQ(view->GetStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), &application);
         EXPECT_EQ(view->GetStandardBrush(PStandardColorID::DefaultBackground), application.GetStandardBrush(PStandardColorID::DefaultBackground));
         EXPECT_EQ(view->GetStandardBrush(PNamedColors::white), application.GetStandardBrush(PNamedColors::white));
         view->SetBrush(ptr_new<PBrush>(PColor(20, 40, 60), view->GetApplication()));
@@ -137,9 +137,9 @@ TEST(ViewApplication, OwnAndAncestorLoopersTakePrecedenceOverTheCurrentApplicati
     RunGUITest([](PApplication& application)
     {
         Ptr<PApplication> otherApplication = ptr_new<PApplication>("other_view_application");
-        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBackgroundBrush()->GetApplication(), otherApplication);
+        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), otherApplication);
         otherApplication->SetGUIStyle(nullptr);
-        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBackgroundBrush(), otherApplication->GetStandardBrush(PStandardColorID::DefaultBackground));
+        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), otherApplication);
         Ptr<PView> parent = ptr_new<PView>("parent");
         Ptr<PViewApplicationTestView> child = ptr_new<PViewApplicationTestView>("child");
         ASSERT_TRUE(otherApplication->AddHandler(parent));
@@ -148,7 +148,7 @@ TEST(ViewApplication, OwnAndAncestorLoopersTakePrecedenceOverTheCurrentApplicati
         EXPECT_EQ(parent->GetApplication(), otherApplication);
         EXPECT_EQ(child->GetApplication(), otherApplication);
         EXPECT_EQ(child->GetStyle(), otherApplication->GetGUIStyle());
-        EXPECT_EQ(child->GetStyle()->GetBackgroundBrush()->GetApplication(), otherApplication);
+        EXPECT_EQ(child->GetStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), otherApplication);
         EXPECT_EQ(child->GetStandardBrush(PNamedColors::white), otherApplication->GetStandardBrush(PNamedColors::white));
         EXPECT_EQ(
             child->GetStandardBrush(PStandardColorID::DefaultBackground),

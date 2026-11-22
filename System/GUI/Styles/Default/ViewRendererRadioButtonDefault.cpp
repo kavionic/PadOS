@@ -113,7 +113,7 @@ PRect PViewRendererRadioButtonDefault::DrawRadioButtonLabel(PView& target, const
                 buttonFrame.right -= labelWidth + RADIO_BUTTON_LABEL_HORIZONTAL_SPACING;
             }
         }
-        target.SetFgColor(0, 0, 0);
+        target.SetFgColor(target.GetStyle()->GetColor(GetLabelColorID(RADIO_BUTTON_LABEL_COLORS, state.GetTarget().IsButtonEnabled(), data)));
         target.SetBrush(PStandardColorID::DefaultBackground);
         target.DrawString(target.GetBrush(), data.Label, target.GetPenPosition(), frame);
     }

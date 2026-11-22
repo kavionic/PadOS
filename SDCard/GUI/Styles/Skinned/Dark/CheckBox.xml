@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Dark theme: recessed checkboxes with nine-slice borders. -->
 <CheckBox size="32" label_spacing="8" label_vertical_offset="-1">
-    <Normal image="Checkbox/CheckBoxNormal.png" borders="Rect(8, 8, 8, 8)" text_color="#EEF4FC"/>
-    <Hovered image="Checkbox/CheckBoxHovered.png" borders="Rect(8, 8, 8, 8)" text_color="#FFFFFF"/>
-    <Pressed image="Checkbox/CheckBoxPressed.png" borders="Rect(8, 8, 8, 8)" text_color="#E8F1FC"/>
-    <Disabled image="Checkbox/CheckBoxDisabled.png" borders="Rect(8, 8, 8, 8)" text_color="#78879C"/>
+    <Normal image="Checkbox/CheckBoxNormal.png" borders="Rect(8, 8, 8, 8)"/>
+    <Hovered image="Checkbox/CheckBoxHovered.png" borders="Rect(8, 8, 8, 8)"/>
+    <Pressed image="Checkbox/CheckBoxPressed.png" borders="Rect(8, 8, 8, 8)"/>
+    <Disabled image="Checkbox/CheckBoxDisabled.png" borders="Rect(8, 8, 8, 8)"/>
     <Checked>
-        <Normal image="Checkbox/CheckBoxCheckedNormal.png" borders="Rect(8, 8, 8, 8)" text_color="#F1F8FF"/>
-        <Hovered image="Checkbox/CheckBoxCheckedHovered.png" borders="Rect(8, 8, 8, 8)" text_color="#FFFFFF"/>
-        <Pressed image="Checkbox/CheckBoxCheckedPressed.png" borders="Rect(8, 8, 8, 8)" text_color="#EAF5FF"/>
-        <Disabled image="Checkbox/CheckBoxCheckedDisabled.png" borders="Rect(8, 8, 8, 8)" text_color="#8095A9"/>
+        <Normal image="Checkbox/CheckBoxCheckedNormal.png" borders="Rect(8, 8, 8, 8)"/>
+        <Hovered image="Checkbox/CheckBoxCheckedHovered.png" borders="Rect(8, 8, 8, 8)"/>
+        <Pressed image="Checkbox/CheckBoxCheckedPressed.png" borders="Rect(8, 8, 8, 8)"/>
+        <Disabled image="Checkbox/CheckBoxCheckedDisabled.png" borders="Rect(8, 8, 8, 8)"/>
     </Checked>
 </CheckBox>

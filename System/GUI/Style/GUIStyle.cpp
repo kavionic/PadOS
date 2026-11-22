@@ -5,6 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cassert>
+
+#include <App/Application.h>
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/ViewRenderer.h>
 #include <GUI/Styles/Default/ViewRendererButtonDefault.h>
@@ -19,6 +22,36 @@
 #include <GUI/Styles/Default/ViewRendererSliderDefault.h>
 #include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
 #include <System/ExceptionHandling.h>
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PGUIStyle::PGUIStyle(PApplication* application) : m_Application(ptr_weak_cast((application != nullptr) ? application : PApplication::GetCurrentApplication()))
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<const PBrush> PGUIStyle::GetBrush(PGUIColorID colorID) const
+{
+    const size_t index = std::to_underlying(colorID);
+    if (index >= m_Brushes.size()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    PApplication* application = ptr_raw_pointer_cast(m_Application);
+    if (application == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    assert(!application->IsRunning() || application->GetMutex().IsLocked());
+    Ptr<const PBrush>& brush = m_Brushes[index];
+    if (brush == nullptr) {
+        brush = ptr_new<PBrush>(GetColor(colorID), application);
+    }
+    return brush;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

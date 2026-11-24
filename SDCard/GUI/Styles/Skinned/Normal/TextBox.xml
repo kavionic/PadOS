@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TextBox editor_insets="Rect(8, 6, 8, 6)" minimum_size="Point(40, 32)">
+    <Normal image="TextBox/TextBoxNormal.png" borders="Rect(6, 6, 6, 6)"/>
+    <ReadOnly image="TextBox/TextBoxReadOnly.png" borders="Rect(6, 6, 6, 6)"/>
+    <Disabled image="TextBox/TextBoxDisabled.png" borders="Rect(6, 6, 6, 6)"/>
+    <Raised>
+        <Normal image="TextBox/TextBoxRaisedNormal.png" borders="Rect(6, 6, 6, 6)"/>
+        <ReadOnly image="TextBox/TextBoxRaisedReadOnly.png" borders="Rect(6, 6, 6, 6)"/>
+        <Disabled image="TextBox/TextBoxRaisedDisabled.png" borders="Rect(6, 6, 6, 6)"/>
+    </Raised>
+</TextBox>

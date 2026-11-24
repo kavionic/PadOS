@@ -122,9 +122,9 @@ private:
         }
     }
 
-    static constexpr std::array<const char*, 10> FILE_NAMES = {
+    static constexpr std::array<const char*, 11> FILE_NAMES = {
         "Style.xml", "Button.xml", "CheckBox.xml", "RadioButton.xml", "Slider.xml",
-        "ScrollBar.xml", "TabView.xml", "DropdownMenu.xml", "GroupView.xml", "ProgressBar.xml"
+        "ScrollBar.xml", "TabView.xml", "DropdownMenu.xml", "GroupView.xml", "ProgressBar.xml", "TextBox.xml"
     };
 
     PPath m_Path;

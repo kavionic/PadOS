@@ -72,6 +72,12 @@ PDefaultGUIStyle::PDefaultGUIStyle(PApplication* application) : PGUIStyle(applic
     SetColor(PGUIColorID::DropdownTextEditableHovered, PColor(PNamedColors::black));
     SetColor(PGUIColorID::DropdownTextEditablePressed, PColor(PNamedColors::black));
     SetColor(PGUIColorID::DropdownTextEditableDisabled, PColor(PNamedColors::dimgray));
+    SetColor(PGUIColorID::TextBoxBackgroundNormal, PColor(PNamedColors::white));
+    SetColor(PGUIColorID::TextBoxBackgroundReadOnly, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::TextBoxBackgroundDisabled, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::TextBoxTextNormal, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::TextBoxTextReadOnly, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::TextBoxTextDisabled, PColor(PNamedColors::dimgray));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

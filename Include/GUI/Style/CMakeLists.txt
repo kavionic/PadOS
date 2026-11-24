@@ -45,4 +45,7 @@ target_sources(PadOS_GUI PRIVATE
 	SliderStyleData.h
 	SliderStyleLayout.h
 	TabViewStyleData.h
+	TextBoxStyleData.h
+	ViewRendererTextBox.h
+	ViewStyleTextBox.h
 )

@@ -20,6 +20,7 @@ target_sources(PadOS_GUI PRIVATE
 	Default/ViewRendererScrollBarDefault.h
 	Default/ViewRendererSliderDefault.h
 	Default/ViewRendererTabViewDefault.h
+	Default/ViewRendererTextBoxDefault.h
 	Skinned/ViewRendererButtonSkinnedBase.h
 	Skinned/ViewRendererButtonSkinned.h
 	Skinned/ViewRendererCheckBoxSkinned.h
@@ -33,4 +34,5 @@ target_sources(PadOS_GUI PRIVATE
 	Skinned/SkinnedImage.h
 	Skinned/ViewRendererSliderSkinned.h
 	Skinned/ViewRendererTabViewSkinned.h
+	Skinned/ViewRendererTextBoxSkinned.h
 )

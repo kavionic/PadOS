@@ -72,6 +72,13 @@ enum class PGUIColorID : uint8_t
     DropdownTextEditableHovered,
     DropdownTextEditablePressed,
     DropdownTextEditableDisabled,
+
+    TextBoxBackgroundNormal,
+    TextBoxBackgroundReadOnly,
+    TextBoxBackgroundDisabled,
+    TextBoxTextNormal,
+    TextBoxTextReadOnly,
+    TextBoxTextDisabled,
     Count
 };
 

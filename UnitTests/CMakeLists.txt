@@ -22,6 +22,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	SkinnableGUIStyle_unittest.cpp
 	ProgressBarStyle_unittest.cpp
 	TabViewStyle_unittest.cpp
+	TextBoxStyle_unittest.cpp
 	ViewApplication_unittest.cpp
 	Credentials_unittest.cpp
 	KernelUnitTests_unittest.cpp

@@ -21,6 +21,7 @@
 #include <GUI/Styles/Default/ViewRendererScrollBarDefault.h>
 #include <GUI/Styles/Default/ViewRendererSliderDefault.h>
 #include <GUI/Styles/Default/ViewRendererTabViewDefault.h>
+#include <GUI/Styles/Default/ViewRendererTextBoxDefault.h>
 #include <System/ExceptionHandling.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -83,6 +84,8 @@ Ptr<const PViewRenderer> PGUIStyle::CreateDefaultRenderer(PGUIComponentID compon
             return ptr_new<PViewRendererProgressBarDefault>();
         case PGUIComponentID::TabView:
             return ptr_new<PViewRendererTabViewDefault>();
+        case PGUIComponentID::TextBox:
+            return ptr_new<PViewRendererTextBoxDefault>();
         default:
             return nullptr;
     }

@@ -203,6 +203,22 @@ struct PDropdownMenuSkin
     float MinimumRowHeight = 32.0f;
 };
 
+enum class PTextBoxSkinState : uint8_t
+{
+    Normal,
+    ReadOnly,
+    Disabled,
+    Count
+};
+
+struct PTextBoxSkin
+{
+    std::array<Ptr<const PBrush>, std::to_underlying(PTextBoxSkinState::Count)> States;
+    std::array<Ptr<const PBrush>, std::to_underlying(PTextBoxSkinState::Count)> RaisedStates;
+    PRect EditorInsets = PRect(8.0f, 6.0f, 8.0f, 6.0f);
+    PPoint MinimumSize = PPoint(40.0f, 32.0f);
+};
+
 struct PGroupViewSkin
 {
     Ptr<const PImage> Frame;
@@ -244,11 +260,14 @@ private:
 
     static constexpr std::array<const char*, std::to_underlying(PDropdownMenuRowState::Count)> DROPDOWN_ROW_STATE_NAMES = {"Normal", "Selected", "Pressed"};
 
+    static constexpr std::array<const char*, std::to_underlying(PTextBoxSkinState::Count)> TEXT_BOX_STATE_NAMES = {"Normal", "ReadOnly", "Disabled"};
+
     static void ValidateIndicatorSkin(const PButtonIndicatorSkin& skin);
     static void ValidateSliderSkin(const PSliderSkin& skin);
     static void ValidateScrollBarSkin(const PScrollBarSkin& skin);
     static void ValidateTabViewSkin(const PTabViewSkin& skin);
     static void ValidateDropdownMenuSkin(const PDropdownMenuSkin& skin);
+    static void ValidateTextBoxSkin(const PTextBoxSkin& skin);
     static void ValidateGroupViewSkin(const PGroupViewSkin& skin);
     static void ValidateProgressBarSkin(const PProgressBarSkin& skin);
     void LoadStyle(const PPath& directory, PApplication* application);
@@ -269,6 +288,7 @@ private:
     static PTabViewSkin LoadTabViewSkin(const PPath& directory, PApplication* application);
     static PDropdownMenuSkin LoadDropdownMenuSkin(const PPath& directory, PApplication* application);
     static PDropdownMenuAppearance LoadDropdownMenuAppearance(const pugi::xml_node& node, const PPath& directory, PApplication* application);
+    static PTextBoxSkin LoadTextBoxSkin(const PPath& directory, PApplication* application);
     static PGroupViewSkin LoadGroupViewSkin(const PPath& directory, PApplication* application);
     static PProgressBarSkin LoadProgressBarSkin(const PPath& directory, PApplication* application);
     static PProgressBarOrientationSkin LoadProgressBarOrientation(const pugi::xml_node& node, const PPath& directory, PApplication* application);

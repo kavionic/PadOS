@@ -23,6 +23,7 @@ enum class PGUIComponentID : uint8_t
     GroupView,
     ProgressBar,
     TabView,
+    TextBox,
     Count
 };
 

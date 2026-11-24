@@ -49,4 +49,10 @@
        color_dropdown_text_editable_normal="#25354A"
        color_dropdown_text_editable_hovered="#203B59"
        color_dropdown_text_editable_pressed="#173F63"
-       color_dropdown_text_editable_disabled="#8A96A6" />
+       color_dropdown_text_editable_disabled="#8A96A6"
+       color_text_box_background_normal="#FFFFFF"
+       color_text_box_background_read_only="#D6DFEA"
+       color_text_box_background_disabled="#E7EBF0"
+       color_text_box_text_normal="#25354A"
+       color_text_box_text_read_only="#25354A"
+       color_text_box_text_disabled="#8A96A6" />

@@ -25,6 +25,7 @@
 #include <GUI/Styles/Skinned/ViewRendererScrollBarSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererSliderSkinned.h>
 #include <GUI/Styles/Skinned/ViewRendererTabViewSkinned.h>
+#include <GUI/Styles/Skinned/ViewRendererTextBoxSkinned.h>
 #include <GUI/View.h>
 #include <GUI/ViewFactory.h>
 #include <Math/Misc.h>
@@ -109,6 +110,7 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
     const PScrollBarSkin scrollBarSkin = LoadScrollBarSkin(directory, application);
     const PTabViewSkin tabViewSkin = LoadTabViewSkin(directory, application);
     const PDropdownMenuSkin dropdownMenuSkin = LoadDropdownMenuSkin(directory, application);
+    const PTextBoxSkin textBoxSkin = LoadTextBoxSkin(directory, application);
     const PGroupViewSkin groupViewSkin = LoadGroupViewSkin(directory, application);
     const PProgressBarSkin progressBarSkin = LoadProgressBarSkin(directory, application);
 
@@ -122,6 +124,7 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
     ValidateScrollBarSkin(scrollBarSkin);
     ValidateTabViewSkin(tabViewSkin);
     ValidateDropdownMenuSkin(dropdownMenuSkin);
+    ValidateTextBoxSkin(textBoxSkin);
     ValidateGroupViewSkin(groupViewSkin);
     ValidateProgressBarSkin(progressBarSkin);
     if (!PMath::is_finite(radioButtonSkin.LabelVerticalSpacing)) {
@@ -150,6 +153,9 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
     }
     if (dropdownMenuSkin.PopupFrame != nullptr) {
         SetRenderer(PGUIComponentID::DropdownMenuPopup, ptr_new<PViewRendererDropdownMenuPopupSkinned>(dropdownMenuSkin));
+    }
+    if (textBoxSkin.States[0] != nullptr) {
+        SetRenderer(PGUIComponentID::TextBox, ptr_new<PViewRendererTextBoxSkinned>(textBoxSkin));
     }
     if (groupViewSkin.Frame != nullptr) {
         SetRenderer(PGUIComponentID::GroupView, ptr_new<PViewRendererGroupViewSkinned>(groupViewSkin));
@@ -389,6 +395,33 @@ void PSkinnableGUIStyle::ValidateDropdownMenuSkin(const PDropdownMenuSkin& skin)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PSkinnableGUIStyle::ValidateTextBoxSkin(const PTextBoxSkin& skin)
+{
+    const PRect& insets = skin.EditorInsets;
+    for (float value : {insets.left, insets.top, insets.right, insets.bottom})
+    {
+        if (!PMath::is_finite(value) || value < 0.0f) {
+            PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Text box editor insets must be finite and nonnegative");
+        }
+    }
+    for (float value : {skin.MinimumSize.x, skin.MinimumSize.y})
+    {
+        if (!PMath::is_finite(value) || value <= 0.0f) {
+            PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Text box minimum dimensions must be finite and positive");
+        }
+    }
+    for (size_t index = 0; index < skin.States.size(); ++index)
+    {
+        if (skin.States[index] == nullptr || skin.RaisedStates[index] == nullptr) {
+            PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Text box skins require all recessed and raised states");
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PSkinnableGUIStyle::ValidateGroupViewSkin(const PGroupViewSkin& skin)
 {
     for (const PRect& spacing : {skin.FrameInsets, skin.LabelPadding})
@@ -531,6 +564,12 @@ void PSkinnableGUIStyle::LoadPalette(const pugi::xml_node& root)
     SetColor(PGUIColorID::DropdownTextEditableHovered, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_hovered"));
     SetColor(PGUIColorID::DropdownTextEditablePressed, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_pressed"));
     SetColor(PGUIColorID::DropdownTextEditableDisabled, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_disabled"));
+    SetColor(PGUIColorID::TextBoxBackgroundNormal, ParseSkinAttribute<PColor>(root, "color_text_box_background_normal"));
+    SetColor(PGUIColorID::TextBoxBackgroundReadOnly, ParseSkinAttribute<PColor>(root, "color_text_box_background_read_only"));
+    SetColor(PGUIColorID::TextBoxBackgroundDisabled, ParseSkinAttribute<PColor>(root, "color_text_box_background_disabled"));
+    SetColor(PGUIColorID::TextBoxTextNormal, ParseSkinAttribute<PColor>(root, "color_text_box_text_normal"));
+    SetColor(PGUIColorID::TextBoxTextReadOnly, ParseSkinAttribute<PColor>(root, "color_text_box_text_read_only"));
+    SetColor(PGUIColorID::TextBoxTextDisabled, ParseSkinAttribute<PColor>(root, "color_text_box_text_disabled"));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -862,6 +901,34 @@ PDropdownMenuAppearance PSkinnableGUIStyle::LoadDropdownMenuAppearance(const pug
     appearance.Arrow = LoadSkinBitmap(arrow, directory, application);
     appearance.ArrowOffset = ParseSkinAttribute<PPoint>(arrow, "offset");
     return appearance;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PTextBoxSkin PSkinnableGUIStyle::LoadTextBoxSkin(const PPath& directory, PApplication* application)
+{
+    PPath path(directory);
+    path.Append("TextBox.xml");
+    PXMLDocument document;
+    if (!document.Load(path.GetPath())) {
+        PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, PString::format_string("Unable to load text box skin '{}'", path.GetPath()));
+    }
+    const pugi::xml_node root = document.GetDocumentElement();
+    if (std::string_view(root.name()) != "TextBox") {
+        PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "TextBox.xml must have a TextBox root element");
+    }
+    PTextBoxSkin skin;
+    skin.EditorInsets = ParseSkinAttribute<PRect>(root, "editor_insets");
+    skin.MinimumSize = ParseSkinAttribute<PPoint>(root, "minimum_size");
+    const pugi::xml_node raised = root.child("Raised");
+    for (size_t index = 0; index < TEXT_BOX_STATE_NAMES.size(); ++index)
+    {
+        skin.States[index] = LoadAppearance(root.child(TEXT_BOX_STATE_NAMES[index]), directory, application).Background;
+        skin.RaisedStates[index] = LoadAppearance(raised.child(TEXT_BOX_STATE_NAMES[index]), directory, application).Background;
+    }
+    return skin;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

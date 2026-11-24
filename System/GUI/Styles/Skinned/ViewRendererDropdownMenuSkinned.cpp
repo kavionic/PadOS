@@ -48,7 +48,7 @@ Ptr<PtrTarget> PViewRendererDropdownMenuSkinned::Setup(PView& target) const
 void PViewRendererDropdownMenuSkinned::Paint(PView& target, const PRect& frame, const PRect& updateRect, PtrTarget* context) const
 {
     const PDropdownMenuStyleData& data = static_cast<Context*>(context)->GetTarget().GetDropdownMenuStyleData();
-    const PDropdownMenuAppearance& appearance = m_DropdownMenuSkin.States[std::to_underlying(GetDropdownMenuState(data))];
+    const PDropdownMenuAppearance& appearance = GetDropdownMenuAppearance(data);
     const PDrawingMode previousMode = target.GetDrawingMode();
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });
     target.SetBackgroundBrush(appearance.Background);
@@ -93,8 +93,11 @@ void PViewRendererDropdownMenuSkinned::PropertyChanged(PView& target, PDropdownM
     if (properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Font))) {
         state.MetricsValid = false;
     }
-    target.Invalidate();
-    if (properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Text, PDropdownMenuProperty::Font))) {
+    if (properties != PDropdownMenuProperty::Text) {
+        target.Invalidate();
+    }
+    const bool textAffectsSize = properties.Has(PDropdownMenuProperty::Text) && state.GetTarget().GetDropdownMenuStyleData().Items.empty();
+    if (textAffectsSize || properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Font))) {
         target.PreferredSizeChanged();
     }
 }
@@ -108,16 +111,6 @@ PRect PViewRendererDropdownMenuSkinned::GetEditorFrame(const PView& target, PtrT
     PRect frame = target.GetBounds();
     frame.right = GetDropdownMenuArrowFrame(frame).left;
     return PInsetSkinnedFrame(frame, m_DropdownMenuSkin.EditorInsets);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<const PTextBoxStyle> PViewRendererDropdownMenuSkinned::GetEditorStyle(const PView& target, PtrTarget* context) const
-{
-    const PDropdownMenuStyleData& data = static_cast<Context*>(context)->GetTarget().GetDropdownMenuStyleData();
-    return m_DropdownMenuSkin.States[std::to_underlying(GetDropdownMenuState(data))].Editor;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,6 +139,16 @@ PButtonSkinState PViewRendererDropdownMenuSkinned::GetDropdownMenuState(const PD
     } else {
         return PButtonSkinState::Normal;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PDropdownMenuAppearance& PViewRendererDropdownMenuSkinned::GetDropdownMenuAppearance(const PDropdownMenuStyleData& data) const
+{
+    const size_t stateIndex = std::to_underlying(GetDropdownMenuState(data));
+    return data.IsReadOnly ? m_DropdownMenuSkin.States[stateIndex] : m_DropdownMenuSkin.EditableStates[stateIndex];
 }
 
 ///////////////////////////////////////////////////////////////////////////////

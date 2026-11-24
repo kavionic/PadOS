@@ -1,22 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Nine-slice fields and popup rows; all offsets are pixels. -->
 <DropdownMenu editor_insets="Rect(10, 4, 6, 5)" minimum_size="Point(72, 32)" arrow_width="30">
-    <Normal image="DropdownMenu/FieldNormal.png" borders="Rect(8, 8, 30, 8)"
-            background_color="#E7EDF4" text_color="#25354A">
+    <Normal image="DropdownMenu/FieldNormal.png" borders="Rect(8, 8, 30, 8)">
         <Arrow image="DropdownMenu/ArrowNormal.png" offset="Point(0, 0)"/>
     </Normal>
-    <Hovered image="DropdownMenu/FieldHovered.png" borders="Rect(8, 8, 30, 8)"
-            background_color="#ECF3FA" text_color="#203B59">
+    <Hovered image="DropdownMenu/FieldHovered.png" borders="Rect(8, 8, 30, 8)">
         <Arrow image="DropdownMenu/ArrowHovered.png" offset="Point(0, 0)"/>
     </Hovered>
-    <Pressed image="DropdownMenu/FieldPressed.png" borders="Rect(8, 8, 30, 8)"
-            background_color="#DDEAF4" text_color="#173F63">
+    <Pressed image="DropdownMenu/FieldPressed.png" borders="Rect(8, 8, 30, 8)">
         <Arrow image="DropdownMenu/ArrowPressed.png" offset="Point(1, 1)"/>
     </Pressed>
-    <Disabled image="DropdownMenu/FieldDisabled.png" borders="Rect(8, 8, 30, 8)"
-            background_color="#D4DCE6" text_color="#8A96A6">
+    <Disabled image="DropdownMenu/FieldDisabled.png" borders="Rect(8, 8, 30, 8)">
         <Arrow image="DropdownMenu/ArrowDisabled.png" offset="Point(0, 0)"/>
     </Disabled>
+    <Editable>
+        <Normal image="DropdownMenu/FieldEditableNormal.png" borders="Rect(8, 8, 30, 8)">
+            <Arrow image="DropdownMenu/ArrowNormal.png" offset="Point(0, 0)"/>
+        </Normal>
+        <Hovered image="DropdownMenu/FieldEditableHovered.png" borders="Rect(8, 8, 30, 8)">
+            <Arrow image="DropdownMenu/ArrowHovered.png" offset="Point(0, 0)"/>
+        </Hovered>
+        <Pressed image="DropdownMenu/FieldEditablePressed.png" borders="Rect(8, 8, 30, 8)">
+            <Arrow image="DropdownMenu/ArrowPressed.png" offset="Point(1, 1)"/>
+        </Pressed>
+        <Disabled image="DropdownMenu/FieldEditableDisabled.png" borders="Rect(8, 8, 30, 8)">
+            <Arrow image="DropdownMenu/ArrowDisabled.png" offset="Point(0, 0)"/>
+        </Disabled>
+    </Editable>
     <Popup frame_insets="Rect(4, 4, 4, 4)" row_padding="Rect(8, 4, 8, 5)" minimum_row_height="32"
            background_color="#E7EDF4">
         <Frame image="DropdownMenu/PopupFrame.png" borders="Rect(6, 6, 6, 6)"/>

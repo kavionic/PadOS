@@ -55,6 +55,23 @@ enum class PGUIColorID : uint8_t
     TabLabelSelectedNormal,
     TabLabelSelectedHovered,
     TabLabelSelectedPressed,
+
+    DropdownBackgroundNormal,
+    DropdownBackgroundHovered,
+    DropdownBackgroundPressed,
+    DropdownBackgroundDisabled,
+    DropdownBackgroundEditableNormal,
+    DropdownBackgroundEditableHovered,
+    DropdownBackgroundEditablePressed,
+    DropdownBackgroundEditableDisabled,
+    DropdownTextNormal,
+    DropdownTextHovered,
+    DropdownTextPressed,
+    DropdownTextDisabled,
+    DropdownTextEditableNormal,
+    DropdownTextEditableHovered,
+    DropdownTextEditablePressed,
+    DropdownTextEditableDisabled,
     Count
 };
 

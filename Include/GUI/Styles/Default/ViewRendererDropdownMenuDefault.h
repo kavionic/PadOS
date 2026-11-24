@@ -17,7 +17,6 @@ public:
     virtual void GetPreferredSize(const PView& target, PPoint* minSize, PPoint* maxSize, PtrTarget* context) const override;
     virtual void PropertyChanged(PView& target, PDropdownMenuProperties properties, PtrTarget* context) const override;
     virtual PRect GetEditorFrame(const PView& target, PtrTarget* context) const override;
-    virtual Ptr<const PTextBoxStyle> GetEditorStyle(const PView& target, PtrTarget* context) const override;
     virtual bool HitTest(const PView& target, const PPoint& position, PtrTarget* context) const override;
 
 private:

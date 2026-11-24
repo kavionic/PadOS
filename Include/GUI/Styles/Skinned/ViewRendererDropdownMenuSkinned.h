@@ -19,13 +19,13 @@ public:
     virtual void GetPreferredSize(const PView& target, PPoint* minSize, PPoint* maxSize, PtrTarget* context) const override;
     virtual void PropertyChanged(PView& target, PDropdownMenuProperties properties, PtrTarget* context) const override;
     virtual PRect GetEditorFrame(const PView& target, PtrTarget* context) const override;
-    virtual Ptr<const PTextBoxStyle> GetEditorStyle(const PView& target, PtrTarget* context) const override;
     virtual bool HitTest(const PView& target, const PPoint& position, PtrTarget* context) const override;
 
 private:
     struct Context;
 
     static PButtonSkinState GetDropdownMenuState(const PDropdownMenuStyleData& data);
+    const PDropdownMenuAppearance& GetDropdownMenuAppearance(const PDropdownMenuStyleData& data) const;
     PRect GetDropdownMenuArrowFrame(const PRect& frame) const;
     static Context& GetDropdownMenuStyleData(const PView& target, const PDropdownMenuStyleData& data, PtrTarget* context);
 

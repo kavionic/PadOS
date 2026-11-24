@@ -21,6 +21,7 @@
 #include <GUI/Styles/Skinned/ViewRendererDropdownMenuSkinned.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/TextBox.h>
+#include <GUI/Widgets/TextEditView.h>
 #include <Storage/Path.h>
 #include <Storage/StandardPaths.h>
 #include <System/ExceptionHandling.h>
@@ -28,6 +29,16 @@
 #include "../System/GUI/Widgets/DropdownMenu/DropdownMenuPopupView.h"
 #include "GUITest.h"
 #include "ViewRendererTest.h"
+
+class PDropdownMenuPaletteTestStyle : public PDefaultGUIStyle
+{
+public:
+    explicit PDropdownMenuPaletteTestStyle(PApplication* application) : PDefaultGUIStyle(application)
+    {
+        SetColor(PGUIColorID::DropdownBackgroundEditableNormal, PColor(12, 34, 56));
+        SetColor(PGUIColorID::DropdownTextEditableNormal, PColor(78, 90, 123));
+    }
+};
 
 TEST(DropdownMenuStyle, EditorLayoutAndHitTestingRespectReadOnlyAndEnabledState)
 {
@@ -38,7 +49,7 @@ TEST(DropdownMenuStyle, EditorLayoutAndHitTestingRespectReadOnlyAndEnabledState)
         target->SetFrame(PRect(0.0f, 0.0f, 200.0f, 40.0f));
         PDropdownMenuStyleData& data = target->GetDropdownMenuStyleData();
         PViewRendererTestBinding<PViewRendererDropdownMenu> dropdownRenderer(*target, style, PGUIComponentID::DropdownMenu);
-        EXPECT_EQ(dropdownRenderer->GetEditorFrame(*target, dropdownRenderer.GetContext()), PRect(0.0f, 0.0f, 164.0f, 40.0f));
+        EXPECT_EQ(dropdownRenderer->GetEditorFrame(*target, dropdownRenderer.GetContext()), PRect(4.0f, 4.0f, 160.0f, 36.0f));
         EXPECT_TRUE(dropdownRenderer->HitTest(*target, PPoint(180.0f, 20.0f), dropdownRenderer.GetContext()));
         EXPECT_FALSE(dropdownRenderer->HitTest(*target, PPoint(40.0f, 20.0f), dropdownRenderer.GetContext()));
         data.IsReadOnly = true;
@@ -60,7 +71,7 @@ TEST(DropdownMenuStyle, ItemAndTextChangesRefreshPreferredSizes)
         Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("dropdown_style_target", PViewFlag::WillDraw);
         PDropdownMenuStyleData& data = target->GetDropdownMenuStyleData();
         PViewRendererTestBinding<PViewRendererDropdownMenu> dropdownRenderer(*target, style, PGUIComponentID::DropdownMenu);
-        data.EditorSize = PPoint(8.0f, 38.0f);
+        data.EditorSize = PPoint(0.0f, 30.0f);
         data.Items.push_back("i");
         PPoint initialSize;
         PPoint maximumSize;
@@ -85,7 +96,8 @@ TEST(DropdownMenuStyle, ItemAndTextChangesRefreshPreferredSizes)
             PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Text),
             dropdownRenderer.GetContext());
         dropdownRenderer->GetPreferredSize(*target, &changedSize, &maximumSize, dropdownRenderer.GetContext());
-        EXPECT_FLOAT_EQ(changedSize.x, data.EditorSize.x + target->GetStringWidth(text) + 10.0f + std::round(data.EditorSize.y * 0.9f));
+        EXPECT_FLOAT_EQ(changedSize.x, data.EditorSize.x + target->GetStringWidth(text) + 18.0f + std::round((data.EditorSize.y + 8.0f) * 0.9f));
+        EXPECT_FLOAT_EQ(changedSize.y, data.EditorSize.y + 8.0f);
     });
 }
 
@@ -109,9 +121,11 @@ TEST(DropdownMenuStyle, WidgetUsesTheStyleAndUpdatesItsEditorFont)
         PScopeExit removeMenu([&application, &menu] { application.RemoveHandler(menu); });
         menu->OnStyleChanged();
         menu->SetFrame(PRect(0.0f, 0.0f, 200.0f, 40.0f));
-        Ptr<PTextBox> editor = ptr_static_cast<PTextBox>(menu->GetChildAt(size_t(0)));
+        Ptr<PTextEditView> editor = menu->GetChildAt<PTextEditView>(size_t(0));
         ASSERT_NE(editor, nullptr);
-        EXPECT_EQ(editor->GetFrame(), PRect(0.0f, 0.0f, 164.0f, 40.0f));
+        EXPECT_EQ(editor->GetFrame(), PRect(4.0f, 4.0f, 160.0f, 36.0f));
+        EXPECT_EQ(menu->GetScrolledView(), editor);
+        EXPECT_EQ(PViewScroller::GetViewScroller(ptr_raw_pointer_cast(editor)), static_cast<PViewScroller*>(ptr_raw_pointer_cast(menu)));
         Ptr<PFont> font = ptr_new<PFont>(PFontID::e_FontSmall);
         menu->SetFont(font);
         const PPoint smallSize = menu->GetPreferredSize(PPrefSizeType::Smallest);
@@ -133,13 +147,13 @@ TEST(DropdownMenuStyle, WidgetUsesTheStyleAndUpdatesItsEditorFont)
     });
 }
 
-TEST(DropdownMenuStyle, StyleChangesRefreshCachedPreferredSizesAfterEditorBordersChange)
+TEST(DropdownMenuStyle, StyleChangesRefreshEditorColors)
 {
     RunGUITest([](PApplication& application)
     {
-        const Ptr<PDefaultGUIStyle> defaultStyle = ptr_new<PDefaultGUIStyle>(&application);
+        const Ptr<PGUIStyle> defaultStyle = ptr_new<PDropdownMenuPaletteTestStyle>(&application);
         const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, "Styles/Skinned/Normal"));
-        const Ptr<PSkinnableGUIStyle> skinnedStyle = ptr_new<PSkinnableGUIStyle>(directory, &application);
+        const Ptr<PGUIStyle> skinnedStyle = ptr_new<PSkinnableGUIStyle>(directory, &application);
         application.SetGUIStyle(defaultStyle);
         Ptr<PDropdownMenu> menu = ptr_new<PDropdownMenu>("dropdown_style_change");
         menu->SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
@@ -148,26 +162,25 @@ TEST(DropdownMenuStyle, StyleChangesRefreshCachedPreferredSizesAfterEditorBorder
         menu->Hide();
         ASSERT_TRUE(application.AddView(menu, PViewDockType::TopLevelView));
         PScopeExit removeMenu([&application, &menu] { application.RemoveView(menu); });
-        const Ptr<PTextBox> editor = menu->GetChildAt<PTextBox>(size_t(0));
+        const Ptr<PTextEditView> editor = menu->GetChildAt<PTextEditView>(size_t(0));
         ASSERT_NE(editor, nullptr);
-        const PRect defaultBorders = PTextBox::GetDefaultStyle()->Borders;
-        ASSERT_NE(defaultBorders, PRect());
-        const auto checkPreferredSize = [&menu, &editor](const PRect& expectedBorders)
-        {
-            EXPECT_EQ(editor->GetStyle()->Borders, expectedBorders);
-            const PPoint cachedMinimum = menu->GetPreferredSize(PPrefSizeType::Smallest);
-            const PViewRendererDropdownMenu* renderer = menu->GetRenderer();
-            ASSERT_NE(renderer, nullptr);
-            PPoint minimum;
-            PPoint maximum;
-            renderer->GetPreferredSize(*menu, &minimum, &maximum, menu->GetRendererContext());
-            EXPECT_EQ(cachedMinimum, minimum);
-        };
-        checkPreferredSize(defaultBorders);
+        const Ptr<const PTextEditColors> colors = editor->GetColors();
+        EXPECT_NE(colors, PTextEditView::GetDefaultColors());
+        EXPECT_EQ(colors->BackgroundColor, PColor(12, 34, 56));
+        EXPECT_EQ(colors->TextColor, PColor(78, 90, 123));
+        EXPECT_EQ(editor->GetStyle(), defaultStyle);
         application.SetGUIStyle(skinnedStyle);
-        checkPreferredSize(PRect());
+        EXPECT_EQ(editor->GetColors(), colors);
+        EXPECT_EQ(colors->BackgroundColor, skinnedStyle->GetColor(PGUIColorID::DropdownBackgroundEditableNormal));
+        EXPECT_EQ(colors->TextColor, skinnedStyle->GetColor(PGUIColorID::DropdownTextEditableNormal));
+        EXPECT_EQ(editor->GetStyle(), skinnedStyle);
+        menu->SetCurrentString("Edited text");
+        EXPECT_EQ(editor->GetColors(), colors);
+        EXPECT_EQ(colors->BackgroundColor, skinnedStyle->GetColor(PGUIColorID::DropdownBackgroundEditableNormal));
         application.SetGUIStyle(defaultStyle);
-        checkPreferredSize(defaultBorders);
+        EXPECT_EQ(editor->GetColors(), colors);
+        EXPECT_EQ(colors->BackgroundColor, PColor(12, 34, 56));
+        EXPECT_EQ(colors->TextColor, PColor(78, 90, 123));
     });
 }
 
@@ -255,36 +268,51 @@ TEST(DropdownMenuStyle, SkinnedFieldsConfigureTheirEditorAndTrackHoverWithoutOpe
             menu->AppendItem("A longer second item");
             menu->SetSelection(1, false);
             menu->SetFrame(PRect(0, 0, 200, 32));
-            const Ptr<PTextBox> editor = menu->GetChildAt<PTextBox>(size_t(0));
+            const Ptr<PTextEditView> editor = menu->GetChildAt<PTextEditView>(size_t(0));
             ASSERT_NE(editor, nullptr);
-            EXPECT_FALSE(editor->GetStyle()->HasFrame);
-            EXPECT_EQ(editor->GetStyle()->Borders, PRect());
             EXPECT_EQ(editor->GetFrame(), PRect(10, 4, 164, 27));
-            EXPECT_EQ(editor->GetChildAt(size_t(0))->GetFrame(), PRect(0, 0, 154, 23));
             EXPECT_EQ(menu->GetCurrentString(), "A longer second item");
             const PPoint preferred = menu->GetPreferredSize(PPrefSizeType::Smallest);
             EXPECT_FLOAT_EQ(preferred.y, 32.0f);
 
             const PViewRendererDropdownMenu* menuRenderer = menu->GetRenderer();
-            EXPECT_EQ(editor->GetStyle(), menuRenderer->GetEditorStyle(*menu, menu->GetRendererContext()));
+            const Ptr<const PTextEditColors> editorColors = editor->GetColors();
+            EXPECT_NE(editorColors, PTextEditView::GetDefaultColors());
+            const auto checkEditorColors = [&editor, &style](PGUIColorID backgroundColorID, PGUIColorID textColorID)
+            {
+                const PColor backgroundColor = style->GetColor(backgroundColorID);
+                const PColor textColor = style->GetColor(textColorID);
+                EXPECT_EQ(editor->GetColors()->BackgroundColor, backgroundColor);
+                EXPECT_EQ(editor->GetColors()->ReadOnlyBackgroundColor, backgroundColor);
+                EXPECT_EQ(editor->GetColors()->DisabledBackgroundColor, backgroundColor);
+                EXPECT_EQ(editor->GetColors()->TextColor, textColor);
+                EXPECT_EQ(editor->GetColors()->ReadOnlyTextColor, textColor);
+                EXPECT_EQ(editor->GetColors()->DisabledTextColor, textColor);
+            };
+            checkEditorColors(PGUIColorID::DropdownBackgroundNormal, PGUIColorID::DropdownTextNormal);
             EXPECT_TRUE(menuRenderer->HitTest(*menu, PPoint(20, 16), menu->GetRendererContext()));
             PPointerEvent mouse;
             mouse.PointerID = PMousePointerID;
             mouse.SupportsHover = true;
             mouse.ToolType = PMotionToolType::Mouse;
             menu->OnPointerEnter(mouse.PointerID, PPoint(20, 16), mouse, PEventPhase::Target);
-            EXPECT_EQ(editor->GetStyle(), menuRenderer->GetEditorStyle(*menu, menu->GetRendererContext()));
+            checkEditorColors(PGUIColorID::DropdownBackgroundHovered, PGUIColorID::DropdownTextHovered);
             menu->OnPointerLeave(mouse.PointerID, PPoint(-1, 16), mouse, PEventPhase::Target);
-            EXPECT_EQ(editor->GetStyle(), menuRenderer->GetEditorStyle(*menu, menu->GetRendererContext()));
+            checkEditorColors(PGUIColorID::DropdownBackgroundNormal, PGUIColorID::DropdownTextNormal);
+            const PColor readOnlyBackground = editor->GetColors()->ReadOnlyBackgroundColor;
             menu->ClearFlags(PDropdownMenuFlag::ReadOnly);
+            EXPECT_EQ(editor->GetColors(), editorColors);
+            EXPECT_NE(editor->GetColors()->BackgroundColor, readOnlyBackground);
+            checkEditorColors(PGUIColorID::DropdownBackgroundEditableNormal, PGUIColorID::DropdownTextEditableNormal);
+            EXPECT_EQ(editor->GetFrame(), PRect(10, 4, 164, 27));
             EXPECT_FALSE(menuRenderer->HitTest(*menu, PPoint(20, 16), menu->GetRendererContext()));
             EXPECT_TRUE(menuRenderer->HitTest(*menu, PPoint(185, 16), menu->GetRendererContext()));
             menu->OnPointerEnter(mouse.PointerID, PPoint(20, 16), mouse, PEventPhase::Target);
-            EXPECT_EQ(editor->GetStyle(), menuRenderer->GetEditorStyle(*menu, menu->GetRendererContext()));
+            checkEditorColors(PGUIColorID::DropdownBackgroundEditableNormal, PGUIColorID::DropdownTextEditableNormal);
             menu->OnPointerMove(mouse.PointerID, PPoint(185, 16), mouse, PEventPhase::Target);
-            EXPECT_EQ(editor->GetStyle(), menuRenderer->GetEditorStyle(*menu, menu->GetRendererContext()));
+            checkEditorColors(PGUIColorID::DropdownBackgroundEditableHovered, PGUIColorID::DropdownTextEditableHovered);
             menu->SetEnable(false);
-            EXPECT_EQ(editor->GetStyle(), menuRenderer->GetEditorStyle(*menu, menu->GetRendererContext()));
+            checkEditorColors(PGUIColorID::DropdownBackgroundEditableDisabled, PGUIColorID::DropdownTextEditableDisabled);
             EXPECT_FALSE(menuRenderer->HitTest(*menu, PPoint(185, 16), menu->GetRendererContext()));
 
             Ptr<PViewRendererTestView> drawingTarget = ptr_new<PViewRendererTestView>("dropdown_paint_target", PViewFlag::WillDraw);
@@ -299,7 +327,12 @@ TEST(DropdownMenuStyle, SkinnedFieldsConfigureTheirEditorAndTrackHoverWithoutOpe
                 data.IsOpen = state == PButtonSkinState::Pressed;
                 data.IsPointerOver = state == PButtonSkinState::Hovered;
                 drawingTarget->SetDrawingMode(PDrawingMode::Blend);
+                data.IsReadOnly = true;
                 drawingRenderer->Paint(*drawingTarget, drawingTarget->GetBounds(), drawingTarget->GetBounds(), drawingRenderer.GetContext());
+                const Ptr<const PBrush> readOnlyBackground = drawingTarget->GetBackgroundBrush();
+                data.IsReadOnly = false;
+                drawingRenderer->Paint(*drawingTarget, drawingTarget->GetBounds(), drawingTarget->GetBounds(), drawingRenderer.GetContext());
+                EXPECT_NE(drawingTarget->GetBackgroundBrush(), readOnlyBackground);
                 EXPECT_EQ(drawingTarget->GetDrawingMode(), PDrawingMode::Blend);
                 EXPECT_EQ(drawingTarget->GetBrush(), nullptr);
                 EXPECT_NE(drawingTarget->GetBackgroundBrush(), previousBrush);
@@ -402,16 +435,13 @@ TEST(DropdownMenuStyle, SkinMetricsAllowOverlapAndResizingDoesNotChangeSharedIma
         image->SetLayoutSize(PPoint(16, 16), PImageLayoutMode::Absolute);
         const PImageDescription description = image->GetDescription();
         const Ptr<PBrush> brush = ptr_new<PBrush>(image);
-        const Ptr<PTextBoxStyle> editor = ptr_new<PTextBoxStyle>();
-        editor->Borders = PRect();
-        editor->HasFrame = false;
         PDropdownMenuSkin skin;
         for (PDropdownMenuAppearance& appearance : skin.States)
         {
             appearance.Background = brush;
             appearance.Arrow = bitmap;
-            appearance.Editor = editor;
         }
+        skin.EditableStates = skin.States;
         for (PDropdownMenuRowAppearance& appearance : skin.Rows)
         {
             appearance.Image = image;

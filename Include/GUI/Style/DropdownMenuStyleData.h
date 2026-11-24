@@ -32,7 +32,7 @@ struct PDropdownMenuStyleData
     std::vector<PString> Items;
     // Borrows the editor's string object; the editor retains ownership.
     const PString* Text = nullptr;
-    // Intrinsic size of the empty editor, including its own borders.
+    // Intrinsic size of the empty text editor, excluding renderer insets.
     PPoint EditorSize;
     bool IsReadOnly = false;
     bool IsEnabled = true;

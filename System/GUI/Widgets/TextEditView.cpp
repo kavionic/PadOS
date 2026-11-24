@@ -11,6 +11,8 @@
 #include <Utils/UTF8Utils.h>
 #include <Math/Misc.h>
 
+NoPtr<PTextEditColors> PTextEditView::s_DefaultColors;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -41,8 +43,8 @@ PTextEditView::PTextEditView(PViewFactoryContext& context, const pugi::xml_node&
 
 void PTextEditView::Initialize()
 {
-    m_Style = PTextBox::GetDefaultStyle();
-    m_BackgroundColorBrush = ptr_new<PBrush>(m_Style->BackgroundColor, GetApplication());
+    m_Colors = GetDefaultColors();
+    m_BackgroundColorBrush = ptr_new<PBrush>(m_Colors->BackgroundColor, GetApplication());
     m_CursorTimer.Set(TimeValNanos::FromSeconds(0.8));
     m_CursorTimer.SignalTrigged.Connect(this, &PTextEditView::SlotCursorTimer);
 
@@ -128,18 +130,18 @@ void PTextEditView::OnPaint(const PRect& updateRect)
     PColor backgroundColor;
     if (!IsEnabled())
     {
-        backgroundColor = m_Style->DisabledBackgroundColor;
-        SetFgColor(m_Style->DisabledTextColor);
+        backgroundColor = m_Colors->DisabledBackgroundColor;
+        SetFgColor(m_Colors->DisabledTextColor);
     }
     else if (HasFlags(PTextBoxFlag::ReadOnly))
     {
-        backgroundColor = m_Style->ReadOnlyBackgroundColor;
-        SetFgColor(m_Style->ReadOnlyTextColor);
+        backgroundColor = m_Colors->ReadOnlyBackgroundColor;
+        SetFgColor(m_Colors->ReadOnlyTextColor);
     }
     else
     {
-        backgroundColor = m_Style->BackgroundColor;
-        SetFgColor(m_Style->TextColor);
+        backgroundColor = m_Colors->BackgroundColor;
+        SetFgColor(m_Colors->TextColor);
     }
 
     if (m_BackgroundColorBrush->GetDescription().Color != backgroundColor) {
@@ -471,21 +473,21 @@ PPoint PTextEditView::GetSizeForString(const PString& text, bool includeWidth, b
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PTextBoxStyle> PTextEditView::GetStyle() const
+Ptr<const PTextEditColors> PTextEditView::GetColors() const
 {
-    return m_Style;
+    return m_Colors;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PTextEditView::SetStyle(Ptr<const PTextBoxStyle> style)
+void PTextEditView::SetColors(Ptr<const PTextEditColors> colors)
 {
-    if (style != nullptr) {
-        m_Style = style;
+    if (colors != nullptr) {
+        m_Colors = colors;
     } else {
-        m_Style = PTextBox::GetDefaultStyle();
+        m_Colors = GetDefaultColors();
     }
     Invalidate();
 }

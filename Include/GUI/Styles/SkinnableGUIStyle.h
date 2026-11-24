@@ -15,7 +15,6 @@
 #include <GUI/Style/GUIStyle.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Style/TabViewStyleData.h>
-#include <GUI/Widgets/TextBox.h>
 #include <Utils/String.h>
 
 class PPath;
@@ -179,7 +178,6 @@ struct PDropdownMenuAppearance
 {
     Ptr<const PBrush> Background;
     Ptr<const PBitmap> Arrow;
-    Ptr<const PTextBoxStyle> Editor;
     PPoint ArrowOffset;
 };
 
@@ -193,6 +191,7 @@ struct PDropdownMenuRowAppearance
 struct PDropdownMenuSkin
 {
     std::array<PDropdownMenuAppearance, std::to_underlying(PButtonSkinState::Count)> States;
+    std::array<PDropdownMenuAppearance, std::to_underlying(PButtonSkinState::Count)> EditableStates;
     std::array<PDropdownMenuRowAppearance, std::to_underlying(PDropdownMenuRowState::Count)> Rows;
     Ptr<const PBrush> PopupFrame;
     Ptr<const PBrush> PopupBackground;
@@ -269,6 +268,7 @@ private:
     static PScrollBarSkinPart LoadScrollBarPart(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static PTabViewSkin LoadTabViewSkin(const PPath& directory, PApplication* application);
     static PDropdownMenuSkin LoadDropdownMenuSkin(const PPath& directory, PApplication* application);
+    static PDropdownMenuAppearance LoadDropdownMenuAppearance(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static PGroupViewSkin LoadGroupViewSkin(const PPath& directory, PApplication* application);
     static PProgressBarSkin LoadProgressBarSkin(const PPath& directory, PApplication* application);
     static PProgressBarOrientationSkin LoadProgressBarOrientation(const pugi::xml_node& node, const PPath& directory, PApplication* application);

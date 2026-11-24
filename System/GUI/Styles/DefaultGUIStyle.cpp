@@ -56,6 +56,22 @@ PDefaultGUIStyle::PDefaultGUIStyle(PApplication* application) : PGUIStyle(applic
     SetColor(PGUIColorID::TabLabelSelectedNormal, PColor(0, 0, 0));
     SetColor(PGUIColorID::TabLabelSelectedHovered, PColor(0, 0, 0));
     SetColor(PGUIColorID::TabLabelSelectedPressed, PColor(0, 0, 0));
+    SetColor(PGUIColorID::DropdownBackgroundNormal, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::DropdownBackgroundHovered, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::DropdownBackgroundPressed, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::DropdownBackgroundDisabled, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::DropdownBackgroundEditableNormal, PColor(PNamedColors::white));
+    SetColor(PGUIColorID::DropdownBackgroundEditableHovered, PColor(PNamedColors::white));
+    SetColor(PGUIColorID::DropdownBackgroundEditablePressed, PColor(PNamedColors::white));
+    SetColor(PGUIColorID::DropdownBackgroundEditableDisabled, PColor(PNamedColors::darkgray));
+    SetColor(PGUIColorID::DropdownTextNormal, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::DropdownTextHovered, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::DropdownTextPressed, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::DropdownTextDisabled, PColor(PNamedColors::dimgray));
+    SetColor(PGUIColorID::DropdownTextEditableNormal, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::DropdownTextEditableHovered, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::DropdownTextEditablePressed, PColor(PNamedColors::black));
+    SetColor(PGUIColorID::DropdownTextEditableDisabled, PColor(PNamedColors::dimgray));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

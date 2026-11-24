@@ -13,6 +13,7 @@
 #include <GUI/Font.h>
 #include <GUI/Style/DropdownMenuStyleData.h>
 #include <GUI/Style/ViewStyleDropdownMenu.h>
+#include <GUI/ViewScroller.h>
 #include <GUI/Widgets/Control.h>
 
 namespace osi
@@ -20,8 +21,9 @@ namespace osi
 class DropdownMenuPopupWindow;
 }
 
-class PTextBox;
+class PTextEditView;
 class PDropdownMenu;
+struct PTextEditColors;
 
 
 enum class PDropdownMenuFlag : uint32_t
@@ -45,7 +47,7 @@ extern const std::map<PString, PDropdownMenuFlags> PDROPDOWN_MENU_FLAG_MAP;
  * \author  Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class PDropdownMenu : public PControl, public PViewStyleDropdownMenu
+class PDropdownMenu : public PControl, public PViewScroller, public PViewStyleDropdownMenu
 {
 public:
     PDropdownMenu(const PString& name = PString::zero, PDropdownMenuFlags flags = PDropdownMenuFlags::zero);
@@ -95,13 +97,15 @@ private:
     void    CloseMenu();
     void    LayoutMenuWindow();
     void    LayoutEditor();
+    void    UpdateEditorColors();
     void    NotifyStylePropertyChanged(PDropdownMenuProperties properties);
     void    SetPointerOver(bool pointerOver);
     void    SlotTextChanged(const PString& text, bool finalUpdate);
     void    SlotSelectionChanged(size_t selection, bool finalUpdate);
 
     Ptr<PView>               m_MenuWindow;
-    Ptr<PTextBox>            m_EditBox;
+    Ptr<PTextEditView>       m_EditBox;
+    Ptr<PTextEditColors>      m_EditorColors;
     PDropdownMenuStyleData   m_DropdownMenuStyleData;
     size_t                  m_Selection = 0;
     bool                    m_SendIntermediateEvents = false;

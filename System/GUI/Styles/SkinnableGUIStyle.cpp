@@ -27,7 +27,6 @@
 #include <GUI/Styles/Skinned/ViewRendererTabViewSkinned.h>
 #include <GUI/View.h>
 #include <GUI/ViewFactory.h>
-#include <GUI/Widgets/TextBox.h>
 #include <Math/Misc.h>
 #include <Storage/Directory.h>
 #include <Storage/Path.h>
@@ -356,13 +355,16 @@ void PSkinnableGUIStyle::ValidateDropdownMenuSkin(const PDropdownMenuSkin& skin)
     }
     if (skin.States[0].Background != nullptr)
     {
-        for (const PDropdownMenuAppearance& appearance : skin.States)
+        for (const auto* appearances : {&skin.States, &skin.EditableStates})
         {
-            if (appearance.Background == nullptr || appearance.Arrow == nullptr || appearance.Editor == nullptr) {
-                PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown states require field, arrow and editor appearances");
-            }
-            if (!PMath::is_finite(appearance.ArrowOffset.x) || !PMath::is_finite(appearance.ArrowOffset.y)) {
-                PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown arrow offsets must be finite");
+            for (const PDropdownMenuAppearance& appearance : *appearances)
+            {
+                if (appearance.Background == nullptr || appearance.Arrow == nullptr) {
+                    PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown states require field and arrow appearances");
+                }
+                if (!PMath::is_finite(appearance.ArrowOffset.x) || !PMath::is_finite(appearance.ArrowOffset.y)) {
+                    PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown arrow offsets must be finite");
+                }
             }
         }
         if (skin.PopupFrame == nullptr) {
@@ -513,6 +515,22 @@ void PSkinnableGUIStyle::LoadPalette(const pugi::xml_node& root)
     SetColor(PGUIColorID::TabLabelSelectedNormal, ParseSkinAttribute<PColor>(root, "color_tab_label_selected_normal"));
     SetColor(PGUIColorID::TabLabelSelectedHovered, ParseSkinAttribute<PColor>(root, "color_tab_label_selected_hovered"));
     SetColor(PGUIColorID::TabLabelSelectedPressed, ParseSkinAttribute<PColor>(root, "color_tab_label_selected_pressed"));
+    SetColor(PGUIColorID::DropdownBackgroundNormal, ParseSkinAttribute<PColor>(root, "color_dropdown_background_normal"));
+    SetColor(PGUIColorID::DropdownBackgroundHovered, ParseSkinAttribute<PColor>(root, "color_dropdown_background_hovered"));
+    SetColor(PGUIColorID::DropdownBackgroundPressed, ParseSkinAttribute<PColor>(root, "color_dropdown_background_pressed"));
+    SetColor(PGUIColorID::DropdownBackgroundDisabled, ParseSkinAttribute<PColor>(root, "color_dropdown_background_disabled"));
+    SetColor(PGUIColorID::DropdownBackgroundEditableNormal, ParseSkinAttribute<PColor>(root, "color_dropdown_background_editable_normal"));
+    SetColor(PGUIColorID::DropdownBackgroundEditableHovered, ParseSkinAttribute<PColor>(root, "color_dropdown_background_editable_hovered"));
+    SetColor(PGUIColorID::DropdownBackgroundEditablePressed, ParseSkinAttribute<PColor>(root, "color_dropdown_background_editable_pressed"));
+    SetColor(PGUIColorID::DropdownBackgroundEditableDisabled, ParseSkinAttribute<PColor>(root, "color_dropdown_background_editable_disabled"));
+    SetColor(PGUIColorID::DropdownTextNormal, ParseSkinAttribute<PColor>(root, "color_dropdown_text_normal"));
+    SetColor(PGUIColorID::DropdownTextHovered, ParseSkinAttribute<PColor>(root, "color_dropdown_text_hovered"));
+    SetColor(PGUIColorID::DropdownTextPressed, ParseSkinAttribute<PColor>(root, "color_dropdown_text_pressed"));
+    SetColor(PGUIColorID::DropdownTextDisabled, ParseSkinAttribute<PColor>(root, "color_dropdown_text_disabled"));
+    SetColor(PGUIColorID::DropdownTextEditableNormal, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_normal"));
+    SetColor(PGUIColorID::DropdownTextEditableHovered, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_hovered"));
+    SetColor(PGUIColorID::DropdownTextEditablePressed, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_pressed"));
+    SetColor(PGUIColorID::DropdownTextEditableDisabled, ParseSkinAttribute<PColor>(root, "color_dropdown_text_editable_disabled"));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -806,25 +824,11 @@ PDropdownMenuSkin PSkinnableGUIStyle::LoadDropdownMenuSkin(const PPath& director
     skin.EditorInsets = ParseSkinAttribute<PRect>(root, "editor_insets");
     skin.MinimumSize = ParseSkinAttribute<PPoint>(root, "minimum_size");
     skin.ArrowWidth = ParseSkinAttribute<float>(root, "arrow_width");
+    const pugi::xml_node editable = root.child("Editable");
     for (size_t index = 0; index < STATE_NAMES.size(); ++index)
     {
-        const pugi::xml_node node = root.child(STATE_NAMES[index]);
-        const PButtonSkinAppearance field = LoadAppearance(node, directory, application);
-        PDropdownMenuAppearance& appearance = skin.States[index];
-        appearance.Background = field.Background;
-        const pugi::xml_node arrow = node.child("Arrow");
-        appearance.Arrow = LoadSkinBitmap(arrow, directory, application);
-        appearance.ArrowOffset = ParseSkinAttribute<PPoint>(arrow, "offset");
-        Ptr<PTextBoxStyle> editor = ptr_new<PTextBoxStyle>();
-        editor->BackgroundColor = ParseSkinAttribute<PColor>(node, "background_color");
-        editor->ReadOnlyBackgroundColor = editor->BackgroundColor;
-        editor->DisabledBackgroundColor = editor->BackgroundColor;
-        editor->TextColor = ParseSkinAttribute<PColor>(node, "text_color");
-        editor->ReadOnlyTextColor = editor->TextColor;
-        editor->DisabledTextColor = editor->TextColor;
-        editor->Borders = PRect();
-        editor->HasFrame = false;
-        appearance.Editor = editor;
+        skin.States[index] = LoadDropdownMenuAppearance(root.child(STATE_NAMES[index]), directory, application);
+        skin.EditableStates[index] = LoadDropdownMenuAppearance(editable.child(STATE_NAMES[index]), directory, application);
     }
     const pugi::xml_node popup = root.child("Popup");
     skin.PopupInsets = ParseSkinAttribute<PRect>(popup, "frame_insets");
@@ -843,6 +847,21 @@ PDropdownMenuSkin PSkinnableGUIStyle::LoadDropdownMenuSkin(const PPath& director
         appearance.LabelOffset = ParseSkinAttribute<PPoint>(node, "text_offset");
     }
     return skin;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PDropdownMenuAppearance PSkinnableGUIStyle::LoadDropdownMenuAppearance(const pugi::xml_node& node, const PPath& directory, PApplication* application)
+{
+    const PButtonSkinAppearance field = LoadAppearance(node, directory, application);
+    PDropdownMenuAppearance appearance;
+    appearance.Background = field.Background;
+    const pugi::xml_node arrow = node.child("Arrow");
+    appearance.Arrow = LoadSkinBitmap(arrow, directory, application);
+    appearance.ArrowOffset = ParseSkinAttribute<PPoint>(arrow, "offset");
+    return appearance;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

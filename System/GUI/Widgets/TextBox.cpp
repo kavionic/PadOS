@@ -20,7 +20,6 @@ const std::map<PString, PTextBoxFlags> PTEXT_BOX_FLAG_MAP
     DEFINE_FLAG_MAP_ENTRY(PTextBoxFlag, ReadOnly)
 };
 
-NoPtr<PTextBoxStyle> PTextBox::s_DefaultStyle;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -50,9 +49,9 @@ PTextBox::PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData) 
 void PTextBox::Initialize(const PString& text)
 {
     m_Editor = ptr_new<PTextEditView>("Editor", text, GetFlags<PTextBoxFlags>());
-    m_BackgroundColorBrush = ptr_new<PBrush>(GetStyle()->BackgroundColor, GetApplication());
+    m_BackgroundColorBrush = ptr_new<PBrush>(PColor(PNamedColors::white), GetApplication());
     AddChild(m_Editor);
-    m_Editor->SetBorders(GetStyle()->Borders);
+    m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
 
     SetMaxOverscroll(40.0f, 0.0f);
     SetScrolledView(m_Editor);
@@ -123,14 +122,13 @@ void PTextBox::OnFrameSized(const PPoint& delta)
 
 void PTextBox::OnPaint(const PRect& updateRect)
 {
-    Ptr<const PTextBoxStyle> style = GetStyle();
     PColor backgroundColor;
     if (!IsEnabled()) {
-        backgroundColor = style->DisabledBackgroundColor;
+        backgroundColor = PColor(PNamedColors::darkgray);
     } else if (HasFlags(PTextBoxFlag::ReadOnly)) {
-        backgroundColor = style->ReadOnlyBackgroundColor;
+        backgroundColor = PColor(PNamedColors::darkgray);
     } else {
-        backgroundColor = style->BackgroundColor;
+        backgroundColor = PColor(PNamedColors::white);
     }
     if (m_BackgroundColorBrush->GetDescription().Color != backgroundColor) {
         m_BackgroundColorBrush->SetColor(backgroundColor);
@@ -138,11 +136,7 @@ void PTextBox::OnPaint(const PRect& updateRect)
     SetBackgroundBrush(m_BackgroundColorBrush);
 
     PRect bounds = GetBounds();
-    if (style->HasFrame) {
-        DrawFrame(bounds, HasFlags(PTextBoxFlag::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
-    } else {
-        EraseRect(bounds);
-    }
+    DrawFrame(bounds, HasFlags(PTextBoxFlag::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -184,27 +178,4 @@ PPoint PTextBox::GetSizeForString(const PString& text, bool includeWidth, bool i
     size.x += borders.left + borders.right;
     size.y += borders.top + borders.bottom;
     return size;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PTextBox::SetStyle(Ptr<const PTextBoxStyle> style)
-{
-    if (style == nullptr) {
-        style = GetDefaultStyle();
-    }
-    if (GetStyle() != style)
-    {
-        const bool bordersChanged = m_Editor->GetBorders() != style->Borders;
-        m_Editor->SetStyle(style);
-        m_Editor->SetBorders(style->Borders);
-        if (bordersChanged)
-        {
-            OnFrameSized(PPoint());
-            PreferredSizeChanged();
-        }
-        Invalidate();
-    }
 }

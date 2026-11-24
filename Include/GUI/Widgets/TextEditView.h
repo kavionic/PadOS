@@ -12,9 +12,18 @@
 #include <Threads/EventTimer.h>
 
 
-struct PTextBoxStyle;
 enum class PTextBoxFlag : uint32_t;
 using PTextBoxFlags = PEnumBitmask<PTextBoxFlag, PViewFlags>;
+
+struct PTextEditColors : PtrTarget
+{
+    PColor   BackgroundColor = PColor(PNamedColors::white);
+    PColor   TextColor = PColor(PNamedColors::black);
+    PColor   ReadOnlyBackgroundColor = PColor(PNamedColors::darkgray);
+    PColor   ReadOnlyTextColor = PColor(PNamedColors::black);
+    PColor   DisabledBackgroundColor = PColor(PNamedColors::darkgray);
+    PColor   DisabledTextColor = PColor(PNamedColors::dimgray);
+};
 
 class PTextEditView : public PControl
 {
@@ -22,6 +31,8 @@ public:
     PTextEditView(const PString& name, const PString& text, PTextBoxFlags flags = PTextBoxFlags::zero);
     PTextEditView(PViewFactoryContext& context, const pugi::xml_node& xmlData);
     ~PTextEditView();
+
+    static Ptr<PTextEditColors> GetDefaultColors() { return s_DefaultColors; }
 
     // From View:
     virtual void    OnKeyboardFocusChanged(bool hasFocus) override;
@@ -50,8 +61,8 @@ public:
 
     PPoint                   GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
-    Ptr<const PTextBoxStyle> GetStyle() const;
-    void                    SetStyle(Ptr<const PTextBoxStyle> style);
+    Ptr<const PTextEditColors> GetColors() const;
+    void                    SetColors(Ptr<const PTextEditColors> colors);
 
     Signal<void, const PString&, bool, PTextEditView*> SignalTextChanged; //(const PString& newText, bool finalEdit, TextEditView* source)
 private:
@@ -59,6 +70,8 @@ private:
     PRect GetCursorFrame();
     void UpdateCursorTimer();
     void SlotCursorTimer();
+
+    static NoPtr<PTextEditColors> s_DefaultColors;
 
     PString                 m_Text;
     size_t                  m_CursorPos = 0;
@@ -71,7 +84,7 @@ private:
     PPointerID           m_HitPointerID = PInvalidPointerID;
     PPoint                   m_HitPos;
 
-    Ptr<const PTextBoxStyle> m_Style;
+    Ptr<const PTextEditColors> m_Colors;
     Ptr<PBrush> m_BackgroundColorBrush;
 
     PTextEditView(const PTextEditView&) = delete;

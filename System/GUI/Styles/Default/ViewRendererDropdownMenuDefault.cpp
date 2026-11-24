@@ -13,7 +13,6 @@
 #include <GUI/Style/ViewStyleDropdownMenu.h>
 #include <GUI/Styles/Default/ViewRendererDropdownMenuDefault.h>
 #include <GUI/View.h>
-#include <GUI/Widgets/TextBox.h>
 
 struct PViewRendererDropdownMenuDefault::Context : PViewRendererContext<PViewStyleDropdownMenu>
 {
@@ -53,6 +52,9 @@ void PViewRendererDropdownMenuDefault::Paint(PView& target, const PRect& frame, 
             target.GetApplication());
     }
     const PRect buttonFrame = GetDropdownMenuArrowFrame(frame);
+    const PRect editorFrame(frame.left, frame.top, buttonFrame.left, frame.bottom);
+    target.SetBackgroundBrush(target.GetStyle()->GetBrush(GetBackgroundColorID(data)));
+    target.DrawFrame(editorFrame, data.IsReadOnly ? FRAME_RAISED : FRAME_RECESSED);
     target.SetBackgroundBrush(PStandardColorID::DefaultBackground);
     target.DrawFrame(buttonFrame, data.IsOpen ? FRAME_RECESSED : FRAME_RAISED);
     const PPoint center = buttonFrame.Center().GetRounded();
@@ -83,6 +85,9 @@ void PViewRendererDropdownMenuDefault::GetPreferredSize(const PView& target, PPo
     const PDropdownMenuStyleData& data = state.GetTarget().GetDropdownMenuStyleData();
     UpdateDropdownMenuMetrics(target, data, state);
     PPoint size = data.EditorSize;
+    const PRect borders(4.0f, 4.0f, 4.0f, 4.0f);
+    size.x += borders.left + borders.right;
+    size.y += borders.top + borders.bottom;
     size.x += (data.Items.empty() && data.Text != nullptr) ? target.GetStringWidth(*data.Text) : state.ItemWidth;
     size.x += DROPDOWN_MENU_LABEL_PADDING + std::round(size.y * DROPDOWN_MENU_ARROW_ASPECT_RATIO);
     *minSize = size;
@@ -99,8 +104,11 @@ void PViewRendererDropdownMenuDefault::PropertyChanged(PView& target, PDropdownM
     if (properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Font))) {
         state.AreMetricsValid = false;
     }
-    target.Invalidate();
-    if (properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Text, PDropdownMenuProperty::Font))) {
+    if (properties != PDropdownMenuProperty::Text) {
+        target.Invalidate();
+    }
+    const bool textAffectsSize = properties.Has(PDropdownMenuProperty::Text) && state.GetTarget().GetDropdownMenuStyleData().Items.empty();
+    if (textAffectsSize || properties.HasAny(PDropdownMenuProperties(PDropdownMenuProperty::Items, PDropdownMenuProperty::Font))) {
         target.PreferredSizeChanged();
     }
 }
@@ -113,16 +121,12 @@ PRect PViewRendererDropdownMenuDefault::GetEditorFrame(const PView& target, PtrT
 {
     PRect frame = target.GetBounds();
     frame.right = GetDropdownMenuArrowFrame(frame).left;
+    const PRect borders(4.0f, 4.0f, 4.0f, 4.0f);
+    frame.left = std::min(frame.right, frame.left + borders.left);
+    frame.top = std::min(frame.bottom, frame.top + borders.top);
+    frame.right = std::max(frame.left, frame.right - borders.right);
+    frame.bottom = std::max(frame.top, frame.bottom - borders.bottom);
     return frame;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<const PTextBoxStyle> PViewRendererDropdownMenuDefault::GetEditorStyle(const PView& target, PtrTarget* context) const
-{
-    return PTextBox::GetDefaultStyle();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

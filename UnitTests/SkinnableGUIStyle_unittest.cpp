@@ -923,7 +923,8 @@ TEST(SkinnableGUIStyle, MissingXMLAndInvalidTextColorsAreRejected)
         EXPECT_THROW(PSkinnableGUIStyle(directory, &application), std::system_error);
         PSkinnableGUIStyleTestDirectory paletteDirectory("InvalidPaletteTest");
         for (const char* attribute : {"color_foreground_disabled", "color_group_label", "color_button_label_checked_disabled",
-                                     "color_check_box_label_normal", "color_radio_button_label_pressed", "color_tab_label_selected_hovered"})
+                                     "color_check_box_label_normal", "color_radio_button_label_pressed", "color_tab_label_selected_hovered",
+                                     "color_dropdown_text_normal", "color_dropdown_background_editable_disabled"})
         {
             paletteDirectory.WriteFile("Style.xml", [attribute](pugi::xml_node root) { root.remove_attribute(attribute); });
             EXPECT_THROW(PSkinnableGUIStyle(paletteDirectory.GetPath(), &application), std::system_error);

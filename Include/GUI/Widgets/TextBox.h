@@ -25,25 +25,12 @@ PDEFINE_ENUM_BITMASK(PTextBoxFlags, PTextBoxFlag, PViewFlags);
 
 extern const std::map<PString, PTextBoxFlags> PTEXT_BOX_FLAG_MAP;
 
-struct PTextBoxStyle : PtrTarget
-{
-    PColor   BackgroundColor         = PColor(PNamedColors::white);
-    PColor   TextColor               = PColor(PNamedColors::black);
-    PColor   ReadOnlyBackgroundColor = PColor(PNamedColors::darkgray);
-    PColor   ReadOnlyTextColor       = PColor(PNamedColors::black);
-    PColor   DisabledBackgroundColor = PColor(PNamedColors::darkgray);
-    PColor   DisabledTextColor       = PColor(PNamedColors::dimgray);
-    PRect    Borders = PRect(4.0f, 4.0f, 4.0f, 4.0f);
-    bool     HasFrame = true;
-};
-
 class PTextBox : public PControl, public PViewScroller
 {
 public:
     PTextBox(const PString& name, const PString& text, PTextBoxFlags flags = PTextBoxFlags::zero);
     PTextBox(PViewFactoryContext& context, const pugi::xml_node& xmlData);
 
-    static Ptr<PTextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
 
     // From View:
     virtual void    OnFlagsChanged(PViewFlags changedFlags) override;
@@ -62,16 +49,11 @@ public:
 
     PPoint           GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
-    Ptr<const PTextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
-    void                    SetStyle(Ptr<const PTextBoxStyle> style);
-
-    Signal<void, const PString&, bool, PTextBox*> SignalTextChanged; //(const PString& newText, bool finalUpdate, TextBox* source)
+    Signal<void(const PString& newText, bool finalUpdate, PTextBox* source)> SignalTextChanged;
 private:
     void Initialize(const PString& text);
 
     void SlotTextChanged(const PString& text, bool finalUpdate);
-
-    static NoPtr<PTextBoxStyle> s_DefaultStyle;
 
 
     Ptr<PTextEditView> m_Editor;

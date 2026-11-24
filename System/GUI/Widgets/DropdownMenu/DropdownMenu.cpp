@@ -11,6 +11,7 @@
 #include <GUI/Style/ViewRendererDropdownMenu.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/TextBox.h>
+#include <GUI/Widgets/TextEditView.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 #include <Utils/XMLFactory.h>
@@ -81,10 +82,11 @@ void PDropdownMenu::OnFlagsChanged(PViewFlags changedFlags)
     {
         m_DropdownMenuStyleData.IsReadOnly = HasFlags(PDropdownMenuFlag::ReadOnly);
         if (m_DropdownMenuStyleData.IsReadOnly) {
-            m_EditBox->MergeFlags(PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame);
+            m_EditBox->MergeFlags(PTextBoxFlag::ReadOnly);
         } else {
-            m_EditBox->ClearFlags(PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame);
+            m_EditBox->ClearFlags(PTextBoxFlag::ReadOnly);
         }
+        m_EditBox->SetHitMode(m_DropdownMenuStyleData.IsReadOnly ? PViewHitMode::IgnoreThis : PViewHitMode::HitTest);
         NotifyStylePropertyChanged(PDropdownMenuProperty::ReadOnly);
     }
 }
@@ -124,6 +126,7 @@ void PDropdownMenu::OnStyleChanged()
     CloseMenu();
     m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
     PControl::OnStyleChanged();
+    UpdateEditorColors();
     LayoutEditor();
 }
 
@@ -408,15 +411,18 @@ void PDropdownMenu::Initialize()
 {
     m_DropdownMenuStyleData.IsReadOnly = HasFlags(PDropdownMenuFlag::ReadOnly);
     m_DropdownMenuStyleData.IsEnabled = IsEnabled();
-    const PTextBoxFlags editBoxFlags = m_DropdownMenuStyleData.IsReadOnly
-        ? (PTextBoxFlag::ReadOnly | PTextBoxFlag::RaisedFrame)
-        : PTextBoxFlags::zero;
-    m_EditBox = ptr_new<PTextBox>("text_view", PString::zero, editBoxFlags);
+    const PTextBoxFlags editBoxFlags = m_DropdownMenuStyleData.IsReadOnly ? PTextBoxFlag::ReadOnly : PTextBoxFlags::zero;
+    m_EditBox = ptr_new<PTextEditView>("text_view", PString::zero, editBoxFlags);
+    m_EditorColors = ptr_new<PTextEditColors>();
+    m_EditBox->SetHitMode(m_DropdownMenuStyleData.IsReadOnly ? PViewHitMode::IgnoreThis : PViewHitMode::HitTest);
     m_EditBox->SetEnable(IsEnabled());
     m_EditBox->SetFont(GetFont());
     m_DropdownMenuStyleData.Text = &m_EditBox->GetText();
     m_DropdownMenuStyleData.EditorSize = m_EditBox->GetSizeForString(PString::zero);
     AddChild(m_EditBox);
+    SetMaxOverscroll(40.0f, 0.0f);
+    SetScrolledView(m_EditBox);
+    UpdateEditorColors();
     LayoutEditor();
     m_EditBox->SignalTextChanged.Connect(this, &PDropdownMenu::SlotTextChanged);
 }
@@ -518,18 +524,33 @@ void PDropdownMenu::LayoutEditor()
     if (m_EditBox != nullptr)
     {
         const PViewRendererDropdownMenu* renderer = GetRenderer();
-        if (renderer != nullptr) {
-            m_EditBox->SetStyle(renderer->GetEditorStyle(*this, GetRendererContext()));
+        const PRect editorFrame = (renderer != nullptr) ? renderer->GetEditorFrame(*this, GetRendererContext()) : GetBounds();
+        if (m_EditBox->GetFrame() != editorFrame) {
+            m_EditBox->SetFrame(editorFrame);
         }
-        // SetStyle() can invoke callbacks that change the GUI style and replace
-        // the renderer binding. Reacquire the borrowed pointer before using it.
-        renderer = GetRenderer();
-        const PPoint editorSize = m_EditBox->GetSizeForString(PString::zero);
-        const bool editorSizeChanged = m_DropdownMenuStyleData.EditorSize != editorSize;
-        m_DropdownMenuStyleData.EditorSize = editorSize;
-        m_EditBox->SetFrame((renderer != nullptr) ? renderer->GetEditorFrame(*this, GetRendererContext()) : GetBounds());
-        if (editorSizeChanged) {
-            PreferredSizeChanged();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDropdownMenu::UpdateEditorColors()
+{
+    const PGUIStyle* style = GetStyle();
+    if (style != nullptr && m_EditBox != nullptr)
+    {
+        const PColor backgroundColor = style->GetColor(PViewRendererDropdownMenu::GetBackgroundColorID(m_DropdownMenuStyleData));
+        const PColor textColor = style->GetColor(PViewRendererDropdownMenu::GetTextColorID(m_DropdownMenuStyleData));
+        if (m_EditBox->GetColors() != m_EditorColors || m_EditorColors->BackgroundColor != backgroundColor || m_EditorColors->TextColor != textColor)
+        {
+            m_EditorColors->BackgroundColor = backgroundColor;
+            m_EditorColors->ReadOnlyBackgroundColor = backgroundColor;
+            m_EditorColors->DisabledBackgroundColor = backgroundColor;
+            m_EditorColors->TextColor = textColor;
+            m_EditorColors->ReadOnlyTextColor = textColor;
+            m_EditorColors->DisabledTextColor = textColor;
+            m_EditBox->SetColors(m_EditorColors);
         }
     }
 }
@@ -557,6 +578,13 @@ void PDropdownMenu::NotifyStylePropertyChanged(PDropdownMenuProperties propertie
     {
         PreferredSizeChanged();
         Invalidate();
+    }
+    if (properties.HasAny(PDropdownMenuProperties(
+        PDropdownMenuProperty::ReadOnly,
+        PDropdownMenuProperty::Enabled,
+        PDropdownMenuProperty::Open,
+        PDropdownMenuProperty::Hovered))) {
+        UpdateEditorColors();
     }
     LayoutEditor();
 }

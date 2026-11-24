@@ -259,11 +259,7 @@ void DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& po
             PView::OnPointerDown(pointerID, position, event, phase);
             return;
         }
-        m_HitPointerID = pointerID;
-
-        if (GetBounds().DoIntersect(position)) {
-            SignalSelectionChanged(m_PopupStyleData.Selection, true);
-        } else {
+        if (!GetBounds().DoIntersect(position)) {
             SignalSelectionChanged(m_OldSelection, true);
         }
         return;
@@ -298,7 +294,7 @@ void DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& posi
     if (event.ToolType == PMotionToolType::Mouse)
     {
         if (GetBounds().DoIntersect(position)) {
-            SignalSelectionChanged(m_PopupStyleData.Selection, true);
+            SignalSelectionChanged(PositionToIndex(position), true);
         }
         return;
     }

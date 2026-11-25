@@ -4,10 +4,9 @@
 <View layout="vertical">
     <Template name="PreferenceRow" layout_borders="Rect(12, 6, 12, 6)" h_alignment="stretch"/>
     <TextView name="title" text="GUI style" template="PreferenceRow"/>
-    <TextView name="style_label" text="Style" template="PreferenceRow"/>
-    <DropdownMenu name="style" flags="ReadOnly" template="PreferenceRow"/>
-    <TextView name="variant_label" text="Variant" template="PreferenceRow"/>
-    <DropdownMenu name="variant" flags="ReadOnly" template="PreferenceRow"/>
+    <GroupView layout="stacked" inner_borders="Rect(8, 8, 8, 8)" template="PreferenceRow">
+        <MVCListView name="styles" min_height="120" h_alignment="stretch" v_alignment="stretch"/>
+    </GroupView>
     <TextView name="status" text="Loading GUI styles..." flags="MultiLine" template="PreferenceRow"/>
     <View name="buttons" layout="horizontal" template="PreferenceRow">
         <Button name="apply" label="Apply" flags="FullUpdateOnResize"/>

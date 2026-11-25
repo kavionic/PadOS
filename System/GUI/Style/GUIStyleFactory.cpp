@@ -52,7 +52,7 @@ std::vector<PGUIStyleInfo> PGUIStyleFactory::GetStyles() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<PString> PGUIStyleFactory::GetVariants(const PString& name) const
+std::vector<PGUIStyleVariantInfo> PGUIStyleFactory::GetVariants(const PString& name) const
 {
     const auto iterator = m_Styles.find(name);
     if (iterator == m_Styles.end()) {
@@ -71,8 +71,8 @@ bool PGUIStyleFactory::HasVariant(const PString& name, const PString& variant) c
     bool hasVariant = false;
     if (iterator != m_Styles.end())
     {
-        const std::vector<PString> variants = iterator->second.GetVariants();
-        hasVariant = std::find(variants.begin(), variants.end(), variant) != variants.end();
+        const std::vector<PGUIStyleVariantInfo> variants = iterator->second.GetVariants();
+        hasVariant = std::ranges::find(variants, variant, &PGUIStyleVariantInfo::Name) != variants.end();
     }
     return hasVariant;
 }

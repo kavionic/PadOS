@@ -5,17 +5,19 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <algorithm>
 #include <cstring>
+#include <utility>
 
 #include <App/Application.h>
-#include <GUI/ViewFactory.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/ViewFactory.h>
 #include <GUI/Widgets/Button.h>
-#include <GUI/Widgets/DropdownMenu.h>
+#include <GUI/Widgets/MVCListView.h>
 #include <GUI/Widgets/TextView.h>
 #include <System/AppDefinition.h>
 #include <System/ExceptionHandling.h>
+
+#include "GUIStyleVariantItemView.h"
 
 namespace guistylepreferences
 {
@@ -33,19 +35,20 @@ private:
     void ReceiveConfiguration(PErrorCode error, const PString& style, const PString& variant);
     void ReceiveStyleChange(PErrorCode error, const PString& style, const PString& variant);
     void SelectConfiguredStyle();
-    void UpdateVariants();
+    void UpdateConfigurationStatus();
     void ApplySelection();
     void Close();
     void UpdateEnabledState();
     void ShowError(const PString& action, PErrorCode error);
 
-    Ptr<PDropdownMenu> m_StyleMenu;
-    Ptr<PDropdownMenu> m_VariantMenu;
+    Ptr<PMVCListView> m_StyleList;
     Ptr<PButton> m_ApplyButton;
     Ptr<PTextView> m_StatusView;
     std::vector<PGUIStyleInfo> m_Styles;
     PString m_ConfiguredStyle;
     PString m_ConfiguredVariant;
+    PErrorCode m_ConfigurationError = PErrorCode::Success;
+    bool m_ConfigurationReceived = false;
     bool m_CatalogLoaded = false;
     bool m_Applying = false;
 };
@@ -68,15 +71,23 @@ private:
 GUIStylePreferencesView::GUIStylePreferencesView() : PView("gui_style_preferences")
 {
     PViewFactory::Get().LoadView(ptr_tmp_cast(this), "Preferences/GUIStylePreferencesView.xml");
-    FindChild("style", m_StyleMenu);
-    FindChild("variant", m_VariantMenu);
+    FindChild("styles", m_StyleList);
     FindChild("apply", m_ApplyButton);
     FindChild("status", m_StatusView);
     Ptr<PButton> closeButton = FindChild<PButton>("close");
-    if (m_StyleMenu == nullptr || m_VariantMenu == nullptr || m_ApplyButton == nullptr || m_StatusView == nullptr || closeButton == nullptr) {
+    if (m_StyleList == nullptr || m_ApplyButton == nullptr || m_StatusView == nullptr || closeButton == nullptr) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Failed to load GUI style preferences layout");
     }
-    m_StyleMenu->SignalSelectionChanged.Connect(this, &GUIStylePreferencesView::UpdateVariants);
+    m_StyleList->VFCreateItemWidget.Connect(this, []() { return ptr_new<GUIStyleVariantItemView>(); });
+    m_StyleList->VFUpdateItemWidget.Connect(this, [](Ptr<PView> widget, Ptr<const PtrTarget> item, bool isSelected, bool isHighlighted)
+    {
+        ptr_static_cast<GUIStyleVariantItemView>(widget)->SetData(ptr_static_cast<const GUIStyleVariantItemData>(item), isSelected, isHighlighted);
+    });
+    m_StyleList->VFUpdateItemWidgetSelection.Connect(this, [](Ptr<PView> widget, bool isSelected, bool isHighlighted)
+    {
+        ptr_static_cast<GUIStyleVariantItemView>(widget)->UpdateSelection(isSelected, isHighlighted);
+    });
+    m_StyleList->SignalSelectionChanged.Connect(this, &GUIStylePreferencesView::UpdateEnabledState);
     m_ApplyButton->SignalActivated.Connect(this, &GUIStylePreferencesView::ApplySelection);
     closeButton->SignalActivated.Connect(this, &GUIStylePreferencesView::Close);
     GetApplication()->SignalGUIStyleChanged.Connect(this, &GUIStylePreferencesView::ReceiveStyleChange);
@@ -151,12 +162,21 @@ void GUIStylePreferencesView::ReceiveStyles(PErrorCode error, size_t firstIndex,
     }
     else
     {
-        m_StyleMenu->Clear();
-        for (const PGUIStyleInfo& style : m_Styles) {
-            m_StyleMenu->AppendItem(style.Name);
+        m_StyleList->ClearSelection();
+        m_StyleList->Clear();
+        for (const PGUIStyleInfo& style : m_Styles)
+        {
+            for (const PGUIStyleVariantInfo& variant : style.Variants)
+            {
+                Ptr<GUIStyleVariantItemData> item = ptr_new<GUIStyleVariantItemData>();
+                item->StyleName = style.Name;
+                item->Variant = variant;
+                m_StyleList->AddItem(item);
+            }
         }
         m_CatalogLoaded = true;
         SelectConfiguredStyle();
+        UpdateConfigurationStatus();
         UpdateEnabledState();
     }
 }
@@ -170,20 +190,10 @@ void GUIStylePreferencesView::ReceiveConfiguration(PErrorCode error, const PStri
     m_Applying = false;
     m_ConfiguredStyle = style;
     m_ConfiguredVariant = variant;
+    m_ConfigurationError = error;
+    m_ConfigurationReceived = true;
     SelectConfiguredStyle();
-    if (error == PErrorCode::Success)
-    {
-        PApplication* application = GetApplication();
-        if (application->GetGUIStyleName() == style && application->GetGUIStyleVariant() == variant) {
-            m_StatusView->SetText(PString::format_string("Current style: {} / {}", style, variant));
-        } else {
-            m_StatusView->SetText(PString::format_string("Saved {} / {}, but this application could not load it.", style, variant));
-        }
-    }
-    else
-    {
-        ShowError("Change GUI style", error);
-    }
+    UpdateConfigurationStatus();
     UpdateEnabledState();
 }
 
@@ -204,17 +214,18 @@ void GUIStylePreferencesView::ReceiveStyleChange(PErrorCode error, const PString
 
 void GUIStylePreferencesView::SelectConfiguredStyle()
 {
-    if (m_CatalogLoaded)
+    if (m_CatalogLoaded && m_ConfigurationReceived)
     {
-        for (size_t index = 0; index < m_Styles.size(); ++index)
+        m_StyleList->ClearSelection();
+        for (size_t index = 0; index < m_StyleList->GetItemCount(); ++index)
         {
-            if (m_Styles[index].Name == m_ConfiguredStyle)
+            const Ptr<GUIStyleVariantItemData> item = m_StyleList->GetItemAt<GUIStyleVariantItemData>(index);
+            if (item->StyleName == m_ConfiguredStyle && item->Variant.Name == m_ConfiguredVariant)
             {
-                m_StyleMenu->SetSelection(index, false);
+                m_StyleList->SetItemSelection(index, true);
                 break;
             }
         }
-        UpdateVariants();
     }
 }
 
@@ -222,29 +233,42 @@ void GUIStylePreferencesView::SelectConfiguredStyle()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GUIStylePreferencesView::UpdateVariants()
+void GUIStylePreferencesView::UpdateConfigurationStatus()
 {
-    const size_t styleIndex = m_StyleMenu->GetSelection();
-    m_VariantMenu->Clear();
-    if (styleIndex < m_Styles.size())
+    if (m_ConfigurationReceived)
     {
-        const PGUIStyleInfo& style = m_Styles[styleIndex];
-        for (const PString& variant : style.Variants) {
-            m_VariantMenu->AppendItem(variant);
-        }
-        size_t selectedVariant = 0;
-        if (style.Name == m_ConfiguredStyle)
+        if (m_ConfigurationError != PErrorCode::Success)
         {
-            const auto variant = std::find(style.Variants.begin(), style.Variants.end(), m_ConfiguredVariant);
-            if (variant != style.Variants.end()) {
-                selectedVariant = size_t(variant - style.Variants.begin());
+            ShowError("Change GUI style", m_ConfigurationError);
+        }
+        else if (m_CatalogLoaded)
+        {
+            PString displayName;
+            for (const PGUIStyleInfo& style : m_Styles)
+            {
+                if (style.Name == m_ConfiguredStyle)
+                {
+                    for (const PGUIStyleVariantInfo& variant : style.Variants)
+                    {
+                        if (variant.Name == m_ConfiguredVariant)
+                        {
+                            displayName = variant.DisplayName;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            PApplication* application = GetApplication();
+            if (displayName.empty()) {
+                m_StatusView->SetText("The saved GUI style is no longer available.");
+            } else if (application->GetGUIStyleName() == m_ConfiguredStyle && application->GetGUIStyleVariant() == m_ConfiguredVariant) {
+                m_StatusView->SetText(PString::format_string("Current style: {}", displayName));
+            } else {
+                m_StatusView->SetText(PString::format_string("Saved {}, but this application could not load it.", displayName));
             }
         }
-        if (!style.Variants.empty()) {
-            m_VariantMenu->SetSelection(selectedVariant, false);
-        }
     }
-    UpdateEnabledState();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -253,9 +277,8 @@ void GUIStylePreferencesView::UpdateVariants()
 
 void GUIStylePreferencesView::ApplySelection()
 {
-    const size_t styleIndex = m_StyleMenu->GetSelection();
-    const size_t variantIndex = m_VariantMenu->GetSelection();
-    if (styleIndex >= m_Styles.size() || variantIndex >= m_Styles[styleIndex].Variants.size()) {
+    const Ptr<GUIStyleVariantItemData> item = m_StyleList->GetItemAt<GUIStyleVariantItemData>(m_StyleList->GetFirstSelected());
+    if (m_Applying || item == nullptr) {
         return;
     }
     m_Applying = true;
@@ -265,8 +288,8 @@ void GUIStylePreferencesView::ApplySelection()
     {
         GetApplication()->SetGUIStyleConfiguration(
             [view = ptr_tmp_cast(this)](PErrorCode error, const PString& style, const PString& variant) { view->ReceiveConfiguration(error, style, variant); },
-            m_Styles[styleIndex].Name,
-            m_Styles[styleIndex].Variants[variantIndex]);
+            item->StyleName,
+            item->Variant.Name);
     }
     PERROR_CATCH([this](PErrorCode error) { m_Applying = false; ShowError("Change GUI style", error); UpdateEnabledState(); });
 }
@@ -286,10 +309,10 @@ void GUIStylePreferencesView::Close()
 
 void GUIStylePreferencesView::UpdateEnabledState()
 {
-    const bool enabled = m_CatalogLoaded && !m_Applying && !m_Styles.empty();
-    m_StyleMenu->SetEnable(enabled);
-    m_VariantMenu->SetEnable(enabled && m_VariantMenu->GetItemCount() != 0);
-    m_ApplyButton->SetEnable(enabled && m_VariantMenu->GetItemCount() != 0);
+    const bool enabled = m_CatalogLoaded && !m_Applying && m_StyleList->GetItemCount() != 0;
+    m_StyleList->SetEnable(enabled);
+    m_StyleList->SetHitMode(enabled ? PViewHitMode::HitTest : PViewHitMode::IgnoreRecursive);
+    m_ApplyButton->SetEnable(enabled && m_StyleList->GetFirstSelected() != INVALID_INDEX);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -349,7 +372,7 @@ int gui_style_preferences_main(int argc, char* argv[])
 
 static PAppDefinition g_GUIStylePreferencesDefinition(
     "GUIStylePreferences",
-    "Select the GUI style and variant for all applications.",
+    "Select the GUI style for all applications.",
     gui_style_preferences_main);
 
 } // namespace guistylepreferences

@@ -181,9 +181,10 @@ PString PSkinnableGUIStyle::GetName()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<PString> PSkinnableGUIStyle::GetVariants()
+std::vector<PGUIStyleVariantInfo> PSkinnableGUIStyle::GetVariants()
 {
-    PDirectory directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/{}", GetName())));
+    const PPath stylesPath(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/{}", GetName())));
+    PDirectory directory(stylesPath.GetPath());
     if (!directory.IsValid())
     {
         if (errno != ENOENT) {
@@ -191,7 +192,7 @@ std::vector<PString> PSkinnableGUIStyle::GetVariants()
         }
         return {};
     }
-    std::vector<PString> variants;
+    std::vector<PGUIStyleVariantInfo> variants;
     PString name;
     for (;;)
     {
@@ -207,12 +208,15 @@ std::vector<PString> PSkinnableGUIStyle::GetVariants()
         {
             const PString stylePath = name + "/Style.xml";
             struct stat fileStat;
-            if (fstatat(directory.GetFileDescriptor(), stylePath.c_str(), &fileStat, 0) == 0 && S_ISREG(fileStat.st_mode)) {
-                variants.push_back(name);
+            if (fstatat(directory.GetFileDescriptor(), stylePath.c_str(), &fileStat, 0) == 0 && S_ISREG(fileStat.st_mode))
+            {
+                PPath variantPath(stylesPath);
+                variantPath.Append(name);
+                variants.push_back(LoadVariantInfo(name, variantPath));
             }
         }
     }
-    std::sort(variants.begin(), variants.end());
+    std::ranges::sort(variants, {}, &PGUIStyleVariantInfo::Name);
     return variants;
 }
 
@@ -222,12 +226,39 @@ std::vector<PString> PSkinnableGUIStyle::GetVariants()
 
 Ptr<const PGUIStyle> PSkinnableGUIStyle::CreateStyle(PApplication* application, const PString& variant)
 {
-    const std::vector<PString> variants = GetVariants();
-    if (std::find(variants.begin(), variants.end(), variant) == variants.end()) {
+    const std::vector<PGUIStyleVariantInfo> variants = GetVariants();
+    if (std::ranges::find(variants, variant, &PGUIStyleVariantInfo::Name) == variants.end()) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/{}/{}", GetName(), variant)));
     return ptr_new<PSkinnableGUIStyle>(directory, application);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PGUIStyleVariantInfo PSkinnableGUIStyle::LoadVariantInfo(const PString& variant, const PPath& directory)
+{
+    PPath path(directory);
+    path.Append("Style.xml");
+    PXMLDocument document;
+    if (!document.Load(path.GetPath())) {
+        PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, PString::format_string("Unable to load style '{}'", path.GetPath()));
+    }
+    const pugi::xml_node root = document.GetDocumentElement();
+    PGUIStyleVariantInfo info{variant, root.attribute("display_name").as_string(), PString::zero};
+    if (std::string_view(root.name()) != "Style" || info.DisplayName.empty()) {
+        PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Style.xml must have a Style root element with a display_name");
+    }
+    const PString preview = root.attribute("preview").as_string();
+    if (!preview.empty())
+    {
+        PPath previewPath(directory);
+        previewPath.Append(preview);
+        info.PreviewPath = previewPath.GetPath();
+    }
+    return info;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

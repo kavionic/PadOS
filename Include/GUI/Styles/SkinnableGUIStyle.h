@@ -13,6 +13,7 @@
 
 #include <GUI/Brush.h>
 #include <GUI/Style/GUIStyle.h>
+#include <GUI/Style/GUIStyleInfo.h>
 #include <GUI/Style/ScrollBarStyleData.h>
 #include <GUI/Style/TabViewStyleData.h>
 #include <Utils/String.h>
@@ -250,7 +251,7 @@ public:
     explicit PSkinnableGUIStyle(const PPath& directory, PApplication* application = nullptr);
 
     static PString GetName();
-    static std::vector<PString> GetVariants();
+    static std::vector<PGUIStyleVariantInfo> GetVariants();
     static Ptr<const PGUIStyle> CreateStyle(PApplication* application, const PString& variant);
 
 private:
@@ -262,6 +263,7 @@ private:
 
     static constexpr std::array<const char*, std::to_underlying(PTextBoxSkinState::Count)> TEXT_BOX_STATE_NAMES = {"Normal", "ReadOnly", "Disabled"};
 
+    static PGUIStyleVariantInfo LoadVariantInfo(const PString& variant, const PPath& directory);
     static void ValidateIndicatorSkin(const PButtonIndicatorSkin& skin);
     static void ValidateSliderSkin(const PSliderSkin& skin);
     static void ValidateScrollBarSkin(const PScrollBarSkin& skin);

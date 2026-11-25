@@ -7,4 +7,6 @@
 
 target_sources(PadOS_WindowManager PRIVATE
     GUIStylePreferences.cpp
+    GUIStyleVariantItemView.cpp
+    GUIStyleVariantItemView.h
 )

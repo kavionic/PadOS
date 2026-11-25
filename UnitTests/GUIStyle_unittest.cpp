@@ -278,7 +278,10 @@ TEST(GUIStyleFactory, ListsRegisteredClassesAndTheirVariants)
     const std::vector<PGUIStyleInfo> styles = factory.GetStyles();
     ASSERT_EQ(styles.size(), 2u);
     EXPECT_EQ(styles[0].Name, "Default");
-    EXPECT_EQ(styles[0].Variants, std::vector<PString>({"Normal"}));
+    ASSERT_EQ(styles[0].Variants.size(), 1u);
+    EXPECT_EQ(styles[0].Variants[0].Name, "Normal");
+    EXPECT_EQ(styles[0].Variants[0].DisplayName, "Default");
+    EXPECT_EQ(styles[0].Variants[0].PreviewPath, PStandardPaths::GetPath(PStandardPath::GUI, "Styles/Default/Normal/Preview.png"));
     EXPECT_EQ(styles[1].Name, "Skinned");
     EXPECT_EQ(styles[1].Variants, PSkinnableGUIStyle::GetVariants());
     EXPECT_TRUE(factory.HasVariant("Skinned", "Dark"));
@@ -295,7 +298,7 @@ TEST(GUIStyleFactory, DiscoversSkinVariantsInstalledAndRemovedAfterRegistration)
 {
     PGUIStyleFactory factory;
     factory.RegisterStyle("Skinned", &PSkinnableGUIStyle::GetVariants, &PSkinnableGUIStyle::CreateStyle);
-    const std::vector<PString> originalVariants = factory.GetVariants("Skinned");
+    const std::vector<PGUIStyleVariantInfo> originalVariants = factory.GetVariants("Skinned");
     const PString variant = "GUIStyleRuntimeTest";
     const PPath variantPath(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", variant)));
     PPath stylePath(variantPath);
@@ -307,12 +310,14 @@ TEST(GUIStyleFactory, DiscoversSkinVariantsInstalledAndRemovedAfterRegistration)
 
     PFile styleFile(stylePath.GetPath(), O_WRONLY | O_CREAT | O_EXCL);
     ASSERT_TRUE(styleFile.IsValid());
-    ASSERT_TRUE(styleFile.Write(PString("<Style color_background=\"#000000\" />")));
+    ASSERT_TRUE(styleFile.Write(PString("<Style display_name=\"Runtime style\" preview=\"Preview.png\" color_background=\"#000000\" />")));
     styleFile.Close();
 
-    std::vector<PString> expectedVariants = originalVariants;
-    expectedVariants.push_back(variant);
-    std::sort(expectedVariants.begin(), expectedVariants.end());
+    std::vector<PGUIStyleVariantInfo> expectedVariants = originalVariants;
+    PPath previewPath(variantPath);
+    previewPath.Append("Preview.png");
+    expectedVariants.push_back({variant, "Runtime style", previewPath.GetPath()});
+    std::ranges::sort(expectedVariants, {}, &PGUIStyleVariantInfo::Name);
     EXPECT_EQ(PSkinnableGUIStyle::GetVariants(), expectedVariants);
     EXPECT_EQ(factory.GetVariants("Skinned"), expectedVariants);
     EXPECT_TRUE(factory.HasVariant("Skinned", variant));
@@ -328,7 +333,7 @@ TEST(GUIStyleFactory, DiscoversSkinVariantsInstalledAndRemovedAfterRegistration)
 
 TEST(GUIStyleProtocol, CopiesNamesAndVariantsAndRejectsTruncation)
 {
-    PGUIStyleInfo original{"Style \xc3\x85", {"Normal", "Dark"}};
+    PGUIStyleInfo original{"Style \xc3\x85", {{"Normal", "Light \xc3\xa6", "/GUI/Styles/Normal/Preview.png"}, {"Dark", "Dark", PString::zero}}};
     const PGUIStyleInfo expected = original;
     alignas(uint32_t) std::array<uint8_t, 256> buffer{};
     const size_t length = PArgumentPacker<PGUIStyleInfo>::GetSize(original);
@@ -352,9 +357,9 @@ TEST(GUIStyleFactory, ConstructsEachVariantWithApplicationOwnedResources)
         const PGUIStyleFactory& factory = PGUIStyleFactory::Get();
         for (const PGUIStyleInfo& definition : factory.GetStyles())
         {
-            for (const PString& variant : definition.Variants)
+            for (const PGUIStyleVariantInfo& variant : definition.Variants)
             {
-                const Ptr<const PGUIStyle> style = factory.CreateStyle(definition.Name, variant, &application);
+                const Ptr<const PGUIStyle> style = factory.CreateStyle(definition.Name, variant.Name, &application);
                 ASSERT_NE(style, nullptr);
                 for (size_t index = 0; index < std::to_underlying(PGUIColorID::Count); ++index)
                 {
@@ -648,11 +653,14 @@ TEST(GUIStyle, ButtonWidgetsSelectTheirOwnRendererAndPreserveCommonButtonBehavio
 
     RunGUITest([](PApplication& application)
     {
-        const std::array<PGUIStyleInfo, 2> selections = {{{"Default", {"Normal"}}, {"Skinned", {"Normal"}}}};
+        const std::array<PGUIStyleInfo, 2> selections = {{
+            {"Default", {{"Normal", PString::zero, PString::zero}}},
+            {"Skinned", {{"Normal", PString::zero, PString::zero}}}
+        }};
         for (const PGUIStyleInfo& selection : selections)
         {
             SCOPED_TRACE(selection.Name.c_str());
-            const Ptr<const PGUIStyle> style = PGUIStyleFactory::Get().CreateStyle(selection.Name, selection.Variants.front(), &application);
+            const Ptr<const PGUIStyle> style = PGUIStyleFactory::Get().CreateStyle(selection.Name, selection.Variants.front().Name, &application);
             application.SetGUIStyle(style);
             const Ptr<PButton> button = ptr_new<PButton>("typed_button", PString::zero);
             const Ptr<PCheckBox> checkBox = ptr_new<PCheckBox>("typed_check_box");
@@ -1091,15 +1099,15 @@ TEST(GUIStyle, NestedTabsDeferLayoutUntilAllWidgetsHaveChangedStyles)
         PScopeExit removeTabs([&application, &outerTabs]() { application.RemoveView(outerTabs); });
         application.Idle();
         const std::array<PGUIStyleInfo, 3> selections = {{
-            {"Skinned", {"Normal"}},
-            {"Skinned", {"Dark"}},
-            {"Default", {"Normal"}}
+            {"Skinned", {{"Normal", PString::zero, PString::zero}}},
+            {"Skinned", {{"Dark", PString::zero, PString::zero}}},
+            {"Default", {{"Normal", PString::zero, PString::zero}}}
         }};
         for (const PGUIStyleInfo& selection : selections)
         {
             const size_t outerLayoutCount = outerTabs->GetLayoutCount();
             const size_t innerLayoutCount = innerTabs->GetLayoutCount();
-            application.SetGUIStyle(PGUIStyleFactory::Get().CreateStyle(selection.Name, selection.Variants.front(), &application));
+            application.SetGUIStyle(PGUIStyleFactory::Get().CreateStyle(selection.Name, selection.Variants.front().Name, &application));
             EXPECT_EQ(outerTabs->GetLayoutCount(), outerLayoutCount);
             EXPECT_EQ(innerTabs->GetLayoutCount(), innerLayoutCount);
             application.Idle();

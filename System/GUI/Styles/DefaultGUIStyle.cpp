@@ -8,6 +8,7 @@
 #include <GUI/Style/GUIStyleFactory.h>
 #include <GUI/Style/GUIStyleInfo.h>
 #include <GUI/Styles/DefaultGUIStyle.h>
+#include <Storage/StandardPaths.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/FactoryAutoRegistrator.h>
 
@@ -93,9 +94,9 @@ PString PDefaultGUIStyle::GetName()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<PString> PDefaultGUIStyle::GetVariants()
+std::vector<PGUIStyleVariantInfo> PDefaultGUIStyle::GetVariants()
 {
-    return {DEFAULT_GUI_STYLE_VARIANT};
+    return {{DEFAULT_GUI_STYLE_VARIANT, "Default", PStandardPaths::GetPath(PStandardPath::GUI, "Styles/Default/Normal/Preview.png")}};
 }
 
 ///////////////////////////////////////////////////////////////////////////////

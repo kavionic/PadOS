@@ -13,8 +13,18 @@
 inline constexpr const char* DEFAULT_GUI_STYLE_NAME = "Default";
 inline constexpr const char* DEFAULT_GUI_STYLE_VARIANT = "Normal";
 
+struct PGUIStyleVariantInfo
+{
+    PString Name;
+    PString DisplayName;
+    // Resolved filesystem path; empty when the variant has no preview.
+    PString PreviewPath;
+
+    bool operator==(const PGUIStyleVariantInfo& rhs) const = default;
+};
+
 struct PGUIStyleInfo
 {
     PString Name;
-    std::vector<PString> Variants;
+    std::vector<PGUIStyleVariantInfo> Variants;
 };

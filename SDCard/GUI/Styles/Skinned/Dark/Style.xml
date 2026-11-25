@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Style background_texture="Background/Background.png"
+<Style display_name="Dark" preview="Preview.png"
+       background_texture="Background/Background.png"
        color_foreground="#CFDDEC"
        color_background="#192433"
        color_foreground_disabled="#78879C"

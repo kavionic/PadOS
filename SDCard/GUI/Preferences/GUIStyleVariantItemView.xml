@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!-- This file is part of PadOS. Copyright (c) 2026 Kurt Skauen. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<View layout="horizontal" inner_borders="Rect(8, 8, 8, 8)">
+    <BitmapView name="preview" width="160" height="96" layout_borders="Rect(0, 0, 12, 0)"/>
+    <TextView name="name" h_alignment="stretch" v_alignment="center" max_width="10000"/>
+</View>

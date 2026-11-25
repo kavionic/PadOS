@@ -11,9 +11,40 @@
 #include <RPC/ArgumentSerializer.h>
 
 template<>
+struct PArgumentPacker<PGUIStyleVariantInfo>
+{
+    using Fields = PArgumentSerializer<void, const PString&, const PString&, const PString&>;
+
+    static size_t GetSize(const PGUIStyleVariantInfo& variant) noexcept
+    {
+        return Fields::GetSize(variant.Name, variant.DisplayName, variant.PreviewPath);
+    }
+
+    static ssize_t Write(const PGUIStyleVariantInfo& variant, void* buffer, size_t length)
+    {
+        return Fields::WriteArg(buffer, length, variant.Name, variant.DisplayName, variant.PreviewPath);
+    }
+
+    static ssize_t Read(const void* buffer, size_t length, PGUIStyleVariantInfo* variant)
+    {
+        const uint8_t* source = static_cast<const uint8_t*>(buffer);
+        size_t offset = 0;
+        for (PString* field : {&variant->Name, &variant->DisplayName, &variant->PreviewPath})
+        {
+            const ssize_t fieldSize = PArgumentPacker<PString>::Read(source + offset, length - offset, field);
+            if (fieldSize < 0 || align_argument_size(size_t(fieldSize)) > length - offset) {
+                return -1;
+            }
+            offset += align_argument_size(size_t(fieldSize));
+        }
+        return ssize_t(offset);
+    }
+};
+
+template<>
 struct PArgumentPacker<PGUIStyleInfo>
 {
-    using Fields = PArgumentSerializer<void, const PString&, const std::vector<PString>&>;
+    using Fields = PArgumentSerializer<void, const PString&, const std::vector<PGUIStyleVariantInfo>&>;
 
     static size_t GetSize(const PGUIStyleInfo& style) noexcept
     {
@@ -33,7 +64,7 @@ struct PArgumentPacker<PGUIStyleInfo>
             return -1;
         }
         const size_t offset = align_argument_size(size_t(nameSize));
-        const ssize_t variantsSize = PArgumentPacker<std::vector<PString>>::Read(source + offset, length - offset, &style->Variants);
+        const ssize_t variantsSize = PArgumentPacker<std::vector<PGUIStyleVariantInfo>>::Read(source + offset, length - offset, &style->Variants);
         if (variantsSize < 0 || align_argument_size(size_t(variantsSize)) > length - offset) {
             return -1;
         }

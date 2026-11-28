@@ -11,9 +11,9 @@
 
 struct PSkinnedImage
 {
-    Ptr<PImage> Image;
-    Ptr<PBrush> Brush;
+    PImage Image;
+    PBrush Brush;
 };
 
-Ptr<const PBrush> PGetSkinnedBrush(PSkinnedImage& cache, const PImage& source, const PPoint& size);
+PBrush PGetSkinnedBrush(PSkinnedImage& cache, const PImage& source, const PPoint& size);
 PRect PInsetSkinnedFrame(const PRect& frame, const PRect& insets);

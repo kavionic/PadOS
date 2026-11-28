@@ -98,17 +98,17 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
             const PPath directory(PStandardPaths::GetPath(PStandardPath::GUI, PString::format_string("Styles/Skinned/{}", THEMES[themeIndex])));
             const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
             application.SetGUIStyle(style);
-            const Ptr<const PBrush> background = style->GetBrush(PGUIColorID::Background);
-            ASSERT_NE(background, nullptr);
-            EXPECT_EQ(background->GetApplication(), &application);
-            EXPECT_EQ(background->GetType(), PBrushType::Bitmap);
-            EXPECT_EQ(background->GetStyle(), PBrushStyle::TexturePattern);
-            ASSERT_NE(background->GetBitmap(), nullptr);
-            EXPECT_EQ(background->GetBitmap()->GetBounds(), PIRect(0, 0, 64, 64));
-            EXPECT_TRUE(background->GetDescription().IsOpaque());
-            EXPECT_EQ(background->GetDescription().Image.LayoutMode, PImageLayoutMode::Absolute);
-            EXPECT_EQ(background->GetDescription().Image.LayoutSize, PPoint(64, 64));
-            EXPECT_EQ(background->GetScale(), PPoint(1.0f));
+            const PBrush background = style->GetBrush(PGUIColorID::Background);
+            ASSERT_TRUE(background.IsValid());
+            EXPECT_EQ(background.GetApplication(), &application);
+            EXPECT_EQ(background.GetType(), PBrushType::Bitmap);
+            EXPECT_EQ(background.GetStyle(), PBrushStyle::TexturePattern);
+            ASSERT_NE(background.GetBitmap(), nullptr);
+            EXPECT_EQ(background.GetBitmap()->GetBounds(), PIRect(0, 0, 64, 64));
+            EXPECT_TRUE(background.IsOpaque());
+            EXPECT_EQ(background.GetImage().GetDescription().LayoutMode, PImageLayoutMode::Absolute);
+            EXPECT_EQ(background.GetImage().GetDescription().LayoutSize, PPoint(64, 64));
+            EXPECT_EQ(background.GetScale(), PPoint(1.0f));
             EXPECT_EQ(style->GetBrush(PGUIColorID::Background), background);
             target->SetBackgroundBrush(PGUIColorID::Background);
             EXPECT_EQ(target->GetBackgroundBrush(), background);
@@ -124,16 +124,16 @@ TEST(SkinnableGUIStyle, XMLThemesLoadAllStatesWithOpaqueNineSliceCenters)
                 data.IsPressed = state >= 2;
                 target->SetButtonEnabled(state != 3);
                 buttonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), buttonRenderer.GetContext());
-                const Ptr<const PBrush> brush = target->GetBackgroundBrush();
-                ASSERT_NE(brush, nullptr);
-                ASSERT_NE(brush->GetImage(), nullptr);
-                EXPECT_EQ(brush->GetApplication(), &application);
-                EXPECT_EQ(brush->GetBitmap()->GetBounds(), PIRect(0, 0, 48, 48));
-                EXPECT_EQ(brush->GetBitmap()->GetColorSpace(), PEColorSpace::RGBA32);
-                EXPECT_EQ(brush->GetImage()->GetSliceRect(), PRect(12, 12, 36, 36));
-                EXPECT_EQ(brush->GetImage()->GetLayoutMode(), PImageLayoutMode::ViewRelative);
-                EXPECT_EQ(brush->GetImage()->GetLayoutSize(), PPoint(1, 1));
-                EXPECT_EQ(brush->GetImage()->GetDescription().OpaqueSlices, 0x00ba);
+                const PBrush brush = target->GetBackgroundBrush();
+                ASSERT_TRUE(brush.IsValid());
+                ASSERT_TRUE(brush.GetImage().IsValid());
+                EXPECT_EQ(brush.GetApplication(), &application);
+                EXPECT_EQ(brush.GetBitmap()->GetBounds(), PIRect(0, 0, 48, 48));
+                EXPECT_EQ(brush.GetBitmap()->GetColorSpace(), PEColorSpace::RGBA32);
+                EXPECT_EQ(brush.GetImage().GetSliceRect(), PRect(12, 12, 36, 36));
+                EXPECT_EQ(brush.GetImage().GetLayoutMode(), PImageLayoutMode::ViewRelative);
+                EXPECT_EQ(brush.GetImage().GetLayoutSize(), PPoint(1, 1));
+                EXPECT_EQ(brush.GetImage().GetDescription().OpaqueSlices, 0x00ba);
                 EXPECT_EQ(target->GetFgColor(), PColor::FromRGB32(LABEL_COLORS[themeIndex][index]));
                 PPoint minimum;
                 PPoint maximum;
@@ -165,12 +165,12 @@ TEST(SkinnableGUIStyle, StyleColorsRemainAvailableWithAndWithoutBackgroundTextur
             const PSkinnableGUIStyle style(directory.GetPath(), &application);
             EXPECT_EQ(style.GetColor(PGUIColorID::Foreground), PColor::FromRGB32(0xe1d2c3));
             EXPECT_EQ(style.GetColor(PGUIColorID::Background), PColor::FromRGB32(0x123456));
-            const Ptr<const PBrush> background = style.GetBrush(PGUIColorID::Background);
-            ASSERT_NE(background, nullptr);
-            EXPECT_EQ(background->GetType(), textured ? PBrushType::Bitmap : PBrushType::Solid);
+            const PBrush background = style.GetBrush(PGUIColorID::Background);
+            ASSERT_TRUE(background.IsValid());
+            EXPECT_EQ(background.GetType(), textured ? PBrushType::Bitmap : PBrushType::Solid);
             EXPECT_EQ(style.GetBrush(PGUIColorID::Background), background);
             if (!textured) {
-                EXPECT_EQ(background->GetDescription().Color, style.GetColor(PGUIColorID::Background));
+                EXPECT_EQ(background.GetColor(), style.GetColor(PGUIColorID::Background));
             }
         }
     });
@@ -222,8 +222,8 @@ TEST(SkinnableGUIStyle, XMLCheckBoxesKeepIndicatorSizeAndLabelPositionAcrossAllS
                 EXPECT_EQ(target->GetFgColor(), expectedLabelColor);
                 EXPECT_EQ(target->GetPenPosition(), PPoint(47, baseline));
                 EXPECT_EQ(target->GetDrawingBrushOrigin(), PPoint(7, 27));
-                EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
-                EXPECT_EQ(target->GetBrush(), nullptr);
+                EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
+                EXPECT_FALSE(target->GetBrush().IsValid());
                 EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
                 PPoint minimum;
                 PPoint maximum;
@@ -349,8 +349,8 @@ TEST(SkinnableGUIStyle, XMLRadioButtonsKeepLayoutAcrossStatesAndLabelAlignments)
                     EXPECT_EQ(target->GetFgColor(), expectedLabelColor);
                     EXPECT_EQ(target->GetPenPosition(), expectedLabel);
                     EXPECT_EQ(target->GetDrawingBrushOrigin(), expectedIndicator);
-                    EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
-                    EXPECT_EQ(target->GetBrush(), nullptr);
+                    EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
+                    EXPECT_FALSE(target->GetBrush().IsValid());
                     EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
                 }
             }
@@ -390,7 +390,7 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
         {
             PCheckBoxSkin checkBoxSkin;
             checkBoxSkin.LabelSpacing = spacing;
-            checkBoxSkin.States[0].Background = ptr_new<PBrush>(PColor(70, 110, 160, 128));
+            checkBoxSkin.States[0].Background = PBrush(PColor(70, 110, 160, 128));
             PRadioButtonSkin radioSkin;
             radioSkin.LabelSpacing = spacing;
             radioSkin.LabelVerticalSpacing = spacing;
@@ -430,7 +430,7 @@ TEST(SkinnableGUIStyle, NegativeSpacingKeepsBothElementsWithinPreferredBoundsAnd
                     }
                     EXPECT_EQ(target->GetDrawingRegion(), originalClip);
                     EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
-                    EXPECT_EQ(target->GetBrush(), nullptr);
+                    EXPECT_FALSE(target->GetBrush().IsValid());
                     const PPoint indicator = target->GetDrawingBrushOrigin();
                     const PPoint label = target->GetPenPosition();
                     EXPECT_GE(indicator.x, frame.left);
@@ -608,8 +608,8 @@ TEST(SkinnableGUIStyle, XMLSlidersKeepGeometryAndDrawingStateStableAcrossStatesF
                             sliderRenderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), sliderRenderer.GetContext());
                             EXPECT_EQ(target->GetDrawingRegion(), clip);
                             EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Blend);
-                            EXPECT_EQ(target->GetBrush(), nullptr);
-                            EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+                            EXPECT_FALSE(target->GetBrush().IsValid());
+                            EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
                             EXPECT_EQ(sliderRenderer.GetContext(), privateState);
                             EXPECT_EQ(sliderRenderer->GetValuePosition(*target, value, sliderRenderer.GetContext()), position);
                         }
@@ -626,7 +626,7 @@ TEST(SkinnableGUIStyle, SliderLayoutUsesBitmapSizesAndAsymmetricAnchorsAcrossSta
     RunGUITest([](PApplication&)
     {
         Ptr<PBitmap> trackBitmap = ptr_new<PBitmap>(16, 5, PEColorSpace::RGBA32);
-        Ptr<PImage> track = ptr_new<PImage>(trackBitmap);
+        PImage track(trackBitmap);
         Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("slider_anchor_layout");
         for (POrientation orientation : {POrientation::Horizontal, POrientation::Vertical})
         {
@@ -713,10 +713,10 @@ TEST(SkinnableGUIStyle, SliderTrackSourcesStayImmutableAcrossViewsResizingAndCol
         PSliderSkin skin;
         Ptr<PBitmap> mask = ptr_new<PBitmap>(16, 5, PEColorSpace::RGBA32);
         std::fill_n(reinterpret_cast<uint32_t*>(mask->LockRaster().Get()), 16 * 5, PColor(128, 128, 128).GetColor32());
-        Ptr<PImage> source = ptr_new<PImage>(mask);
-        source->SetSliceRect(PRect(2, 2, 14, 3));
-        source->SetLayoutSize(PPoint(16, 5), PImageLayoutMode::Absolute);
-        const PImageDescription description = source->GetDescription();
+        PImage source(mask);
+        source.SetSliceRect(PRect(2, 2, 14, 3));
+        source.SetLayoutSize(PPoint(16, 5), PImageLayoutMode::Absolute);
+        const PImageDescription description = source.GetDescription();
         skin.Horizontal.Track = source;
         skin.Vertical.Track = source;
         Ptr<PBitmap> knob = ptr_new<PBitmap>(30, 42, PEColorSpace::RGBA32);
@@ -744,8 +744,8 @@ TEST(SkinnableGUIStyle, SliderTrackSourcesStayImmutableAcrossViewsResizingAndCol
         secondSliderRenderer->Paint(*second, second->GetNormalizedBounds(), second->GetBounds(), secondSliderRenderer.GetContext());
         EXPECT_NE(firstSliderRenderer.GetContext(), secondSliderRenderer.GetContext());
         EXPECT_EQ(first->GetDrawingRegion(), clip);
-        EXPECT_EQ(first->GetBrush(), nullptr);
-        EXPECT_EQ(source->GetDescription(), description);
+        EXPECT_FALSE(first->GetBrush().IsValid());
+        EXPECT_EQ(source.GetDescription(), description);
         first->SetFrame(PRect::FromSize(220.0f, 80.0f));
         firstData.SliderSize = 9.0f;
         firstData.SliderColor1 = PColor(20, 60, 200, 128);
@@ -754,7 +754,7 @@ TEST(SkinnableGUIStyle, SliderTrackSourcesStayImmutableAcrossViewsResizingAndCol
             PSliderProperties(PSliderProperty::SliderSize, PSliderProperty::SliderColors),
             firstSliderRenderer.GetContext());
         firstSliderRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstSliderRenderer.GetContext());
-        EXPECT_EQ(source->GetDescription(), description);
+        EXPECT_EQ(source.GetDescription(), description);
         EXPECT_EQ(PColor::FromRGB32A(reinterpret_cast<const uint32_t*>(mask->LockRaster().Get())[0]), PColor(128, 128, 128));
         first->SetFrame(PRect());
         EXPECT_NO_THROW(firstSliderRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstSliderRenderer.GetContext()));
@@ -823,8 +823,8 @@ TEST(SkinnableGUIStyle, XMLScrollBarsUseSkinGeometryForBothOrientationsAndAllSta
                                 scrollBarRenderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), scrollBarRenderer.GetContext());
                                 EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
                                 EXPECT_EQ(target->GetDrawingRegion(), clip);
-                                EXPECT_EQ(target->GetBrush(), nullptr);
-                                EXPECT_NE(target->GetBackgroundBrush(), nullptr);
+                                EXPECT_FALSE(target->GetBrush().IsValid());
+                                EXPECT_TRUE(target->GetBackgroundBrush().IsValid());
                                 EXPECT_EQ(scrollBarRenderer->GetValuePosition(*target, value, scrollBarRenderer.GetContext()), position);
                             }
                         }
@@ -853,10 +853,10 @@ TEST(SkinnableGUIStyle, ScrollBarMetricsAndImagesAreIndependentOfDefaultGeometry
     {
         Ptr<PBitmap> bitmap = ptr_new<PBitmap>(20, 20, PEColorSpace::RGBA32);
         std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 400, PColor(90, 120, 150).GetColor32());
-        Ptr<PImage> source = ptr_new<PImage>(bitmap);
-        source->SetSliceRect(PRect(4, 4, 16, 16));
-        source->SetLayoutSize(PPoint(20, 20), PImageLayoutMode::Absolute);
-        const PImageDescription original = source->GetDescription();
+        PImage source(bitmap);
+        source.SetSliceRect(PRect(4, 4, 16, 16));
+        source.SetLayoutSize(PPoint(20, 20), PImageLayoutMode::Absolute);
+        const PImageDescription original = source.GetDescription();
         PScrollBarSkin skin;
         for (PScrollBarOrientationSkin* orientation : {&skin.Horizontal, &skin.Vertical})
         {
@@ -905,12 +905,12 @@ TEST(SkinnableGUIStyle, ScrollBarMetricsAndImagesAreIndependentOfDefaultGeometry
             secondScrollBarRenderer->Paint(*second, second->GetNormalizedBounds(), second->GetBounds(), secondScrollBarRenderer.GetContext());
             EXPECT_NE(firstScrollBarRenderer.GetContext(), secondScrollBarRenderer.GetContext());
             EXPECT_NE(first->GetBackgroundBrush(), second->GetBackgroundBrush());
-            EXPECT_EQ(source->GetDescription(), original);
+            EXPECT_EQ(source.GetDescription(), original);
             first->SetFrame(second->GetFrame());
             firstData.PressedPart = PScrollBarPart::Knob;
             firstScrollBarRenderer->PropertyChanged(*first, PScrollBarProperty::Frame, firstScrollBarRenderer.GetContext());
             firstScrollBarRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstScrollBarRenderer.GetContext());
-            EXPECT_EQ(source->GetDescription(), original);
+            EXPECT_EQ(source.GetDescription(), original);
         }
     });
 }
@@ -1001,7 +1001,7 @@ TEST(SkinnableGUIStyle, SharedButtonRenderersReadTheActivePalette)
                 PGUIColorID::RadioButtonLabelCheckedDisabled
             }
         }};
-        const Ptr<const PBrush> background = ptr_new<PBrush>(PColor(90, 90, 90), &application);
+        const PBrush background(PColor(90, 90, 90), &application);
         PButtonSkin buttonSkin;
         buttonSkin.States[0].Background = background;
         PCheckBoxSkin checkBoxSkin;
@@ -1092,8 +1092,8 @@ TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
         PButtonSkin skin;
         for (size_t index = 0; index < skin.States.size(); ++index)
         {
-            skin.States[index].Background = ptr_new<PBrush>(PColor(uint8_t(index * 50), 0, 0));
-            skin.CheckedStates[index].Background = ptr_new<PBrush>(PColor(0, uint8_t(index * 50), 0));
+            skin.States[index].Background = PBrush(PColor(uint8_t(index * 50), 0, 0));
+            skin.CheckedStates[index].Background = PBrush(PColor(0, uint8_t(index * 50), 0));
         }
         const Ptr<const PViewRendererButton> sharedRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
         Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("skin_states", PViewFlag::WillDraw);
@@ -1120,7 +1120,7 @@ TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
                 buttonRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), buttonRenderer.GetContext());
                 const PButtonSkinAppearance& appearance = checked ? skin.CheckedStates[index] : skin.States[index];
                 EXPECT_EQ(target->GetBackgroundBrush(), appearance.Background);
-                EXPECT_EQ(target->GetBrush(), nullptr);
+                EXPECT_FALSE(target->GetBrush().IsValid());
                 const PGUIColorID labelColor = enabled ? PGUIColorID::ButtonLabelNormal : PGUIColorID::ButtonLabelDisabled;
                 EXPECT_EQ(target->GetFgColor(), target->GetStyle()->GetColor(labelColor));
                 PPoint minimum;
@@ -1130,7 +1130,7 @@ TEST(SkinnableGUIStyle, StatePrecedenceFallbackAndLabelLayoutAreStable)
                 EXPECT_EQ(maximum, normalMaximum);
             }
         }
-        skin.CheckedStates[std::to_underlying(PButtonSkinState::Disabled)].Background = nullptr;
+        skin.CheckedStates[std::to_underlying(PButtonSkinState::Disabled)].Background = PBrush::zero;
         const Ptr<const PViewRendererButton> fallbackRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
         PViewRendererTestBinding<PViewRendererButton> fallbackButtonRenderer(*target, fallbackRenderer);
         target->SetButtonEnabled(false);
@@ -1147,10 +1147,10 @@ TEST(SkinnableGUIStyle, SliceBordersSetMinimumWithoutAddingLabelPaddingAndBrushC
         std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 24, PColor(80, 120, 160).GetColor32());
         PButtonSkin skin;
         skin.LabelPadding = PRect(1.0f);
-        skin.States[0].Background = ptr_new<PBrush>(PColor(0, 0, 0));
-        Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(15, 11, 17, 13));
-        skin.CheckedStates[2].Background = ptr_new<PBrush>(image);
+        skin.States[0].Background = PBrush(PColor(0, 0, 0));
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(15, 11, 17, 13));
+        skin.CheckedStates[2].Background = PBrush(image);
         const Ptr<const PViewRendererButton> sharedRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
         Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("skin_bindings", PViewFlag::WillDraw);
         ASSERT_TRUE(application.AddHandler(target));
@@ -1162,46 +1162,46 @@ TEST(SkinnableGUIStyle, SliceBordersSetMinimumWithoutAddingLabelPaddingAndBrushC
         PPoint maximum;
         buttonRenderer->GetPreferredSize(*target, &minimum, &maximum, buttonRenderer.GetContext());
         EXPECT_EQ(minimum, PPoint(30, GetSkinnedTestButtonLabelSize(*target, data).y + 2));
-        const Ptr<const PBrush> standard = application.GetStandardBrush(PStandardColorID::DefaultBackground);
+        const PBrush standard = application.GetStandardBrush(PStandardColorID::DefaultBackground);
         target->SetBackgroundBrush(skin.States[0].Background);
         target->SetBackgroundBrushOrigin(PPoint(12, 34));
         target->SetBrushOrigin(PPoint(-7, 9));
         target->SetBrush(skin.States[0].Background);
         target->SetBackgroundBrush(PStandardColorID::DefaultBackground);
         target->SetBrush(PStandardColorID::DefaultBackground);
-        EXPECT_NE(target->GetBackgroundBrush(), nullptr);
-        EXPECT_NE(target->GetBrush(), nullptr);
-        EXPECT_EQ(target->GetBackgroundBrush()->GetDescription().Type, PBrushType::Solid);
-        EXPECT_EQ(target->GetBrush()->GetDescription().Type, PBrushType::Solid);
+        EXPECT_TRUE(target->GetBackgroundBrush().IsValid());
+        EXPECT_TRUE(target->GetBrush().IsValid());
+        EXPECT_EQ(target->GetBackgroundBrush().GetType(), PBrushType::Solid);
+        EXPECT_EQ(target->GetBrush().GetType(), PBrushType::Solid);
         EXPECT_EQ(target->GetBackgroundBrush(), standard);
         EXPECT_EQ(target->GetBrush(), standard);
         EXPECT_EQ(target->GetBackgroundBrushOrigin(), PPoint(12, 34));
         EXPECT_EQ(target->GetDrawingBrushOrigin(), PPoint(-7, 9));
-        target->SetBackgroundBrush(nullptr);
-        target->SetBrush(nullptr);
-        EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
-        EXPECT_EQ(target->GetBrush(), nullptr);
+        target->SetBackgroundBrush(PBrush::zero);
+        target->SetBrush(PBrush::zero);
+        EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
+        EXPECT_FALSE(target->GetBrush().IsValid());
         EXPECT_FALSE(target->GetFlags().Has(PViewFlag::Transparent));
     });
 }
 
-TEST(Brush, StandardAndNamedColorsShareReadOnlyApplicationResources)
+TEST(Brush, StandardAndNamedColorsReturnBrushValues)
 {
-    static_assert(std::is_same_v<decltype(std::declval<PApplication&>().GetStandardBrush(PNamedColors::white)), Ptr<const PBrush>>);
-    static_assert(std::is_same_v<decltype(std::declval<PApplication&>().GetStandardBrush(PStandardColorID::DefaultBackground)), Ptr<const PBrush>>);
+    static_assert(std::is_same_v<decltype(std::declval<PApplication&>().GetStandardBrush(PNamedColors::white)), PBrush>);
+    static_assert(std::is_same_v<decltype(std::declval<PApplication&>().GetStandardBrush(PStandardColorID::DefaultBackground)), PBrush>);
     RunGUITest([](PApplication& application)
     {
-        const Ptr<const PBrush> standard = application.GetStandardBrush(PStandardColorID::DefaultBackground);
-        const Ptr<const PBrush> named = application.GetStandardBrush(PNamedColors::white);
+        const PBrush standard = application.GetStandardBrush(PStandardColorID::DefaultBackground);
+        const PBrush named = application.GetStandardBrush(PNamedColors::white);
         EXPECT_EQ(standard, application.GetStandardBrush(PStandardColorID::DefaultBackground));
         EXPECT_EQ(named, application.GetStandardBrush(PNamedColors::white));
-        EXPECT_EQ(named->GetDescription().Color, PColor(PNamedColors::white));
+        EXPECT_EQ(named.GetColor(), PColor(PNamedColors::white));
         Ptr<PView> first = ptr_new<PView>("first_brush_view", PViewFlag::WillDraw);
         Ptr<PView> second = ptr_new<PView>("second_brush_view", PViewFlag::WillDraw);
-        EXPECT_EQ(first->GetBackgroundBrush(), nullptr);
-        EXPECT_EQ(second->GetBackgroundBrush(), nullptr);
-        EXPECT_EQ(first->GetBrush(), nullptr);
-        EXPECT_EQ(second->GetBrush(), nullptr);
+        EXPECT_FALSE(first->GetBackgroundBrush().IsValid());
+        EXPECT_FALSE(second->GetBackgroundBrush().IsValid());
+        EXPECT_FALSE(first->GetBrush().IsValid());
+        EXPECT_FALSE(second->GetBrush().IsValid());
         first->SetBrush(PNamedColors::white);
         second->SetBackgroundBrush(PNamedColors::white);
         EXPECT_EQ(first->GetBrush(), named);
@@ -1213,94 +1213,101 @@ TEST(Brush, StandardAndNamedColorsShareReadOnlyApplicationResources)
     });
 }
 
-TEST(Brush, CustomBrushesKeepHandlesAcrossColorChangesAndRebinding)
+TEST(Brush, AssignedViewsRetainSnapshotsUntilExplicitRebinding)
 {
     RunGUITest([](PApplication& application)
     {
         Ptr<PView> view = ptr_new<PView>("custom_brush_view", PViewFlag::WillDraw);
-        Ptr<PBrush> drawing = ptr_new<PBrush>(PColor(21, 43, 65), &application);
-        Ptr<PBrush> background = ptr_new<PBrush>(PColor(65, 43, 21), &application);
+        PBrush drawing(PColor(21, 43, 65), &application);
+        PBrush background(PColor(65, 43, 21), &application);
         view->SetBrush(drawing);
         view->SetBackgroundBrush(background);
-        const handle_id drawingHandle = drawing->GetHandle();
-        const handle_id backgroundHandle = background->GetHandle();
         for (uint8_t value = 0; value < 16; ++value)
         {
-            drawing->SetColor(PColor(value, 43, 65));
-            background->SetColor(PColor(65, 43, value));
-            EXPECT_EQ(view->GetBrush(), drawing);
-            EXPECT_EQ(view->GetBackgroundBrush(), background);
-            EXPECT_EQ(drawing->GetHandle(), drawingHandle);
-            EXPECT_EQ(background->GetHandle(), backgroundHandle);
-            EXPECT_EQ(view->GetBrush()->GetDescription().Color, PColor(value, 43, 65));
-            EXPECT_EQ(view->GetBackgroundBrush()->GetDescription().Color, PColor(65, 43, value));
+            const PBrush previousDrawing = drawing;
+            const PBrush previousBackground = background;
+            drawing.SetColor(PColor(value, 43, 65));
+            background.SetColor(PColor(65, 43, value));
+            EXPECT_EQ(view->GetBrush(), previousDrawing);
+            EXPECT_EQ(view->GetBackgroundBrush(), previousBackground);
+            EXPECT_NE(view->GetBrush(), drawing);
+            EXPECT_NE(view->GetBackgroundBrush(), background);
+            view->SetBrush(drawing);
+            view->SetBackgroundBrush(background);
+            EXPECT_EQ(view->GetBrush().GetColor(), PColor(value, 43, 65));
+            EXPECT_EQ(view->GetBackgroundBrush().GetColor(), PColor(65, 43, value));
         }
-        view->SetBrush(nullptr);
+        PBrush detached = view->GetBrush();
+        detached.SetColor(PNamedColors::green);
+        EXPECT_EQ(view->GetBrush(), drawing);
+        view->SetBrush(PBrush::zero);
+        EXPECT_FALSE(view->GetBrush().IsValid());
         view->SetBrush(drawing);
         EXPECT_EQ(view->GetBrush(), drawing);
         view->SetBackgroundBrush(PNamedColors::white);
         EXPECT_EQ(view->GetBackgroundBrush(), application.GetStandardBrush(PNamedColors::white));
         view->SetBackgroundBrush(background);
         EXPECT_EQ(view->GetBackgroundBrush(), background);
-        EXPECT_EQ(application.GetStandardBrush(PNamedColors::white)->GetDescription().Color, PColor(PNamedColors::white));
         application.Sync();
     });
 }
 
-TEST(Brush, PropertyChangesPreserveHandlesAndValidateBeforePublishing)
+TEST(Brush, PropertyChangesPreserveCopiesAndValidateBeforePublishing)
 {
     RunGUITest([](PApplication& application)
     {
         Ptr<PBitmap> bitmap = ptr_new<PBitmap>(4, 4, PEColorSpace::RGBA32);
         std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 16, PColor(20, 40, 60, 128).GetColor32());
-        Ptr<PBrush> brush = ptr_new<PBrush>(PColor(10, 20, 30));
-        const handle_id handle = brush->GetHandle();
-        Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(1, 1, 3, 3));
-        brush->SetImage(image);
-        EXPECT_EQ(brush->GetHandle(), handle);
-        EXPECT_EQ(brush->GetDescription().Type, PBrushType::Image);
-        EXPECT_FALSE(brush->GetDescription().IsOpaque());
-        EXPECT_EQ(brush->GetDescription().Image.OpaqueSlices, 0);
-        const PBrushDescription previous = brush->GetDescription();
-        EXPECT_THROW(brush->SetBitmap(bitmap, PIRect(0, 0, 5, 4)), std::system_error);
-        EXPECT_EQ(brush->GetDescription(), previous);
-        brush->SetColor(PColor(80, 100, 120));
-        EXPECT_EQ(brush->GetHandle(), handle);
-        EXPECT_EQ(brush->GetDescription().Type, PBrushType::Solid);
-        EXPECT_TRUE(brush->GetDescription().IsOpaque());
-        EXPECT_EQ(brush->GetBitmap(), nullptr);
-        PBrushDescription solid;
-        solid.Color = PColor(80, 100, 120);
-        EXPECT_EQ(brush->GetDescription(), solid);
-        brush->SetColor(PColor(80, 100, 120, 0));
-        EXPECT_FALSE(brush->GetDescription().IsOpaque());
-        brush->SetColor(PColor(80, 100, 120, 128));
-        EXPECT_FALSE(brush->GetDescription().IsOpaque());
-        brush->SetColor(solid.Color);
-        EXPECT_EQ(brush->GetDescription(), solid);
+        PBrush brush(PColor(10, 20, 30));
+        const PBrush original = brush;
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(1, 1, 3, 3));
+        brush.SetImage(image);
+        EXPECT_EQ(original.GetColor(), PColor(10, 20, 30));
+        EXPECT_EQ(original.GetType(), PBrushType::Solid);
+        EXPECT_EQ(brush.GetType(), PBrushType::Image);
+        EXPECT_FALSE(brush.IsOpaque());
+        EXPECT_EQ(brush.GetImage().GetDescription().OpaqueSlices, 0);
+        const PBrush textured = brush;
+        EXPECT_THROW(brush.SetBitmap(bitmap, PIRect(0, 0, 5, 4)), std::system_error);
+        EXPECT_EQ(brush, textured);
+        brush.SetColor(PColor(80, 100, 120));
+        EXPECT_EQ(brush.GetType(), PBrushType::Solid);
+        EXPECT_TRUE(brush.IsOpaque());
+        EXPECT_EQ(brush.GetBitmap(), nullptr);
+        EXPECT_FALSE(brush.GetImage().IsValid());
+        EXPECT_EQ(textured.GetBitmap(), bitmap);
+        EXPECT_EQ(textured.GetImage(), image);
+        const PBrush solid(PColor(80, 100, 120));
+        EXPECT_EQ(brush, solid);
+        brush.SetColor(PColor(80, 100, 120, 0));
+        EXPECT_FALSE(brush.IsOpaque());
+        brush.SetColor(PColor(80, 100, 120, 128));
+        EXPECT_FALSE(brush.IsOpaque());
+        brush.SetColor(solid.GetColor());
+        EXPECT_EQ(brush, solid);
         bitmap = nullptr;
         application.Sync();
     });
 }
 
-TEST(Brush, PaletteLookupUpdatesTheExistingSharedResource)
+TEST(Brush, PaletteLookupPreservesPreviouslyReturnedValues)
 {
     RunGUITest([](PApplication& application)
     {
         constexpr PStandardColorID COLOR = PStandardColorID::ListViewHighlight;
         const PColor original = pget_standard_color(COLOR);
         PScopeExit restore([original] { pset_standard_color(COLOR, original); });
-        const Ptr<const PBrush> brush = application.GetStandardBrush(COLOR);
-        const handle_id handle = brush->GetHandle();
+        const PBrush brush = application.GetStandardBrush(COLOR);
         pset_standard_color(COLOR, PColor(19, 37, 53));
-        EXPECT_EQ(application.GetStandardBrush(COLOR), brush);
-        EXPECT_EQ(brush->GetHandle(), handle);
-        EXPECT_EQ(brush->GetDescription().Color, PColor(19, 37, 53));
+        const PBrush updated = application.GetStandardBrush(COLOR);
+        EXPECT_EQ(brush.GetColor(), original);
+        EXPECT_EQ(updated.GetColor(), PColor(19, 37, 53));
+        EXPECT_EQ(application.GetStandardBrush(COLOR), updated);
     });
 }
 
-TEST(ImageBrush, LayoutAndTilingUpdatesKeepBrushHandlesAndSharedBitmap)
+TEST(ImageBrush, ImageCopiesAndBrushesRetainPublishedSnapshots)
 {
     RunGUITest([](PApplication& application)
     {
@@ -1310,35 +1317,44 @@ TEST(ImageBrush, LayoutAndTilingUpdatesKeepBrushHandlesAndSharedBitmap)
             std::fill_n(reinterpret_cast<uint32_t*>(raster.Get()), 36, PColor(30, 60, 90).GetColor32());
             reinterpret_cast<uint32_t*>(raster.Get())[0] = PColor(255, 0, 0, 0).GetColor32();
         }
-        Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        EXPECT_EQ(image->GetLayoutSize(), PPoint(1, 1));
-        EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::ViewRelative);
-        image->SetSliceRect(PRect(1, 1, 5, 5));
-        Ptr<PBrush> first = ptr_new<PBrush>(image);
-        Ptr<PBrush> second = ptr_new<PBrush>(image);
-        const handle_id firstHandle = first->GetHandle();
-        const handle_id secondHandle = second->GetHandle();
-        image->SetLayoutSize(PPoint(47, 19), PImageLayoutMode::Absolute);
-        image->SetTiling(PImageTilingFlag::LeftEdge | PImageTilingFlag::CenterHorizontal);
-        first->SetScale(PPoint(2, 3));
-        EXPECT_EQ(first->GetHandle(), firstHandle);
-        EXPECT_EQ(second->GetHandle(), secondHandle);
-        EXPECT_EQ(first->GetBitmap(), bitmap);
-        EXPECT_EQ(second->GetBitmap(), bitmap);
-        EXPECT_EQ(first->GetDescription().Image, image->GetDescription());
-        EXPECT_EQ(second->GetDescription().Image, image->GetDescription());
-        EXPECT_EQ(first->GetScale(), PPoint(2, 3));
-        EXPECT_EQ(second->GetScale(), PPoint(1, 1));
-        EXPECT_FALSE(first->GetDescription().IsOpaque());
-        EXPECT_EQ(image->GetDescription().OpaqueSlices, 0x01fe);
-        EXPECT_THROW(image->SetSliceRect(PRect(-1, 1, 5, 5)), std::system_error);
-        EXPECT_THROW(image->SetSliceRect(PRect(1.5f, 1, 5, 5)), std::system_error);
-        EXPECT_THROW(image->SetLayoutSize(PPoint(0, 19)), std::system_error);
-        EXPECT_EQ(image->GetLayoutSize(), PPoint(47, 19));
-        EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::Absolute);
-        EXPECT_NO_THROW(image->SetLayoutSize(PPoint(47, 19), PImageLayoutMode(0xff)));
-        EXPECT_NO_THROW(image->SetTiling(PImageTilingFlag(0x40)));
-        EXPECT_THROW(first->SetScale(PPoint(-1, 1)), std::system_error);
+        PImage image(bitmap);
+        EXPECT_EQ(image.GetLayoutSize(), PPoint(1, 1));
+        EXPECT_EQ(image.GetLayoutMode(), PImageLayoutMode::ViewRelative);
+        image.SetSliceRect(PRect(1, 1, 5, 5));
+        const PImage original = image;
+        PBrush first(image);
+        const PBrush second = first;
+        const PImageID originalImageID = original.GetImageID();
+        EXPECT_EQ(first.GetImage().GetImageID(), originalImageID);
+        EXPECT_EQ(second.GetImage().GetImageID(), originalImageID);
+        image.SetLayoutSize(PPoint(47, 19), PImageLayoutMode::Absolute);
+        image.SetTiling(PImageTilingFlag::LeftEdge | PImageTilingFlag::CenterHorizontal);
+        first.SetScale(PPoint(2, 3));
+        EXPECT_NE(image, original);
+        EXPECT_EQ(first.GetImage(), original);
+        EXPECT_EQ(second.GetImage(), original);
+        EXPECT_EQ(original.GetImageID(), originalImageID);
+        EXPECT_EQ(first.GetImage().GetImageID(), originalImageID);
+        EXPECT_EQ(first.GetBitmap(), bitmap);
+        EXPECT_EQ(second.GetBitmap(), bitmap);
+        EXPECT_EQ(first.GetScale(), PPoint(2, 3));
+        EXPECT_EQ(second.GetScale(), PPoint(1, 1));
+        EXPECT_FALSE(first.IsOpaque());
+        EXPECT_EQ(image.GetDescription().OpaqueSlices, 0x01fe);
+        first.SetImage(image);
+        EXPECT_EQ(first.GetImage(), image);
+        EXPECT_NE(first.GetImage().GetImageID(), originalImageID);
+        EXPECT_EQ(first.GetImage().GetImageID(), image.GetImageID());
+        EXPECT_EQ(second.GetImage().GetImageID(), originalImageID);
+        EXPECT_EQ(second.GetImage().GetLayoutSize(), PPoint(1, 1));
+        EXPECT_THROW(image.SetSliceRect(PRect(-1, 1, 5, 5)), std::system_error);
+        EXPECT_THROW(image.SetSliceRect(PRect(1.5f, 1, 5, 5)), std::system_error);
+        EXPECT_THROW(image.SetLayoutSize(PPoint(0, 19)), std::system_error);
+        EXPECT_EQ(image.GetLayoutSize(), PPoint(47, 19));
+        EXPECT_EQ(image.GetLayoutMode(), PImageLayoutMode::Absolute);
+        EXPECT_NO_THROW(image.SetLayoutSize(PPoint(47, 19), PImageLayoutMode(0xff)));
+        EXPECT_NO_THROW(image.SetTiling(PImageTilingFlag(0x40)));
+        EXPECT_THROW(first.SetScale(PPoint(-1, 1)), std::system_error);
         application.Sync();
     });
 }
@@ -1348,31 +1364,29 @@ TEST(ImageBrush, NoneAndSolidStylesRetainTheirSourceUntilColorSelection)
     RunGUITest([](PApplication& application)
     {
         Ptr<PBitmap> bitmap = ptr_new<PBitmap>(3, 2, PEColorSpace::RGB32);
-        Ptr<PBrush> brush = ptr_new<PBrush>(bitmap);
-        EXPECT_EQ(brush->GetDescription().Image.LayoutSize, PPoint(3, 2));
-        EXPECT_EQ(brush->GetDescription().Image.LayoutMode, PImageLayoutMode::Absolute);
-        const handle_id handle = brush->GetHandle();
-        brush->SetStyle(PBrushStyle::None);
-        EXPECT_EQ(brush->GetStyle(), PBrushStyle::None);
-        EXPECT_EQ(brush->GetType(), PBrushType::Bitmap);
-        EXPECT_EQ(brush->GetBitmap(), bitmap);
-        EXPECT_FALSE(brush->GetDescription().IsOpaque());
-        brush->SetScale(PPoint(0, 0));
-        EXPECT_THROW(brush->SetStyle(PBrushStyle::TexturePattern), std::system_error);
-        EXPECT_EQ(brush->GetStyle(), PBrushStyle::None);
-        brush->SetScale(PPoint(1, 1));
-        EXPECT_THROW(brush->SetStyle(PBrushStyle(0xff)), std::system_error);
-        brush->SetStyle(PBrushStyle::SolidPattern);
-        EXPECT_TRUE(brush->GetDescription().IsOpaque());
-        brush->SetStyle(PBrushStyle::TexturePattern);
-        EXPECT_EQ(brush->GetBitmap(), bitmap);
-        brush->SetStyle(PBrushStyle::None);
-        brush->SetColor(brush->GetDescription().Color);
-        EXPECT_EQ(brush->GetStyle(), PBrushStyle::SolidPattern);
-        EXPECT_EQ(brush->GetType(), PBrushType::Solid);
-        EXPECT_EQ(brush->GetBitmap(), nullptr);
-        EXPECT_EQ(brush->GetHandle(), handle);
-        EXPECT_THROW(brush->SetStyle(PBrushStyle::TexturePattern), std::system_error);
+        PBrush brush(bitmap);
+        EXPECT_EQ(brush.GetImage().GetDescription().LayoutSize, PPoint(3, 2));
+        EXPECT_EQ(brush.GetImage().GetDescription().LayoutMode, PImageLayoutMode::Absolute);
+        brush.SetStyle(PBrushStyle::None);
+        EXPECT_EQ(brush.GetStyle(), PBrushStyle::None);
+        EXPECT_EQ(brush.GetType(), PBrushType::Bitmap);
+        EXPECT_EQ(brush.GetBitmap(), bitmap);
+        EXPECT_FALSE(brush.IsOpaque());
+        brush.SetScale(PPoint(0, 0));
+        EXPECT_THROW(brush.SetStyle(PBrushStyle::TexturePattern), std::system_error);
+        EXPECT_EQ(brush.GetStyle(), PBrushStyle::None);
+        brush.SetScale(PPoint(1, 1));
+        EXPECT_THROW(brush.SetStyle(PBrushStyle(0xff)), std::system_error);
+        brush.SetStyle(PBrushStyle::SolidPattern);
+        EXPECT_TRUE(brush.IsOpaque());
+        brush.SetStyle(PBrushStyle::TexturePattern);
+        EXPECT_EQ(brush.GetBitmap(), bitmap);
+        brush.SetStyle(PBrushStyle::None);
+        brush.SetColor(brush.GetColor());
+        EXPECT_EQ(brush.GetStyle(), PBrushStyle::SolidPattern);
+        EXPECT_EQ(brush.GetType(), PBrushType::Solid);
+        EXPECT_EQ(brush.GetBitmap(), nullptr);
+        EXPECT_THROW(brush.SetStyle(PBrushStyle::TexturePattern), std::system_error);
         application.Sync();
     });
 }
@@ -1382,16 +1396,16 @@ TEST(ImageBrush, ViewsKeepIndependentOriginsAndNoneSelections)
     RunGUITest([](PApplication& application)
     {
         Ptr<PView> view = ptr_new<PView>("origins", PViewFlag::WillDraw);
-        Ptr<PBrush> none = ptr_new<PBrush>(PBrushStyle::None, &application);
+        PBrush none(PBrushStyle::None, &application);
         view->SetBackgroundBrush(none);
         view->SetBrush(none);
         view->SetBackgroundBrushOrigin(PPoint(11, 17));
         view->SetBrushOrigin(PPoint(-13, 29));
         EXPECT_EQ(view->GetBackgroundBrush(), none);
         EXPECT_EQ(view->GetBrush(), none);
-        view->SetBrush(nullptr);
+        view->SetBrush(PBrush::zero);
         EXPECT_EQ(view->GetBackgroundBrush(), none);
-        EXPECT_EQ(view->GetBrush(), nullptr);
+        EXPECT_FALSE(view->GetBrush().IsValid());
         EXPECT_EQ(view->GetBackgroundBrushOrigin(), PPoint(11, 17));
         EXPECT_EQ(view->GetDrawingBrushOrigin(), PPoint(-13, 29));
         view->ScrollBy(PPoint(0, -37));
@@ -1405,11 +1419,11 @@ TEST(SkinnableGUIStyle, DifferentButtonSizesShareTheConfiguredImageAndBrush)
     RunGUITest([](PApplication& application)
     {
         Ptr<PBitmap> bitmap = ptr_new<PBitmap>(6, 6, PEColorSpace::RGB32);
-        Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(2, 2, 4, 4));
-        const PImageDescription description = image->GetDescription();
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(2, 2, 4, 4));
+        const PImageDescription description = image.GetDescription();
         PButtonSkin skin;
-        skin.States[0].Background = ptr_new<PBrush>(image);
+        skin.States[0].Background = PBrush(image);
         const Ptr<const PViewRendererButton> sharedRenderer = ptr_new<PViewRendererButtonSkinned>(skin);
         Ptr<PViewRendererTestView> first = ptr_new<PViewRendererTestView>("first_size", PViewFlag::WillDraw);
         Ptr<PViewRendererTestView> second = ptr_new<PViewRendererTestView>("second_size", PViewFlag::WillDraw);
@@ -1428,30 +1442,32 @@ TEST(SkinnableGUIStyle, DifferentButtonSizesShareTheConfiguredImageAndBrush)
         firstButtonRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstButtonRenderer.GetContext());
         second->SetButtonEnabled(true);
         secondButtonRenderer->Paint(*second, second->GetBounds(), second->GetBounds(), secondButtonRenderer.GetContext());
-        const Ptr<const PBrush> firstBrush = first->GetBackgroundBrush();
+        const PBrush firstBrush = first->GetBackgroundBrush();
         EXPECT_EQ(firstBrush, skin.States[0].Background);
         EXPECT_EQ(firstBrush, second->GetBackgroundBrush());
-        EXPECT_EQ(firstBrush->GetBitmap(), bitmap);
-        EXPECT_EQ(second->GetBackgroundBrush()->GetBitmap(), bitmap);
-        EXPECT_EQ(firstBrush->GetImage(), image);
-        EXPECT_EQ(second->GetBackgroundBrush()->GetImage(), image);
-        EXPECT_EQ(image->GetLayoutSize(), PPoint(1, 1));
-        EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::ViewRelative);
+        EXPECT_EQ(firstBrush.GetBitmap(), bitmap);
+        EXPECT_EQ(second->GetBackgroundBrush().GetBitmap(), bitmap);
+        EXPECT_EQ(firstBrush.GetImage(), image);
+        EXPECT_EQ(second->GetBackgroundBrush().GetImage(), image);
+        EXPECT_EQ(image.GetLayoutSize(), PPoint(1, 1));
+        EXPECT_EQ(image.GetLayoutMode(), PImageLayoutMode::ViewRelative);
         first->SetFrame(PRect(0, 0, 140, 50));
         first->SetButtonEnabled(true);
         firstButtonRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstButtonRenderer.GetContext());
         EXPECT_EQ(first->GetBackgroundBrush(), firstBrush);
         EXPECT_EQ(second->GetBackgroundBrush(), firstBrush);
-        EXPECT_EQ(image->GetDescription(), description);
-        image->SetLayoutSize(PPoint(0.5f, 0.5f));
-        EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::ViewRelative);
-        EXPECT_EQ(firstBrush->GetDescription().Image.LayoutSize, PPoint(0.5f, 0.5f));
-        image->SetLayoutSize(PPoint(6, 6), PImageLayoutMode::Absolute);
+        EXPECT_EQ(image.GetDescription(), description);
+        image.SetLayoutSize(PPoint(0.5f, 0.5f));
+        EXPECT_EQ(image.GetLayoutMode(), PImageLayoutMode::ViewRelative);
+        EXPECT_EQ(firstBrush.GetImage().GetDescription(), description);
+        image.SetLayoutSize(PPoint(6, 6), PImageLayoutMode::Absolute);
         first->SetButtonEnabled(true);
         firstButtonRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstButtonRenderer.GetContext());
         EXPECT_EQ(first->GetBackgroundBrush(), firstBrush);
-        EXPECT_EQ(image->GetLayoutSize(), PPoint(6, 6));
-        EXPECT_EQ(image->GetLayoutMode(), PImageLayoutMode::Absolute);
+        EXPECT_EQ(image.GetLayoutSize(), PPoint(6, 6));
+        EXPECT_EQ(image.GetLayoutMode(), PImageLayoutMode::Absolute);
+        EXPECT_EQ(first->GetBackgroundBrush().GetImage().GetDescription(), description);
+        EXPECT_EQ(second->GetBackgroundBrush().GetImage().GetDescription(), description);
         application.Sync();
     });
 }
@@ -1513,7 +1529,7 @@ TEST(SkinnableGUIStyle, XMLTabViewsUseTheSameFramesForPaintingScrollingAndHitTes
                     tabViewRenderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), tabViewRenderer.GetContext());
                     EXPECT_EQ(tabsTarget->GetDrawingMode(), PDrawingMode::Overlay);
                     EXPECT_EQ(tabsTarget->GetDrawingRegion(), region);
-                    EXPECT_EQ(tabsTarget->GetBrush(), nullptr);
+                    EXPECT_FALSE(tabsTarget->GetBrush().IsValid());
                     EXPECT_EQ(target->GetBackgroundBrush(), style->GetBrush(PGUIColorID::Background));
                     EXPECT_EQ(tabViewRenderer->GetFrames(*target, tabViewRenderer.GetContext()).ClientFrame, frames.ClientFrame);
                 }
@@ -1560,9 +1576,9 @@ TEST(SkinnableGUIStyle, TabViewMetricsAreDataDrivenAndSharedImagesRemainUnchange
     RunGUITest([](PApplication& application)
     {
         const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(40, 32, PEColorSpace::RGB32);
-        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(6, 6, 34, 28));
-        const PImageDescription description = image->GetDescription();
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(6, 6, 34, 28));
+        const PImageDescription description = image.GetDescription();
         PTabViewSkin skin;
         skin.Frame = image;
         skin.States[0].Image = image;
@@ -1611,7 +1627,7 @@ TEST(SkinnableGUIStyle, TabViewMetricsAreDataDrivenAndSharedImagesRemainUnchange
         tabViewRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), tabViewRenderer.GetContext());
         tabViewRenderer->PaintTabs(*tabsTarget, *target, tabsTarget->GetBounds(), tabViewRenderer.GetContext());
         EXPECT_EQ(tabsTarget->GetDrawingRegion(), region);
-        EXPECT_EQ(image->GetDescription(), description);
+        EXPECT_EQ(image.GetDescription(), description);
         Ptr<PViewRendererTestView> otherTarget = ptr_new<PViewRendererTestView>("other_tabs", PViewFlag::WillDraw);
         Ptr<PView> otherTabsTarget = ptr_new<PView>("other_strip", PViewFlag::WillDraw);
         otherTarget->SetFont(target->GetFont());
@@ -1629,7 +1645,7 @@ TEST(SkinnableGUIStyle, TabViewMetricsAreDataDrivenAndSharedImagesRemainUnchange
         otherTabViewRenderer->Paint(*otherTarget, otherTarget->GetBounds(), otherTarget->GetBounds(), otherTabViewRenderer.GetContext());
         otherTabViewRenderer->PaintTabs(*otherTabsTarget, *otherTarget, otherTabsTarget->GetBounds(), otherTabViewRenderer.GetContext());
         EXPECT_NE(tabViewRenderer.GetContext(), otherTabViewRenderer.GetContext());
-        EXPECT_EQ(image->GetDescription(), description);
+        EXPECT_EQ(image.GetDescription(), description);
         application.Sync();
     });
 }

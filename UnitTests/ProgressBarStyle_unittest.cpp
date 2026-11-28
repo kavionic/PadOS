@@ -141,7 +141,7 @@ TEST(ProgressBarStyle, SkinnedSizesAndStyleChangesPreserveProgressAndOverrides)
                 EXPECT_FLOAT_EQ(progress->GetProgress(), 0.25f);
                 EXPECT_EQ(progress->GetPreferredSize(PPrefSizeType::Smallest), PPoint(120, 30));
                 EXPECT_EQ(progress->GetPreferredSize(PPrefSizeType::Greatest), PPoint(120, 30));
-                EXPECT_EQ(progress->GetBackgroundBrush(), nullptr);
+                EXPECT_FALSE(progress->GetBackgroundBrush().IsValid());
             }
             application.SetGUIStyle(ptr_new<PDefaultGUIStyle>());
         });
@@ -157,8 +157,8 @@ TEST(ProgressBarStyle, SkinnedPaintingRestoresBrushesOriginsModeAndClipping)
         target->Hide();
         ASSERT_TRUE(application.AddView(target, PViewDockType::TopLevelView));
         PScopeExit removeTarget([&application, &target] { application.RemoveView(target); });
-        const Ptr<PBrush> background = ptr_new<PBrush>(PColor(40, 60, 80));
-        const Ptr<PBrush> drawing = ptr_new<PBrush>(PColor(80, 60, 40));
+        PBrush background(PColor(40, 60, 80));
+        PBrush drawing(PColor(80, 60, 40));
         const Ptr<const PRegion> clip = ptr_new<PRegion>(PIRect(2, 3, 218, 218));
         target->SetBackgroundBrush(background);
         target->SetBackgroundBrushOrigin(PPoint(5, 7));
@@ -197,10 +197,10 @@ TEST(ProgressBarStyle, SkinnedPaintingRestoresBrushesOriginsModeAndClipping)
                 }
             }
             target->SetFrame(PRect(0, 0, 220, 24));
-            target->SetBackgroundBrush(nullptr);
+            target->SetBackgroundBrush(PBrush::zero);
             data.Value = 0.5f;
             renderer->Paint(*target, target->GetNormalizedBounds(), target->GetBounds(), renderer.GetContext());
-            EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+            EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
             target->SetBackgroundBrush(background);
         }
         application.Sync();
@@ -213,10 +213,10 @@ TEST(ProgressBarStyle, SkinGeometryAllowsSignedInsetsAndDoesNotResizeSharedImage
     {
         const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(32, 24, PEColorSpace::RGBA32);
         std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 24, 0);
-        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(8, 8, 24, 16));
-        image->SetLayoutSize(PPoint(32, 24), PImageLayoutMode::Absolute);
-        const PImageDescription original = image->GetDescription();
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(8, 8, 24, 16));
+        image.SetLayoutSize(PPoint(32, 24), PImageLayoutMode::Absolute);
+        const PImageDescription original = image.GetDescription();
         PProgressBarSkin skin;
         skin.Horizontal.Track = image;
         skin.Horizontal.Fill = image;
@@ -254,7 +254,7 @@ TEST(ProgressBarStyle, SkinGeometryAllowsSignedInsetsAndDoesNotResizeSharedImage
         firstData.Value = 1.0f;
         firstRenderer->Paint(*first, first->GetNormalizedBounds(), first->GetBounds(), firstRenderer.GetContext());
         EXPECT_EQ(firstRenderer.GetContext(), firstCache);
-        EXPECT_EQ(image->GetDescription(), original);
+        EXPECT_EQ(image.GetDescription(), original);
     });
 }
 

@@ -84,10 +84,10 @@ void PViewRendererButtonSkinnedBase::PaintIndicatorButton(
 {
     const PButtonSkinState state = GetButtonState(isEnabled, data);
     const PButtonSkinAppearance& appearance = data.IsChecked ? skin.CheckedStates[std::to_underlying(state)] : skin.States[std::to_underlying(state)];
-    const Ptr<const PBrush>& normal = skin.States[std::to_underlying(PButtonSkinState::Normal)].Background;
-    const Ptr<const PBrush>& brush = (appearance.Background != nullptr) ? appearance.Background : normal;
-    target.SetBackgroundBrush(nullptr);
-    target.SetBrush(nullptr);
+    const PBrush& normal = skin.States[std::to_underlying(PButtonSkinState::Normal)].Background;
+    const PBrush& brush = (appearance.Background.IsValid()) ? appearance.Background : normal;
+    target.SetBackgroundBrush(PBrush::zero);
+    target.SetBrush(PBrush::zero);
     target.SetFgColor(target.GetStyle()->GetColor(labelColorID));
     target.SetBrushOrigin(indicatorPosition);
     const PDrawingMode previousMode = target.GetDrawingMode();
@@ -115,7 +115,7 @@ void PViewRendererButtonSkinnedBase::PaintOverlappingIndicator(
     const PString& label,
     const PPoint& labelPosition,
     const PRect& indicatorFrame,
-    Ptr<const PBrush> brush)
+    PBrush brush)
 {
     const PPoint scrollOffset = target.GetScrollOffset();
     const PIRect paintFrame = PIRect(frame + scrollOffset) & PIRect(target.GetNormalizedBounds());

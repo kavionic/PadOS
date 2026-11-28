@@ -23,11 +23,11 @@ struct PViewRendererSliderSkinned::Context : PViewRendererContext<PViewStyleSlid
 
     PSliderStyleLayout Layout;
     const PSliderKnobSkin* Knob = nullptr;
-    Ptr<const PImage> TrackSource;
-    Ptr<PImage> BeforeImage;
-    Ptr<PImage> AfterImage;
-    Ptr<PBrush> BeforeBrush;
-    Ptr<PBrush> AfterBrush;
+    PImage TrackSource;
+    PImage BeforeImage;
+    PImage AfterImage;
+    PBrush BeforeBrush;
+    PBrush AfterBrush;
     PPoint TrackSize;
     PColor BeforeColor;
     PColor AfterColor;
@@ -84,8 +84,8 @@ void PViewRendererSliderSkinned::Paint(PView& target, const PRect& frame, const 
             afterFrame.top = beforeFrame.bottom;
         }
     }
-    target.SetBackgroundBrush(nullptr);
-    target.SetBrush(nullptr);
+    target.SetBackgroundBrush(PBrush::zero);
+    target.SetBrush(PBrush::zero);
     const PDrawingMode previousMode = target.GetDrawingMode();
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });
     target.SetDrawingMode(PDrawingMode::Copy);
@@ -225,7 +225,7 @@ uint8_t PViewRendererSliderSkinned::ShadeSliderComponent(uint8_t component, uint
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PImage> PViewRendererSliderSkinned::CreateSliderTrackImage(const PImage& source, PColor color)
+PImage PViewRendererSliderSkinned::CreateSliderTrackImage(const PImage& source, PColor color)
 {
     const Ptr<const PBitmap> mask = source.GetBitmap();
     const PIRect bounds = mask->GetBounds();
@@ -250,7 +250,7 @@ Ptr<PImage> PViewRendererSliderSkinned::CreateSliderTrackImage(const PImage& sou
                 uint8_t((uint32_t(sample.GetAlpha()) * color.GetAlpha() + 127) / 255)).GetColor32();
         }
     }
-    return ptr_new<PImage>(bitmap, source.GetDescription());
+    return PImage(bitmap, source.GetDescription());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -268,10 +268,12 @@ void PViewRendererSliderSkinned::UpdateSliderTrackImages(
     const PColor after = data.HasCustomSliderColors ? data.SliderColor2 : colors.After;
     if (state.TrackSource != skin.Track || state.BeforeColor != before || state.AfterColor != after)
     {
-        Ptr<PImage> beforeImage = CreateSliderTrackImage(*skin.Track, before);
-        Ptr<PImage> afterImage = CreateSliderTrackImage(*skin.Track, after);
-        Ptr<PBrush> beforeBrush = ptr_new<PBrush>(beforeImage);
-        Ptr<PBrush> afterBrush = ptr_new<PBrush>(afterImage);
+        PImage beforeImage = CreateSliderTrackImage(skin.Track, before);
+        PImage afterImage = CreateSliderTrackImage(skin.Track, after);
+        beforeImage.SetLayoutSize(size, PImageLayoutMode::Absolute);
+        afterImage.SetLayoutSize(size, PImageLayoutMode::Absolute);
+        PBrush beforeBrush(beforeImage);
+        PBrush afterBrush(afterImage);
         state.BeforeImage = std::move(beforeImage);
         state.AfterImage = std::move(afterImage);
         state.BeforeBrush = std::move(beforeBrush);
@@ -279,12 +281,14 @@ void PViewRendererSliderSkinned::UpdateSliderTrackImages(
         state.TrackSource = skin.Track;
         state.BeforeColor = before;
         state.AfterColor = after;
-        state.TrackSize = PPoint();
+        state.TrackSize = size;
     }
     if (state.TrackSize != size)
     {
-        state.BeforeImage->SetLayoutSize(size, PImageLayoutMode::Absolute);
-        state.AfterImage->SetLayoutSize(size, PImageLayoutMode::Absolute);
+        state.BeforeImage.SetLayoutSize(size, PImageLayoutMode::Absolute);
+        state.AfterImage.SetLayoutSize(size, PImageLayoutMode::Absolute);
+        state.BeforeBrush.SetImage(state.BeforeImage);
+        state.AfterBrush.SetImage(state.AfterImage);
         state.TrackSize = size;
     }
 }
@@ -325,7 +329,7 @@ void PViewRendererSliderSkinned::DrawSkinSliderKnob(
         sections[0] = frame;
     }
     const PIPoint sourceOffset = bitmap->GetBounds().TopLeft() - bitmapFrame.TopLeft();
-    PScopeExit restoreBrush([&target] { target.SetBrush(nullptr); });
+    PScopeExit restoreBrush([&target] { target.SetBrush(PBrush::zero); });
     for (size_t index = 0; index < sections.size(); ++index)
     {
         const PIRect& section = sections[index];
@@ -336,7 +340,7 @@ void PViewRendererSliderSkinned::DrawSkinSliderKnob(
             } else if (index == 5) {
                 target.SetBrush(state.AfterBrush);
             } else {
-                target.SetBrush(nullptr);
+                target.SetBrush(PBrush::zero);
             }
             target.DrawBitmap(bitmap, PRect(section + sourceOffset), PPoint(section.TopLeft()) - scroll);
         }

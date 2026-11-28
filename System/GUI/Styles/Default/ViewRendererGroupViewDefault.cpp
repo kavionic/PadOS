@@ -43,7 +43,7 @@ void PViewRendererGroupViewDefault::Paint(PView& target, const PRect& frame, con
     UpdateGroupViewMetrics(target, data, state);
     if (!data.Label.empty())
     {
-        target.SetBrush(nullptr);
+        target.SetBrush(PBrush::zero);
         target.SetFgColor(target.GetStyle()->GetColor(PGUIColorID::GroupLabel));
         target.DrawString(data.Label, PPoint(GROUP_VIEW_LABEL_OFFSET, state.LabelAscender), target.GetBounds());
     }

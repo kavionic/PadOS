@@ -13,7 +13,7 @@
 class PViewRendererTabViewSkinned : public PViewRendererTabView
 {
 public:
-    explicit PViewRendererTabViewSkinned(const PTabViewSkin& skin, Ptr<const PBrush> backgroundBrush);
+    explicit PViewRendererTabViewSkinned(const PTabViewSkin& skin, PBrush backgroundBrush);
     virtual Ptr<PtrTarget> Setup(PView& target) const override;
     virtual void Paint(PView& target, const PRect& frame, const PRect& updateRect, PtrTarget* context) const override;
     virtual void PaintTabs(PView& target, const PView& tabView, const PRect& updateRect, PtrTarget* context) const override;
@@ -36,5 +36,5 @@ private:
     static void PaintTabViewOverflow(PView& target, const PRect& frame, const Ptr<const PBitmap>& bitmap);
 
     const PTabViewSkin m_TabViewSkin;
-    const Ptr<const PBrush> m_BackgroundBrush;
+    const PBrush m_BackgroundBrush;
 };

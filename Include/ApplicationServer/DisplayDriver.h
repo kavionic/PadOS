@@ -46,11 +46,8 @@ public:
 
     void RegisterBitmap(PSrvBitmap* bitmap);
     void UnregisterBitmap(PSrvBitmap* bitmap) noexcept;
-    void RegisterBrush(PServerBrush* brush);
-    void UnregisterBrush(PServerBrush* brush) noexcept;
-    void UpdateBrush(PServerBrush* brush, const PBrushDescription& description, const Ptr<PSrvBitmap>& bitmap);
-    void SetBrushColor(PServerBrush* brush, PColor color);
-    void HandleBrushRevisionWrap(const PServerBrush* brush);
+    void RegisterImage(PServerImage* image);
+    void UnregisterImage(PServerImage* image) noexcept;
 
     int             GetScreenModeCount();
     bool            GetScreenModeDesc(size_t index, PScreenMode& outMode);
@@ -193,11 +190,9 @@ private:
     void* AllocCommandBuffer(size_t size);
     void AdvanceSequence() noexcept;
     PDriverResourceID ReferenceBitmap(PSrvBitmap* bitmap);
-    void ReserveBrushUpdateReferences(const PServerBrush* brush, const PSrvBitmap* bitmap);
-    void RetainBrushUpdateReferences(PServerBrush* brush, PSrvBitmap* bitmap) noexcept;
     void RetainBrushLayers(std::span<const PServerBrushLayer> layers);
     PDriverResourceID CreateBitmapResource(const PSrvBitmap& bitmap);
-    PDriverResourceID CreateBrushResource(const PServerBrush& brush);
+    PDriverResourceID CreateImageResource(const PServerImage& image);
 
     uint32_t m_Sequence = 1;
     PString m_DevicePath;
@@ -206,11 +201,9 @@ private:
     size_t m_UsedBufferSize = 0;
     std::vector<Ptr<PServerFontDrawCache>> m_FontReferences;
     std::vector<PServerBrushLayer> m_BrushLayers;
-    std::vector<Ptr<PServerBrush>> m_PendingBrushReferences;
-    std::vector<Ptr<PSrvBitmap>> m_PendingBitmapReferences;
+    std::vector<Ptr<PServerImage>> m_PendingImageReferences;
     std::vector<PSrvBitmap*> m_BitmapResources;
-    std::vector<PServerBrush*> m_BrushResources;
-    bool m_BrushStateValid = true;
+    std::vector<PServerImage*> m_ImageResources;
     PDisplayInfo m_Info;
     Ptr<PSrvBitmap> m_ScreenBitmap;
     PColor m_FgColor;

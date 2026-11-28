@@ -35,7 +35,7 @@ private:
     SkinnedScrollBarGeometry GetScrollBarGeometry(const PRect& frame, const PScrollBarStyleData& data, float relativeValue) const;
     static PRect GetScrollBarPartFrame(const SkinnedScrollBarGeometry& geometry, PScrollBarPart part);
     static PButtonSkinState GetScrollBarState(const PScrollBarStyleData& data, PScrollBarPart part);
-    static Ptr<const PBrush> GetScrollBarBrush(SkinnedScrollBarPart& cache, const PScrollBarSkinPart& part, PButtonSkinState state, const PPoint& size);
+    static PBrush GetScrollBarBrush(SkinnedScrollBarPart& cache, const PScrollBarSkinPart& part, PButtonSkinState state, const PPoint& size);
     static void PaintScrollBarPart(PView& target, const PRect& frame, const PScrollBarSkinPart& part, SkinnedScrollBarPart& cache, PButtonSkinState state);
     static void ClearScrollBarTrack(PView& target, const SkinnedScrollBarGeometry& geometry);
 

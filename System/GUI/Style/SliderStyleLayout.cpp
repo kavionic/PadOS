@@ -325,7 +325,7 @@ void PSliderStyleLayout::DrawLabels(PView& target, const PRect& bounds, const PR
     const PPoint         center(bounds.left + bounds.Width() * 0.5f, bounds.top + bounds.Height() * 0.5f);
     const PFontHeight    fontHeight = target.GetFontHeight();
 
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     target.SetFgColor(color);
     if (data.Orientation == POrientation::Horizontal)
     {

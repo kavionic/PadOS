@@ -30,7 +30,7 @@ public:
     port_id         GetClientPort() const { return m_ClientPort; }
 
     Ptr<PSrvBitmap> GetBitmap(handle_id bitmapHandle) const;
-    Ptr<PServerBrush> GetBrush(handle_id brushHandle) const;
+    PServerBrush ResolveBrush(const PBrushData& data) const;
     Ptr<PServerFontInstance> GetFont(handle_id fontHandle) const;
     void SetPointerCapture(PPointerID pointerID, Ptr<PServerView> rootView, PPointerCaptureID captureID, PPointerCaptureRequestID requestID, PPointerCaptureMode mode);
     void ReleasePointerCapture(PPointerID pointerID, PPointerCaptureID captureID);
@@ -39,7 +39,6 @@ public:
 
 private:
     handle_id AllocateBitmapHandle();
-    handle_id AllocateBrushHandle();
     handle_id AllocateFontHandle();
 
     void ProcessMessage(int32_t code, const void* data, size_t length);
@@ -68,8 +67,8 @@ private:
                         const std::vector<float>& dashPattern,
                         float        dashOffset,
                         handle_id    fontHandle,
-                        handle_id backgroundBrush,
-                        handle_id drawingBrush,
+                        const PBrushData& backgroundBrush,
+                        const PBrushData& drawingBrush,
                         PColor fgColor,
                         const PPoint& backgroundBrushOrigin,
                         const PPoint& drawingBrushOrigin);
@@ -80,10 +79,8 @@ private:
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotLoadBitmap(port_id replyPort, const PString& path);
     void SlotDeleteBitmap(handle_id bitmapHandle);
-    void SlotCreateBrush(port_id replyPort, const PBrushDescription& description, handle_id bitmapHandle);
-    void SlotDeleteBrush(handle_id brushHandle);
-    void SlotUpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle);
-    void SlotSetBrushColor(handle_id brushHandle, PColor color);
+    void SlotDefineImage(PImageID imageID, handle_id bitmapHandle, const PImageDescription& description);
+    void SlotDeleteImage(PImageID imageID);
     void SlotCreateFont(port_id replyPort, const PFontDescription& description);
     void SlotDeleteFont(handle_id fontHandle);
     void SlotMeasureFont(
@@ -127,14 +124,10 @@ private:
         const auto callback = static_cast<void (PServerView::*)(const PRect&, PColor)>(&PServerView::FillRect);
         ForwardToView(viewHandle, callback, rect, color);
     }
-    void SlotViewFillRectBrush(handler_id viewHandle, const PRect& rect, handle_id brush)
+    void SlotViewFillRectBrush(handler_id viewHandle, const PRect& rect, const PBrushData& brush)
     {
-        Ptr<PServerBrush> resource = GetBrush(brush);
-        if (resource == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-        }
-        const auto callback = static_cast<void (PServerView::*)(const PRect&, Ptr<PServerBrush>)>(&PServerView::FillRect);
-        ForwardToView(viewHandle, callback, rect, resource);
+        const auto callback = static_cast<void (PServerView::*)(const PRect&, const PServerBrush&)>(&PServerView::FillRect);
+        ForwardToView(viewHandle, callback, rect, ResolveBrush(brush));
     }
     void SlotViewFillCircle(handler_id viewHandle, const PPoint& position, float radius)     { ForwardToView(viewHandle, &PServerView::FillCircle, position, radius); }
     void SlotViewDrawEllipse(handler_id viewHandle, const PRect& rect)                       { ForwardToView(viewHandle, &PServerView::DrawEllipse, rect); }
@@ -143,17 +136,18 @@ private:
     void SlotViewBeginTriangles(handler_id viewHandle, PTriangleMode mode, size_t countHint)  { ForwardToView(viewHandle, &PServerView::BeginTriangles, mode, countHint); }
     void SlotViewAddTriangle(handler_id viewHandle, const PPoint& position)                   { ForwardToView(viewHandle, &PServerView::AddTriangle, position); }
     void SlotViewEndTriangles(handler_id viewHandle)                                          { ForwardToView(viewHandle, &PServerView::EndTriangles); }
-    void SlotViewDrawString(handler_id viewHandle, handle_id backgroundBrush, const PString& string)
+    void SlotViewDrawString(handler_id viewHandle, const PBrushData& backgroundBrush, const PString& string)
     {
         SlotViewDrawStringWidth(viewHandle, backgroundBrush, string, std::numeric_limits<float>::infinity(), true);
     }
-    void SlotViewDrawStringWidth(handler_id viewHandle, handle_id backgroundBrush, const PString& string, float width, bool allowPartialCharacter)
+    void SlotViewDrawStringWidth(
+        handler_id viewHandle,
+        const PBrushData& backgroundBrush,
+        const PString& string,
+        float width,
+        bool allowPartialCharacter)
     {
-        Ptr<PServerBrush> resource = (backgroundBrush != INVALID_HANDLE) ? GetBrush(backgroundBrush) : nullptr;
-        if (backgroundBrush != INVALID_HANDLE && resource == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-        }
-        ForwardToView(viewHandle, &PServerView::DrawString, resource, string, width, allowPartialCharacter);
+        ForwardToView(viewHandle, &PServerView::DrawString, ResolveBrush(backgroundBrush), string, width, allowPartialCharacter);
     }
     void SlotViewScrollBy(handler_id viewHandle, const PPoint& delta)                        { ForwardToView(viewHandle, &PServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)  { ForwardToView(viewHandle, &PServerView::CopyRect, srcRect, dstPos); }
@@ -161,25 +155,17 @@ private:
     void SlotViewDrawScaledBitmap(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PRect& dstRect)  { ForwardToView(viewHandle, &PServerView::DrawScaledBitmap, GetBitmap(bitmapHandle), srcRect, dstRect); }
     void SlotViewDebugDraw(handler_id viewHandle, PColor color, uint32_t drawFlags)          { ForwardToView(viewHandle, &PServerView::DebugDraw, color, drawFlags); }
 
-    void SlotViewSetBrush(handler_id viewHandle, handle_id brush)
+    void SlotViewSetBrush(handler_id viewHandle, const PBrushData& brush)
     {
-        Ptr<PServerBrush> resource = (brush != INVALID_HANDLE) ? GetBrush(brush) : nullptr;
-        if (brush != INVALID_HANDLE && resource == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-        }
-        ForwardToView(viewHandle, &PServerView::SetBrush, resource);
+        ForwardToView(viewHandle, &PServerView::SetBrush, ResolveBrush(brush));
     }
     void SlotViewSetBrushOrigin(handler_id viewHandle, const PPoint& origin)
     {
         ForwardToView(viewHandle, &PServerView::SetBrushOrigin, origin);
     }
-    void SlotViewSetBackgroundBrush(handler_id viewHandle, handle_id brush)
+    void SlotViewSetBackgroundBrush(handler_id viewHandle, const PBrushData& brush)
     {
-        Ptr<PServerBrush> resource = (brush != INVALID_HANDLE) ? GetBrush(brush) : nullptr;
-        if (brush != INVALID_HANDLE && resource == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-        }
-        ForwardToView(viewHandle, &PServerView::SetBackgroundBrush, resource);
+        ForwardToView(viewHandle, &PServerView::SetBackgroundBrush, ResolveBrush(brush));
     }
     void SlotViewSetBackgroundBrushOrigin(handler_id viewHandle, const PPoint& origin)
     {
@@ -209,8 +195,7 @@ private:
 
     handle_id                           m_NextBitmapHandle = 1;
     std::map<handle_id, Ptr<PSrvBitmap>> m_BitmapMap;
-    handle_id m_NextBrushHandle = 1;
-    std::map<handle_id, Ptr<PServerBrush>> m_BrushMap;
+    std::map<PImageID, Ptr<PServerImage>> m_ImageMap;
     std::map<handle_id, Ptr<PServerFontInstance>> m_FontMap;
 
     // Accessed only by the application-server looper.
@@ -225,10 +210,8 @@ private:
     ASCreateBitmap              RSCreateBitmap;
     ASLoadBitmap                RSLoadBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
-    ASCreateBrush RSCreateBrush;
-    ASDeleteBrush RSDeleteBrush;
-    ASUpdateBrush RSUpdateBrush;
-    ASSetBrushColor RSSetBrushColor;
+    ASDefineImage RSDefineImage;
+    ASDeleteImage RSDeleteImage;
     ASCreateFont                RSCreateFont;
     ASDeleteFont                RSDeleteFont;
     ASMeasureFont               RSMeasureFont;

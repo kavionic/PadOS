@@ -20,34 +20,48 @@ PImage::PImage(Ptr<const PBitmap> bitmap) : PImage(bitmap, (bitmap != nullptr) ?
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PImage::PImage(Ptr<const PBitmap> bitmap, const PIRect& sourceRect) : m_Bitmap(std::move(bitmap))
+PImage::PImage(Ptr<const PBitmap> bitmap, const PIRect& sourceRect)
 {
-    if (m_Bitmap == nullptr) {
+    if (bitmap == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    m_Description = DescribeBitmap(*m_Bitmap, sourceRect);
-    m_Description.LayoutSize = PPoint(1.0f, 1.0f);
-    m_Description.LayoutMode = PImageLayoutMode::ViewRelative;
+    PImageDescription description = DescribeBitmap(*bitmap, sourceRect);
+    description.LayoutSize = PPoint(1.0f, 1.0f);
+    description.LayoutMode = PImageLayoutMode::ViewRelative;
+    m_Data = ptr_new<PImageData>(std::move(bitmap), description);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PImage::PImage(Ptr<const PBitmap> bitmap, const PImageDescription& description) : m_Bitmap(std::move(bitmap)), m_Description(description)
+PImage::PImage(Ptr<const PBitmap> bitmap, const PImageDescription& description)
 {
-    if (m_Bitmap == nullptr) {
+    if (bitmap == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    ClassifyOpacity(*m_Bitmap, m_Description);
+    PImageDescription classified = description;
+    ClassifyOpacity(*bitmap, classified);
+    m_Data = ptr_new<PImageData>(std::move(bitmap), classified);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PImage::PImage(const PImage& source) : PtrTarget(), m_Bitmap(source.m_Bitmap), m_Description(source.m_Description)
+const PImageDescription& PImage::GetDescription() const noexcept
 {
+    static const PImageDescription EMPTY_DESCRIPTION;
+    return IsValid() ? m_Data->GetDescription() : EMPTY_DESCRIPTION;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PImageID PImage::GetImageID() const
+{
+    return IsValid() ? m_Data->Publish() : INVALID_IMAGE_ID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,7 +70,7 @@ PImage::PImage(const PImage& source) : PtrTarget(), m_Bitmap(source.m_Bitmap), m
 
 void PImage::SetLayoutSize(const PPoint& size)
 {
-    SetLayoutSize(size, m_Description.LayoutMode);
+    SetLayoutSize(size, GetLayoutMode());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,7 +79,7 @@ void PImage::SetLayoutSize(const PPoint& size)
 
 void PImage::SetLayoutSize(const PPoint& size, PImageLayoutMode mode)
 {
-    PImageDescription description = m_Description;
+    PImageDescription description = GetDescription();
     description.LayoutSize = size;
     description.LayoutMode = mode;
     SetDescription(description);
@@ -77,11 +91,14 @@ void PImage::SetLayoutSize(const PPoint& size, PImageLayoutMode mode)
 
 void PImage::SetSliceRect(const PRect& rectangle)
 {
-    if (rectangle != m_Description.SliceRect)
+    if (!IsValid()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (rectangle != GetSliceRect())
     {
-        PImageDescription description = m_Description;
+        PImageDescription description = GetDescription();
         description.SliceRect = rectangle;
-        ClassifyOpacity(*m_Bitmap, description);
+        ClassifyOpacity(*GetBitmap(), description);
         SetDescription(description);
     }
 }
@@ -92,7 +109,7 @@ void PImage::SetSliceRect(const PRect& rectangle)
 
 void PImage::SetTiling(PImageTiling tiling)
 {
-    PImageDescription description = m_Description;
+    PImageDescription description = GetDescription();
     description.Tiling = tiling;
     SetDescription(description);
 }
@@ -169,14 +186,17 @@ void PImage::ClassifyOpacity(const PBitmap& bitmap, PImageDescription& descripti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PImage::SetDescription(PImageDescription description)
+void PImage::SetDescription(const PImageDescription& description)
 {
-    if (!PImageUtils::IsValid(description)) {
+    if (!IsValid() || !PImageUtils::IsValid(description)) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    if (description != m_Description)
+    if (description != GetDescription())
     {
-        m_Description = description;
-        SignalChanged();
+        if (m_Data->GetPtrCount() > 1 || m_Data->IsPublished()) {
+            m_Data = ptr_new<PImageData>(GetBitmap(), description);
+        } else {
+            m_Data->SetDescription(description);
+        }
     }
 }

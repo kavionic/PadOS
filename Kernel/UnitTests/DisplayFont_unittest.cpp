@@ -380,7 +380,12 @@ public:
         std::span<const PDisplayBrushLayer> layers = {})
     {
         CRITICAL_SCOPE(m_Mutex);
-        m_Brush.SetLayers(layers);
+        std::vector<KDisplayBrushLayer> prepared;
+        prepared.reserve(layers.size());
+        for (const PDisplayBrushLayer& layer : layers) {
+            prepared.push_back({ptr_new<KDisplayBrushSampler>(layer), PIPoint(0, 0), layer.Data.Color, layer.Data.Style});
+        }
+        m_Brush.SetLayers(prepared);
         PScopeExit clearBrush([this] { m_Brush.Clear(); });
         WriteString(&bitmap, position, text, font, {}, clips, background, foreground, advance, mode);
     }
@@ -638,11 +643,11 @@ TEST_F(DisplayFontRasterTest, BrushLabelsBlendCoverageWithTheMappedBackground)
     PDisplayBrushLayer layer;
     layer.Bitmap = {PEColorSpace::RGBA32, PIPoint(2, 1), 2 * sizeof(uint32_t),
         reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(artwork.data())), false};
-    layer.Description.Type = PBrushType::Bitmap;
-    layer.Description.Style = PBrushStyle::TexturePattern;
-    layer.Description.Image.SourceRect = PIRect(0, 0, 2, 1);
-    layer.Description.Image.SliceRect = PRect(layer.Description.Image.SourceRect);
-    layer.Description.Image.LayoutSize = PPoint(layer.Description.Image.SourceRect.Size());
+    layer.Data.Type = PBrushType::Bitmap;
+    layer.Data.Style = PBrushStyle::TexturePattern;
+    layer.Image.SourceRect = PIRect(0, 0, 2, 1);
+    layer.Image.SliceRect = PRect(layer.Image.SourceRect);
+    layer.Image.LayoutSize = PPoint(layer.Image.SourceRect.Size());
     layer.Bounds = PIRect(0, 0, 16, 12);
     const std::span<const PDisplayBrushLayer> layers(&layer, 1);
     const uint32_t untouched = PColor(16, 32, 48).GetColor32();
@@ -687,11 +692,11 @@ TEST_F(DisplayFontRasterTest, BrushCopyReplacesHoverAppearanceWithOneWritePerTex
     std::array<uint32_t, 2> artwork;
     PDisplayBrushLayer layer;
     layer.Bitmap = {PEColorSpace::RGBA32, PIPoint(2, 1), 2 * sizeof(uint32_t), reinterpret_cast<uint8_t*>(artwork.data()), false};
-    layer.Description.Type = PBrushType::Bitmap;
-    layer.Description.Style = PBrushStyle::TexturePattern;
-    layer.Description.Image.SourceRect = PIRect(0, 0, 2, 1);
-    layer.Description.Image.SliceRect = PRect(layer.Description.Image.SourceRect);
-    layer.Description.Image.LayoutSize = PPoint(layer.Description.Image.SourceRect.Size());
+    layer.Data.Type = PBrushType::Bitmap;
+    layer.Data.Style = PBrushStyle::TexturePattern;
+    layer.Image.SourceRect = PIRect(0, 0, 2, 1);
+    layer.Image.SliceRect = PRect(layer.Image.SourceRect);
+    layer.Image.LayoutSize = PPoint(layer.Image.SourceRect.Size());
     layer.Bounds = PIRect(0, 0, 16, 12);
     const std::span<const PDisplayBrushLayer> layers(&layer, 1);
     const PPoint advance(4, 0);
@@ -725,11 +730,11 @@ TEST_F(DisplayFontRasterTest, NineSliceLabelsMatchPartialRedrawsAndRgb565Output)
     }
     PDisplayBrushLayer layer;
     layer.Bitmap = {PEColorSpace::RGBA32, PIPoint(3, 3), 3 * sizeof(uint32_t), reinterpret_cast<uint8_t*>(artwork.data()), false};
-    layer.Description.Type = PBrushType::Image;
-    layer.Description.Style = PBrushStyle::TexturePattern;
-    layer.Description.Image.SourceRect = PIRect(0, 0, 3, 3);
-    layer.Description.Image.SliceRect = PRect(1, 1, 2, 2);
-    layer.Description.Image.LayoutSize = PPoint(7, 5);
+    layer.Data.Type = PBrushType::Image;
+    layer.Data.Style = PBrushStyle::TexturePattern;
+    layer.Image.SourceRect = PIRect(0, 0, 3, 3);
+    layer.Image.SliceRect = PRect(1, 1, 2, 2);
+    layer.Image.LayoutSize = PPoint(7, 5);
     layer.Bounds = PIRect(1, 1, 8, 6);
     static constexpr std::array<uint8_t, 18> COVERAGE = {0, 128, 255, 128, 255, 0, 255, 0, 128, 255, 128, 0, 128, 255, 0, 128, 0, 255};
     m_Glyph.Bounds = PIRect(-2, -3, 4, 0);

@@ -44,8 +44,8 @@ KDisplayDriver::KDisplayDriver()
 
     m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::CreateBitmap, this, &KDisplayDriver::HandleCreateBitmap);
     m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::DeleteBitmap, this, &KDisplayDriver::HandleDeleteBitmap);
-    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::CreateBrush, this, &KDisplayDriver::HandleCreateBrush);
-    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::DeleteBrush, this, &KDisplayDriver::HandleDeleteBrush);
+    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::CreateImage, this, &KDisplayDriver::HandleCreateImage);
+    m_DeviceControlDispatcher.AddHandler(&PDisplayDeviceControl::DeleteImage, this, &KDisplayDriver::HandleDeleteImage);
 
     m_CommandDispatcher.AddHandler(&PDisplayCommands::SetFgColor, this, &KDisplayDriver::SetFgColor);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBgColor, this, &KDisplayDriver::SetBgColor);
@@ -67,8 +67,6 @@ KDisplayDriver::KDisplayDriver()
     m_CommandDispatcher.AddHandler(&PDisplayCommands::WriteStringWidth, this, &KDisplayDriver::HandleWriteStringWidth);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBrush, this, &KDisplayDriver::HandleSetBrush);
     m_CommandDispatcher.AddHandler(&PDisplayCommands::FillBrushRect, this, &KDisplayDriver::HandleFillBrushRect);
-    m_CommandDispatcher.AddHandler(&PDisplayCommands::UpdateBrush, this, &KDisplayDriver::HandleUpdateBrush);
-    m_CommandDispatcher.AddHandler(&PDisplayCommands::SetBrushColor, this, &KDisplayDriver::HandleSetBrushColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1466,13 +1464,13 @@ void KDisplayDriver::CopyRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBitm
     {
         PDisplayBrushLayer source;
         source.Bitmap = *srcBitmap;
-        source.Description.Image.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
-        source.Description.Image.OpaqueSlices = 0;
-        source.Description.Type = PBrushType::Bitmap;
-        source.Description.Style = PBrushStyle::TexturePattern;
-        source.Description.Image.SourceRect = srcRect;
-        source.Description.Image.SliceRect = PRect(srcRect);
-        source.Description.Image.LayoutSize = PPoint(srcRect.Size());
+        source.Image.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
+        source.Image.OpaqueSlices = 0;
+        source.Data.Type = PBrushType::Bitmap;
+        source.Data.Style = PBrushStyle::TexturePattern;
+        source.Image.SourceRect = srcRect;
+        source.Image.SliceRect = PRect(srcRect);
+        source.Image.LayoutSize = PPoint(srcRect.Size());
         source.Bounds = PIRect(dstPos, dstPos + srcRect.Size());
         DrawBrushBitmap(dstBitmap, source, source.Bounds, mode);
         return;
@@ -1522,13 +1520,13 @@ void KDisplayDriver::ScaleRect(PDisplayBitmap* dstBitmap, PDisplayBitmap* srcBit
     {
         PDisplayBrushLayer source;
         source.Bitmap = *srcBitmap;
-        source.Description.Image.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
-        source.Description.Image.OpaqueSlices = 0;
-        source.Description.Type = PBrushType::Image;
-        source.Description.Style = PBrushStyle::TexturePattern;
-        source.Description.Image.SourceRect = srcOrigRect;
-        source.Description.Image.SliceRect = PRect(srcOrigRect);
-        source.Description.Image.LayoutSize = PPoint(dstOrigRect.Size());
+        source.Image.IsOpaque = srcBitmap->ColorSpace != PEColorSpace::RGBA32;
+        source.Image.OpaqueSlices = 0;
+        source.Data.Type = PBrushType::Image;
+        source.Data.Style = PBrushStyle::TexturePattern;
+        source.Image.SourceRect = srcOrigRect;
+        source.Image.SliceRect = PRect(srcOrigRect);
+        source.Image.LayoutSize = PPoint(dstOrigRect.Size());
         source.Bounds = dstOrigRect;
         DrawBrushBitmap(dstBitmap, source, dstRect, mode);
         return;

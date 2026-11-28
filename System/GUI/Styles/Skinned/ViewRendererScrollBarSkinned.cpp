@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include <GUI/Style/ViewRendererContext.h>
 #include <GUI/Style/ViewStyleScrollBar.h>
@@ -18,8 +19,8 @@
 
 struct PViewRendererScrollBarSkinned::SkinnedScrollBarPart
 {
-    std::array<Ptr<PImage>, std::to_underlying(PButtonSkinState::Count)> Images;
-    std::array<Ptr<PBrush>, std::to_underlying(PButtonSkinState::Count)> Brushes;
+    std::array<PImage, std::to_underlying(PButtonSkinState::Count)> Images;
+    std::array<PBrush, std::to_underlying(PButtonSkinState::Count)> Brushes;
 };
 
 struct PViewRendererScrollBarSkinned::Context : PViewRendererContext<PViewStyleScrollBar>
@@ -74,7 +75,7 @@ void PViewRendererScrollBarSkinned::Paint(PView& target, const PRect& frame, con
     const SkinnedScrollBarGeometry geometry = GetScrollBarGeometry(frame, data, data.Value);
     Context& state = *static_cast<Context*>(context);
     const PDrawingMode previousMode = target.GetDrawingMode();
-    PScopeExit restoreDrawing([&target, previousMode] { target.SetBrush(nullptr); target.SetDrawingMode(previousMode); });
+    PScopeExit restoreDrawing([&target, previousMode] { target.SetBrush(PBrush::zero); target.SetDrawingMode(previousMode); });
     target.SetDrawingMode(PDrawingMode::Copy);
     target.SetBackgroundBrush(GetScrollBarBrush(state.Track, skin.Track, GetScrollBarState(data, PScrollBarPart::None), frame.Size()));
     target.SetBackgroundBrushOrigin(frame.TopLeft());
@@ -323,21 +324,17 @@ PButtonSkinState PViewRendererScrollBarSkinned::GetScrollBarState(const PScrollB
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PViewRendererScrollBarSkinned::GetScrollBarBrush(
-    SkinnedScrollBarPart& cache,
-    const PScrollBarSkinPart& part,
-    PButtonSkinState state,
-    const PPoint& size)
+PBrush PViewRendererScrollBarSkinned::GetScrollBarBrush(SkinnedScrollBarPart& cache, const PScrollBarSkinPart& part, PButtonSkinState state, const PPoint& size)
 {
     const size_t index = std::to_underlying(state);
-    if (cache.Images[index] == nullptr)
+    if (!cache.Images[index].IsValid() || cache.Images[index].GetLayoutSize() != size)
     {
-        const Ptr<const PImage>& source = (part.States[index].Image != nullptr) ? part.States[index].Image : part.States[0].Image;
-        cache.Images[index] = ptr_new<PImage>(*source);
-        cache.Brushes[index] = ptr_new<PBrush>(cache.Images[index]);
-    }
-    if (cache.Images[index]->GetLayoutSize() != size) {
-        cache.Images[index]->SetLayoutSize(size, PImageLayoutMode::Absolute);
+        const PImage& source = part.States[index].Image.IsValid() ? part.States[index].Image : part.States[0].Image;
+        PImage image = cache.Images[index].IsValid() ? cache.Images[index] : source;
+        image.SetLayoutSize(size, PImageLayoutMode::Absolute);
+        PBrush brush(image);
+        cache.Images[index] = std::move(image);
+        cache.Brushes[index] = std::move(brush);
     }
     return cache.Brushes[index];
 }
@@ -356,9 +353,9 @@ void PViewRendererScrollBarSkinned::PaintScrollBarPart(
     if (!frame.IsValid()) {
         return;
     }
-    const Ptr<const PBrush> brush = GetScrollBarBrush(cache, part, state, frame.Size());
+    const PBrush brush = GetScrollBarBrush(cache, part, state, frame.Size());
     const size_t index = std::to_underlying(state);
-    const PScrollBarSkinAppearance& appearance = (part.States[index].Image != nullptr) ? part.States[index] : part.States[0];
+    const PScrollBarSkinAppearance& appearance = (part.States[index].Image.IsValid()) ? part.States[index] : part.States[0];
     target.SetBrushOrigin(frame.TopLeft());
     target.FillRect(frame, brush);
     if (appearance.Glyph != nullptr)

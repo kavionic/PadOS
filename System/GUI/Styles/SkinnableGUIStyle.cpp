@@ -102,7 +102,7 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
     LoadStyle(directory, application);
-    const Ptr<const PBrush> background = GetBrush(PGUIColorID::Background);
+    const PBrush background = GetBrush(PGUIColorID::Background);
     const PButtonSkin buttonSkin = LoadButtonSkin(directory, application);
     const PCheckBoxSkin checkBoxSkin = LoadCheckBoxSkin(directory, application);
     const PRadioButtonSkin radioButtonSkin = LoadRadioButtonSkin(directory, application);
@@ -130,40 +130,40 @@ PSkinnableGUIStyle::PSkinnableGUIStyle(const PPath& directory, PApplication* app
     if (!PMath::is_finite(radioButtonSkin.LabelVerticalSpacing)) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    if (buttonSkin.States[0].Background != nullptr) {
+    if (buttonSkin.States[0].Background.IsValid()) {
         SetRenderer(PGUIComponentID::Button, ptr_new<PViewRendererButtonSkinned>(buttonSkin));
     }
-    if (checkBoxSkin.States[0].Background != nullptr) {
+    if (checkBoxSkin.States[0].Background.IsValid()) {
         SetRenderer(PGUIComponentID::CheckBox, ptr_new<PViewRendererCheckBoxSkinned>(checkBoxSkin));
     }
-    if (radioButtonSkin.States[0].Background != nullptr) {
+    if (radioButtonSkin.States[0].Background.IsValid()) {
         SetRenderer(PGUIComponentID::RadioButton, ptr_new<PViewRendererRadioButtonSkinned>(radioButtonSkin));
     }
-    if (sliderSkin.Horizontal.Track != nullptr && sliderSkin.Vertical.Track != nullptr) {
+    if (sliderSkin.Horizontal.Track.IsValid() && sliderSkin.Vertical.Track.IsValid()) {
         SetRenderer(PGUIComponentID::Slider, ptr_new<PViewRendererSliderSkinned>(sliderSkin));
     }
-    if (scrollBarSkin.Horizontal.Track.States[0].Image != nullptr && scrollBarSkin.Vertical.Track.States[0].Image != nullptr) {
+    if (scrollBarSkin.Horizontal.Track.States[0].Image.IsValid() && scrollBarSkin.Vertical.Track.States[0].Image.IsValid()) {
         SetRenderer(PGUIComponentID::ScrollBar, ptr_new<PViewRendererScrollBarSkinned>(scrollBarSkin));
     }
-    if (dropdownMenuSkin.States[0].Background != nullptr) {
+    if (dropdownMenuSkin.States[0].Background.IsValid()) {
         SetRenderer(PGUIComponentID::DropdownMenu, ptr_new<PViewRendererDropdownMenuSkinned>(dropdownMenuSkin));
     }
-    if (dropdownMenuSkin.PopupFrame != nullptr) {
+    if (dropdownMenuSkin.PopupFrame.IsValid()) {
         SetRenderer(PGUIComponentID::DropdownMenuPopupFrame, ptr_new<PViewRendererDropdownMenuPopupFrameSkinned>(dropdownMenuSkin, background));
     }
-    if (dropdownMenuSkin.PopupFrame != nullptr) {
+    if (dropdownMenuSkin.PopupFrame.IsValid()) {
         SetRenderer(PGUIComponentID::DropdownMenuPopup, ptr_new<PViewRendererDropdownMenuPopupSkinned>(dropdownMenuSkin));
     }
-    if (textBoxSkin.States[0] != nullptr) {
+    if (textBoxSkin.States[0].IsValid()) {
         SetRenderer(PGUIComponentID::TextBox, ptr_new<PViewRendererTextBoxSkinned>(textBoxSkin));
     }
-    if (groupViewSkin.Frame != nullptr) {
+    if (groupViewSkin.Frame.IsValid()) {
         SetRenderer(PGUIComponentID::GroupView, ptr_new<PViewRendererGroupViewSkinned>(groupViewSkin));
     }
-    if (progressBarSkin.Horizontal.Track != nullptr) {
+    if (progressBarSkin.Horizontal.Track.IsValid()) {
         SetRenderer(PGUIComponentID::ProgressBar, ptr_new<PViewRendererProgressBarSkinned>(progressBarSkin));
     }
-    if (tabViewSkin.Frame != nullptr) {
+    if (tabViewSkin.Frame.IsValid()) {
         SetRenderer(PGUIComponentID::TabView, ptr_new<PViewRendererTabViewSkinned>(tabViewSkin, background));
     }
 }
@@ -317,7 +317,7 @@ void PSkinnableGUIStyle::ValidateScrollBarSkin(const PScrollBarSkin& skin)
         }
         for (const PScrollBarSkinPart* part : {&orientation->Track, &orientation->Knob, &orientation->Decrement, &orientation->Increment})
         {
-            if (orientation->Track.States[0].Image != nullptr && part->States[0].Image == nullptr) {
+            if (orientation->Track.States[0].Image.IsValid() && !part->States[0].Image.IsValid()) {
                 PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Scrollbar parts require a normal image");
             }
             for (const PScrollBarSkinAppearance& appearance : part->States)
@@ -357,7 +357,7 @@ void PSkinnableGUIStyle::ValidateTabViewSkin(const PTabViewSkin& skin)
     }
     for (const auto* appearances : {&skin.States, &skin.SelectedStates})
     {
-        if (skin.Frame != nullptr && (*appearances)[0].Image == nullptr) {
+        if (skin.Frame.IsValid() && !(*appearances)[0].Image.IsValid()) {
             PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Tab-view skins require normal and selected tab images");
         }
         for (const PTabSkinAppearance& appearance : *appearances)
@@ -390,13 +390,13 @@ void PSkinnableGUIStyle::ValidateDropdownMenuSkin(const PDropdownMenuSkin& skin)
             PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown dimensions must be finite and positive");
         }
     }
-    if (skin.States[0].Background != nullptr)
+    if (skin.States[0].Background.IsValid())
     {
         for (const auto* appearances : {&skin.States, &skin.EditableStates})
         {
             for (const PDropdownMenuAppearance& appearance : *appearances)
             {
-                if (appearance.Background == nullptr || appearance.Arrow == nullptr) {
+                if (!appearance.Background.IsValid() || appearance.Arrow == nullptr) {
                     PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown states require field and arrow appearances");
                 }
                 if (!PMath::is_finite(appearance.ArrowOffset.x) || !PMath::is_finite(appearance.ArrowOffset.y)) {
@@ -404,18 +404,18 @@ void PSkinnableGUIStyle::ValidateDropdownMenuSkin(const PDropdownMenuSkin& skin)
                 }
             }
         }
-        if (skin.PopupFrame == nullptr) {
+        if (!skin.PopupFrame.IsValid()) {
             PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown skins require a popup frame");
         }
     }
-    if (skin.PopupFrame != nullptr)
+    if (skin.PopupFrame.IsValid())
     {
-        if (skin.PopupBackground == nullptr) {
+        if (!skin.PopupBackground.IsValid()) {
             PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Dropdown popups require a background");
         }
         for (const PDropdownMenuRowAppearance& appearance : skin.Rows)
         {
-            if (appearance.Image == nullptr || !PMath::is_finite(appearance.LabelOffset.x) || !PMath::is_finite(appearance.LabelOffset.y)) {
+            if (!appearance.Image.IsValid() || !PMath::is_finite(appearance.LabelOffset.x) || !PMath::is_finite(appearance.LabelOffset.y)) {
                 PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Invalid dropdown popup row appearance");
             }
         }
@@ -443,7 +443,7 @@ void PSkinnableGUIStyle::ValidateTextBoxSkin(const PTextBoxSkin& skin)
     }
     for (size_t index = 0; index < skin.States.size(); ++index)
     {
-        if (skin.States[index] == nullptr || skin.RaisedStates[index] == nullptr) {
+        if (!skin.States[index].IsValid() || !skin.RaisedStates[index].IsValid()) {
             PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Text box skins require all recessed and raised states");
         }
     }
@@ -481,11 +481,11 @@ void PSkinnableGUIStyle::ValidateGroupViewSkin(const PGroupViewSkin& skin)
 
 void PSkinnableGUIStyle::ValidateProgressBarSkin(const PProgressBarSkin& skin)
 {
-    const bool hasImages = skin.Horizontal.Track != nullptr || skin.Horizontal.Fill != nullptr
-        || skin.Vertical.Track != nullptr || skin.Vertical.Fill != nullptr;
+    const bool hasImages = skin.Horizontal.Track.IsValid() || skin.Horizontal.Fill.IsValid()
+        || skin.Vertical.Track.IsValid() || skin.Vertical.Fill.IsValid();
     for (const PProgressBarOrientationSkin* orientation : {&skin.Horizontal, &skin.Vertical})
     {
-        if (hasImages && (orientation->Track == nullptr || orientation->Fill == nullptr)) {
+        if (hasImages && (!orientation->Track.IsValid() || !orientation->Fill.IsValid())) {
             PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Progress bar skins require a track and fill for both orientations");
         }
         const PRect& insets = orientation->FillInsets;
@@ -534,7 +534,7 @@ void PSkinnableGUIStyle::LoadStyle(const PPath& directory, PApplication* applica
         // Keep the palette background when the optional texture cannot be loaded.
         PERROR_CATCH([](PErrorCode) {});
         if (bitmap != nullptr) {
-            SetBrush(PGUIColorID::Background, ptr_new<PBrush>(bitmap));
+            SetBrush(PGUIColorID::Background, PBrush(bitmap));
         }
     }
 }
@@ -729,11 +729,11 @@ PSliderOrientationSkin PSkinnableGUIStyle::LoadSliderOrientation(const pugi::xml
     if (bitmap->GetColorSpace() != PEColorSpace::RGB32 && bitmap->GetColorSpace() != PEColorSpace::RGBA32) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Slider track masks must decode to RGB32 or RGBA32");
     }
-    Ptr<PImage> track = ptr_new<PImage>(bitmap);
+    PImage track(bitmap);
     const PRect borders = ParseSkinAttribute<PRect>(trackNode, "borders");
     const PIRect bounds = bitmap->GetBounds();
-    track->SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
-    track->SetLayoutSize(PPoint(bounds.Size()), PImageLayoutMode::Absolute);
+    track.SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
+    track.SetLayoutSize(PPoint(bounds.Size()), PImageLayoutMode::Absolute);
     skin.Track = track;
     const bool horizontal = std::string_view(node.name()) == "Horizontal";
     const std::array<const char*, 4> shapes = {"Plain", horizontal ? "Up" : "Left", horizontal ? "Down" : "Right", "Both"};
@@ -820,9 +820,9 @@ PScrollBarSkinPart PSkinnableGUIStyle::LoadScrollBarPart(const pugi::xml_node& n
         const Ptr<const PBitmap> bitmap = LoadSkinBitmap(state, directory, application);
         const PRect borders = ParseSkinAttribute<PRect>(state, "borders");
         const PIRect bounds = bitmap->GetBounds();
-        Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
-        image->SetLayoutSize(PPoint(bounds.Size()), PImageLayoutMode::Absolute);
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
+        image.SetLayoutSize(PPoint(bounds.Size()), PImageLayoutMode::Absolute);
         part.States[index].Image = image;
         const pugi::xml_node glyph = state.child("Glyph");
         if (glyph)
@@ -904,10 +904,10 @@ PDropdownMenuSkin PSkinnableGUIStyle::LoadDropdownMenuSkin(const PPath& director
     skin.PopupInsets = ParseSkinAttribute<PRect>(popup, "frame_insets");
     skin.RowPadding = ParseSkinAttribute<PRect>(popup, "row_padding");
     skin.MinimumRowHeight = ParseSkinAttribute<float>(popup, "minimum_row_height");
-    skin.PopupBackground = ptr_new<PBrush>(ParseSkinAttribute<PColor>(popup, "background_color"), application);
-    Ptr<PImage> frame = ptr_new<PImage>(*LoadSkinImage(popup.child("Frame"), directory, application));
-    frame->SetLayoutSize(PPoint(1.0f), PImageLayoutMode::ViewRelative);
-    skin.PopupFrame = ptr_new<PBrush>(frame);
+    skin.PopupBackground = PBrush(ParseSkinAttribute<PColor>(popup, "background_color"), application);
+    PImage frame = LoadSkinImage(popup.child("Frame"), directory, application);
+    frame.SetLayoutSize(PPoint(1.0f), PImageLayoutMode::ViewRelative);
+    skin.PopupFrame = PBrush(frame);
     for (size_t index = 0; index < DROPDOWN_ROW_STATE_NAMES.size(); ++index)
     {
         const pugi::xml_node node = popup.child(DROPDOWN_ROW_STATE_NAMES[index]);
@@ -1028,14 +1028,14 @@ PProgressBarOrientationSkin PSkinnableGUIStyle::LoadProgressBarOrientation(const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PImage> PSkinnableGUIStyle::LoadSkinImage(const pugi::xml_node& node, const PPath& directory, PApplication* application)
+PImage PSkinnableGUIStyle::LoadSkinImage(const pugi::xml_node& node, const PPath& directory, PApplication* application)
 {
     const Ptr<const PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
     const PRect borders = ParseSkinAttribute<PRect>(node, "borders");
     const PIRect bounds = bitmap->GetBounds();
-    Ptr<PImage> image = ptr_new<PImage>(bitmap);
-    image->SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
-    image->SetLayoutSize(PPoint(bounds.Size()), PImageLayoutMode::Absolute);
+    PImage image(bitmap);
+    image.SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
+    image.SetLayoutSize(PPoint(bounds.Size()), PImageLayoutMode::Absolute);
     return image;
 }
 
@@ -1092,12 +1092,12 @@ PButtonSkinAppearance PSkinnableGUIStyle::LoadAppearance(
 {
     const PRect borders = ParseSkinAttribute<PRect>(node, "borders");
     Ptr<const PBitmap> bitmap = LoadSkinBitmap(node, directory, application);
-    Ptr<PImage> image = ptr_new<PImage>(bitmap);
-    image->SetLayoutSize(imageSize, imageLayout);
+    PImage image(bitmap);
+    image.SetLayoutSize(imageSize, imageLayout);
     const PIRect bounds = bitmap->GetBounds();
-    image->SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
+    image.SetSliceRect(PRect(borders.left, borders.top, float(bounds.right) - borders.right, float(bounds.bottom) - borders.bottom));
 
     PButtonSkinAppearance appearance;
-    appearance.Background = ptr_new<PBrush>(image);
+    appearance.Background = PBrush(image);
     return appearance;
 }

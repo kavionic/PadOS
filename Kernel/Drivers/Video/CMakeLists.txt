@@ -6,6 +6,8 @@
 ###############################################################################
 
 target_sources(PadOS_Kernel PRIVATE
+	KDisplayBrushSampler.cpp
+	KDisplayImageResource.cpp
 	KDisplayBrush.cpp
 	KDisplayDriverBrushRender.cpp
 	RA8875Driver.cpp

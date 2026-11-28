@@ -64,7 +64,7 @@ void PViewRendererSliderDefault::Paint(PView& target, const PRect& frame, const 
     if (labelFrame.IsValid())
     {
         target.SetFgColor(0, 0, 0);
-        target.SetBrush(nullptr);
+        target.SetBrush(PBrush::zero);
         target.DrawString(data.ValueLabel, labelFrame.TopLeft() + PPoint(0.0f, target.GetFontHeight().ascender), labelFrame);
     }
     if (!layout.HasVisualState()) {

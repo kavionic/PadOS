@@ -28,7 +28,7 @@ private:
     static PButtonSkinState GetSliderState(const PSliderStyleData& data);
     static size_t GetSliderKnobIndex(const PSliderStyleData& data);
     static uint8_t ShadeSliderComponent(uint8_t component, uint8_t shade);
-    static Ptr<PImage> CreateSliderTrackImage(const PImage& source, PColor color);
+    static PImage CreateSliderTrackImage(const PImage& source, PColor color);
     static void UpdateSliderTrackImages(
         Context& state,
         const PSliderOrientationSkin& skin,

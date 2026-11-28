@@ -89,7 +89,7 @@ public:
 
     // Return a configured brush, or lazily create a solid brush from the palette color.
     // Hold the owning application mutex when obtaining or using brushes.
-    Ptr<const PBrush> GetBrush(PGUIColorID colorID) const;
+    PBrush GetBrush(PGUIColorID colorID) const;
 
     PColor GetColor(PGUIColorID colorID) const { return m_Colors[std::to_underlying(colorID)]; }
 
@@ -111,11 +111,11 @@ public:
 protected:
     // Configure colors and optional brushes during construction, before the style is installed.
     void SetColor(PGUIColorID colorID, PColor color) { m_Colors[std::to_underlying(colorID)] = color; }
-    void SetBrush(PGUIColorID colorID, Ptr<const PBrush> brush) { m_Brushes[std::to_underlying(colorID)] = std::move(brush); }
+    void SetBrush(PGUIColorID colorID, PBrush brush) { m_Brushes[std::to_underlying(colorID)] = std::move(brush); }
 
 private:
     WeakPtr<PApplication> m_Application;
     std::array<PColor, std::to_underlying(PGUIColorID::Count)> m_Colors;
-    mutable std::array<Ptr<const PBrush>, std::to_underlying(PGUIColorID::Count)> m_Brushes;
+    mutable std::array<PBrush, std::to_underlying(PGUIColorID::Count)> m_Brushes;
     mutable std::array<Ptr<const PViewRenderer>, std::to_underlying(PGUIComponentID::Count)> m_Renderers;
 };

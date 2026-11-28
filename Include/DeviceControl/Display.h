@@ -33,12 +33,12 @@ struct PScreenMode
 
 
 // Identifies a resource registered with one open kernel driver session.
-// These IDs are separate from appserver bitmap and brush handles.
+// These IDs are separate from appserver bitmap and image handles.
 using PDriverResourceID = uint32_t;
 static constexpr PDriverResourceID DRIVER_INVALID_RESOURCE_ID = 0;
 
 // The owner preserves raster storage and validated access grants while any
-// registered bitmap, brush, selected composition, or pending command uses it.
+// registered bitmap, image, selected composition, or pending command uses it.
 // Deleting an ID removes that handle; dependent resources retain their objects.
 // Device close releases all references after completing hardware accesses.
 // Future address-span revocation must retire these uses before removing grants.
@@ -60,8 +60,8 @@ enum class PDisplayRequest : int
     SetMouseCursorBitmap,
     CreateBitmap,
     DeleteBitmap,
-    CreateBrush,
-    DeleteBrush
+    CreateImage,
+    DeleteImage
 };
 
 struct PDisplayInfo
@@ -82,8 +82,8 @@ public:
         , SetMouseCursorBitmap(*this)
         , CreateBitmap(*this)
         , DeleteBitmap(*this)
-        , CreateBrush(*this)
-        , DeleteBrush(*this)
+        , CreateImage(*this)
+        , DeleteImage(*this)
     {
     }
 
@@ -111,10 +111,10 @@ public:
     PDeviceControlInvoker<std::to_underlying(PDisplayRequest::CreateBitmap), PDriverResourceID(PDisplayBitmap bitmap, bool writable)> CreateBitmap;
     PDeviceControlInvoker<std::to_underlying(PDisplayRequest::DeleteBitmap), void(PDriverResourceID bitmap)> DeleteBitmap;
     PDeviceControlInvoker<
-        std::to_underlying(PDisplayRequest::CreateBrush),
-        PDriverResourceID(PDriverResourceID bitmap, const PBrushDescription& description)
-    > CreateBrush;
-    PDeviceControlInvoker<std::to_underlying(PDisplayRequest::DeleteBrush), void(PDriverResourceID brush)> DeleteBrush;
+        std::to_underlying(PDisplayRequest::CreateImage),
+        PDriverResourceID(PDriverResourceID bitmap, const PImageDescription& description)
+    > CreateImage;
+    PDeviceControlInvoker<std::to_underlying(PDisplayRequest::DeleteImage), void(PDriverResourceID image)> DeleteImage;
 };
 
 static constexpr size_t DISPLAY_COMMAND_ALIGNMENT = 8;
@@ -142,8 +142,6 @@ enum class PDisplayCommandID : uint32_t
     WriteStringWidth,
     SetBrush,
     FillBrushRect,
-    UpdateBrush,
-    SetBrushColor,
     Count
 };
 
@@ -177,8 +175,6 @@ public:
         , WriteStringWidth(driver)
         , SetBrush(driver)
         , FillBrushRect(driver)
-        , UpdateBrush(driver)
-        , SetBrushColor(driver)
     {
     }
 
@@ -274,10 +270,4 @@ public:
     // SetBrush payload contains layerCount PDisplayBrushBinding records. State persists across submissions.
     PDisplayDriverInvoker<PDisplayCommandID::SetBrush, void(size_t layerCount)> SetBrush;
     PDisplayDriverInvoker<PDisplayCommandID::FillBrushRect, void(PDriverResourceID bitmap, PIRect bounds)> FillBrushRect;
-    PDisplayDriverInvoker<
-        PDisplayCommandID::UpdateBrush,
-        void(PDriverResourceID brush, PDriverResourceID bitmap, const PBrushDescription& description)
-    > UpdateBrush;
-    // Sets a solid color, releasing any previous bitmap at execution time.
-    PDisplayDriverInvoker<PDisplayCommandID::SetBrushColor, void(PDriverResourceID brush, PColor color)> SetBrushColor;
 };

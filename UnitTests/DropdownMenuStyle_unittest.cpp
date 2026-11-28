@@ -320,7 +320,7 @@ TEST(DropdownMenuStyle, SkinnedFieldsConfigureTheirEditorAndTrackHoverWithoutOpe
             drawingTarget->SetFont(menu->GetFont());
             PDropdownMenuStyleData& data = drawingTarget->GetDropdownMenuStyleData();
             PViewRendererTestBinding<PViewRendererDropdownMenu> drawingRenderer(*drawingTarget, *style, PGUIComponentID::DropdownMenu);
-            Ptr<const PBrush> previousBrush;
+            PBrush previousBrush;
             for (PButtonSkinState state : {PButtonSkinState::Normal, PButtonSkinState::Hovered, PButtonSkinState::Pressed, PButtonSkinState::Disabled})
             {
                 data.IsEnabled = state != PButtonSkinState::Disabled;
@@ -329,12 +329,12 @@ TEST(DropdownMenuStyle, SkinnedFieldsConfigureTheirEditorAndTrackHoverWithoutOpe
                 drawingTarget->SetDrawingMode(PDrawingMode::Blend);
                 data.IsReadOnly = true;
                 drawingRenderer->Paint(*drawingTarget, drawingTarget->GetBounds(), drawingTarget->GetBounds(), drawingRenderer.GetContext());
-                const Ptr<const PBrush> readOnlyBackground = drawingTarget->GetBackgroundBrush();
+                const PBrush readOnlyBackground = drawingTarget->GetBackgroundBrush();
                 data.IsReadOnly = false;
                 drawingRenderer->Paint(*drawingTarget, drawingTarget->GetBounds(), drawingTarget->GetBounds(), drawingRenderer.GetContext());
                 EXPECT_NE(drawingTarget->GetBackgroundBrush(), readOnlyBackground);
                 EXPECT_EQ(drawingTarget->GetDrawingMode(), PDrawingMode::Blend);
-                EXPECT_EQ(drawingTarget->GetBrush(), nullptr);
+                EXPECT_FALSE(drawingTarget->GetBrush().IsValid());
                 EXPECT_NE(drawingTarget->GetBackgroundBrush(), previousBrush);
                 previousBrush = drawingTarget->GetBackgroundBrush();
                 EXPECT_EQ(drawingRenderer->GetEditorFrame(*drawingTarget, drawingRenderer.GetContext()), PRect(10, 4, 164, 27));
@@ -401,7 +401,7 @@ TEST(DropdownMenuStyle, SkinnedPopupsShareGeometryForPaintingScrollingAndHitTest
                 popupRenderer->Paint(*target, target->GetBounds(), target->GetBounds(), popupRenderer.GetContext());
                 EXPECT_EQ(target->GetDrawingRegion(), clip);
                 EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
-                EXPECT_EQ(target->GetBrush(), nullptr);
+                EXPECT_FALSE(target->GetBrush().IsValid());
             }
             PtrTarget* const privateData = popupRenderer.GetContext();
             target->ScrollTo(PPoint(0, -32));
@@ -430,11 +430,11 @@ TEST(DropdownMenuStyle, SkinMetricsAllowOverlapAndResizingDoesNotChangeSharedIma
     RunGUITest([](PApplication& application)
     {
         const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(16, 16, PEColorSpace::RGBA32);
-        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(4, 4, 12, 12));
-        image->SetLayoutSize(PPoint(16, 16), PImageLayoutMode::Absolute);
-        const PImageDescription description = image->GetDescription();
-        const Ptr<PBrush> brush = ptr_new<PBrush>(image);
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(4, 4, 12, 12));
+        image.SetLayoutSize(PPoint(16, 16), PImageLayoutMode::Absolute);
+        const PImageDescription description = image.GetDescription();
+        PBrush brush(image);
         PDropdownMenuSkin skin;
         for (PDropdownMenuAppearance& appearance : skin.States)
         {
@@ -478,9 +478,9 @@ TEST(DropdownMenuStyle, SkinMetricsAllowOverlapAndResizingDoesNotChangeSharedIma
         secondPopupRenderer->Paint(*second, second->GetBounds(), second->GetBounds(), secondPopupRenderer.GetContext());
         EXPECT_NE(firstPopupRenderer.GetContext(), secondPopupRenderer.GetContext());
         EXPECT_EQ(first->GetDrawingRegion(), clip);
-        EXPECT_EQ(image->GetDescription(), description);
+        EXPECT_EQ(image.GetDescription(), description);
         first->SetFrame(PRect(0, 0, 50, 12));
         firstPopupRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstPopupRenderer.GetContext());
-        EXPECT_EQ(image->GetDescription(), description);
+        EXPECT_EQ(image.GetDescription(), description);
     });
 }

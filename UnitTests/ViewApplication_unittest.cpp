@@ -47,8 +47,8 @@ TEST(ViewApplication, ViewsStartWithoutDrawingOrBackgroundBrushes)
         Ptr<PView> proxy = ptr_new<PView>(INVALID_HANDLE, "proxy_brushes", PRect(0, 0, 32, 32));
         for (const Ptr<PView>& target : {view, xmlView, proxy})
         {
-            EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
-            EXPECT_EQ(target->GetBrush(), nullptr);
+            EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
+            EXPECT_FALSE(target->GetBrush().IsValid());
         }
     });
 }
@@ -57,8 +57,8 @@ TEST(ViewApplication, TextViewsPreserveTheirBackgroundWhenADrawingBrushIsSelecte
 {
     RunGUITest([](PApplication& application)
     {
-        const Ptr<const PBrush> background = application.GetStandardBrush(PNamedColors::blue);
-        const Ptr<const PBrush> drawing = application.GetStandardBrush(PNamedColors::red);
+        const PBrush background = application.GetStandardBrush(PNamedColors::blue);
+        const PBrush drawing = application.GetStandardBrush(PNamedColors::red);
         for (PTextViewFlags flags : {PTextViewFlags::zero, PTextViewFlags(PTextViewFlag::MultiLine)})
         {
             Ptr<PTextView> view = ptr_new<PTextView>("text_background", "Text on its own background", flags);
@@ -82,9 +82,9 @@ TEST(ViewApplication, TextBackgroundOverridesPreserveSelectedBrushes)
     {
         Ptr<PView> view = ptr_new<PView>("text_overrides", PViewFlag::WillDraw);
         view->SetFrame(PRect(0, 0, 120, 60));
-        const Ptr<const PBrush> background = application.GetStandardBrush(PNamedColors::blue);
-        const Ptr<const PBrush> drawing = application.GetStandardBrush(PNamedColors::red);
-        const Ptr<const PBrush> overrideBrush = application.GetStandardBrush(PNamedColors::green);
+        const PBrush background = application.GetStandardBrush(PNamedColors::blue);
+        const PBrush drawing = application.GetStandardBrush(PNamedColors::red);
+        const PBrush overrideBrush = application.GetStandardBrush(PNamedColors::green);
         view->SetBackgroundBrush(background);
         view->SetBrush(drawing);
         view->SetBackgroundBrushOrigin(PPoint(3, 5));
@@ -93,7 +93,7 @@ TEST(ViewApplication, TextBackgroundOverridesPreserveSelectedBrushes)
         ASSERT_TRUE(application.AddView(view, PViewDockType::TopLevelView));
         PScopeExit removeView([&application, &view] { application.RemoveView(view); });
         const PPoint baseline(2, view->GetFontHeight().ascender);
-        for (const Ptr<const PBrush>& brush : {Ptr<const PBrush>(), overrideBrush})
+        for (const PBrush& brush : {PBrush::zero, overrideBrush})
         {
             view->MovePenTo(baseline);
             view->DrawString(brush, "Text");
@@ -122,13 +122,13 @@ TEST(ViewApplication, DetachedViewsUseTheCurrentApplicationForStylesAndBrushes)
         EXPECT_FALSE(view->HasFlags(PViewFlag::IsAttachedToScreen));
         EXPECT_EQ(view->GetApplication(), &application);
         EXPECT_EQ(view->GetStyle(), application.GetGUIStyle());
-        EXPECT_EQ(view->GetStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), &application);
+        EXPECT_EQ(view->GetStyle()->GetBrush(PGUIColorID::Background).GetApplication(), &application);
         EXPECT_EQ(view->GetStandardBrush(PStandardColorID::DefaultBackground), application.GetStandardBrush(PStandardColorID::DefaultBackground));
         EXPECT_EQ(view->GetStandardBrush(PNamedColors::white), application.GetStandardBrush(PNamedColors::white));
-        view->SetBrush(ptr_new<PBrush>(PColor(20, 40, 60), view->GetApplication()));
-        view->SetBackgroundBrush(ptr_new<PBrush>(PColor(60, 40, 20), view->GetApplication()));
-        EXPECT_EQ(view->GetBrush()->GetApplication(), &application);
-        EXPECT_EQ(view->GetBackgroundBrush()->GetApplication(), &application);
+        view->SetBrush(PBrush(PColor(20, 40, 60), view->GetApplication()));
+        view->SetBackgroundBrush(PBrush(PColor(60, 40, 20), view->GetApplication()));
+        EXPECT_EQ(view->GetBrush().GetApplication(), &application);
+        EXPECT_EQ(view->GetBackgroundBrush().GetApplication(), &application);
     });
 }
 
@@ -137,9 +137,9 @@ TEST(ViewApplication, OwnAndAncestorLoopersTakePrecedenceOverTheCurrentApplicati
     RunGUITest([](PApplication& application)
     {
         Ptr<PApplication> otherApplication = ptr_new<PApplication>("other_view_application");
-        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), otherApplication);
+        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBrush(PGUIColorID::Background).GetApplication(), otherApplication);
         otherApplication->SetGUIStyle(nullptr);
-        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), otherApplication);
+        EXPECT_EQ(otherApplication->GetGUIStyle()->GetBrush(PGUIColorID::Background).GetApplication(), otherApplication);
         Ptr<PView> parent = ptr_new<PView>("parent");
         Ptr<PViewApplicationTestView> child = ptr_new<PViewApplicationTestView>("child");
         ASSERT_TRUE(otherApplication->AddHandler(parent));
@@ -148,7 +148,7 @@ TEST(ViewApplication, OwnAndAncestorLoopersTakePrecedenceOverTheCurrentApplicati
         EXPECT_EQ(parent->GetApplication(), otherApplication);
         EXPECT_EQ(child->GetApplication(), otherApplication);
         EXPECT_EQ(child->GetStyle(), otherApplication->GetGUIStyle());
-        EXPECT_EQ(child->GetStyle()->GetBrush(PGUIColorID::Background)->GetApplication(), otherApplication);
+        EXPECT_EQ(child->GetStyle()->GetBrush(PGUIColorID::Background).GetApplication(), otherApplication);
         EXPECT_EQ(child->GetStandardBrush(PNamedColors::white), otherApplication->GetStandardBrush(PNamedColors::white));
         EXPECT_EQ(
             child->GetStandardBrush(PStandardColorID::DefaultBackground),
@@ -231,10 +231,10 @@ TEST(ViewApplication, ExplicitRectangleFillsPreserveDrawingState)
         view->SetBrushOrigin(PPoint(3.0f, 5.0f));
         view->SetFgColor(PNamedColors::white);
         view->SetPenWidth(3.0f);
-        const Ptr<const PBrush> drawingBrush = view->GetBrush();
-        const Ptr<const PBrush> backgroundBrush = view->GetBackgroundBrush();
-        const Ptr<PBrush> explicitBrush = ptr_new<PBrush>(PColor(PNamedColors::blue), &application);
-        const Ptr<PBrush> noFill = ptr_new<PBrush>(PBrushStyle::None, &application);
+        const PBrush drawingBrush = view->GetBrush();
+        const PBrush backgroundBrush = view->GetBackgroundBrush();
+        const PBrush explicitBrush(PColor(PNamedColors::blue), &application);
+        const PBrush noFill(PBrushStyle::None, &application);
         view->Hide();
         ASSERT_TRUE(application.AddView(view, PViewDockType::TopLevelView));
         PScopeExit removeView([&application, &view] { application.RemoveView(view); });
@@ -244,7 +244,7 @@ TEST(ViewApplication, ExplicitRectangleFillsPreserveDrawingState)
         view->FillRect(rect, PColor(10, 20, 30));
         view->FillRect(rect, PStandardColorID::DefaultBackground);
         view->FillRect(rect, PNamedColors::green);
-        view->FillRect(rect, nullptr);
+        view->FillRect(rect, PBrush::zero);
         view->FillRect(rect, noFill);
         view->DrawRect(rect);
         application.Sync();

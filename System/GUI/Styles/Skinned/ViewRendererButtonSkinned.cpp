@@ -27,14 +27,14 @@ void PViewRendererButtonSkinned::Paint(PView& target, const PRect& bounds, const
     Context& renderContext = *static_cast<Context*>(context);
     const PButtonStyleData& data = renderContext.GetTarget().GetButtonStyleData();
     const bool isEnabled = renderContext.GetTarget().IsButtonEnabled();
-    const Ptr<const PBrush> normal = m_ButtonSkin.States[std::to_underlying(PButtonSkinState::Normal)].Background;
+    const PBrush normal = m_ButtonSkin.States[std::to_underlying(PButtonSkinState::Normal)].Background;
     UpdateMetrics(target, data, renderContext);
     const PButtonSkinState state = GetButtonState(isEnabled, data);
     const PButtonSkinAppearance& appearance = data.IsChecked
         ? m_ButtonSkin.CheckedStates[std::to_underlying(state)] : m_ButtonSkin.States[std::to_underlying(state)];
-    target.SetBackgroundBrush((appearance.Background != nullptr) ? appearance.Background : normal);
+    target.SetBackgroundBrush((appearance.Background.IsValid()) ? appearance.Background : normal);
     target.SetBackgroundBrushOrigin(bounds.TopLeft());
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
 
     const PRect& padding = m_ButtonSkin.LabelPadding;
     const PRect labelFrame = bounds.GetResized(padding.left, padding.top, -padding.right, -padding.bottom);
@@ -86,15 +86,15 @@ PPoint PViewRendererButtonSkinned::GetButtonImageMinimumSize() const
     {
         for (const PButtonSkinAppearance& appearance : *states)
         {
-            if (appearance.Background != nullptr)
+            if (appearance.Background.IsValid())
             {
-                const Ptr<const PImage> image = appearance.Background->GetImage();
-                if (image != nullptr)
+                const PImage image = appearance.Background.GetImage();
+                if (image.IsValid())
                 {
-                    const PImageDescription& description = image->GetDescription();
+                    const PImageDescription& description = image.GetDescription();
                     const PRect& slice = description.SliceRect;
                     const PIRect& source = description.SourceRect;
-                    const PPoint scale = appearance.Background->GetScale();
+                    const PPoint scale = appearance.Background.GetScale();
                     size.x = std::max(size.x, (slice.left - float(source.left) + float(source.right) - slice.right) * scale.x);
                     size.y = std::max(size.y, (slice.top - float(source.top) + float(source.bottom) - slice.bottom) * scale.y);
                 }

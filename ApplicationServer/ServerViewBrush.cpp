@@ -15,25 +15,15 @@
 uint32_t PServerView::s_BackgroundGeneration = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Preserve movement snapshots on a geometry-generation wrap. A brush revision
-/// wrap invalidates only snapshots that refer to that changed brush.
+/// Preserve movement snapshots when resetting geometry-generation stamps.
 /// 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::InvalidateBrushCaches(const PServerBrush* changedBrush)
+void PServerView::InvalidateBrushCaches()
 {
     m_BackgroundCacheGeneration = 0;
     m_DrawingCacheGeneration = 0;
-    if (changedBrush != nullptr)
-    {
-        for (PServerBrushLayer& layer : m_PreviousBackgroundLayers)
-        {
-            if (layer.Brush == changedBrush) {
-                layer.Revision = 0;
-            }
-        }
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -43,7 +33,7 @@ void PServerView::InvalidateBrushCaches(const PServerBrush* changedBrush)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::InvalidateAllBrushCaches(const PServerBrush* changedBrush)
+void PServerView::InvalidateAllBrushCaches()
 {
     PLooper* looper = PLooper::GetCurrentLooper();
     assert(looper != nullptr);
@@ -51,7 +41,7 @@ void PServerView::InvalidateAllBrushCaches(const PServerBrush* changedBrush)
     {
         PServerView* view = dynamic_cast<PServerView*>(ptr_raw_pointer_cast(handler));
         if (view != nullptr) {
-            view->InvalidateBrushCaches(changedBrush);
+            view->InvalidateBrushCaches();
         }
     }
 }
@@ -60,11 +50,11 @@ void PServerView::InvalidateAllBrushCaches(const PServerBrush* changedBrush)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::SetBrush(Ptr<PServerBrush> brush)
+void PServerView::SetBrush(const PServerBrush& brush)
 {
     if (m_DrawingBrush.Brush != brush)
     {
-        m_DrawingBrush.Brush = std::move(brush);
+        m_DrawingBrush.Brush = brush;
         m_DrawingCacheGeneration = 0;
     }
 }
@@ -73,17 +63,11 @@ void PServerView::SetBrush(Ptr<PServerBrush> brush)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::SetBackgroundBrush(Ptr<PServerBrush> brush)
+void PServerView::SetBackgroundBrush(const PServerBrush& brush)
 {
     if (m_BackgroundBrush.Brush != brush)
     {
-        if (brush != nullptr) {
-            brush->SignalChanged.Connect(this, &PServerView::BackgroundBrushChanged);
-        }
-        if (m_BackgroundBrush.Brush != nullptr) {
-            m_BackgroundBrush.Brush->SignalChanged.Disconnect(this, &PServerView::BackgroundBrushChanged);
-        }
-        m_BackgroundBrush.Brush = std::move(brush);
+        m_BackgroundBrush.Brush = brush;
         BackgroundBrushChanged();
     }
 }
@@ -116,7 +100,7 @@ void PServerView::SetBackgroundBrushOrigin(const PPoint& origin)
     if (m_BackgroundBrush.Origin != origin)
     {
         m_BackgroundBrush.Origin = origin;
-        if (m_BackgroundBrush.Brush != nullptr && m_BackgroundBrush.Brush->GetDescription().Style == PBrushStyle::TexturePattern) {
+        if (m_BackgroundBrush.Brush.GetData().Style == PBrushStyle::TexturePattern) {
             BackgroundBrushChanged();
         }
     }
@@ -126,9 +110,9 @@ void PServerView::SetBackgroundBrushOrigin(const PPoint& origin)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::FillRect(const PRect& rect, Ptr<PServerBrush> brush)
+void PServerView::FillRect(const PRect& rect, const PServerBrush& brush)
 {
-    if (brush != nullptr && brush->GetDescription().Style != PBrushStyle::None) {
+    if (brush.GetData().Style != PBrushStyle::None) {
         FillResolvedRect(rect, GetDrawingBrushState(brush));
     }
 }
@@ -189,7 +173,7 @@ void PServerView::FillResolvedRect(const PRect& rect, const PServerBrushState& s
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Resolve only when geometry, ancestry, or a contributing brush changes.
+/// Resolve only when geometry, ancestry, or a brush binding changes.
 /// Opaque solids stop immediately, with no layer allocation or ancestor
 /// traversal.
 /// 
@@ -215,8 +199,7 @@ const PServerBrushState& PServerView::GetBackgroundBrushState() const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Drawing-only edits do not invalidate views. The resource revision refreshes
-/// this cached composition at the next draw, in command-queue order.
+/// Drawing bindings hold immutable values and do not invalidate views.
 /// 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -228,28 +211,25 @@ const PServerBrushState& PServerView::GetDrawingBrushState() const
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Cache the last brush used for drawing, including explicit FillRect sources.
-/// Its origin always comes from the view. Identity, revision, and background
+/// Its origin always comes from the view. Brush equality and background
 /// generation keep repeated fills cheap without changing the selected brush.
 ///
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const PServerBrushState& PServerView::GetDrawingBrushState(const Ptr<PServerBrush>& brush) const
+const PServerBrushState& PServerView::GetDrawingBrushState(const PServerBrush& brush) const
 {
-    if (brush == nullptr || brush->GetDescription().Style == PBrushStyle::None) {
+    if (brush.GetData().Style == PBrushStyle::None) {
         return GetBackgroundBrushState();
     }
-    const uint32_t revision = brush->GetRevision();
-    if (m_DrawingCacheBrush != brush || m_DrawingCacheGeneration != s_BackgroundGeneration || m_DrawingCacheRevision != revision)
+    if (m_DrawingCacheBrush != brush || m_DrawingCacheGeneration != s_BackgroundGeneration)
     {
         const PServerBrushBinding binding{brush, m_DrawingBrush.Origin};
         const PServerBrushState* base = BrushCoversView(binding) ? nullptr : &GetBackgroundBrushState();
         ResolveBrushState(m_DrawingBrushState, binding, base);
         m_DrawingCacheBrush = brush;
         m_DrawingCacheGeneration = s_BackgroundGeneration;
-        m_DrawingCacheRevision = revision;
-        if (brush->GetDescription().Style == PBrushStyle::TexturePattern
-            && brush->GetDescription().Image.LayoutMode == PImageLayoutMode::ViewRelative) {
+        if (brush.GetData().Style == PBrushStyle::TexturePattern && brush.GetImage()->GetDescription().LayoutMode == PImageLayoutMode::ViewRelative) {
             m_HasViewRelativeDrawingBrushes = true;
         }
     }
@@ -265,7 +245,7 @@ const PServerBrushState& PServerView::GetDrawingBrushState(const Ptr<PServerBrus
 
 bool PServerView::HasDrawingBrush() const
 {
-    return m_DrawingBrush.Brush != nullptr && m_DrawingBrush.Brush->GetDescription().Style != PBrushStyle::None;
+    return m_DrawingBrush.Brush.GetData().Style != PBrushStyle::None;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -277,8 +257,8 @@ PColor PServerView::GetDrawingBrushColor() const
     if (!HasDrawingBrush()) {
         return PColor(0, 0, 0, 0);
     }
-    if (m_DrawingBrush.Brush->GetDescription().Style == PBrushStyle::SolidPattern) {
-        return m_DrawingBrush.Brush->GetDescription().Color;
+    if (m_DrawingBrush.Brush.GetData().Style == PBrushStyle::SolidPattern) {
+        return m_DrawingBrush.Brush.GetData().Color;
     }
     const PServerBrushState& state = GetDrawingBrushState();
     if (!state.IsSolid()) {
@@ -293,14 +273,14 @@ PColor PServerView::GetDrawingBrushColor() const
 
 bool PServerView::BrushCoversView(const PServerBrushBinding& binding) const
 {
-    return binding.Brush != nullptr && binding.Brush->GetDescription().IsOpaque();
+    return binding.Brush.IsOpaque();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Collapse constant layers once. Patterned compositions retain resource
-/// identity and revision alongside their original screen-space sampling
-/// rectangles. The selecting view supplies the reference size; inherited
-/// layers keep their owner's prepared mapping through scrolling and clipping.
+/// Collapse constant layers once. Patterned compositions retain immutable
+/// brush values alongside their original screen-space sampling rectangles.
+/// The selecting view supplies the reference size; inherited layers keep
+/// their owner's prepared mapping through scrolling and clipping.
 /// 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -309,43 +289,37 @@ void PServerView::ResolveBrushState(PServerBrushState& state, const PServerBrush
 {
     state.Layers.clear();
     state.Color = (base != nullptr) ? base->Color : PColor(255, 255, 255);
-    if (binding.Brush == nullptr || binding.Brush->GetDescription().Style == PBrushStyle::None)
+    const PBrushData& data = binding.Brush.GetData();
+    if (data.Style == PBrushStyle::None)
     {
         if (base != nullptr && !base->IsSolid()) {
             state.Layers = base->Layers;
         }
         return;
     }
-    const PBrushDescription& description = binding.Brush->GetDescription();
-    if (description.Style == PBrushStyle::SolidPattern && (base == nullptr || base->IsSolid()))
+    if (data.Style == PBrushStyle::SolidPattern && (base == nullptr || base->IsSolid()))
     {
-        state.Color = PBrushUtils::Composite(description.Color, state.Color);
+        state.Color = PBrushUtils::Composite(data.Color, state.Color);
         return;
     }
     if (base != nullptr)
     {
-        if (base->IsSolid())
-        {
-            PServerBrushLayer constant;
-            constant.Color = base->Color;
-            state.Layers.push_back(constant);
-        }
-        else
-        {
+        if (base->IsSolid()) {
+            state.Layers.push_back({PServerBrush(base->Color), {}, {}});
+        } else {
             state.Layers = base->Layers;
         }
     }
-    else if (!description.IsOpaque())
+    else if (!binding.Brush.IsOpaque())
     {
-        PServerBrushLayer constant;
-        constant.Color = state.Color;
-        state.Layers.push_back(constant);
+        state.Layers.push_back({PServerBrush(state.Color), {}, {}});
     }
     const PIPoint origin(binding.Origin + m_ScrollOffset + m_ScreenPos);
     const PIPoint viewSize = GetIFrame().Size();
     const PIPoint referenceSize(std::max<int32_t>(0, viewSize.x), std::max<int32_t>(0, viewSize.y));
-    const PIPoint size = (description.Style == PBrushStyle::TexturePattern) ? PBrushUtils::TileSize(description, referenceSize) : PIPoint(0, 0);
-    state.Layers.push_back({binding.Brush, PBrushUtils::TileBounds(origin, size), referenceSize, binding.Brush->GetRevision()});
+    const PIPoint size = (data.Style == PBrushStyle::TexturePattern)
+        ? PBrushUtils::TileSize(data, binding.Brush.GetImage()->GetDescription(), referenceSize) : PIPoint(0, 0);
+    state.Layers.push_back({binding.Brush, PBrushUtils::TileBounds(origin, size), referenceSize});
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -355,8 +329,7 @@ void PServerView::ResolveBrushState(PServerBrushState& state, const PServerBrush
 void PServerView::BackgroundBrushChanged()
 {
     AdvanceBackgroundGeneration();
-    if (m_BackgroundBrush.Brush == nullptr || m_BackgroundBrush.Brush->GetDescription().Style != PBrushStyle::SolidPattern
-        || !m_BackgroundBrush.Brush->GetDescription().IsOpaque()) {
+    if (m_BackgroundBrush.Brush.GetData().Style != PBrushStyle::SolidPattern || !m_BackgroundBrush.Brush.IsOpaque()) {
         MarkBackgroundBrushes();
     }
     InvalidateBackgroundDependents(!m_IsUpdating);
@@ -489,14 +462,15 @@ void PServerView::ExcludeStableBackgrounds(PRegion& region, const PIPoint& movem
         if (!current.CanTranslateFrom(previous, movement)) {
             break;
         }
-        if (current.Brush == nullptr)
+        if (current.Brush.IsOpaque())
         {
             region.Exclude(footprint);
         }
-        else
+        else if (current.Brush.GetData().Style == PBrushStyle::TexturePattern)
         {
             PBrushUtils::VisitOpaqueRegions(
-                current.Brush->GetDescription(),
+                current.Brush.GetData(),
+                current.Brush.GetImage()->GetDescription(),
                 current.Bounds,
                 footprint,
                 [&region](const PIRect& opaque) { region.Exclude(opaque); });

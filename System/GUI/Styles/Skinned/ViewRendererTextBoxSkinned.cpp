@@ -39,12 +39,12 @@ void PViewRendererTextBoxSkinned::Paint(PView& target, const PRect& frame, const
     const PTextBoxStyleData& data = static_cast<PViewRendererContext<PViewStyleTextBox>*>(context)->GetTarget().GetTextBoxStyleData();
     const PTextBoxSkinState state = !data.IsEnabled ? PTextBoxSkinState::Disabled : data.IsReadOnly ? PTextBoxSkinState::ReadOnly : PTextBoxSkinState::Normal;
     const size_t stateIndex = std::to_underlying(state);
-    const Ptr<const PBrush>& background = data.HasRaisedFrame ? m_TextBoxSkin.RaisedStates[stateIndex] : m_TextBoxSkin.States[stateIndex];
+    const PBrush& background = data.HasRaisedFrame ? m_TextBoxSkin.RaisedStates[stateIndex] : m_TextBoxSkin.States[stateIndex];
     const PDrawingMode previousMode = target.GetDrawingMode();
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });
     target.SetBackgroundBrush(background);
     target.SetBackgroundBrushOrigin(frame.TopLeft());
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     target.SetDrawingMode(PDrawingMode::Copy);
     target.EraseRect(frame);
 }

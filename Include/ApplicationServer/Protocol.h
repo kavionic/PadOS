@@ -155,11 +155,8 @@ namespace PAppserverProtocol
         SET_KEYBOARD_CONFIGURATION,
         KEYBOARD_LAYOUTS_REPLY,
         KEYBOARD_CONFIGURATION_REPLY,
-        CREATE_BRUSH,
-        DELETE_BRUSH,
-        CREATE_BRUSH_REPLY,
-        UPDATE_BRUSH,
-        SET_BRUSH_COLOR,
+        DEFINE_IMAGE,
+        DELETE_IMAGE,
         GET_GUI_STYLES,
         GET_GUI_STYLE_CONFIGURATION,
         SET_GUI_STYLE_CONFIGURATION,
@@ -201,12 +198,6 @@ struct MsgLoadBitmapReply
     PErrorCode      Error       = PErrorCode::Success;
 };
 
-struct MsgCreateBrushReply
-{
-    handle_id BrushHandle = INVALID_HANDLE;
-    PErrorCode Error = PErrorCode::Success;
-};
-
 using ASRegisterApplication = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const PString& name)>;
 using ASRegisterApplicationReply = PRemoteSignal<PAppserverProtocol::REGISTER_APPLICATION_REPLY,
     void(handler_id serverHandle, const PString& style, const PString& variant)>;
@@ -237,8 +228,8 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         const std::vector<float>& dashPattern,
         float              dashOffset,
         handle_id          fontHandle,
-        handle_id          backgroundBrush,
-        handle_id          drawingBrush,
+        const PBrushData& backgroundBrush,
+        const PBrushData& drawingBrush,
         PColor             fgColor,
         const PPoint&      backgroundBrushOrigin,
         const PPoint&      drawingBrushOrigin
@@ -282,15 +273,12 @@ using ASLoadBitmap = PRemoteSignal<PAppserverProtocol::LOAD_BITMAP, void(port_id
 using ASDeleteBitmap        = PRemoteSignal<PAppserverProtocol::DELETE_BITMAP,        void(handler_id handle)>;
 using ASPushMouseCursor     = PRemoteSignal<PAppserverProtocol::PUSH_MOUSE_CURSOR,    void(PMouseCursorToken token, PMouseCursorID cursorID)>;
 using ASPopMouseCursor      = PRemoteSignal<PAppserverProtocol::POP_MOUSE_CURSOR,     void(PMouseCursorToken token)>;
-using ASCreateBrush = PRemoteSignal<PAppserverProtocol::CREATE_BRUSH,
-    void(port_id replyPort, const PBrushDescription& description, handle_id bitmap)>;
-using ASDeleteBrush = PRemoteSignal<PAppserverProtocol::DELETE_BRUSH, void(handle_id brush)>;
-using ASUpdateBrush = PRemoteSignal<PAppserverProtocol::UPDATE_BRUSH,
-    void(handle_id brush, const PBrushDescription& description, handle_id bitmap)>;
-using ASSetBrushColor = PRemoteSignal<PAppserverProtocol::SET_BRUSH_COLOR, void(handle_id brush, PColor color)>;
-using ASViewSetBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH, void(handler_id viewHandle, handle_id brush)>;
+using ASDefineImage = PRemoteSignal<PAppserverProtocol::DEFINE_IMAGE,
+    void(PImageID imageID, handle_id bitmapHandle, const PImageDescription& description)>;
+using ASDeleteImage = PRemoteSignal<PAppserverProtocol::DELETE_IMAGE, void(PImageID imageID)>;
+using ASViewSetBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH, void(handler_id viewHandle, const PBrushData& brush)>;
 using ASViewSetBrushOrigin = PRemoteSignal<PAppserverProtocol::VIEW_SET_BRUSH_ORIGIN, void(handler_id viewHandle, const PPoint& origin)>;
-using ASViewSetBackgroundBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BACKGROUND_BRUSH, void(handler_id viewHandle, handle_id brush)>;
+using ASViewSetBackgroundBrush = PRemoteSignal<PAppserverProtocol::VIEW_SET_BACKGROUND_BRUSH, void(handler_id viewHandle, const PBrushData& brush)>;
 using ASViewSetBackgroundBrushOrigin = PRemoteSignal<PAppserverProtocol::VIEW_SET_BACKGROUND_BRUSH_ORIGIN,
     void(handler_id viewHandle, const PPoint& origin)>;
 using ASViewEraseRect = PRemoteSignal<PAppserverProtocol::VIEW_ERASE_RECT, void(handler_id viewHandle, const PRect& rect)>;
@@ -316,7 +304,11 @@ using ASViewDrawLine1       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE1,
 using ASViewDrawLine2       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE2,          void(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2)>;
 using ASViewDrawRect = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_RECT, void(handler_id viewHandle, const PRect& rect)>;
 using ASViewFillRect        = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT,           void(handler_id viewHandle, const PRect& rect, PColor color)>;
-using ASViewFillRectBrush = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT_BRUSH, void(handler_id viewHandle, const PRect& rect, handle_id brush)>;
+using ASViewFillRectBrush = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT_BRUSH,
+    void(
+        handler_id viewHandle,
+        const PRect& rect,
+        const PBrushData& brush)>;
 using ASViewFillCircle      = PRemoteSignal<PAppserverProtocol::VIEW_FILL_CIRCLE,         void(handler_id viewHandle, const PPoint& position, float radius)>;
 using ASViewDrawEllipse     = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_ELLIPSE,        void(handler_id viewHandle, const PRect& rect)>;
 using ASViewDrawPie         = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_PIE,            void(handler_id viewHandle, const PRect& rect, float startAngle, float spanAngle)>;
@@ -325,9 +317,9 @@ using ASViewBeginTriangles  = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_TRIAN
 using ASViewAddTriangle     = PRemoteSignal<PAppserverProtocol::VIEW_ADD_TRIANGLE,        void(handler_id viewHandle, const PPoint& position)>;
 using ASViewEndTriangles    = PRemoteSignal<PAppserverProtocol::VIEW_END_TRIANGLES,       void(handler_id viewHandle)>;
 using ASViewDrawString = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING,
-    void(handler_id viewHandle, handle_id backgroundBrush, const PString& string)>;
+    void(handler_id viewHandle, const PBrushData& backgroundBrush, const PString& string)>;
 using ASViewDrawStringWidth = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING_WIDTH,
-    void(handler_id viewHandle, handle_id backgroundBrush, const PString& string, float width, bool allowPartialCharacter)>;
+    void(handler_id viewHandle, const PBrushData& backgroundBrush, const PString& string, float width, bool allowPartialCharacter)>;
 using ASViewScrollBy        = PRemoteSignal<PAppserverProtocol::VIEW_SCROLL_BY,           void(handler_id viewHandle, const PPoint& delta)>;
 using ASViewCopyRect        = PRemoteSignal<PAppserverProtocol::VIEW_COPY_RECT,           void(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)>;
 using ASViewDrawBitmap      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_BITMAP,         void(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PPoint& dstPos)>;

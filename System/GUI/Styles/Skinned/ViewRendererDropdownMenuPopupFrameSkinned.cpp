@@ -25,7 +25,7 @@ struct PViewRendererDropdownMenuPopupFrameSkinned::Context : PViewRendererContex
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PViewRendererDropdownMenuPopupFrameSkinned::PViewRendererDropdownMenuPopupFrameSkinned(const PDropdownMenuSkin& skin, Ptr<const PBrush> backgroundBrush)
+PViewRendererDropdownMenuPopupFrameSkinned::PViewRendererDropdownMenuPopupFrameSkinned(const PDropdownMenuSkin& skin, PBrush backgroundBrush)
     : m_DropdownMenuSkin(skin)
     , m_BackgroundBrush(std::move(backgroundBrush))
 {
@@ -50,7 +50,7 @@ void PViewRendererDropdownMenuPopupFrameSkinned::Paint(PView& target, const PRec
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });
     target.SetDrawingMode(PDrawingMode::Copy);
     target.SetBackgroundBrush(m_BackgroundBrush);
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     target.SetBrushOrigin(frame.TopLeft());
     target.FillRect(frame, m_DropdownMenuSkin.PopupFrame);
 }

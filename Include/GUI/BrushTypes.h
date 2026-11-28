@@ -31,35 +31,35 @@ enum class PBrushStyle : uint8_t
     TexturePattern
 };
 
-// Image metadata is published with brush resource updates, never with draws.
-// Bitmap brushes use an unsliced image description at the bitmap's native size.
-struct PBrushDescription
+// Brush values reference immutable images; image metadata is published once.
+// Solid and disabled brushes do not require a server resource.
+struct PBrushData
 {
-    PImageDescription Image;
-    PPoint Scale = PPoint(1.0f, 1.0f);
-    PColor Color = PColor(255, 255, 255);
-    PBrushType Type = PBrushType::Solid;
-    PBrushStyle Style = PBrushStyle::SolidPattern;
-
-    PBrushDescription() noexcept = default;
-    PBrushDescription(const PBrushDescription&) noexcept = default;
-    PBrushDescription& operator=(const PBrushDescription&) noexcept = default;
-    bool operator==(const PBrushDescription&) const = default;
-    bool IsOpaque() const noexcept
+    PBrushData() noexcept = default;
+    PBrushData(const PBrushData&) noexcept = default;
+    PBrushData& operator=(const PBrushData&) noexcept = default;
+    bool operator==(const PBrushData&) const = default;
+    bool IsOpaque(const PImageDescription* image = nullptr) const noexcept
     {
         return (Style == PBrushStyle::SolidPattern) ? Color.GetAlpha() == 255
-            : Style == PBrushStyle::TexturePattern && Image.IsOpaque;
+            : Style == PBrushStyle::TexturePattern && image != nullptr && image->IsOpaque;
     }
 
     // Selecting a color restores solid painting, even after selecting None.
     void SetColor(PColor color) noexcept
     {
         if (Type != PBrushType::Solid) {
-            *this = PBrushDescription();
+            *this = PBrushData();
         }
         Style = PBrushStyle::SolidPattern;
         Color = color;
     }
+
+    PPoint      Scale   = PPoint(1.0f, 1.0f);
+    PColor      Color   = PColor(255, 255, 255);
+    PImageID    ImageID = INVALID_IMAGE_ID;
+    PBrushType  Type    = PBrushType::Solid;
+    PBrushStyle Style   = PBrushStyle::SolidPattern;
 };
 
 namespace PBrushUtils
@@ -84,14 +84,14 @@ inline PColor Composite(PColor foreground, PColor background)
 // boundary before conversion to integer sampling coordinates.
 static constexpr float RASTER_SIZE_LIMIT = float(std::numeric_limits<int32_t>::max());
 
-inline bool IsValidScale(const PBrushDescription& description)
+inline bool IsValidScale(const PBrushData& data, const PImageDescription& image)
 {
-    if (description.Style != PBrushStyle::TexturePattern) {
+    if (data.Style != PBrushStyle::TexturePattern) {
         return true;
     }
-    const PPoint& scale = description.Scale;
-    const PPoint size = (description.Image.LayoutMode == PImageLayoutMode::ViewRelative) ? PPoint(0.0f, 0.0f) : description.Image.LayoutSize;
-    const PIRect& source = description.Image.SourceRect;
+    const PPoint& scale = data.Scale;
+    const PPoint size = (image.LayoutMode == PImageLayoutMode::ViewRelative) ? PPoint(0.0f, 0.0f) : image.LayoutSize;
+    const PIRect& source = image.SourceRect;
     return PMath::is_finite(scale.x) && PMath::is_finite(scale.y) && scale.x > 0.0f && scale.y > 0.0f
         && std::max(size.x, float(source.Width())) * scale.x < RASTER_SIZE_LIMIT
         && std::max(size.y, float(source.Height())) * scale.y < RASTER_SIZE_LIMIT;
@@ -99,10 +99,10 @@ inline bool IsValidScale(const PBrushDescription& description)
 
 // Resolve against the selecting view, never the clip or an inheriting child.
 // Rounding here is shared by rendering, opacity regions and copy dependencies.
-inline PIPoint TileSize(const PBrushDescription& description, const PIPoint& referenceSize)
+inline PIPoint TileSize(const PBrushData& data, const PImageDescription& image, const PIPoint& referenceSize)
 {
-    PPoint size = description.Image.LayoutSize;
-    if (description.Image.LayoutMode == PImageLayoutMode::ViewRelative)
+    PPoint size = image.LayoutSize;
+    if (image.LayoutMode == PImageLayoutMode::ViewRelative)
     {
         size *= PPoint(referenceSize);
         if (!PMath::is_finite(size.x) || !PMath::is_finite(size.y) || size.x >= RASTER_SIZE_LIMIT || size.y >= RASTER_SIZE_LIMIT) {
@@ -111,7 +111,7 @@ inline PIPoint TileSize(const PBrushDescription& description, const PIPoint& ref
     }
     else
     {
-        size *= description.Scale;
+        size *= data.Scale;
     }
     return PIPoint(std::max<int32_t>(1, int32_t(std::round(size.x))), std::max<int32_t>(1, int32_t(std::round(size.y))));
 }
@@ -128,9 +128,9 @@ inline PIRect TileBounds(const PIPoint& origin, const PIPoint& size)
 
 // Relative sizes already specify the final raster tile. Remove brush scaling
 // before arranging native borders; internal repetitions still use that scale.
-inline PPoint LayoutSize(const PBrushDescription& description, const PIPoint& tileSize)
+inline PPoint LayoutSize(const PBrushData& data, const PImageDescription& image, const PIPoint& tileSize)
 {
-    return (description.Image.LayoutMode == PImageLayoutMode::ViewRelative) ? PPoint(tileSize) / description.Scale : description.Image.LayoutSize;
+    return (image.LayoutMode == PImageLayoutMode::ViewRelative) ? PPoint(tileSize) / data.Scale : image.LayoutSize;
 }
 
 // Wrap a relative raster coordinate into a positive tile period.
@@ -151,21 +151,25 @@ inline int32_t MapBitmapSourceBoundary(int32_t offset, int32_t sourceSize, int32
 
 // Visit opaque slices in each intersecting tile without allocating a region.
 // Slice-local filtering keeps the classified opacity valid after stretching.
-template<typename Visitor>
-void VisitOpaqueRegions(const PBrushDescription& description, const PIRect& bounds, const PIRect& footprint, Visitor&& visitor)
+template<typename TVisitor>
+void VisitOpaqueRegions(
+    const PBrushData& data,
+    const PImageDescription& image,
+    const PIRect& bounds,
+    const PIRect& footprint,
+    TVisitor&& visitor)
 {
-    if (description.IsOpaque())
+    if (data.IsOpaque(&image))
     {
         visitor(footprint);
         return;
     }
-    if (description.Style != PBrushStyle::TexturePattern || !bounds.IsValid() || !footprint.IsValid()) {
+    if (data.Style != PBrushStyle::TexturePattern || !bounds.IsValid() || !footprint.IsValid()) {
         return;
     }
-    const PImageDescription& image = description.Image;
     const PRect& slice = image.SliceRect;
     const PIRect& source = image.SourceRect;
-    const PPoint layoutSize = LayoutSize(description, bounds.Size());
+    const PPoint layoutSize = LayoutSize(data, image, bounds.Size());
     const std::array<int32_t, 4> horizontal = PImageUtils::LayoutAxis(
         layoutSize.x,
         bounds.Width(),
@@ -216,10 +220,10 @@ void VisitOpaqueRegions(const PBrushDescription& description, const PIRect& boun
 }
 
 // Solids are translation-invariant; textures repeat at the rasterized tile size.
-// Brush identity and revision are checked by the caller.
-inline bool CanTranslate(const PBrushDescription& description, const PIRect& previous, const PIRect& current, const PIPoint& movement)
+// Brush values and image identity are checked by the caller.
+inline bool CanTranslate(const PBrushData& data, const PIRect& previous, const PIRect& current, const PIPoint& movement)
 {
-    if (description.Style != PBrushStyle::TexturePattern) {
+    if (data.Style != PBrushStyle::TexturePattern) {
         return true;
     }
     return current.Size() == previous.Size() && current.IsValid()

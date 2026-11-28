@@ -36,7 +36,7 @@ PGUIStyle::PGUIStyle(PApplication* application) : m_Application(ptr_weak_cast((a
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PGUIStyle::GetBrush(PGUIColorID colorID) const
+PBrush PGUIStyle::GetBrush(PGUIColorID colorID) const
 {
     const size_t index = std::to_underlying(colorID);
     if (index >= m_Brushes.size()) {
@@ -47,9 +47,9 @@ Ptr<const PBrush> PGUIStyle::GetBrush(PGUIColorID colorID) const
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
     assert(!application->IsRunning() || application->GetMutex().IsLocked());
-    Ptr<const PBrush>& brush = m_Brushes[index];
-    if (brush == nullptr) {
-        brush = ptr_new<PBrush>(GetColor(colorID), application);
+    PBrush& brush = m_Brushes[index];
+    if (!brush.IsValid()) {
+        brush = PBrush(GetColor(colorID), application);
     }
     return brush;
 }

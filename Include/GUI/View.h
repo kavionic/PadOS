@@ -227,17 +227,17 @@ public:
     void            SetFgColor(PStandardColorID colorID)                                         { SetFgColor(pget_standard_color(colorID)); }
     void            SetFgColor(PNamedColors colorID)                                             { SetFgColor(PColor(colorID)); }
 
-    Ptr<const PBrush> GetStandardBrush(PStandardColorID color) const;
-    Ptr<const PBrush> GetStandardBrush(PNamedColors color) const;
+    PBrush GetStandardBrush(PStandardColorID color) const;
+    PBrush GetStandardBrush(PNamedColors color) const;
 
-    // Views start without brushes. None/null backgrounds inherit; None/null drawing brushes disable fills.
-    Ptr<const PBrush> GetBackgroundBrush() const noexcept { return m_BackgroundBrush; }
-    Ptr<const PBrush> GetBrush() const noexcept { return m_DrawingBrush; }
-    void SetBackgroundBrush(Ptr<const PBrush> brush);
+    // Views start without brushes. Empty/None backgrounds inherit; empty/None drawing brushes disable fills.
+    PBrush GetBackgroundBrush() const noexcept { return m_BackgroundBrush; }
+    PBrush GetBrush() const noexcept { return m_DrawingBrush; }
+    void SetBackgroundBrush(const PBrush& brush);
     void SetBackgroundBrush(PGUIColorID color);
     void SetBackgroundBrush(PStandardColorID color) { SetBackgroundBrush(GetStandardBrush(color)); }
     void SetBackgroundBrush(PNamedColors color) { SetBackgroundBrush(GetStandardBrush(color)); }
-    void SetBrush(Ptr<const PBrush> brush);
+    void SetBrush(const PBrush& brush);
     void SetBrush(PStandardColorID color) { SetBrush(GetStandardBrush(color)); }
     void SetBrush(PNamedColors color) { SetBrush(GetStandardBrush(color)); }
 
@@ -279,7 +279,7 @@ public:
     void            DrawRect(const PRect& rect) { Post<ASViewDrawRect>(rect); }
     // Explicit fills leave the selected brush and pen unchanged. Brush sources
     // use this view's drawing-brush origin.
-    void            FillRect(const PRect& rect, Ptr<const PBrush> brush);
+    void            FillRect(const PRect& rect, const PBrush& brush);
     void            FillRect(const PRect& rect, PColor color) { Post<ASViewFillRect>(rect, color); }
     void            FillRect(const PRect& rect, PStandardColorID color) { FillRect(rect, pget_standard_color(color)); }
     void            FillRect(const PRect& rect, PNamedColors color) { FillRect(rect, PColor(color)); }
@@ -304,46 +304,46 @@ public:
     void            FillTriangleStrip(std::span<const PPoint> points);
     void            DrawPolyline(std::span<const PPoint> points);
     // Text positions are baselines. Normal calls use the resolved view background.
-    // Explicit brushes use the drawing-brush origin; null/None uses the view background.
+    // Explicit brushes use the drawing-brush origin; empty/None uses the view background.
     // Neither variant changes the selected drawing or background brush.
-    void DrawString(const PString& string) { Post<ASViewDrawString>(INVALID_HANDLE, string); }
-    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string)
+    void DrawString(const PString& string) { DrawString(PBrush::zero, string); }
+    void DrawString(const PBrush& backgroundBrush, const PString& string)
     {
-        Post<ASViewDrawString>((backgroundBrush != nullptr) ? backgroundBrush->GetHandle() : INVALID_HANDLE, string);
+        Post<ASViewDrawString>(GetServerBrushData(backgroundBrush), string);
     }
     void DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); DrawString(string); }
-    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos)
+    void DrawString(const PBrush& backgroundBrush, const PString& string, const PPoint& pos)
     {
         MovePenTo(pos);
-        DrawString(std::move(backgroundBrush), string);
+        DrawString(backgroundBrush, string);
     }
     // Width is measured along the font's baseline. Copy fills the ascender-to-descender band to that width.
     // Clipping applies at the far edge; leading glyph overhangs remain visible. Nonpositive widths draw nothing.
     // The pen advances by the included text, including the full advance of an allowed partial character.
     void DrawString(const PString& string, float width, bool allowPartialCharacter = true)
     {
-        Post<ASViewDrawStringWidth>(INVALID_HANDLE, string, width, allowPartialCharacter);
+        DrawString(PBrush::zero, string, width, allowPartialCharacter);
     }
-    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, float width, bool allowPartialCharacter = true)
+    void DrawString(const PBrush& backgroundBrush, const PString& string, float width, bool allowPartialCharacter = true)
     {
-        Post<ASViewDrawStringWidth>((backgroundBrush != nullptr) ? backgroundBrush->GetHandle() : INVALID_HANDLE, string, width, allowPartialCharacter);
+        Post<ASViewDrawStringWidth>(GetServerBrushData(backgroundBrush), string, width, allowPartialCharacter);
     }
     void DrawString(const PString& string, const PPoint& pos, float width, bool allowPartialCharacter = true)
     {
         MovePenTo(pos);
         DrawString(string, width, allowPartialCharacter);
     }
-    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos, float width, bool allowPartialCharacter = true)
+    void DrawString(const PBrush& backgroundBrush, const PString& string, const PPoint& pos, float width, bool allowPartialCharacter = true)
     {
         MovePenTo(pos);
-        DrawString(std::move(backgroundBrush), string, width, allowPartialCharacter);
+        DrawString(backgroundBrush, string, width, allowPartialCharacter);
     }
 
     // Paint the background rectangle and draw at the supplied baseline.
     // Upright Copy text fills its own band; only the surrounding padding is cleared separately.
     // Upright Copy text clips at the right edge. Other modes/transforms clear first and draw normally.
     void DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
-    void DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
+    void DrawString(const PBrush& backgroundBrush, const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter = true);
 
     virtual void    ScrollBy(const PPoint& offset);
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(PPoint(vDeltaX, vDeltaY)); }
@@ -417,7 +417,8 @@ private:
     void NotifyStyleScreenAttachmentChanged(bool attached);
 
     void HandlePaint(const PRect& updateRect);
-    void FillTextBackground(const PRect& rect, Ptr<const PBrush> backgroundBrush);
+    PBrushData GetServerBrushData(const PBrush& brush) const;
+    void FillTextBackground(const PRect& rect, const PBrush& backgroundBrush);
     
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
         
@@ -495,8 +496,8 @@ private:
     PScrollBar*         m_HScrollBar = nullptr;
     PScrollBar*         m_VScrollBar = nullptr;
 
-    Ptr<const PBrush>   m_BackgroundBrush;
-    Ptr<const PBrush>   m_DrawingBrush;
+    PBrush              m_BackgroundBrush;
+    PBrush              m_DrawingBrush;
     Ptr<const PRegion>  m_DrawingRegion;
     PPoint              m_BackgroundBrushOrigin;
     PPoint              m_DrawingBrushOrigin;

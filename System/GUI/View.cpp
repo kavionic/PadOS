@@ -1504,14 +1504,14 @@ void PView::DrawPolyline(std::span<const PPoint> points)
 
 void PView::DrawString(const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter)
 {
-    DrawString(nullptr, string, pos, background, allowPartialCharacter);
+    DrawString(PBrush::zero, string, pos, background, allowPartialCharacter);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::DrawString(Ptr<const PBrush> backgroundBrush, const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter)
+void PView::DrawString(const PBrush& backgroundBrush, const PString& string, const PPoint& pos, const PRect& background, bool allowPartialCharacter)
 {
     const PIRect frame = PIRect(background + m_ScrollOffset) & PIRect(GetNormalizedBounds());
     if (!frame.IsValid()) {

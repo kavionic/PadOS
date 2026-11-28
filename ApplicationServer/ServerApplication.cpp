@@ -39,10 +39,8 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSCreateBitmap,           &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSLoadBitmap,             &ServerApplication::SlotLoadBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,           &ServerApplication::SlotDeleteBitmap);
-    RegisterRemoteSignal(&RSCreateBrush,            &ServerApplication::SlotCreateBrush);
-    RegisterRemoteSignal(&RSDeleteBrush,            &ServerApplication::SlotDeleteBrush);
-    RegisterRemoteSignal(&RSUpdateBrush,            &ServerApplication::SlotUpdateBrush);
-    RegisterRemoteSignal(&RSSetBrushColor,          &ServerApplication::SlotSetBrushColor);
+    RegisterRemoteSignal(&RSDefineImage,            &ServerApplication::SlotDefineImage);
+    RegisterRemoteSignal(&RSDeleteImage,            &ServerApplication::SlotDeleteImage);
     RegisterRemoteSignal(&RSCreateFont,             &ServerApplication::SlotCreateFont);
     RegisterRemoteSignal(&RSDeleteFont,             &ServerApplication::SlotDeleteFont);
     RegisterRemoteSignal(&RSMeasureFont,            &ServerApplication::SlotMeasureFont);
@@ -173,24 +171,6 @@ handle_id ServerApplication::AllocateBitmapHandle()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-handle_id ServerApplication::AllocateBrushHandle()
-{
-    const handle_id firstHandle = m_NextBrushHandle;
-    do
-    {
-        const handle_id handle = m_NextBrushHandle;
-        m_NextBrushHandle = (handle == std::numeric_limits<handle_id>::max()) ? 1 : handle + 1;
-        if (!m_BrushMap.contains(handle)) {
-            return handle;
-        }
-    } while (m_NextBrushHandle != firstHandle);
-    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 handle_id ServerApplication::AllocateFontHandle()
 {
     const handle_id firstHandle = s_NextFontHandle;
@@ -272,10 +252,18 @@ Ptr<PSrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PServerBrush> ServerApplication::GetBrush(handle_id brushHandle) const
+PServerBrush ServerApplication::ResolveBrush(const PBrushData& data) const
 {
-    const auto iterator = m_BrushMap.find(brushHandle);
-    return (iterator != m_BrushMap.end()) ? iterator->second : nullptr;
+    Ptr<PServerImage> image;
+    if (data.ImageID != INVALID_IMAGE_ID)
+    {
+        const auto iterator = m_ImageMap.find(data.ImageID);
+        if (iterator == m_ImageMap.end()) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        image = iterator->second;
+    }
+    return PServerBrush(data, std::move(image));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -447,15 +435,22 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
                                        const std::vector<float>& dashPattern,
                                        float                 dashOffset,
                                        handle_id             fontHandle,
-                                       handle_id                backgroundBrush,
-                                       handle_id                drawingBrush,
+                                       const PBrushData& backgroundBrush,
+                                       const PBrushData& drawingBrush,
                                        PColor                fgColor,
                                        const PPoint& backgroundBrushOrigin,
                                        const PPoint& drawingBrushOrigin)
 {
     Ptr<PServerFontInstance> font = GetFont(fontHandle);
-    Ptr<PServerBrush> background = (backgroundBrush != INVALID_HANDLE) ? GetBrush(backgroundBrush) : nullptr;
-    Ptr<PServerBrush> drawing = (drawingBrush != INVALID_HANDLE) ? GetBrush(drawingBrush) : nullptr;
+    PServerBrush background;
+    PServerBrush drawing;
+    PErrorCode brushError = PErrorCode::Success;
+    try
+    {
+        background = ResolveBrush(backgroundBrush);
+        drawing = ResolveBrush(drawingBrush);
+    }
+    PERROR_CATCH([&brushError](PErrorCode error) { brushError = error; });
     Ptr<PServerView> parent;
 
     if (dockType == PViewDockType::RootLevelView) {
@@ -463,8 +458,7 @@ void ServerApplication::SlotCreateView(port_id              replyPort,
     } else if (dockType == PViewDockType::ChildView) {
         parent = m_Server->FindView(parentHandle);
     }
-    if (font == nullptr || (dockType == PViewDockType::ChildView && parent == nullptr)
-        || (backgroundBrush != INVALID_HANDLE && background == nullptr) || (drawingBrush != INVALID_HANDLE && drawing == nullptr))
+    if (font == nullptr || (dockType == PViewDockType::ChildView && parent == nullptr) || brushError != PErrorCode::Success)
     {
         MsgCreateViewReply reply{};
         reply.m_ViewHandle = INVALID_HANDLE;
@@ -695,65 +689,26 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateBrush(port_id replyPort, const PBrushDescription& description, handle_id bitmapHandle)
+void ServerApplication::SlotDefineImage(PImageID imageID, handle_id bitmapHandle, const PImageDescription& description)
 {
-    MsgCreateBrushReply reply;
-    try
-    {
-        Ptr<PSrvBitmap> bitmap;
-        if (bitmapHandle != INVALID_HANDLE)
-        {
-            bitmap = GetBitmap(bitmapHandle);
-            if (bitmap == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::INVAL);
-            }
-        }
-        Ptr<PServerBrush> brush = ptr_new<PServerBrush>(*m_Server->GetDisplayDriver(), description, std::move(bitmap));
-        const handle_id handle = AllocateBrushHandle();
-        m_BrushMap.emplace(handle, std::move(brush));
-        reply.BrushHandle = handle;
-    }
-    PERROR_CATCH([&reply](PErrorCode error) { reply.Error = error; });
-    if (!PMessagePort(replyPort).SendMessageTimeout(
-        INVALID_HANDLE, PAppserverProtocol::CREATE_BRUSH_REPLY, &reply, sizeof(reply), TimeValNanos::zero)) {
-        m_BrushMap.erase(reply.BrushHandle);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ServerApplication::SlotDeleteBrush(handle_id brushHandle)
-{
-    m_BrushMap.erase(brushHandle);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ServerApplication::SlotUpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle)
-{
-    Ptr<PServerBrush> brush = GetBrush(brushHandle);
-    Ptr<PSrvBitmap> bitmap = (bitmapHandle != INVALID_HANDLE) ? GetBitmap(bitmapHandle) : nullptr;
-    if (brush == nullptr || (bitmapHandle != INVALID_HANDLE && bitmap == nullptr)) {
+    if (imageID == INVALID_IMAGE_ID || m_ImageMap.contains(imageID)) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    brush->SetProperties(description, std::move(bitmap));
+    Ptr<PSrvBitmap> bitmap = GetBitmap(bitmapHandle);
+    if (bitmap == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    Ptr<PServerImage> image = ptr_new<PServerImage>(*m_Server->GetDisplayDriver(), description, std::move(bitmap));
+    m_ImageMap.emplace(imageID, std::move(image));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotSetBrushColor(handle_id brushHandle, PColor color)
+void ServerApplication::SlotDeleteImage(PImageID imageID)
 {
-    Ptr<PServerBrush> brush = GetBrush(brushHandle);
-    if (brush == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    brush->SetColor(color);
+    m_ImageMap.erase(imageID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -36,7 +36,7 @@ enum class PButtonSkinState : uint8_t
 
 struct PButtonSkinAppearance
 {
-    Ptr<const PBrush> Background;
+    PBrush Background;
 };
 
 struct PButtonSkin
@@ -95,7 +95,7 @@ struct PSliderKnobSkin
 
 struct PSliderOrientationSkin
 {
-    Ptr<const PImage> Track;
+    PImage Track;
     // Plain, leading point, trailing point, both points.
     std::array<PSliderKnobSkin, 4> Knobs;
 };
@@ -109,7 +109,7 @@ struct PSliderSkin
 
 struct PScrollBarSkinAppearance
 {
-    Ptr<const PImage> Image;
+    PImage Image;
     Ptr<const PBitmap> Glyph;
     PPoint GlyphOffset;
 };
@@ -148,7 +148,7 @@ enum class PTabSkinState : uint8_t
 
 struct PTabSkinAppearance
 {
-    Ptr<const PImage> Image;
+    PImage Image;
     PPoint LabelOffset;
 };
 
@@ -156,7 +156,7 @@ struct PTabViewSkin
 {
     std::array<PTabSkinAppearance, std::to_underlying(PTabSkinState::Count)> States;
     std::array<PTabSkinAppearance, std::to_underlying(PTabSkinState::Count)> SelectedStates;
-    Ptr<const PImage> Frame;
+    PImage Frame;
     Ptr<const PBitmap> OverflowLeft;
     Ptr<const PBitmap> OverflowRight;
     PRect FrameInsets = PRect(3.0f, 3.0f, 3.0f, 3.0f);
@@ -177,14 +177,14 @@ enum class PDropdownMenuRowState : uint8_t
 
 struct PDropdownMenuAppearance
 {
-    Ptr<const PBrush> Background;
+    PBrush Background;
     Ptr<const PBitmap> Arrow;
     PPoint ArrowOffset;
 };
 
 struct PDropdownMenuRowAppearance
 {
-    Ptr<const PImage> Image;
+    PImage Image;
     PColor LabelColor = PColor(0, 0, 0);
     PPoint LabelOffset;
 };
@@ -194,8 +194,8 @@ struct PDropdownMenuSkin
     std::array<PDropdownMenuAppearance, std::to_underlying(PButtonSkinState::Count)> States;
     std::array<PDropdownMenuAppearance, std::to_underlying(PButtonSkinState::Count)> EditableStates;
     std::array<PDropdownMenuRowAppearance, std::to_underlying(PDropdownMenuRowState::Count)> Rows;
-    Ptr<const PBrush> PopupFrame;
-    Ptr<const PBrush> PopupBackground;
+    PBrush PopupFrame;
+    PBrush PopupBackground;
     PRect EditorInsets = PRect(10.0f, 4.0f, 6.0f, 5.0f);
     PRect PopupInsets = PRect(4.0f, 4.0f, 4.0f, 4.0f);
     PRect RowPadding = PRect(8.0f, 4.0f, 8.0f, 5.0f);
@@ -214,15 +214,15 @@ enum class PTextBoxSkinState : uint8_t
 
 struct PTextBoxSkin
 {
-    std::array<Ptr<const PBrush>, std::to_underlying(PTextBoxSkinState::Count)> States;
-    std::array<Ptr<const PBrush>, std::to_underlying(PTextBoxSkinState::Count)> RaisedStates;
+    std::array<PBrush, std::to_underlying(PTextBoxSkinState::Count)> States;
+    std::array<PBrush, std::to_underlying(PTextBoxSkinState::Count)> RaisedStates;
     PRect EditorInsets = PRect(8.0f, 6.0f, 8.0f, 6.0f);
     PPoint MinimumSize = PPoint(40.0f, 32.0f);
 };
 
 struct PGroupViewSkin
 {
-    Ptr<const PImage> Frame;
+    PImage Frame;
     PRect FrameInsets;
     PRect LabelPadding = PRect(14.0f, 0.0f, 14.0f, 0.0f);
     PPoint MinimumSize = PPoint(28.0f, 28.0f);
@@ -231,8 +231,8 @@ struct PGroupViewSkin
 
 struct PProgressBarOrientationSkin
 {
-    Ptr<const PImage> Track;
-    Ptr<const PImage> Fill;
+    PImage Track;
+    PImage Fill;
     PRect FillInsets = PRect(3.0f, 3.0f, 3.0f, 3.0f);
     float MinimumLength = 50.0f;
     float Thickness = 24.0f;
@@ -294,7 +294,7 @@ private:
     static PGroupViewSkin LoadGroupViewSkin(const PPath& directory, PApplication* application);
     static PProgressBarSkin LoadProgressBarSkin(const PPath& directory, PApplication* application);
     static PProgressBarOrientationSkin LoadProgressBarOrientation(const pugi::xml_node& node, const PPath& directory, PApplication* application);
-    static Ptr<const PImage> LoadSkinImage(const pugi::xml_node& node, const PPath& directory, PApplication* application);
+    static PImage LoadSkinImage(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static void LoadIndicatorSkin(const pugi::xml_node& root, const PPath& directory, PApplication* application, PButtonIndicatorSkin& skin);
     static Ptr<const PBitmap> LoadSkinBitmap(const pugi::xml_node& node, const PPath& directory, PApplication* application);
     static PButtonSkinAppearance LoadAppearance(

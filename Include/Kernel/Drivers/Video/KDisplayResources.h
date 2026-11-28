@@ -107,28 +107,4 @@ private:
     bool m_Writable;
 };
 
-class KDisplayBrushResource : public PtrTarget
-{
-public:
-    KDisplayBrushResource(Ptr<KDisplayBitmapResource> bitmap, const PBrushDescription& description)
-        : m_Bitmap(std::move(bitmap)), m_Description(description) {}
-
-    const Ptr<KDisplayBitmapResource>& GetBitmap() const noexcept { return m_Bitmap; }
-    const PBrushDescription& GetDescription() const noexcept { return m_Description; }
-    void SetProperties(Ptr<KDisplayBitmapResource> bitmap, const PBrushDescription& description) noexcept
-    {
-        m_Bitmap = std::move(bitmap);
-        m_Description = description;
-    }
-    void SetColor(PColor color) noexcept
-    {
-        m_Description.SetColor(color);
-        m_Bitmap = nullptr;
-    }
-
-private:
-    Ptr<KDisplayBitmapResource> m_Bitmap;
-    PBrushDescription m_Description;
-};
-
 } // namespace kernel

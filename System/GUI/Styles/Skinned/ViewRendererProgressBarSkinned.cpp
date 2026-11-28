@@ -55,8 +55,8 @@ void PViewRendererProgressBarSkinned::Paint(PView& target, const PRect& frame, c
     const PProgressBarOrientationSkin& skin = GetProgressBarOrientation(data.Orientation);
     Context& state = *static_cast<Context*>(context);
     const size_t orientationIndex = (data.Orientation == POrientation::Horizontal) ? 0 : 1;
-    const Ptr<const PBrush> track = PGetSkinnedBrush(state.Tracks[orientationIndex], *skin.Track, bounds.Size());
-    const Ptr<const PBrush> previousBackground = target.GetBackgroundBrush();
+    const PBrush track = PGetSkinnedBrush(state.Tracks[orientationIndex], skin.Track, bounds.Size());
+    const PBrush previousBackground = target.GetBackgroundBrush();
     const PPoint previousBackgroundOrigin = target.GetBackgroundBrushOrigin();
     const PPoint previousDrawingOrigin = target.GetDrawingBrushOrigin();
     const PDrawingMode previousMode = target.GetDrawingMode();
@@ -89,7 +89,7 @@ void PViewRendererProgressBarSkinned::Paint(PView& target, const PRect& frame, c
                 target.EraseRect(section);
             }
         }
-        const Ptr<const PBrush> fill = PGetSkinnedBrush(state.Fills[orientationIndex], *skin.Fill, fillFrame.Size());
+        const PBrush fill = PGetSkinnedBrush(state.Fills[orientationIndex], skin.Fill, fillFrame.Size());
         target.SetBrushOrigin(fillFrame.TopLeft());
         target.FillRect(visibleFill, fill);
     }

@@ -57,10 +57,10 @@ void PViewRendererDropdownMenuPopupSkinned::Paint(PView& target, const PRect& fr
     const PDropdownMenuPopupStyleData& data = static_cast<Context*>(context)->GetTarget().GetDropdownMenuPopupStyleData();
     Context& state = GetDropdownMenuPopupStyleData(target, data, context);
     const PDrawingMode previousMode = target.GetDrawingMode();
-    PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); target.SetBrush(nullptr); });
+    PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); target.SetBrush(PBrush::zero); });
     target.SetDrawingMode(PDrawingMode::Copy);
     target.SetBackgroundBrush(m_DropdownMenuSkin.PopupBackground);
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     const PRect damage = updateRect & target.GetBounds();
     target.EraseRect(damage);
     const float itemCount = float(data.Items.size());
@@ -198,7 +198,7 @@ void PViewRendererDropdownMenuPopupSkinned::PaintDropdownMenuRow(
     if (!frame.IsValid()) {
         return;
     }
-    const Ptr<const PBrush> brush = PGetSkinnedBrush(state.Rows[appearanceIndex], *appearance.Image, frame.Size());
+    const PBrush brush = PGetSkinnedBrush(state.Rows[appearanceIndex], appearance.Image, frame.Size());
     const PRect& padding = m_DropdownMenuSkin.RowPadding;
     const float textHeight = state.FontHeight.ascender + state.FontHeight.descender;
     const PPoint baseline(

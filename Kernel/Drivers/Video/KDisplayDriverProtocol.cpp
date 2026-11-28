@@ -64,9 +64,9 @@ void KDisplayDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
     PScopeExit releaseResources([this]
     {
         m_Brush.Clear();
-        m_SelectedBrushResources.clear();
+        m_SelectedImageResources.clear();
         m_BrushLayerBuffer.clear();
-        m_BrushResources.Clear();
+        m_ImageResources.Clear();
         m_BitmapResources.Clear();
         m_ScreenBitmapDriverResourceID = DRIVER_INVALID_RESOURCE_ID;
         m_IsInitialized = false;
@@ -147,7 +147,7 @@ void KDisplayDriver::HandleSubmit(const void* buffer, size_t length)
     PScopeFail clearBrush([this]
     {
         m_Brush.Clear();
-        m_SelectedBrushResources.clear();
+        m_SelectedImageResources.clear();
         m_BrushLayerBuffer.clear();
     });
     // Drain explicitly: WaitIdle() can report EIO and must not throw from a scope-guard destructor.
@@ -257,14 +257,18 @@ void KDisplayDriver::HandleDeleteBitmap(PDriverResourceID bitmap)
     m_BitmapResources.Remove(bitmap);
 }
 
-PDriverResourceID KDisplayDriver::HandleCreateBrush(PDriverResourceID bitmapID, const PBrushDescription& description)
+PDriverResourceID KDisplayDriver::HandleCreateImage(PDriverResourceID bitmapID, const PImageDescription& description)
 {
-    return m_BrushResources.Add(ptr_new<KDisplayBrushResource>(ResolveBrushBitmap_pl(bitmapID, description), description));
+    const Ptr<KDisplayBitmapResource>& bitmap = m_BitmapResources.Get(bitmapID);
+    if (!PImageUtils::IsValidResource(description, bitmap->GetBitmap(false))) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return m_ImageResources.Add(ptr_new<KDisplayImageResource>(bitmap, description));
 }
 
-void KDisplayDriver::HandleDeleteBrush(PDriverResourceID brush)
+void KDisplayDriver::HandleDeleteImage(PDriverResourceID image)
 {
-    m_BrushResources.Remove(brush);
+    m_ImageResources.Remove(image);
 }
 
 void KDisplayDriver::HandleWritePixel(PDriverResourceID bitmapID, PIPoint position, PColor color)
@@ -526,28 +530,35 @@ void KDisplayDriver::HandleSetBrush(std::span<const std::byte> payload, size_t l
     const std::span<const PDisplayBrushBinding> bindings = ReadDisplayArray<PDisplayBrushBinding>(payload, layerCount);
     ValidateDisplayPayloadEnd(payload);
     m_Brush.Clear();
-    m_SelectedBrushResources.resize(layerCount);
+    m_SelectedImageResources.resize(layerCount);
     m_BrushLayerBuffer.resize(layerCount);
     for (size_t index = 0; index < layerCount; ++index)
     {
         const PDisplayBrushBinding& binding = bindings[index];
-        PDisplayBrushLayer& layer = m_BrushLayerBuffer[index];
+        KDisplayBrushLayer& layer = m_BrushLayerBuffer[index];
         layer = {};
-        layer.Bounds = PIRect(binding.Origin, binding.Origin);
-        layer.ReferenceSize = binding.ReferenceSize;
+        layer.Origin = binding.Origin;
+        layer.Color = binding.Data.Color;
+        layer.Style = binding.Data.Style;
+        m_SelectedImageResources[index] = nullptr;
         if (binding.ReferenceSize.x < 0 || binding.ReferenceSize.y < 0) {
             PERROR_THROW_CODE(PErrorCode::INVAL);
         }
-        if (binding.DriverResourceID == DRIVER_INVALID_RESOURCE_ID)
+        switch (layer.Style)
         {
-            m_SelectedBrushResources[index] = nullptr;
-            layer.Description.Color = binding.Color;
-        }
-        else
-        {
-            const Ptr<KDisplayBrushResource>& brush = m_BrushResources.Get(binding.DriverResourceID);
-            m_SelectedBrushResources[index] = brush;
-            RefreshBrushLayer_pl(index);
+            case PBrushStyle::None:
+            case PBrushStyle::SolidPattern:
+                break;
+            case PBrushStyle::TexturePattern:
+            {
+                const Ptr<KDisplayImageResource>& image = m_ImageResources.Get(binding.Data.ImageID);
+                layer.Sampler = image->GetSampler(binding.Data, binding.ReferenceSize);
+                PBrushUtils::TileBounds(binding.Origin, layer.Sampler->GetTileSize());
+                m_SelectedImageResources[index] = image;
+                break;
+            }
+            default:
+                PERROR_THROW_CODE(PErrorCode::INVAL);
         }
     }
     m_Brush.SetLayers(m_BrushLayerBuffer);
@@ -556,72 +567,6 @@ void KDisplayDriver::HandleSetBrush(std::span<const std::byte> payload, size_t l
 void KDisplayDriver::HandleFillBrushRect(PDriverResourceID bitmap, PIRect bounds)
 {
     FillBrushRect(m_BitmapResources.Get(bitmap)->GetBitmap(true), bounds);
-}
-
-// Updates are executed between the surrounding drawing commands. Rebuild only
-// selected samplers; raster access was validated when the bitmap was registered.
-void KDisplayDriver::HandleUpdateBrush(PDriverResourceID brushID, PDriverResourceID bitmapID, const PBrushDescription& description)
-{
-    const Ptr<KDisplayBrushResource>& brush = m_BrushResources.Get(brushID);
-    Ptr<KDisplayBitmapResource> bitmap = ResolveBrushBitmap_pl(bitmapID, description);
-    brush->SetProperties(std::move(bitmap), description);
-    RefreshSelectedBrushLayers_pl(brush);
-}
-
-// A color needs no bitmap lookup or metadata validation. Apply it at the same
-// queue position as a full update and refresh every selected use of the brush.
-void KDisplayDriver::HandleSetBrushColor(PDriverResourceID brushID, PColor color)
-{
-    const Ptr<KDisplayBrushResource>& brush = m_BrushResources.Get(brushID);
-    brush->SetColor(color);
-    RefreshSelectedBrushLayers_pl(brush);
-}
-
-Ptr<KDisplayBitmapResource> KDisplayDriver::ResolveBrushBitmap_pl(PDriverResourceID bitmapID, const PBrushDescription& description) const
-{
-    kassert(m_Mutex.IsLocked());
-    Ptr<KDisplayBitmapResource> resource;
-    if (bitmapID != DRIVER_INVALID_RESOURCE_ID) {
-        resource = m_BitmapResources.Get(bitmapID);
-    }
-    if (!PBrushUtils::IsValidResource(description, (resource != nullptr) ? resource->GetBitmap(false) : nullptr)) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    return resource;
-}
-
-void KDisplayDriver::RefreshSelectedBrushLayers_pl(const Ptr<KDisplayBrushResource>& brush)
-{
-    kassert(m_Mutex.IsLocked());
-    bool selected = false;
-    for (size_t index = 0; index < m_SelectedBrushResources.size(); ++index)
-    {
-        if (m_SelectedBrushResources[index] == brush)
-        {
-            RefreshBrushLayer_pl(index);
-            selected = true;
-        }
-    }
-    if (selected) {
-        m_Brush.SetLayers(m_BrushLayerBuffer);
-    }
-}
-
-void KDisplayDriver::RefreshBrushLayer_pl(size_t index)
-{
-    kassert(m_Mutex.IsLocked());
-    const Ptr<KDisplayBrushResource>& brush = m_SelectedBrushResources[index];
-    PDisplayBrushLayer& layer = m_BrushLayerBuffer[index];
-    layer.Description = brush->GetDescription();
-    layer.Bitmap = {};
-    if (brush->GetBitmap() != nullptr) {
-        layer.Bitmap = *brush->GetBitmap()->GetBitmap(false);
-    }
-    if (layer.Description.Style == PBrushStyle::TexturePattern)
-    {
-        const PIPoint size = PBrushUtils::TileSize(layer.Description, layer.ReferenceSize);
-        layer.Bounds = PBrushUtils::TileBounds(layer.Bounds.TopLeft(), size);
-    }
 }
 
 void KDisplayDriver::ExecuteCommands_pl(const void* buffer, size_t length)

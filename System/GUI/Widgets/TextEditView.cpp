@@ -44,7 +44,7 @@ PTextEditView::PTextEditView(PViewFactoryContext& context, const pugi::xml_node&
 void PTextEditView::Initialize()
 {
     m_Colors = GetDefaultColors();
-    m_BackgroundColorBrush = ptr_new<PBrush>(m_Colors->BackgroundColor, GetApplication());
+    m_BackgroundColorBrush = PBrush(m_Colors->BackgroundColor, GetApplication());
     m_CursorTimer.Set(TimeValNanos::FromSeconds(0.8));
     m_CursorTimer.SignalTrigged.Connect(this, &PTextEditView::SlotCursorTimer);
 
@@ -144,8 +144,8 @@ void PTextEditView::OnPaint(const PRect& updateRect)
         SetFgColor(m_Colors->TextColor);
     }
 
-    if (m_BackgroundColorBrush->GetDescription().Color != backgroundColor) {
-        m_BackgroundColorBrush->SetColor(backgroundColor);
+    if (m_BackgroundColorBrush.GetColor() != backgroundColor) {
+        m_BackgroundColorBrush.SetColor(backgroundColor);
     }
     SetBrush(m_BackgroundColorBrush);
     SetBackgroundBrush(m_BackgroundColorBrush);

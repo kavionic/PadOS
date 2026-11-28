@@ -58,12 +58,12 @@ static KBrushReferenceAxis GetBrushReferenceAxis(
 
 static PColor SampleBrushReference(const PDisplayBrushLayer& layer, int32_t x, int32_t y)
 {
-    const PImageDescription& image = layer.Description.Image;
+    const PImageDescription& image = layer.Image;
     const PIRect& source = image.SourceRect;
     const PIRect slice(image.SliceRect);
     const PIPoint size(
-        std::max<int32_t>(1, int32_t(std::round(image.LayoutSize.x * layer.Description.Scale.x))),
-        std::max<int32_t>(1, int32_t(std::round(image.LayoutSize.y * layer.Description.Scale.y))));
+        std::max<int32_t>(1, int32_t(std::round(image.LayoutSize.x * layer.Data.Scale.x))),
+        std::max<int32_t>(1, int32_t(std::round(image.LayoutSize.y * layer.Data.Scale.y))));
     const int32_t localX = ((x - layer.Bounds.left) % size.x + size.x) % size.x;
     const int32_t localY = ((y - layer.Bounds.top) % size.y + size.y) % size.y;
     const std::array<int32_t, 4> destinationX = BrushReferenceBoundaries(
@@ -98,7 +98,7 @@ static PColor SampleBrushReference(const PDisplayBrushLayer& layer, int32_t x, i
         sourceX[column + 1] - sourceX[column],
         layer.Bitmap.Size.x,
         column == 1 && image.Tiling.Has(horizontalFlag),
-        layer.Description.Scale.x);
+        layer.Data.Scale.x);
     const KBrushReferenceAxis vertical = GetBrushReferenceAxis(
         localY,
         destinationY[row],
@@ -107,7 +107,7 @@ static PColor SampleBrushReference(const PDisplayBrushLayer& layer, int32_t x, i
         sourceY[row + 1] - sourceY[row],
         layer.Bitmap.Size.y,
         row == 1 && image.Tiling.Has(verticalFlag),
-        layer.Description.Scale.y);
+        layer.Data.Scale.y);
     auto readPixel = [&layer](int32_t sourceX, int32_t sourceY)
     {
         const uint8_t* row = layer.Bitmap.Raster + size_t(sourceY) * layer.Bitmap.BytesPerLine;
@@ -163,13 +163,13 @@ protected:
         m_Layer.Bitmap.Size = PIPoint(5, 5);
         m_Layer.Bitmap.BytesPerLine = 5 * sizeof(uint32_t);
         m_Layer.Bitmap.Raster = reinterpret_cast<uint8_t*>(m_Pixels.data());
-        m_Layer.Description.Type = PBrushType::Image;
-        m_Layer.Description.Style = PBrushStyle::TexturePattern;
-        m_Layer.Description.Image.IsOpaque = false;
-        m_Layer.Description.Image.OpaqueSlices = 0;
-        m_Layer.Description.Image.SourceRect = PIRect(0, 0, 5, 5);
-        m_Layer.Description.Image.SliceRect = PRect(1, 1, 4, 4);
-        m_Layer.Description.Image.LayoutSize = PPoint(11, 9);
+        m_Layer.Data.Type = PBrushType::Image;
+        m_Layer.Data.Style = PBrushStyle::TexturePattern;
+        m_Layer.Image.IsOpaque = false;
+        m_Layer.Image.OpaqueSlices = 0;
+        m_Layer.Image.SourceRect = PIRect(0, 0, 5, 5);
+        m_Layer.Image.SliceRect = PRect(1, 1, 4, 4);
+        m_Layer.Image.LayoutSize = PPoint(11, 9);
         m_Layer.Bounds = PIRect(10, 20, 21, 29);
     }
 
@@ -199,17 +199,17 @@ TEST_F(DisplayBrushTest, NineSlicePreservesCornersAndDoesNotBleedAcrossSliceBoun
 TEST_F(DisplayBrushTest, SmallDestinationsCompressBordersAndCollapseTheCenter)
 {
     m_Layer.Bounds = PIRect(0, 0, 1, 1);
-    m_Layer.Description.Image.LayoutSize = PPoint(1, 1);
+    m_Layer.Image.LayoutSize = PPoint(1, 1);
     EXPECT_EQ(Sample(0, 0).GetColor32(), m_Pixels[24]);
     m_Layer.Bounds = PIRect(0, 0, 2, 2);
-    m_Layer.Description.Image.LayoutSize = PPoint(2, 2);
+    m_Layer.Image.LayoutSize = PPoint(2, 2);
     EXPECT_EQ(Sample(0, 0).GetColor32(), m_Pixels[0]);
     EXPECT_EQ(Sample(1, 0).GetColor32(), m_Pixels[4]);
     EXPECT_EQ(Sample(0, 1).GetColor32(), m_Pixels[20]);
     EXPECT_EQ(Sample(1, 1).GetColor32(), m_Pixels[24]);
-    m_Layer.Description.Image.SliceRect = PRect(m_Layer.Description.Image.SourceRect);
+    m_Layer.Image.SliceRect = PRect(m_Layer.Image.SourceRect);
     m_Layer.Bounds = PIRect(0, 0, 1, 1);
-    m_Layer.Description.Image.LayoutSize = PPoint(1, 1);
+    m_Layer.Image.LayoutSize = PPoint(1, 1);
     EXPECT_EQ(Sample(0, 0).GetColor32(), m_Pixels[12]);
 }
 
@@ -231,8 +231,8 @@ TEST_F(DisplayBrushTest, VerySmallLayoutsStillProduceAValidSinglePixelTile)
 {
     for (const PRect& slice : {PRect(0, 0, 5, 5), PRect(1, 1, 4, 4)})
     {
-        m_Layer.Description.Image.SliceRect = slice;
-        m_Layer.Description.Image.LayoutSize = PPoint(std::numeric_limits<float>::min());
+        m_Layer.Image.SliceRect = slice;
+        m_Layer.Image.LayoutSize = PPoint(std::numeric_limits<float>::min());
         EXPECT_EQ(Sample(10, 20).GetColor32(), (slice.left == 0.0f) ? m_Pixels[12] : m_Pixels[24]);
     }
 }
@@ -257,10 +257,10 @@ TEST_F(DisplayBrushTest, ClippedSpansKeepTheOriginalNineSliceMapping)
 
 TEST_F(DisplayBrushTest, TilingWrapsInBothDirectionsAndUsesAtlasSubrectangles)
 {
-    m_Layer.Description.Type = PBrushType::Bitmap;
-    m_Layer.Description.Image.SourceRect = PIRect(1, 1, 4, 3);
-    m_Layer.Description.Image.SliceRect = PRect(1, 1, 4, 3);
-    m_Layer.Description.Image.LayoutSize = PPoint(3, 2);
+    m_Layer.Data.Type = PBrushType::Bitmap;
+    m_Layer.Image.SourceRect = PIRect(1, 1, 4, 3);
+    m_Layer.Image.SliceRect = PRect(1, 1, 4, 3);
+    m_Layer.Image.LayoutSize = PPoint(3, 2);
     EXPECT_EQ(Sample(10, 20).GetColor32(), m_Pixels[6]);
     EXPECT_EQ(Sample(9, 19).GetColor32(), m_Pixels[13]);
     EXPECT_EQ(Sample(16, 24).GetColor32(), m_Pixels[6]);
@@ -324,10 +324,10 @@ TEST_F(DisplayBrushTest, DistantTextureOriginsPreserveTilingAndClippedSpans)
 
 TEST_F(DisplayBrushTest, ClippedBitmapSourceAndScrollingKeepTheOriginalTransform)
 {
-    m_Layer.Description.Type = PBrushType::Image;
-    m_Layer.Description.Image.SourceRect = PIRect(-1, 0, 6, 5);
-    m_Layer.Description.Image.SliceRect = PRect(-1, 0, 6, 5);
-    m_Layer.Description.Image.LayoutSize = PPoint(14, 10);
+    m_Layer.Data.Type = PBrushType::Image;
+    m_Layer.Image.SourceRect = PIRect(-1, 0, 6, 5);
+    m_Layer.Image.SliceRect = PRect(-1, 0, 6, 5);
+    m_Layer.Image.LayoutSize = PPoint(14, 10);
     m_Layer.Bounds = PIRect(10, 20, 24, 30);
     const int32_t first = PBrushUtils::MapBitmapSourceBoundary(1, 7, 14);
     const int32_t end = PBrushUtils::MapBitmapSourceBoundary(6, 7, 14);
@@ -355,10 +355,10 @@ TEST_F(DisplayBrushTest, FilteringTransparentPixelsDoesNotIntroduceTheirHiddenCo
 {
     m_Pixels[0] = PColor(255, 0, 0, 0).GetColor32();
     m_Pixels[1] = PColor(0, 0, 255).GetColor32();
-    m_Layer.Description.Type = PBrushType::Image;
-    m_Layer.Description.Image.SourceRect = PIRect(0, 0, 2, 1);
-    m_Layer.Description.Image.SliceRect = PRect(0, 0, 2, 1);
-    m_Layer.Description.Image.LayoutSize = PPoint(3, 1);
+    m_Layer.Data.Type = PBrushType::Image;
+    m_Layer.Image.SourceRect = PIRect(0, 0, 2, 1);
+    m_Layer.Image.SliceRect = PRect(0, 0, 2, 1);
+    m_Layer.Image.LayoutSize = PPoint(3, 1);
     m_Layer.Bounds = PIRect(0, 0, 3, 1);
     const PColor middle = Sample(1, 0);
     EXPECT_EQ(middle, PColor(0, 0, 255, 128));
@@ -368,17 +368,137 @@ TEST_F(DisplayBrushTest, FilteringTransparentPixelsDoesNotIntroduceTheirHiddenCo
 TEST_F(DisplayBrushTest, TransparentCornersResolveMultipleAncestorLayersOnce)
 {
     m_Pixels[0] = PColor(0, 0, 255, 0).GetColor32();
-    PDisplayBrushLayer root;
-    root.Description.Color = PColor(40, 80, 120);
-    PDisplayBrushLayer panel;
-    panel.Description.Color = PColor(200, 120, 40, 128);
-    const std::array layers = {root, panel, m_Layer};
+    KDisplayBrushLayer root;
+    root.Color = PColor(40, 80, 120);
+    KDisplayBrushLayer panel;
+    panel.Color = PColor(200, 120, 40, 128);
+    KDisplayBrushLayer texture;
+    texture.Style = PBrushStyle::TexturePattern;
+    texture.Sampler = ptr_new<KDisplayBrushSampler>(m_Layer);
+    const std::array layers = {root, panel, texture};
     KDisplayBrush brush;
     brush.SetLayers(layers);
     std::array<PColor, 2> pixels;
     brush.RenderSpan(10, 20, pixels);
     EXPECT_EQ(pixels[0], PColor(120, 100, 80));
     EXPECT_EQ(pixels[1].GetColor32(), m_Pixels[1]);
+}
+
+TEST(DisplayBrush, EmptyAndDisabledCompositionsRenderWhite)
+{
+    KDisplayBrushLayer disabled;
+    disabled.Style = PBrushStyle::None;
+    const std::array layers = {disabled, disabled};
+    KDisplayBrush brush;
+    for (size_t layerCount : {size_t(0), layers.size()})
+    {
+        brush.SetLayers(std::span(layers).first(layerCount));
+        std::array<PColor, 4> pixels;
+        pixels.fill(PColor(12, 34, 56));
+        brush.RenderSpan(7, -11, pixels);
+        for (PColor pixel : pixels) {
+            EXPECT_EQ(pixel, PColor(255, 255, 255));
+        }
+    }
+}
+
+TEST(DisplayBrush, SolidCompositionsPreserveOrderedRounding)
+{
+    constexpr uint8_t ALPHA_VALUES[] = {0, 1, 127, 128, 254, 255};
+
+    KDisplayBrushLayer disabled;
+    disabled.Style = PBrushStyle::None;
+    KDisplayBrush brush;
+    for (uint8_t firstAlpha : ALPHA_VALUES)
+    {
+        for (uint8_t secondAlpha : ALPHA_VALUES)
+        {
+            KDisplayBrushLayer first;
+            first.Color = PColor(31, 92, 173, firstAlpha);
+            KDisplayBrushLayer second;
+            second.Color = PColor(219, 47, 106, secondAlpha);
+            const std::array layers = {disabled, first, second};
+            brush.SetLayers(layers);
+            std::array<PColor, 4> pixels;
+            pixels.fill(PColor(12, 34, 56));
+            brush.RenderSpan(7, -11, pixels);
+            const PColor expected = PBrushUtils::Composite(second.Color, PBrushUtils::Composite(first.Color, PColor(255, 255, 255)));
+            for (PColor pixel : pixels) {
+                EXPECT_EQ(pixel, expected);
+            }
+        }
+    }
+}
+
+TEST_F(DisplayBrushTest, LayerCompositionsMatchReferenceAcrossUniformAndTexturedBackgrounds)
+{
+    for (bool opaque : {false, true})
+    {
+        for (size_t index = 0; index < m_Pixels.size(); ++index)
+        {
+            const uint8_t alpha = opaque ? 255 : uint8_t((index % 4) * 85);
+            m_Pixels[index] = PColor(uint8_t(index * 9), uint8_t(index * 5), uint8_t(index * 3), alpha).GetColor32();
+        }
+        m_Layer.Image.IsOpaque = opaque;
+        m_Layer.Image.OpaqueSlices = opaque ? 0x01ff : 0x0000;
+        KDisplayBrushLayer disabled;
+        disabled.Style = PBrushStyle::None;
+        KDisplayBrushLayer solid;
+        solid.Color = PColor(40, 80, 120);
+        KDisplayBrushLayer translucent;
+        translucent.Color = PColor(200, 120, 40, 128);
+        KDisplayBrushLayer transparent;
+        transparent.Color = PColor(255, 0, 0, 0);
+        KDisplayBrushLayer texture;
+        texture.Style = PBrushStyle::TexturePattern;
+        texture.Origin = PIPoint(7, -11);
+        texture.Sampler = ptr_new<KDisplayBrushSampler>(m_Layer);
+        const std::array compositions =
+        {
+            std::array{disabled, disabled, disabled, texture},
+            std::array{disabled, solid, translucent, texture},
+            std::array{disabled, solid, texture, translucent},
+            std::array{disabled, texture, solid, texture},
+            std::array{disabled, texture, translucent, texture},
+            std::array{disabled, texture, translucent, solid},
+            std::array{disabled, texture, transparent, texture}
+        };
+        KDisplayBrush brush;
+        for (const std::array<KDisplayBrushLayer, 4>& layers : compositions)
+        {
+            brush.SetLayers(layers);
+            for (int32_t localY : {19, 22, 28})
+            {
+                const int32_t x = 9 + texture.Origin.x;
+                const int32_t y = localY + texture.Origin.y;
+                std::array<PColor, 17> pixels;
+                pixels.fill(PColor(12, 34, 56));
+                brush.RenderSpan(x, y, pixels);
+                for (size_t index = 0; index < pixels.size(); ++index)
+                {
+                    PColor expected(255, 255, 255);
+                    for (const KDisplayBrushLayer& layer : layers)
+                    {
+                        if (layer.Style == PBrushStyle::SolidPattern)
+                        {
+                            expected = PBrushUtils::Composite(layer.Color, expected);
+                        }
+                        else if (layer.Style == PBrushStyle::TexturePattern)
+                        {
+                            const PColor sample = SampleBrushReference(m_Layer, x + int32_t(index) - layer.Origin.x, y - layer.Origin.y);
+                            expected = PBrushUtils::Composite(sample, expected);
+                        }
+                    }
+                    EXPECT_EQ(pixels[index], expected);
+                }
+                std::array<PColor, 7> clipped;
+                brush.RenderSpan(x + 3, y, clipped);
+                for (size_t index = 0; index < clipped.size(); ++index) {
+                    EXPECT_EQ(clipped[index], pixels[index + 3]);
+                }
+            }
+        }
+    }
 }
 
 TEST_F(DisplayBrushTest, PreparedSamplerMatchesReferenceAcrossFormatsAndClippedSpans)
@@ -399,18 +519,18 @@ TEST_F(DisplayBrushTest, PreparedSamplerMatchesReferenceAcrossFormatsAndClippedS
             ? reinterpret_cast<uint8_t*>(pixels16.data()) : reinterpret_cast<uint8_t*>(m_Pixels.data());
         for (bool sliced : {false, true})
         {
-            m_Layer.Description.Type = PBrushType::Image;
+            m_Layer.Data.Type = PBrushType::Image;
             for (const PIRect& source : {PIRect(0, 0, 5, 5), PIRect(1, 1, 4, 4), PIRect(2, 2, 3, 3), PIRect(-1, 0, 6, 5)})
             {
                 if (sliced && (source.Width() < 3 || source.left < 0)) {
                     continue;
                 }
-                m_Layer.Description.Image.SourceRect = source;
-                m_Layer.Description.Image.SliceRect = sliced ? PRect(source).GetResized(1.0f, 1.0f, -1.0f, -1.0f) : PRect(source);
+                m_Layer.Image.SourceRect = source;
+                m_Layer.Image.SliceRect = sliced ? PRect(source).GetResized(1.0f, 1.0f, -1.0f, -1.0f) : PRect(source);
                 for (const PIPoint& size : sizes)
                 {
                     m_Layer.Bounds = PIRect(PIPoint(10, 20), PIPoint(10, 20) + size);
-                    m_Layer.Description.Image.LayoutSize = PPoint(size);
+                    m_Layer.Image.LayoutSize = PPoint(size);
                     const KDisplayBrushSampler sampler(m_Layer);
                     for (int32_t y = m_Layer.Bounds.top - 1; y <= m_Layer.Bounds.bottom; ++y)
                     {
@@ -444,15 +564,15 @@ TEST_F(DisplayBrushTest, OpaqueRgbaSpecializationsMatchAlphaAwareFiltering)
 {
     for (bool sliced : {false, true})
     {
-        m_Layer.Description.Type = PBrushType::Image;
-        m_Layer.Description.Image.SliceRect = sliced ? PRect(1, 1, 4, 4) : PRect(0, 0, 5, 5);
+        m_Layer.Data.Type = PBrushType::Image;
+        m_Layer.Image.SliceRect = sliced ? PRect(1, 1, 4, 4) : PRect(0, 0, 5, 5);
         for (const PIPoint& size : {PIPoint(5, 5), PIPoint(11, 9), PIPoint(3, 7)})
         {
             m_Layer.Bounds = PIRect(PIPoint(10, 20), PIPoint(10, 20) + size);
-            m_Layer.Description.Image.LayoutSize = PPoint(size);
-            m_Layer.Description.Image.IsOpaque = true;
+            m_Layer.Image.LayoutSize = PPoint(size);
+            m_Layer.Image.IsOpaque = true;
             const KDisplayBrushSampler opaque(m_Layer);
-            m_Layer.Description.Image.IsOpaque = false;
+            m_Layer.Image.IsOpaque = false;
             const KDisplayBrushSampler general(m_Layer);
             for (int32_t y = 19; y <= m_Layer.Bounds.bottom; ++y)
             {
@@ -470,7 +590,7 @@ TEST_F(DisplayBrushTest, OpaqueSliceSelectionPreservesTransparentCorners)
 {
     m_Pixels[0] = PColor(255, 0, 0, 0).GetColor32();
     m_Pixels[24] = PColor(0, 255, 0, 85).GetColor32();
-    m_Layer.Description.Image.OpaqueSlices = 0x0010;
+    m_Layer.Image.OpaqueSlices = 0x0010;
     const KDisplayBrushSampler sampler(m_Layer);
     for (int32_t y = 19; y <= 29; ++y)
     {
@@ -500,48 +620,50 @@ TEST(DisplayBrush, TransparencyKeyCannotCollideWithVisibleRgb565Pixels)
 
 TEST(DisplayBrush, BackgroundCopyDependsOnSamplingCoordinatesAndScale)
 {
-    PBrushDescription description;
+    PBrushData data;
     const PIRect placement(0, 0, 200, 900);
     const PIPoint scroll(0, -37);
-    EXPECT_TRUE(PBrushUtils::CanTranslate(description, placement, placement, scroll));
-    description.Type = PBrushType::Image;
-    description.Style = PBrushStyle::TexturePattern;
-    EXPECT_TRUE(PBrushUtils::CanTranslate(description, placement, placement + scroll, scroll));
-    EXPECT_FALSE(PBrushUtils::CanTranslate(description, placement, placement, scroll));
-    EXPECT_FALSE(PBrushUtils::CanTranslate(description, placement, PIRect(0, -37, 201, 863), scroll));
+    EXPECT_TRUE(PBrushUtils::CanTranslate(data, placement, placement, scroll));
+    data.Type = PBrushType::Image;
+    data.Style = PBrushStyle::TexturePattern;
+    EXPECT_TRUE(PBrushUtils::CanTranslate(data, placement, placement + scroll, scroll));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(data, placement, placement, scroll));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(data, placement, PIRect(0, -37, 201, 863), scroll));
     const PIRect tile(0, 0, 16, 16);
-    EXPECT_TRUE(PBrushUtils::CanTranslate(description, tile, tile, PIPoint(16, -32)));
-    EXPECT_FALSE(PBrushUtils::CanTranslate(description, tile, tile, scroll));
+    EXPECT_TRUE(PBrushUtils::CanTranslate(data, tile, tile, PIPoint(16, -32)));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(data, tile, tile, scroll));
     const PIPoint nestedScroll(12, -8);
-    EXPECT_TRUE(PBrushUtils::CanTranslate(description, tile, tile + scroll + nestedScroll, scroll + nestedScroll));
-    EXPECT_FALSE(PBrushUtils::CanTranslate(description, tile, tile + scroll, scroll + nestedScroll));
+    EXPECT_TRUE(PBrushUtils::CanTranslate(data, tile, tile + scroll + nestedScroll, scroll + nestedScroll));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(data, tile, tile + scroll, scroll + nestedScroll));
     const PIPoint distantMovement(15000000, -15000000);
-    EXPECT_TRUE(PBrushUtils::CanTranslate(description, tile, tile + distantMovement, distantMovement));
-    EXPECT_FALSE(PBrushUtils::CanTranslate(description, tile, tile + distantMovement, distantMovement + PIPoint(1, 0)));
-    description.Style = PBrushStyle::None;
-    EXPECT_TRUE(PBrushUtils::CanTranslate(description, tile, tile, nestedScroll));
+    EXPECT_TRUE(PBrushUtils::CanTranslate(data, tile, tile + distantMovement, distantMovement));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(data, tile, tile + distantMovement, distantMovement + PIPoint(1, 0)));
+    data.Style = PBrushStyle::None;
+    EXPECT_TRUE(PBrushUtils::CanTranslate(data, tile, tile, nestedScroll));
 }
 
 TEST(DisplayBrush, OpaqueSlicesShieldRepeatedRegionsFromAncestorChanges)
 {
-    PBrushDescription description;
-    description.Type = PBrushType::Image;
-    description.Style = PBrushStyle::TexturePattern;
-    description.Image.SourceRect = PIRect(0, 0, 10, 10);
-    description.Image.SliceRect = PRect(2, 3, 6, 9);
-    description.Image.LayoutSize = PPoint(20, 20);
-    description.Image.IsOpaque = false;
-    description.Image.OpaqueSlices = 0x0010;
+    PBrushData data;
+    PImageDescription image;
+    data.Type = PBrushType::Image;
+    data.Style = PBrushStyle::TexturePattern;
+    image.SourceRect = PIRect(0, 0, 10, 10);
+    image.SliceRect = PRect(2, 3, 6, 9);
+    image.LayoutSize = PPoint(20, 20);
+    image.IsOpaque = false;
+    image.OpaqueSlices = 0x0010;
     const PIRect bounds(10, 20, 30, 40);
     std::vector<PIRect> regions;
-    PBrushUtils::VisitOpaqueRegions(description, bounds, PIRect(10, 20, 50, 40), [&regions](const PIRect& region) { regions.push_back(region); });
+    PBrushUtils::VisitOpaqueRegions(data, image, bounds, PIRect(10, 20, 50, 40), [&regions](const PIRect& region) { regions.push_back(region); });
     ASSERT_EQ(regions.size(), 2);
     EXPECT_EQ(regions[0], PIRect(12, 23, 26, 39));
     EXPECT_EQ(regions[1], PIRect(32, 23, 46, 39));
     regions.clear();
     const PIPoint movement(-15000000, 15000000);
     PBrushUtils::VisitOpaqueRegions(
-        description,
+        data,
+        image,
         bounds + movement,
         PIRect(10, 20, 50, 40) + movement,
         [&regions](const PIRect& region) { regions.push_back(region); });
@@ -549,8 +671,8 @@ TEST(DisplayBrush, OpaqueSlicesShieldRepeatedRegionsFromAncestorChanges)
     EXPECT_EQ(regions[0], PIRect(12, 23, 26, 39) + movement);
     EXPECT_EQ(regions[1], PIRect(32, 23, 46, 39) + movement);
     regions.clear();
-    description.Image.LayoutSize = PPoint(3, 2);
-    PBrushUtils::VisitOpaqueRegions(description, PIRect(0, 0, 3, 2), bounds, [&regions](const PIRect& region) { regions.push_back(region); });
+    image.LayoutSize = PPoint(3, 2);
+    PBrushUtils::VisitOpaqueRegions(data, image, PIRect(0, 0, 3, 2), bounds, [&regions](const PIRect& region) { regions.push_back(region); });
     EXPECT_TRUE(regions.empty());
 }
 
@@ -558,10 +680,10 @@ TEST_F(DisplayBrushTest, EveryTilingMaskMatchesReferenceWithScaleAndPartialTiles
 {
     for (uint8_t mask = 0; mask < 0x40; ++mask)
     {
-        m_Layer.Description.Image.Tiling = PImageTilingFlag(mask);
+        m_Layer.Image.Tiling = PImageTilingFlag(mask);
         for (const PPoint& scale : {PPoint(1, 1), PPoint(1.5f, 2.0f), PPoint(0.5f, 0.75f)})
         {
-            m_Layer.Description.Scale = scale;
+            m_Layer.Data.Scale = scale;
             const KDisplayBrushSampler sampler(m_Layer);
             for (int32_t y = 17; y < 43; ++y)
             {
@@ -597,9 +719,9 @@ TEST_F(DisplayBrushTest, CenterAxesAndEachEdgeHaveIndependentTilingRules)
     const size_t sourceIndices[] = {1, 21, 5, 9, 6, 6};
     for (size_t index = 0; index < std::size(flags); ++index)
     {
-        m_Layer.Description.Image.Tiling = flags[index];
+        m_Layer.Image.Tiling = flags[index];
         EXPECT_EQ(Sample(positions[index].x, positions[index].y).GetColor32(), m_Pixels[sourceIndices[index]]);
-        m_Layer.Description.Image.Tiling = PImageTiling::zero;
+        m_Layer.Image.Tiling = PImageTiling::zero;
         EXPECT_NE(Sample(positions[index].x, positions[index].y).GetColor32(), m_Pixels[sourceIndices[index]]);
     }
 }
@@ -608,8 +730,8 @@ TEST_F(DisplayBrushTest, ThreeSliceImagesSupportEitherOrientation)
 {
     for (const PRect& slice : {PRect(1, 0, 4, 5), PRect(0, 1, 5, 4)})
     {
-        m_Layer.Description.Image.SliceRect = slice;
-        m_Layer.Description.Image.Tiling = PImageTilingFlag::Center;
+        m_Layer.Image.SliceRect = slice;
+        m_Layer.Image.Tiling = PImageTilingFlag::Center;
         for (int32_t y = 19; y < 30; ++y)
         {
             for (int32_t x = 9; x < 22; ++x) {
@@ -621,10 +743,10 @@ TEST_F(DisplayBrushTest, ThreeSliceImagesSupportEitherOrientation)
 
 TEST_F(DisplayBrushTest, UnslicedTiledCentersKeepTheirScaleWhenTheLayoutSizeCompensates)
 {
-    m_Layer.Description.Image.SliceRect = PRect(0, 0, 5, 5);
-    m_Layer.Description.Image.LayoutSize = PPoint(10, 10);
-    m_Layer.Description.Scale = PPoint(0.5f, 0.5f);
-    m_Layer.Description.Image.Tiling = PImageTilingFlag::Center;
+    m_Layer.Image.SliceRect = PRect(0, 0, 5, 5);
+    m_Layer.Image.LayoutSize = PPoint(10, 10);
+    m_Layer.Data.Scale = PPoint(0.5f, 0.5f);
+    m_Layer.Image.Tiling = PImageTilingFlag::Center;
     const KDisplayBrushSampler sampler(m_Layer);
     for (int32_t y = 18; y < 28; ++y)
     {
@@ -639,26 +761,26 @@ TEST_F(DisplayBrushTest, UnslicedTiledCentersKeepTheirScaleWhenTheLayoutSizeComp
 TEST_F(DisplayBrushTest, ViewRelativeLayoutsMatchAbsoluteRenderingAcrossSizesScalesAndClipping)
 {
     m_Pixels[0] = PColor(255, 0, 0, 0).GetColor32();
-    m_Layer.Description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
+    m_Layer.Image.LayoutMode = PImageLayoutMode::ViewRelative;
     for (bool sliced : {false, true})
     {
-        m_Layer.Description.Image.SliceRect = sliced ? PRect(1, 1, 4, 4) : PRect(0, 0, 5, 5);
+        m_Layer.Image.SliceRect = sliced ? PRect(1, 1, 4, 4) : PRect(0, 0, 5, 5);
         for (const PPoint& fraction : {PPoint(1, 1), PPoint(0.5f, 0.5f)})
         {
-            m_Layer.Description.Image.LayoutSize = fraction;
+            m_Layer.Image.LayoutSize = fraction;
             for (const PIPoint& viewSize : {PIPoint(5, 5), PIPoint(22, 18), PIPoint(7, 9)})
             {
                 m_Layer.ReferenceSize = viewSize;
                 const PIPoint tileSize(int32_t(std::round(float(viewSize.x) * fraction.x)), int32_t(std::round(float(viewSize.y) * fraction.y)));
                 for (const PPoint& scale : {PPoint(1, 1), PPoint(2, 2), PPoint(0.5f, 1.5f)})
                 {
-                    m_Layer.Description.Scale = scale;
+                    m_Layer.Data.Scale = scale;
                     for (uint8_t mask : {uint8_t(0x00), uint8_t(0x15), uint8_t(0x2a), uint8_t(0x3f)})
                     {
-                        m_Layer.Description.Image.Tiling = PImageTilingFlag(mask);
+                        m_Layer.Image.Tiling = PImageTilingFlag(mask);
                         PDisplayBrushLayer absolute = m_Layer;
-                        absolute.Description.Image.LayoutMode = PImageLayoutMode::Absolute;
-                        absolute.Description.Image.LayoutSize = PPoint(tileSize) / scale;
+                        absolute.Image.LayoutMode = PImageLayoutMode::Absolute;
+                        absolute.Image.LayoutSize = PPoint(tileSize) / scale;
                         const KDisplayBrushSampler sampler(m_Layer);
                         for (int32_t y = 19; y <= 20 + viewSize.y; ++y)
                         {
@@ -687,15 +809,15 @@ TEST_F(DisplayBrushTest, ViewRelativeLayoutsMatchAbsoluteRenderingAcrossSizesSca
 
 TEST_F(DisplayBrushTest, RelativeBackgroundMappingsSurviveMovementButChangeOnResize)
 {
-    m_Layer.Description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
-    m_Layer.Description.Image.LayoutSize = PPoint(0.5f, 0.5f);
+    m_Layer.Image.LayoutMode = PImageLayoutMode::ViewRelative;
+    m_Layer.Image.LayoutSize = PPoint(0.5f, 0.5f);
     m_Layer.ReferenceSize = PIPoint(22, 18);
-    const PIPoint size = PBrushUtils::TileSize(m_Layer.Description, m_Layer.ReferenceSize);
+    const PIPoint size = PBrushUtils::TileSize(m_Layer.Data, m_Layer.Image, m_Layer.ReferenceSize);
     ASSERT_EQ(size, PIPoint(11, 9));
     const PDisplayBrushLayer original = m_Layer;
     const PIPoint movement(-7, -13);
     m_Layer.Bounds += movement;
-    EXPECT_TRUE(PBrushUtils::CanTranslate(original.Description, original.Bounds, m_Layer.Bounds, movement));
+    EXPECT_TRUE(PBrushUtils::CanTranslate(original.Data, original.Bounds, m_Layer.Bounds, movement));
     for (int32_t y = 19; y < 40; ++y)
     {
         std::array<PColor, 25> expected;
@@ -705,30 +827,31 @@ TEST_F(DisplayBrushTest, RelativeBackgroundMappingsSurviveMovementButChangeOnRes
         EXPECT_EQ(moved, expected);
     }
     m_Layer.ReferenceSize = PIPoint(26, 22);
-    const PIPoint resized = PBrushUtils::TileSize(m_Layer.Description, m_Layer.ReferenceSize);
+    const PIPoint resized = PBrushUtils::TileSize(m_Layer.Data, m_Layer.Image, m_Layer.ReferenceSize);
     const PIRect resizedBounds(m_Layer.Bounds.TopLeft(), m_Layer.Bounds.TopLeft() + resized);
-    EXPECT_FALSE(PBrushUtils::CanTranslate(original.Description, original.Bounds, resizedBounds, movement));
-    EXPECT_TRUE(PBrushUtils::CanTranslate(original.Description, original.Bounds, original.Bounds, PIPoint(11, -18)));
-    EXPECT_FALSE(PBrushUtils::CanTranslate(original.Description, original.Bounds, original.Bounds, PIPoint(1, 0)));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(original.Data, original.Bounds, resizedBounds, movement));
+    EXPECT_TRUE(PBrushUtils::CanTranslate(original.Data, original.Bounds, original.Bounds, PIPoint(11, -18)));
+    EXPECT_FALSE(PBrushUtils::CanTranslate(original.Data, original.Bounds, original.Bounds, PIPoint(1, 0)));
 }
 
 TEST(DisplayBrush, RelativeOpaqueSlicesUseTheSameScaledBordersAsRendering)
 {
-    PBrushDescription description;
-    description.Type = PBrushType::Image;
-    description.Style = PBrushStyle::TexturePattern;
-    description.Scale = PPoint(2, 3);
-    description.Image.SourceRect = PIRect(0, 0, 10, 10);
-    description.Image.SliceRect = PRect(2, 3, 6, 9);
-    description.Image.LayoutSize = PPoint(0.5f, 1);
-    description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
-    description.Image.IsOpaque = false;
-    description.Image.OpaqueSlices = 0x0010;
-    const PIPoint tileSize = PBrushUtils::TileSize(description, PIPoint(40, 20));
+    PBrushData data;
+    PImageDescription image;
+    data.Type = PBrushType::Image;
+    data.Style = PBrushStyle::TexturePattern;
+    data.Scale = PPoint(2, 3);
+    image.SourceRect = PIRect(0, 0, 10, 10);
+    image.SliceRect = PRect(2, 3, 6, 9);
+    image.LayoutSize = PPoint(0.5f, 1);
+    image.LayoutMode = PImageLayoutMode::ViewRelative;
+    image.IsOpaque = false;
+    image.OpaqueSlices = 0x0010;
+    const PIPoint tileSize = PBrushUtils::TileSize(data, image, PIPoint(40, 20));
     ASSERT_EQ(tileSize, PIPoint(20, 20));
     const PIRect bounds(PIPoint(10, 20), PIPoint(10, 20) + tileSize);
     std::vector<PIRect> regions;
-    PBrushUtils::VisitOpaqueRegions(description, bounds, PIRect(10, 20, 50, 40), [&regions](const PIRect& region) { regions.push_back(region); });
+    PBrushUtils::VisitOpaqueRegions(data, image, bounds, PIRect(10, 20, 50, 40), [&regions](const PIRect& region) { regions.push_back(region); });
     ASSERT_EQ(regions.size(), 2);
     EXPECT_EQ(regions[0], PIRect(14, 29, 22, 37));
     EXPECT_EQ(regions[1], PIRect(34, 29, 42, 37));
@@ -736,32 +859,34 @@ TEST(DisplayBrush, RelativeOpaqueSlicesUseTheSameScaledBordersAsRendering)
 
 TEST(DisplayBrush, RelativeLayoutRoundingHandlesEmptyViewsAndRejectsOverflow)
 {
-    PBrushDescription description;
-    description.Type = PBrushType::Image;
-    description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
-    description.Image.LayoutSize = PPoint(0.5f, 0.5f);
-    EXPECT_EQ(PBrushUtils::TileSize(description, PIPoint(0, 0)), PIPoint(1, 1));
-    EXPECT_EQ(PBrushUtils::TileSize(description, PIPoint(5, 7)), PIPoint(3, 4));
-    description.Image.LayoutSize = PPoint(std::numeric_limits<float>::max(), 1);
-    EXPECT_THROW(PBrushUtils::TileSize(description, PIPoint(2, 2)), std::system_error);
+    PBrushData data;
+    PImageDescription image;
+    data.Type = PBrushType::Image;
+    image.LayoutMode = PImageLayoutMode::ViewRelative;
+    image.LayoutSize = PPoint(0.5f, 0.5f);
+    EXPECT_EQ(PBrushUtils::TileSize(data, image, PIPoint(0, 0)), PIPoint(1, 1));
+    EXPECT_EQ(PBrushUtils::TileSize(data, image, PIPoint(5, 7)), PIPoint(3, 4));
+    image.LayoutSize = PPoint(std::numeric_limits<float>::max(), 1);
+    EXPECT_THROW(PBrushUtils::TileSize(data, image, PIPoint(2, 2)), std::system_error);
 }
 
 TEST(DisplayBrush, LayoutMaximumDoesNotLimitTextureSizesOrPlacement)
 {
-    PBrushDescription description;
-    description.Style = PBrushStyle::TexturePattern;
-    description.Image.SourceRect = PIRect(0, 0, 2, 2);
-    description.Image.LayoutSize = PPoint(COORD_MAX, COORD_MAX * 2.0f);
-    EXPECT_TRUE(PBrushUtils::IsValidScale(description));
-    EXPECT_EQ(PBrushUtils::TileSize(description, PIPoint(1, 1)), PIPoint(16000000, 32000000));
-    description.Image.LayoutMode = PImageLayoutMode::ViewRelative;
-    description.Image.LayoutSize = PPoint(1, 1);
-    EXPECT_EQ(PBrushUtils::TileSize(description, PIPoint(16000000, 32000000)), PIPoint(16000000, 32000000));
+    PBrushData data;
+    PImageDescription image;
+    data.Style = PBrushStyle::TexturePattern;
+    image.SourceRect = PIRect(0, 0, 2, 2);
+    image.LayoutSize = PPoint(COORD_MAX, COORD_MAX * 2.0f);
+    EXPECT_TRUE(PBrushUtils::IsValidScale(data, image));
+    EXPECT_EQ(PBrushUtils::TileSize(data, image, PIPoint(1, 1)), PIPoint(16000000, 32000000));
+    image.LayoutMode = PImageLayoutMode::ViewRelative;
+    image.LayoutSize = PPoint(1, 1);
+    EXPECT_EQ(PBrushUtils::TileSize(data, image, PIPoint(16000000, 32000000)), PIPoint(16000000, 32000000));
     EXPECT_EQ(PBrushUtils::TileBounds(PIPoint(32000000, -64000000), PIPoint(2, 2)), PIRect(32000000, -64000000, 32000002, -63999998));
-    description.Image.LayoutSize.x = float(std::numeric_limits<int32_t>::max());
-    EXPECT_THROW(PBrushUtils::TileSize(description, PIPoint(1, 1)), std::system_error);
-    description.Image.LayoutMode = PImageLayoutMode::Absolute;
-    EXPECT_FALSE(PBrushUtils::IsValidScale(description));
+    image.LayoutSize.x = float(std::numeric_limits<int32_t>::max());
+    EXPECT_THROW(PBrushUtils::TileSize(data, image, PIPoint(1, 1)), std::system_error);
+    image.LayoutMode = PImageLayoutMode::Absolute;
+    EXPECT_FALSE(PBrushUtils::IsValidScale(data, image));
     const int32_t maximum = std::numeric_limits<int32_t>::max();
     EXPECT_EQ(PBrushUtils::TileBounds(PIPoint(maximum - 2, 0), PIPoint(2, 2)), PIRect(maximum - 2, 0, maximum, 2));
     EXPECT_THROW(PBrushUtils::TileBounds(PIPoint(maximum - 1, 0), PIPoint(2, 2)), std::system_error);
@@ -781,12 +906,12 @@ TEST(DisplayBrush, SourcePixelBoundsMustRemainExactlyRepresentable)
 
 TEST_F(DisplayBrushTest, NoneContributesNoPixelsAndSolidStyleRetainsTheTexture)
 {
-    m_Layer.Description.Style = PBrushStyle::None;
+    m_Layer.Data.Style = PBrushStyle::None;
     EXPECT_EQ(Sample(12, 22), PColor(0, 0, 0, 0));
-    m_Layer.Description.Style = PBrushStyle::SolidPattern;
-    m_Layer.Description.Color = PColor(80, 100, 120);
-    EXPECT_EQ(Sample(12, 22), m_Layer.Description.Color);
-    m_Layer.Description.Style = PBrushStyle::TexturePattern;
+    m_Layer.Data.Style = PBrushStyle::SolidPattern;
+    m_Layer.Data.Color = PColor(80, 100, 120);
+    EXPECT_EQ(Sample(12, 22), m_Layer.Data.Color);
+    m_Layer.Data.Style = PBrushStyle::TexturePattern;
     EXPECT_EQ(Sample(10, 20).GetColor32(), m_Pixels[0]);
 }
 

@@ -555,7 +555,7 @@ void PSlider::AttachedToScreen()
 {
     Ptr<PView> parent = GetParent();
     if (parent != nullptr) {
-        SetBackgroundBrush(nullptr);
+        SetBackgroundBrush(PBrush::zero);
     }
 }
 

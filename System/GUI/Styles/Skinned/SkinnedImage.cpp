@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
+#include <utility>
 
 #include <GUI/Styles/Skinned/SkinnedImage.h>
 
@@ -13,15 +14,15 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PGetSkinnedBrush(PSkinnedImage& cache, const PImage& source, const PPoint& size)
+PBrush PGetSkinnedBrush(PSkinnedImage& cache, const PImage& source, const PPoint& size)
 {
-    if (cache.Image == nullptr)
+    if (!cache.Image.IsValid() || cache.Image.GetLayoutSize() != size)
     {
-        cache.Image = ptr_new<PImage>(source);
-        cache.Brush = ptr_new<PBrush>(cache.Image);
-    }
-    if (cache.Image->GetLayoutSize() != size) {
-        cache.Image->SetLayoutSize(size, PImageLayoutMode::Absolute);
+        PImage image = cache.Image.IsValid() ? cache.Image : source;
+        image.SetLayoutSize(size, PImageLayoutMode::Absolute);
+        PBrush brush(image);
+        cache.Image = std::move(image);
+        cache.Brush = std::move(brush);
     }
     return cache.Brush;
 }

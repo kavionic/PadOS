@@ -5,16 +5,20 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+#include <cstring>
+#include <limits>
+
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/Fonts/ServerFontInstance.h>
 #include <ApplicationServer/ServerBitmap.h>
+#include <DeviceControl/DisplayBrush.h>
 #include <Math/Misc.h>
 #include <System/ExceptionHandling.h>
-#include <algorithm>
-#include <cstring>
-#include <fcntl.h>
-#include <limits>
-#include <unistd.h>
+
 #include "ServerView.h"
 
 
@@ -48,8 +52,8 @@ PDisplayDriver::~PDisplayDriver()
     for (PSrvBitmap* bitmap : m_BitmapResources) {
         bitmap->m_Driver = nullptr;
     }
-    for (PServerBrush* brush : m_BrushResources) {
-        brush->m_Driver = nullptr;
+    for (PServerImage* image : m_ImageResources) {
+        image->m_Driver = nullptr;
     }
     if (m_ScreenBitmap != nullptr) {
         m_ScreenBitmap->m_Driver = nullptr;
@@ -87,8 +91,8 @@ bool PDisplayDriver::Open()
     for (PSrvBitmap* bitmap : m_BitmapResources) {
         bitmap->m_DriverResourceID = CreateBitmapResource(*bitmap);
     }
-    for (PServerBrush* brush : m_BrushResources) {
-        brush->m_DriverResourceID = CreateBrushResource(*brush);
+    for (PServerImage* image : m_ImageResources) {
+        image->m_DriverResourceID = CreateImageResource(*image);
     }
     m_FgColor = PColor(0);
     m_BgColor = PColor(0);
@@ -110,8 +114,8 @@ void PDisplayDriver::Close()
     for (PSrvBitmap* bitmap : m_BitmapResources) {
         bitmap->m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
     }
-    for (PServerBrush* brush : m_BrushResources) {
-        brush->m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
+    for (PServerImage* image : m_ImageResources) {
+        image->m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
     }
     if (m_ScreenBitmap != nullptr) {
         m_ScreenBitmap->m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
@@ -120,9 +124,7 @@ void PDisplayDriver::Close()
     AdvanceSequence();
     m_FontReferences.clear();
     m_BrushLayers.clear();
-    m_PendingBrushReferences.clear();
-    m_PendingBitmapReferences.clear();
-    m_BrushStateValid = true;
+    m_PendingImageReferences.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -189,70 +191,37 @@ void PDisplayDriver::UnregisterBitmap(PSrvBitmap* bitmap) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDisplayDriver::RegisterBrush(PServerBrush* brush)
+void PDisplayDriver::RegisterImage(PServerImage* image)
 {
-    m_BrushResources.push_back(brush);
-    PScopeFail rollback([this] { m_BrushResources.pop_back(); });
-    brush->m_DriverResourceID = CreateBrushResource(*brush);
-    brush->m_ResourceIndex = m_BrushResources.size() - 1;
-    brush->m_Driver = this;
+    m_ImageResources.push_back(image);
+    PScopeFail rollback([this] { m_ImageResources.pop_back(); });
+    image->m_DriverResourceID = CreateImageResource(*image);
+    image->m_ResourceIndex = m_ImageResources.size() - 1;
+    image->m_Driver = this;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDisplayDriver::UnregisterBrush(PServerBrush* brush) noexcept
+void PDisplayDriver::UnregisterImage(PServerImage* image) noexcept
 {
-    m_BrushResources.back()->m_ResourceIndex = brush->m_ResourceIndex;
-    m_BrushResources[brush->m_ResourceIndex] = m_BrushResources.back();
-    m_BrushResources.pop_back();
+    m_ImageResources.back()->m_ResourceIndex = image->m_ResourceIndex;
+    m_ImageResources[image->m_ResourceIndex] = m_ImageResources.back();
+    m_ImageResources.pop_back();
     try
     {
-        if (brush->m_DriverResourceID != DRIVER_INVALID_RESOURCE_ID && m_DeviceControl.GetDeviceFD() >= 0) {
-            m_DeviceControl.DeleteBrush(brush->m_DriverResourceID);
+        if (image->m_DriverResourceID != DRIVER_INVALID_RESOURCE_ID && m_DeviceControl.GetDeviceFD() >= 0) {
+            m_DeviceControl.DeleteImage(image->m_DriverResourceID);
         }
     }
     PERROR_CATCH([this](PErrorCode error)
     {
-        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Unregistering display brush failed: {}", p_strerror(error));
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Unregistering display image failed: {}", p_strerror(error));
         Close();
     });
-    brush->m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
-    brush->m_Driver = nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::UpdateBrush(PServerBrush* brush, const PBrushDescription& description, const Ptr<PSrvBitmap>& bitmap)
-{
-    ReserveBrushUpdateReferences(brush, ptr_raw_pointer_cast(bitmap));
-    const PDriverResourceID bitmapID = (bitmap != nullptr) ? bitmap->m_DriverResourceID : DRIVER_INVALID_RESOURCE_ID;
-    m_Commands.UpdateBrush(brush->m_DriverResourceID, bitmapID, description);
-    RetainBrushUpdateReferences(brush, ptr_raw_pointer_cast(bitmap));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::SetBrushColor(PServerBrush* brush, PColor color)
-{
-    ReserveBrushUpdateReferences(brush, nullptr);
-    m_Commands.SetBrushColor(brush->m_DriverResourceID, color);
-    RetainBrushUpdateReferences(brush, nullptr);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::HandleBrushRevisionWrap(const PServerBrush* brush)
-{
-    m_BrushStateValid = false;
-    PServerView::InvalidateAllBrushCaches(brush);
+    image->m_DriverResourceID = DRIVER_INVALID_RESOURCE_ID;
+    image->m_Driver = nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -488,7 +457,7 @@ void PDisplayDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect)
 
 void PDisplayDriver::SetBrush(std::span<const PServerBrushLayer> layers)
 {
-    if (m_BrushStateValid && std::ranges::equal(m_BrushLayers, layers)) {
+    if (std::ranges::equal(m_BrushLayers, layers)) {
         return;
     }
     constexpr size_t ARGUMENT_SIZE = decltype(m_Commands.SetBrush)::GetFixedSize();
@@ -498,18 +467,19 @@ void PDisplayDriver::SetBrush(std::span<const PServerBrushLayer> layers)
     }
     // Reserve before emitting the command. Retention cannot allocate afterwards.
     m_BrushLayers.reserve(std::max(m_BrushLayers.size(), layers.size()));
-    m_PendingBrushReferences.reserve(m_PendingBrushReferences.size() + m_BrushLayers.size());
+    m_PendingImageReferences.reserve(m_PendingImageReferences.size() + m_BrushLayers.size());
     void* buffer = m_Commands.SetBrush.Alloc(layers.size() * sizeof(PDisplayBrushBinding));
     RetainBrushLayers(m_BrushLayers);
     m_Commands.SetBrush(buffer, layers.size());
     PDisplayBrushBinding* destination = reinterpret_cast<PDisplayBrushBinding*>(static_cast<uint8_t*>(buffer) + ARGUMENT_SIZE);
     for (const PServerBrushLayer& layer : layers)
     {
-        const PDriverResourceID driverResourceID = (layer.Brush != nullptr) ? layer.Brush->m_DriverResourceID : DRIVER_INVALID_RESOURCE_ID;
-        new (destination++) PDisplayBrushBinding{driverResourceID, layer.Color, layer.Bounds.TopLeft(), layer.ReferenceSize};
+        PBrushData data = layer.Brush.GetData();
+        const Ptr<PServerImage>& image = layer.Brush.GetImage();
+        data.ImageID = (image != nullptr) ? image->m_DriverResourceID : INVALID_IMAGE_ID;
+        new (destination++) PDisplayBrushBinding{data, layer.Bounds.TopLeft(), layer.ReferenceSize};
     }
     m_BrushLayers.assign(layers.begin(), layers.end());
-    m_BrushStateValid = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -760,14 +730,10 @@ void PDisplayDriver::Flush()
             m_FontReferences.clear();
             // Unregistration can close a faulted device. Detach the completed
             // references before destruction so recovery cannot clear them twice.
-            std::vector<Ptr<PServerBrush>> completedBrushes;
-            completedBrushes.swap(m_PendingBrushReferences);
-            completedBrushes.clear();
-            completedBrushes.swap(m_PendingBrushReferences);
-            std::vector<Ptr<PSrvBitmap>> completedBitmaps;
-            completedBitmaps.swap(m_PendingBitmapReferences);
-            completedBitmaps.clear();
-            completedBitmaps.swap(m_PendingBitmapReferences);
+            std::vector<Ptr<PServerImage>> completedImages;
+            completedImages.swap(m_PendingImageReferences);
+            completedImages.clear();
+            completedImages.swap(m_PendingImageReferences);
             AdvanceSequence();
         });
         // Close before releasing retained resources if any part of submission fails.
@@ -786,7 +752,7 @@ void PDisplayDriver::FlushBitmap(const PSrvBitmap* bitmap)
     {
         const bool selected = std::ranges::any_of(m_BrushLayers, [bitmap](const PServerBrushLayer& layer) noexcept
         {
-            return layer.Brush != nullptr && layer.Brush->GetBitmap() == bitmap;
+            return layer.Brush.GetImage() != nullptr && layer.Brush.GetImage()->GetBitmap() == bitmap;
         });
         if (bitmap->m_RenderSequence == m_Sequence || selected) {
             Flush();
@@ -849,8 +815,8 @@ void PDisplayDriver::AdvanceSequence() noexcept
         for (PSrvBitmap* bitmap : m_BitmapResources) {
             bitmap->m_RenderSequence = 0;
         }
-        for (PServerBrush* brush : m_BrushResources) {
-            brush->m_RenderSequence = 0;
+        for (PServerImage* image : m_ImageResources) {
+            image->m_RenderSequence = 0;
         }
         if (m_ScreenBitmap != nullptr) {
             m_ScreenBitmap->m_RenderSequence = 0;
@@ -870,48 +836,6 @@ PDriverResourceID PDisplayDriver::ReferenceBitmap(PSrvBitmap* bitmap)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Reserve reference storage before enqueueing so retention cannot allocate
-/// after a command has been appended. Flush() preserves this capacity.
-///
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::ReserveBrushUpdateReferences(const PServerBrush* brush, const PSrvBitmap* bitmap)
-{
-    const Ptr<PSrvBitmap>& previousBitmap = brush->GetBitmap();
-    m_PendingBrushReferences.reserve(m_PendingBrushReferences.size() + 1);
-    if (previousBitmap != nullptr && previousBitmap != bitmap) {
-        m_PendingBitmapReferences.reserve(m_PendingBitmapReferences.size() + 1);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// Call after enqueueing, which may flush and advance the batch sequence, but
-/// before replacing the server brush properties. Keep the brush and superseded
-/// raster alive through submission, and mark the new bitmap's use in this batch.
-///
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::RetainBrushUpdateReferences(PServerBrush* brush, PSrvBitmap* bitmap) noexcept
-{
-    if (brush->m_RenderSequence != m_Sequence)
-    {
-        m_PendingBrushReferences.push_back(ptr_tmp_cast(brush));
-        brush->m_RenderSequence = m_Sequence;
-    }
-    const Ptr<PSrvBitmap>& previousBitmap = brush->GetBitmap();
-    if (previousBitmap != nullptr && previousBitmap != bitmap)
-    {
-        m_PendingBitmapReferences.push_back(previousBitmap);
-        previousBitmap->m_RenderSequence = m_Sequence;
-    }
-    if (bitmap != nullptr) {
-        bitmap->m_RenderSequence = m_Sequence;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -919,13 +843,12 @@ void PDisplayDriver::RetainBrushLayers(std::span<const PServerBrushLayer> layers
 {
     for (const PServerBrushLayer& layer : layers)
     {
-        if (layer.Brush != nullptr && layer.Brush->m_RenderSequence != m_Sequence)
+        const Ptr<PServerImage>& image = layer.Brush.GetImage();
+        if (image != nullptr && image->m_RenderSequence != m_Sequence)
         {
-            m_PendingBrushReferences.push_back(layer.Brush);
-            layer.Brush->m_RenderSequence = m_Sequence;
-            if (layer.Brush->GetBitmap() != nullptr) {
-                layer.Brush->GetBitmap()->m_RenderSequence = m_Sequence;
-            }
+            m_PendingImageReferences.push_back(image);
+            image->m_RenderSequence = m_Sequence;
+            image->GetBitmap()->m_RenderSequence = m_Sequence;
         }
     }
 }
@@ -944,9 +867,7 @@ PDriverResourceID PDisplayDriver::CreateBitmapResource(const PSrvBitmap& bitmap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PDriverResourceID PDisplayDriver::CreateBrushResource(const PServerBrush& brush)
+PDriverResourceID PDisplayDriver::CreateImageResource(const PServerImage& image)
 {
-    const Ptr<PSrvBitmap>& bitmap = brush.GetBitmap();
-    const PDriverResourceID bitmapID = (bitmap != nullptr) ? bitmap->m_DriverResourceID : DRIVER_INVALID_RESOURCE_ID;
-    return m_DeviceControl.CreateBrush(bitmapID, brush.GetDescription());
+    return m_DeviceControl.CreateImage(image.GetBitmap()->m_DriverResourceID, image.GetDescription());
 }

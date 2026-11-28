@@ -56,7 +56,7 @@ void PViewRendererGroupViewSkinned::Paint(PView& target, const PRect& componentF
     const PDrawingMode previousMode = target.GetDrawingMode();
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });
     target.SetDrawingMode(PDrawingMode::Copy);
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     const PRect bounds = target.GetBounds();
     PRect frame = PInsetSkinnedFrame(bounds, m_GroupViewSkin.FrameInsets);
     frame.top = std::min(frame.bottom, frame.top + std::floor(state.HeaderHeight * 0.5f));
@@ -129,7 +129,7 @@ PViewRendererGroupViewSkinned::Context& PViewRendererGroupViewSkinned::GetGroupV
             state.LabelAscender = fontHeight.ascender;
             state.HeaderHeight = std::max(0.0f, state.LabelSize.y + padding.top + padding.bottom);
         }
-        const PImageDescription& description = m_GroupViewSkin.Frame->GetDescription();
+        const PImageDescription& description = m_GroupViewSkin.Frame.GetDescription();
         const PPoint frameBorders = PPoint(description.SourceRect.Size()) - description.SliceRect.Size();
         const PRect& insets = m_GroupViewSkin.FrameInsets;
         state.MinimumSize = PPoint(
@@ -158,7 +158,7 @@ void PViewRendererGroupViewSkinned::PaintGroupViewFrame(PView& target, const PRe
         target.EraseRect(updateRect);
         return;
     }
-    const Ptr<const PBrush> brush = PGetSkinnedBrush(state.Frame, *m_GroupViewSkin.Frame, frame.Size());
+    const PBrush brush = PGetSkinnedBrush(state.Frame, m_GroupViewSkin.Frame, frame.Size());
     target.SetBrushOrigin(frame.TopLeft());
     const PRect frameDamage = visible & updateRect;
     if (frameDamage.IsValid()) {

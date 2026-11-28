@@ -16,15 +16,15 @@
 #include <string_view>
 #include <vector>
 
+#include <ApplicationServer/Protocol.h>
+#include <GUI/Brush.h>
+#include <GUI/Style/GUIStyleInfo.h>
 #include <Math/Rect.h>
 #include <Ptr/Ptr.h>
-#include <Threads/Looper.h>
 #include <Threads/EventTimer.h>
-#include <ApplicationServer/Protocol.h>
-#include <GUI/Style/GUIStyleInfo.h>
+#include <Threads/Looper.h>
 
 class PBitmap;
-class PBrush;
 class PGUIStyle;
 class PPath;
 class PView;
@@ -109,16 +109,14 @@ public:
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
-    // Shared cache entries cannot be modified by callers. Hold this application's mutex.
-    // Standard palette changes refresh the existing resource on its next lookup.
-    Ptr<const PBrush> GetStandardBrush(PStandardColorID color);
-    Ptr<const PBrush> GetStandardBrush(PNamedColors color);
+    // Return a brush snapshot while holding this application's mutex.
+    // Palette changes affect subsequent lookups; existing assignments retain their colors.
+    PBrush GetStandardBrush(PStandardColorID color);
+    PBrush GetStandardBrush(PNamedColors color);
 
-    // Brush handles belong to this application. Updates use the drawing queue.
-    handle_id CreateBrush(const PBrushDescription& description, handle_id bitmapHandle);
-    void DeleteBrush(handle_id brushHandle);
-    void UpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle);
-    void SetBrushColor(handle_id brushHandle, PColor color);
+    // Image IDs are allocated locally and definitions use the ordered drawing queue.
+    PImageID DefineImage(const PImageDescription& description, handle_id bitmapHandle);
+    void DeleteImage(PImageID imageID);
 
     // Font handles belong to this application. Hold its mutex while calling these methods.
     handle_id CreateFont(const PFontDescription& description, PFontHeight& outHeight);
@@ -230,11 +228,13 @@ private:
     void LayoutViews();
 
     static PApplication* s_DefaultApplication;
+    // Outlive members that may release published images during destruction.
+    std::set<PImageID> m_AllocatedImageIDs;
     Ptr<const PGUIStyle> m_GUIStyle;
     PString m_GUIStyleName = DEFAULT_GUI_STYLE_NAME;
     PString m_GUIStyleVariant = DEFAULT_GUI_STYLE_VARIANT;
-    std::array<Ptr<PBrush>, std::to_underlying(PStandardColorID::Count)> m_StandardBrushes;
-    std::map<PNamedColors, Ptr<PBrush>> m_NamedBrushes;
+    std::array<PBrush, std::to_underlying(PStandardColorID::Count)> m_StandardBrushes;
+    std::map<PNamedColors, PBrush> m_NamedBrushes;
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
     PMouseCursorToken m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;
@@ -245,6 +245,7 @@ private:
     uint32_t m_KeyQualifiers = 0;
     uint32_t m_NextKeyboardRequestID = 0;
     uint32_t m_NextGUIStyleRequestID = 0;
+    PImageID m_NextImageID = INVALID_IMAGE_ID + 1;
 
     std::map<uint32_t, KeyboardLayoutsCallback> m_KeyboardLayoutsCallbacks;
     std::map<uint32_t, KeyboardConfigurationCallback> m_KeyboardConfigurationCallbacks;

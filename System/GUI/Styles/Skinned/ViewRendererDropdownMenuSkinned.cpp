@@ -53,7 +53,7 @@ void PViewRendererDropdownMenuSkinned::Paint(PView& target, const PRect& frame, 
     PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); });
     target.SetBackgroundBrush(appearance.Background);
     target.SetBackgroundBrushOrigin(frame.TopLeft());
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     target.SetDrawingMode(PDrawingMode::Copy);
     target.EraseRect(frame);
     const PRect arrowFrame = GetDropdownMenuArrowFrame(frame);

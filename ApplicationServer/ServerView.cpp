@@ -353,8 +353,8 @@ PServerView::PServerView(
     const std::vector<float>&   dashPattern,
     float                       dashOffset,
     Ptr<PServerFontInstance>    font,
-    Ptr<PServerBrush>           backgroundBrush,
-    Ptr<PServerBrush>           drawingBrush,
+    const PServerBrush&         backgroundBrush,
+    const PServerBrush&         drawingBrush,
     PColor                      fgColor,
     const PPoint& backgroundBrushOrigin,
     const PPoint& drawingBrushOrigin
@@ -370,7 +370,7 @@ PServerView::PServerView(
     SetBackgroundBrush(backgroundBrush);
     SetBrushOrigin(drawingBrushOrigin);
     SetBrush(drawingBrush);
-    if (backgroundBrush == nullptr) {
+    if (backgroundBrush.GetData().Style == PBrushStyle::None) {
         MarkBackgroundBrushes();
     }
     g_ServerViewCount++;
@@ -382,9 +382,6 @@ PServerView::PServerView(
 
 PServerView::~PServerView()
 {
-    if (m_BackgroundBrush.Brush != nullptr) {
-        m_BackgroundBrush.Brush->SignalChanged.Disconnect(this, &PServerView::BackgroundBrushChanged);
-    }
     g_ServerViewCount--;
 
     while (!m_ChildrenList.empty())
@@ -3380,7 +3377,7 @@ void PServerView::AppendPolylineRoundJointTriangles(std::vector<PPoint>& triangl
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::DrawString(Ptr<PServerBrush> backgroundBrush, const PString& string, float width, bool allowPartialCharacter)
+void PServerView::DrawString(const PServerBrush& backgroundBrush, const PString& string, float width, bool allowPartialCharacter)
 {
     if (m_Font == nullptr) {
         PERROR_THROW_CODE(PErrorCode::INVAL);

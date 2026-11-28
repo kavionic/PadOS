@@ -13,7 +13,7 @@
 class PViewRendererDropdownMenuPopupFrameSkinned : public PViewRendererDropdownMenuPopupFrame
 {
 public:
-    explicit PViewRendererDropdownMenuPopupFrameSkinned(const PDropdownMenuSkin& skin, Ptr<const PBrush> backgroundBrush);
+    explicit PViewRendererDropdownMenuPopupFrameSkinned(const PDropdownMenuSkin& skin, PBrush backgroundBrush);
     virtual Ptr<PtrTarget> Setup(PView& target) const override;
     virtual void Paint(PView& target, const PRect& frame, const PRect& updateRect, PtrTarget* context) const override;
     virtual void GetPreferredSize(const PView& target, PPoint* minSize, PPoint* maxSize, PtrTarget* context) const override;
@@ -23,5 +23,5 @@ private:
     struct Context;
 
     const PDropdownMenuSkin m_DropdownMenuSkin;
-    const Ptr<const PBrush> m_BackgroundBrush;
+    const PBrush m_BackgroundBrush;
 };

@@ -14,7 +14,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PView::GetStandardBrush(PStandardColorID color) const
+PBrush PView::GetStandardBrush(PStandardColorID color) const
 {
     PApplication* application = GetApplication();
     if (application == nullptr) {
@@ -27,7 +27,7 @@ Ptr<const PBrush> PView::GetStandardBrush(PStandardColorID color) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PView::GetStandardBrush(PNamedColors color) const
+PBrush PView::GetStandardBrush(PNamedColors color) const
 {
     PApplication* application = GetApplication();
     if (application == nullptr) {
@@ -40,16 +40,16 @@ Ptr<const PBrush> PView::GetStandardBrush(PNamedColors color) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::SetBackgroundBrush(Ptr<const PBrush> brush)
+void PView::SetBackgroundBrush(const PBrush& brush)
 {
     PApplication* application = GetApplication();
-    if (brush != nullptr && application != nullptr && brush->GetApplication() != application) {
+    if (brush.IsValid() && application != nullptr && brush.GetApplication() != application) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (m_BackgroundBrush != brush)
     {
-        m_BackgroundBrush = std::move(brush);
-        Post<ASViewSetBackgroundBrush>((m_BackgroundBrush != nullptr) ? m_BackgroundBrush->GetHandle() : INVALID_HANDLE);
+        Post<ASViewSetBackgroundBrush>(GetServerBrushData(brush));
+        m_BackgroundBrush = brush;
         if (m_BeginPainCount == 0) {
             Invalidate();
         }
@@ -73,16 +73,16 @@ void PView::SetBackgroundBrush(PGUIColorID color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::SetBrush(Ptr<const PBrush> brush)
+void PView::SetBrush(const PBrush& brush)
 {
     PApplication* application = GetApplication();
-    if (brush != nullptr && application != nullptr && brush->GetApplication() != application) {
+    if (brush.IsValid() && application != nullptr && brush.GetApplication() != application) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (m_DrawingBrush != brush)
     {
-        m_DrawingBrush = std::move(brush);
-        Post<ASViewSetBrush>((m_DrawingBrush != nullptr) ? m_DrawingBrush->GetHandle() : INVALID_HANDLE);
+        Post<ASViewSetBrush>(GetServerBrushData(brush));
+        m_DrawingBrush = brush;
     }
 }
 
@@ -99,7 +99,7 @@ void PView::SetBackgroundBrushOrigin(const PPoint& origin)
     {
         m_BackgroundBrushOrigin = origin;
         Post<ASViewSetBackgroundBrushOrigin>(origin);
-        if (m_BackgroundBrush != nullptr && m_BackgroundBrush->GetStyle() == PBrushStyle::TexturePattern && m_BeginPainCount == 0) {
+        if (m_BackgroundBrush.IsValid() && m_BackgroundBrush.GetStyle() == PBrushStyle::TexturePattern && m_BeginPainCount == 0) {
             Invalidate();
         }
     }
@@ -125,10 +125,10 @@ void PView::SetBrushOrigin(const PPoint& origin)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::FillRect(const PRect& rect, Ptr<const PBrush> brush)
+void PView::FillRect(const PRect& rect, const PBrush& brush)
 {
-    if (brush != nullptr) {
-        Post<ASViewFillRectBrush>(rect, brush->GetHandle());
+    if (brush.IsValid()) {
+        Post<ASViewFillRectBrush>(rect, GetServerBrushData(brush));
     }
 }
 
@@ -145,10 +145,33 @@ void PView::EraseRect(const PRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::FillTextBackground(const PRect& rect, Ptr<const PBrush> backgroundBrush)
+PBrushData PView::GetServerBrushData(const PBrush& brush) const
 {
-    if (backgroundBrush != nullptr && backgroundBrush->GetStyle() != PBrushStyle::None) {
-        FillRect(rect, std::move(backgroundBrush));
+    if (m_ServerHandle == INVALID_HANDLE) {
+        return PBrush::zero.GetServerData();
+    }
+    if (brush.IsValid())
+    {
+        PApplication* owner = brush.GetApplication();
+        if (owner == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
+        }
+        PApplication* application = GetApplication();
+        if (application != nullptr && application != owner) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+    }
+    return brush.GetServerData();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::FillTextBackground(const PRect& rect, const PBrush& backgroundBrush)
+{
+    if (backgroundBrush.IsValid() && backgroundBrush.GetStyle() != PBrushStyle::None) {
+        FillRect(rect, backgroundBrush);
     } else {
         EraseRect(rect);
     }

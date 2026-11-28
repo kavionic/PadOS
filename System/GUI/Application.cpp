@@ -128,7 +128,7 @@ PApplication::~PApplication()
         pendingView.value()->m_IsLayoutPending = false;
     }
     m_GUIStyle = nullptr;
-    m_StandardBrushes.fill(nullptr);
+    m_StandardBrushes.fill(PBrush::zero);
     m_NamedBrushes.clear();
     Flush();
     if (m_ServerHandle != INVALID_HANDLE)
@@ -576,19 +576,19 @@ void PApplication::DeleteBitmap(handle_id bitmapHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PApplication::GetStandardBrush(PStandardColorID color)
+PBrush PApplication::GetStandardBrush(PStandardColorID color)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
     const size_t index = size_t(std::to_underlying(color));
     if (index >= m_StandardBrushes.size()) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    Ptr<PBrush>& brush = m_StandardBrushes[index];
+    PBrush& brush = m_StandardBrushes[index];
     const PColor value = pget_standard_color(color);
-    if (brush == nullptr) {
-        brush = ptr_new<PBrush>(value, this);
+    if (!brush.IsValid()) {
+        brush = PBrush(value, this);
     } else {
-        brush->SetColor(value);
+        brush.SetColor(value);
     }
     return brush;
 }
@@ -597,12 +597,12 @@ Ptr<const PBrush> PApplication::GetStandardBrush(PStandardColorID color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const PBrush> PApplication::GetStandardBrush(PNamedColors color)
+PBrush PApplication::GetStandardBrush(PNamedColors color)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
-    Ptr<PBrush>& brush = m_NamedBrushes[color];
-    if (brush == nullptr) {
-        brush = ptr_new<PBrush>(PColor(color), this);
+    PBrush& brush = m_NamedBrushes[color];
+    if (!brush.IsValid()) {
+        brush = PBrush(PColor(color), this);
     }
     return brush;
 }
@@ -611,48 +611,39 @@ Ptr<const PBrush> PApplication::GetStandardBrush(PNamedColors color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-handle_id PApplication::CreateBrush(const PBrushDescription& description, handle_id bitmapHandle)
+PImageID PApplication::DefineImage(const PImageDescription& description, handle_id bitmapHandle)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
     if (m_ServerHandle == INVALID_HANDLE) {
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
-    Post<ASCreateBrush>(m_ReplyPort.GetHandle(), description, bitmapHandle);
-    Flush();
-    MsgCreateBrushReply reply;
-    ReceiveReply(PAppserverProtocol::CREATE_BRUSH_REPLY, &reply, sizeof(reply));
-    PERROR_ERRORCODE_THROW_ON_FAIL(reply.Error);
-    return reply.BrushHandle;
+    const PImageID firstImageID = m_NextImageID;
+    do
+    {
+        const PImageID imageID = m_NextImageID++;
+        if (m_NextImageID == INVALID_IMAGE_ID) {
+            ++m_NextImageID;
+        }
+        if (m_AllocatedImageIDs.insert(imageID).second)
+        {
+            PScopeFail rollback([this, imageID] { m_AllocatedImageIDs.erase(imageID); });
+            Post<ASDefineImage>(imageID, bitmapHandle, description);
+            return imageID;
+        }
+    } while (m_NextImageID != firstImageID);
+    PERROR_THROW_CODE(PErrorCode::OVERFLOW);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::DeleteBrush(handle_id brushHandle)
+void PApplication::DeleteImage(PImageID imageID)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
-    Post<ASDeleteBrush>(brushHandle);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PApplication::UpdateBrush(handle_id brushHandle, const PBrushDescription& description, handle_id bitmapHandle)
-{
-    assert(!IsRunning() || GetMutex().IsLocked());
-    Post<ASUpdateBrush>(brushHandle, description, bitmapHandle);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PApplication::SetBrushColor(handle_id brushHandle, PColor color)
-{
-    assert(!IsRunning() || GetMutex().IsLocked());
-    Post<ASSetBrushColor>(brushHandle, color);
+    // Queue deletion before making the ID available for a later definition.
+    Post<ASDeleteImage>(imageID);
+    m_AllocatedImageIDs.erase(imageID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1016,8 +1007,8 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
     if (view->m_Font->GetApplication() != this) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Font belongs to another application");
     }
-    if ((view->m_BackgroundBrush != nullptr && view->m_BackgroundBrush->GetApplication() != this)
-        || (view->m_DrawingBrush != nullptr && view->m_DrawingBrush->GetApplication() != this)) {
+    if ((view->m_BackgroundBrush.IsValid() && view->m_BackgroundBrush.GetApplication() != this)
+        || (view->m_DrawingBrush.IsValid() && view->m_DrawingBrush.GetApplication() != this)) {
         PERROR_THROW_CODE_WHAT(PErrorCode::INVAL, "Brush belongs to another application");
     }
     Post<ASCreateView>(m_ReplyPort.GetHandle()
@@ -1040,8 +1031,8 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         , view->m_DashPattern
         , view->m_DashOffset
         , view->m_Font->GetHandle()
-        , (view->m_BackgroundBrush != nullptr) ? view->m_BackgroundBrush->GetHandle() : INVALID_HANDLE
-        , (view->m_DrawingBrush != nullptr) ? view->m_DrawingBrush->GetHandle() : INVALID_HANDLE
+        , view->m_BackgroundBrush.GetServerData()
+        , view->m_DrawingBrush.GetServerData()
         , view->m_FgColor
         , view->m_BackgroundBrushOrigin
         , view->m_DrawingBrushOrigin

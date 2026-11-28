@@ -5,113 +5,164 @@
 // SPDX-License-Identifier: Apache-2.0
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <GUI/Brush.h>
 #include <App/Application.h>
+#include <GUI/Brush.h>
 #include <System/ExceptionHandling.h>
+
+const PBrush PBrush::zero;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 PBrush::PBrush(PColor color, PApplication* application)
 {
-    m_Description.Color = color;
-    Create(application);
+    PBrushData data;
+    data.Color = color;
+    Create(application, data);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 PBrush::PBrush(PBrushStyle style, PApplication* application)
 {
     if (style != PBrushStyle::None && style != PBrushStyle::SolidPattern) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    m_Description.Style = style;
-    Create(application);
+    PBrushData data;
+    data.Style = style;
+    Create(application, data);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 PBrush::PBrush(Ptr<const PBitmap> bitmap) : PBrush(bitmap, (bitmap != nullptr) ? bitmap->GetBounds() : PIRect())
 {
 }
 
-PBrush::PBrush(Ptr<const PBitmap> bitmap, const PIRect& sourceRect) : m_Bitmap(std::move(bitmap))
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PBrush::PBrush(Ptr<const PBitmap> bitmap, const PIRect& sourceRect)
 {
-    if (m_Bitmap == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
-    m_Description.Image = PImage::DescribeBitmap(*m_Bitmap, sourceRect);
-    m_Description.Type = PBrushType::Bitmap;
-    m_Description.Style = PBrushStyle::TexturePattern;
-    Create(m_Bitmap->GetApplication());
+    PImage image(bitmap, sourceRect);
+    image.SetLayoutSize(PPoint(sourceRect.Size()), PImageLayoutMode::Absolute);
+    PBrushData data;
+    data.Type = PBrushType::Bitmap;
+    data.Style = PBrushStyle::TexturePattern;
+    Create(image.GetApplication(), data, image);
 }
 
-PBrush::PBrush(Ptr<const PImage> image) : m_Image(std::move(image))
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PBrush::PBrush(const PImage& image)
 {
-    if (m_Image == nullptr) {
+    if (!image.IsValid()) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    m_Bitmap = m_Image->GetBitmap();
-    m_Description.Image = m_Image->GetDescription();
-    m_Description.Type = PBrushType::Image;
-    m_Description.Style = PBrushStyle::TexturePattern;
-    m_Image->SignalChanged.Connect(this, &PBrush::ImageChanged);
-    Create(m_Image->GetApplication());
+    PBrushData data;
+    data.Type = PBrushType::Image;
+    data.Style = PBrushStyle::TexturePattern;
+    Create(image.GetApplication(), data, image);
 }
 
-PBrush::~PBrush()
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PBrush::operator==(const PBrush& rhs) const noexcept
 {
-    PApplication* application = GetApplication();
-    if (application != nullptr) {
-        application->DeleteBrush(m_Handle);
-    }
+    return m_Data == rhs.m_Data || (IsValid() && rhs.IsValid() && GetApplication() == rhs.GetApplication()
+        && m_Data->GetData() == rhs.m_Data->GetData() && m_Data->GetImage() == rhs.m_Data->GetImage());
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 PApplication* PBrush::GetApplication() const
 {
-    return ptr_raw_pointer_cast(m_Application);
+    return (m_Data != nullptr) ? m_Data->GetApplication() : nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PBrush::IsOpaque() const noexcept
+{
+    return m_Data != nullptr && m_Data->GetData().IsOpaque(&m_Data->GetImage().GetDescription());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PBrush::SetColor(PColor color)
 {
-    PApplication* application = GetApplication();
-    if (application == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NOENT);
-    }
-    if (m_Description.Type != PBrushType::Solid || m_Description.Style != PBrushStyle::SolidPattern || m_Description.Color != color)
+    if (IsValid())
     {
-        application->SetBrushColor(m_Handle, color);
-        if (m_Image != nullptr) {
-            m_Image->SignalChanged.Disconnect(this, &PBrush::ImageChanged);
-        }
-        m_Description.SetColor(color);
-        m_Image = nullptr;
-        m_Bitmap = nullptr;
+        PBrushData data = m_Data->GetData();
+        data.SetColor(color);
+        SetProperties(data, PImage());
+    }
+    else
+    {
+        *this = PBrush(color);
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PBrush::SetBitmap(Ptr<const PBitmap> bitmap)
 {
     SetBitmap(bitmap, (bitmap != nullptr) ? bitmap->GetBounds() : PIRect());
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PBrush::SetBitmap(Ptr<const PBitmap> bitmap, const PIRect& sourceRect)
 {
-    if (bitmap == nullptr || bitmap->GetApplication() != GetApplication()) {
+    if (bitmap == nullptr || (IsValid() && bitmap->GetApplication() != GetApplication())) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    PBrushDescription description = m_Description;
-    description.Image = PImage::DescribeBitmap(*bitmap, sourceRect);
-    description.Type = PBrushType::Bitmap;
-    description.Style = PBrushStyle::TexturePattern;
-    SetProperties(description, std::move(bitmap), nullptr);
+    PImage image(bitmap, sourceRect);
+    image.SetLayoutSize(PPoint(sourceRect.Size()), PImageLayoutMode::Absolute);
+    PBrushData data = (m_Data != nullptr) ? m_Data->GetData() : PBrushData();
+    data.Type = PBrushType::Bitmap;
+    data.Style = PBrushStyle::TexturePattern;
+    SetProperties(data, image);
 }
 
-void PBrush::SetImage(Ptr<const PImage> image)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PBrush::SetImage(const PImage& image)
 {
-    if (image == nullptr || image->GetApplication() != GetApplication()) {
+    if (!image.IsValid() || (IsValid() && image.GetApplication() != GetApplication())) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    PBrushDescription description = m_Description;
-    description.Image = image->GetDescription();
-    description.Type = PBrushType::Image;
-    description.Style = PBrushStyle::TexturePattern;
-    Ptr<const PBitmap> bitmap = image->GetBitmap();
-    SetProperties(description, std::move(bitmap), std::move(image));
+    PBrushData data = (m_Data != nullptr) ? m_Data->GetData() : PBrushData();
+    data.Type = PBrushType::Image;
+    data.Style = PBrushStyle::TexturePattern;
+    SetProperties(data, image);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PBrush::SetStyle(PBrushStyle style)
 {
@@ -121,73 +172,93 @@ void PBrush::SetStyle(PBrushStyle style)
         case PBrushStyle::SolidPattern:
             break;
         case PBrushStyle::TexturePattern:
-            if (m_Bitmap == nullptr) {
+            if (!GetImage().IsValid()) {
                 PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             break;
         default:
             PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    PBrushDescription description = m_Description;
-    description.Style = style;
-    SetProperties(description, m_Bitmap, m_Image);
+    PBrushData data = (m_Data != nullptr) ? m_Data->GetData() : PBrushData();
+    data.Style = style;
+    SetProperties(data, GetImage());
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void PBrush::SetScale(const PPoint& scale)
 {
-    PBrushDescription description = m_Description;
-    description.Scale = scale;
-    SetProperties(description, m_Bitmap, m_Image);
+    PBrushData data = (m_Data != nullptr) ? m_Data->GetData() : PBrushData();
+    if (m_Data == nullptr) {
+        data.Style = PBrushStyle::None;
+    }
+    data.Scale = scale;
+    SetProperties(data, GetImage());
 }
 
-void PBrush::Create(PApplication* application)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PBrushData PBrush::GetServerData() const
 {
+    PBrushData data;
+    data.Style = PBrushStyle::None;
+    if (m_Data != nullptr)
+    {
+        data = m_Data->GetData();
+        if (data.Style == PBrushStyle::TexturePattern) {
+            data.ImageID = m_Data->GetImage().GetImageID();
+        }
+    }
+    return data;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PBrush::Create(PApplication* application, const PBrushData& data, const PImage& image)
+{
+    if (!PBrushUtils::IsValidScale(data, image.GetDescription())) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
     if (application == nullptr) {
         application = PApplication::GetCurrentApplication();
     }
     if (application == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NOENT);
     }
-    m_Application = ptr_weak_cast(application);
-    m_Handle = application->CreateBrush(m_Description, (m_Bitmap != nullptr) ? m_Bitmap->GetHandle() : INVALID_HANDLE);
+    assert(!application->IsRunning() || application->GetMutex().IsLocked());
+    m_Data = ptr_new<PBrushSharedData>(application, data, image);
 }
 
-// Publish image metadata only when the shared image changes. Existing brush
-// handles remain valid, and the server invalidates their background dependents.
-void PBrush::ImageChanged()
-{
-    PBrushDescription description = m_Description;
-    description.Image = m_Image->GetDescription();
-    SetProperties(description, m_Bitmap, m_Image);
-}
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-void PBrush::SetProperties(const PBrushDescription& description, Ptr<const PBitmap> bitmap, Ptr<const PImage> image)
+void PBrush::SetProperties(const PBrushData& data, const PImage& image)
 {
-    PApplication* application = GetApplication();
-    if (application == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NOENT);
-    }
-    if (!PBrushUtils::IsValidScale(description)) {
+    if (!PBrushUtils::IsValidScale(data, image.GetDescription())) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    if (description != m_Description || bitmap != m_Bitmap || image != m_Image)
+    if (!IsValid())
     {
-        const bool connectImage = image != nullptr && image != m_Image;
-        if (connectImage) {
-            image->SignalChanged.Connect(this, &PBrush::ImageChanged);
+        Create(image.GetApplication(), data, image);
+    }
+    else if (data != m_Data->GetData() || image != m_Data->GetImage())
+    {
+        PApplication* application = GetApplication();
+        if (application == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::NOENT);
         }
-        PScopeFail disconnectImage([this, &image, connectImage]
-        {
-            if (connectImage) {
-                image->SignalChanged.Disconnect(this, &PBrush::ImageChanged);
-            }
-        });
-        application->UpdateBrush(m_Handle, description, (bitmap != nullptr) ? bitmap->GetHandle() : INVALID_HANDLE);
-        if (m_Image != nullptr && image != m_Image) {
-            m_Image->SignalChanged.Disconnect(this, &PBrush::ImageChanged);
+        assert(!application->IsRunning() || application->GetMutex().IsLocked());
+        if (m_Data->GetPtrCount() > 1) {
+            m_Data = ptr_new<PBrushSharedData>(application, data, image);
+        } else {
+            m_Data->SetProperties(data, image);
         }
-        m_Description = description;
-        m_Bitmap = std::move(bitmap);
-        m_Image = std::move(image);
     }
 }

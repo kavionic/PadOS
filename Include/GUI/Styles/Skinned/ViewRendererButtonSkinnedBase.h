@@ -43,6 +43,6 @@ protected:
         const PString& label,
         const PPoint& labelPosition,
         const PRect& indicatorFrame,
-        Ptr<const PBrush> brush);
+        PBrush brush);
     static float GetSpacedExtent(float firstSize, float secondSize, float spacing);
 };

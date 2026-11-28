@@ -42,8 +42,8 @@ public:
         const std::vector<float>& dashPattern,
         float                dashOffset,
         Ptr<PServerFontInstance> font,
-        Ptr<PServerBrush>    backgroundBrush,
-        Ptr<PServerBrush>    drawingBrush,
+        const PServerBrush&  backgroundBrush,
+        const PServerBrush&  drawingBrush,
         PColor               fgColor,
         const PPoint& backgroundBrushOrigin = PPoint(0.0f, 0.0f),
         const PPoint& drawingBrushOrigin = PPoint(0.0f, 0.0f)
@@ -111,10 +111,10 @@ public:
 
     void        SetHitMode(PViewHitMode mode);
     void        SetDrawingMode(PDrawingMode mode) { m_DrawingMode = mode; }
-    void        InvalidateBrushCaches(const PServerBrush* changedBrush = nullptr);
-    static void InvalidateAllBrushCaches(const PServerBrush* changedBrush = nullptr);
-    void        SetBrush(Ptr<PServerBrush> brush);
-    void        SetBackgroundBrush(Ptr<PServerBrush> brush);
+    void        InvalidateBrushCaches();
+    static void InvalidateAllBrushCaches();
+    void        SetBrush(const PServerBrush& brush);
+    void        SetBackgroundBrush(const PServerBrush& brush);
     void        SetBrushOrigin(const PPoint& origin);
     void        SetBackgroundBrushOrigin(const PPoint& origin);
     void        SetFgColor(PColor color)    { m_FgColor = color; }
@@ -137,7 +137,7 @@ public:
     void        DrawPie(const PRect& rect, float startAngle, float spanAngle);
     
     void        FillRect(const PRect& rect, PColor color);
-    void        FillRect(const PRect& rect, Ptr<PServerBrush> brush);
+    void        FillRect(const PRect& rect, const PServerBrush& brush);
     void        EraseRect(const PRect& rect);
     void        FillCircle(const PPoint& position, float radius);
     void        FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3);
@@ -150,7 +150,7 @@ public:
     void        BeginPolyline();
     void        AddPolylinePoint(const PPoint& point);
     void        EndPolyline();
-    void        DrawString(Ptr<PServerBrush> backgroundBrush, const PString& string, float width, bool allowPartialCharacter);
+    void        DrawString(const PServerBrush& backgroundBrush, const PString& string, float width, bool allowPartialCharacter);
     void        CopyRect(const PRect& srcRect, const PPoint& dstPos);
     void        DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos);
     void        DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PRect& dstRect);
@@ -167,9 +167,8 @@ private:
     PServerBrushBinding             m_DrawingBrush;
     mutable PServerBrushState       m_BackgroundBrushState;
     mutable PServerBrushState       m_DrawingBrushState;
-    mutable Ptr<PServerBrush>       m_DrawingCacheBrush;
+    mutable PServerBrush            m_DrawingCacheBrush;
     mutable uint32_t                m_DrawingCacheGeneration = 0;
-    mutable uint32_t                m_DrawingCacheRevision = 0;
     std::vector<PServerBrushLayer>  m_PreviousBackgroundLayers;
     PColor                          m_PreviousBackgroundColor;
     bool                            m_HasBackgroundBrushes = false;
@@ -184,7 +183,7 @@ private:
     void                        FillResolvedRect(const PRect& rect, const PServerBrushState& state);
     const PServerBrushState&    GetBackgroundBrushState() const;
     const PServerBrushState&    GetDrawingBrushState() const;
-    const PServerBrushState&    GetDrawingBrushState(const Ptr<PServerBrush>& brush) const;
+    const PServerBrushState&    GetDrawingBrushState(const PServerBrush& brush) const;
     bool                        HasPen() const noexcept { return m_FgColor.GetAlpha() != 0; }
     bool                        HasDrawingBrush() const;
     PColor                      GetDrawingBrushColor() const;

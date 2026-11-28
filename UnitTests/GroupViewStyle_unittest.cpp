@@ -191,7 +191,7 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
             const Ptr<const PSkinnableGUIStyle> style = ptr_new<PSkinnableGUIStyle>(directory, &application);
             application.SetGUIStyle(style);
             Ptr<PView> parent = ptr_new<PView>("group_parent");
-            const Ptr<PBrush> background = ptr_new<PBrush>(PColor(40, 60, 80));
+            PBrush background(PColor(40, 60, 80));
             parent->SetBackgroundBrush(background);
             parent->SetFrame(PRect(0, 0, 400, 240));
             Ptr<PViewRendererTestView> target = ptr_new<PViewRendererTestView>("group_paint_target", PViewFlag::WillDraw);
@@ -212,12 +212,12 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
                 renderer->PropertyChanged(*target, PGroupViewProperty::Frame, renderer.GetContext());
                 EXPECT_NO_THROW(renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext()));
                 EXPECT_EQ(target->GetFgColor(), style->GetColor(PGUIColorID::GroupLabel));
-                EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+                EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
                 EXPECT_EQ(parent->GetBackgroundBrush(), background);
                 EXPECT_EQ(target->GetDrawingRegion(), clip);
                 EXPECT_EQ(target->GetDrawingMode(), PDrawingMode::Overlay);
                 EXPECT_FLOAT_EQ(target->GetPenWidth(), 7.0f);
-                EXPECT_EQ(target->GetBrush(), nullptr);
+                EXPECT_FALSE(target->GetBrush().IsValid());
             }
             target->SetFrame(PRect(0, 0, 240, 160));
             target->ScrollTo(PPoint(-3, -7));
@@ -227,7 +227,7 @@ TEST(GroupViewStyle, SkinnedPaintingPreservesBackgroundInheritanceAndDrawingStat
             renderer->PropertyChanged(*target, PGroupViewProperty::Label, renderer.GetContext());
             renderer->Paint(*target, target->GetBounds(), target->GetBounds(), renderer.GetContext());
             EXPECT_EQ(renderer.GetContext(), cache);
-            EXPECT_EQ(target->GetBackgroundBrush(), nullptr);
+            EXPECT_FALSE(target->GetBackgroundBrush().IsValid());
         }
         application.Sync();
     });
@@ -239,10 +239,10 @@ TEST(GroupViewStyle, SkinGeometryAllowsSignedSpacingAndPreservesSharedImages)
     {
         const Ptr<PBitmap> bitmap = ptr_new<PBitmap>(32, 32, PEColorSpace::RGBA32);
         std::fill_n(reinterpret_cast<uint32_t*>(bitmap->LockRaster().Get()), 32 * 32, 0);
-        const Ptr<PImage> image = ptr_new<PImage>(bitmap);
-        image->SetSliceRect(PRect(8, 8, 24, 24));
-        image->SetLayoutSize(PPoint(32, 32), PImageLayoutMode::Absolute);
-        const PImageDescription original = image->GetDescription();
+        PImage image(bitmap);
+        image.SetSliceRect(PRect(8, 8, 24, 24));
+        image.SetLayoutSize(PPoint(32, 32), PImageLayoutMode::Absolute);
+        const PImageDescription original = image.GetDescription();
         PGroupViewSkin skin;
         skin.Frame = image;
         skin.FrameInsets = PRect(-2, 3, 4, -5);
@@ -268,7 +268,7 @@ TEST(GroupViewStyle, SkinGeometryAllowsSignedSpacingAndPreservesSharedImages)
         EXPECT_NE(firstRenderer.GetContext(), secondRenderer.GetContext());
         first->SetFrame(PRect(0, 0, 12, 9));
         firstRenderer->Paint(*first, first->GetBounds(), first->GetBounds(), firstRenderer.GetContext());
-        EXPECT_EQ(image->GetDescription(), original);
+        EXPECT_EQ(image.GetDescription(), original);
     });
 }
 

@@ -178,10 +178,10 @@ void PIconView::UpdateHighlightColor()
     } else {
         SetBackgroundBrush(PGUIColorID::Background);
     }
-    m_IconView->SetBackgroundBrush(nullptr);
-    m_IconView->SetBrush(nullptr);
-    m_LabelView->SetBackgroundBrush(nullptr);
-    m_LabelView->SetBrush(nullptr);
+    m_IconView->SetBackgroundBrush(PBrush::zero);
+    m_IconView->SetBrush(PBrush::zero);
+    m_LabelView->SetBackgroundBrush(PBrush::zero);
+    m_LabelView->SetBrush(PBrush::zero);
 
     m_IconView->Invalidate();
     m_LabelView->Invalidate();

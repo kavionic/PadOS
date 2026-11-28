@@ -57,7 +57,7 @@ struct PViewRendererTabViewSkinned::SkinnedTabViewGeometry
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PViewRendererTabViewSkinned::PViewRendererTabViewSkinned(const PTabViewSkin& skin, Ptr<const PBrush> backgroundBrush)
+PViewRendererTabViewSkinned::PViewRendererTabViewSkinned(const PTabViewSkin& skin, PBrush backgroundBrush)
     : m_TabViewSkin(skin)
     , m_BackgroundBrush(std::move(backgroundBrush))
 {
@@ -83,14 +83,14 @@ void PViewRendererTabViewSkinned::Paint(PView& target, const PRect& frame, const
     Context& state = GetTabViewStyleData(target, data, context);
     const SkinnedTabViewGeometry geometry = GetSkinnedTabViewGeometry(target, data, context);
     const PDrawingMode previousMode = target.GetDrawingMode();
-    PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); target.SetBrush(nullptr); });
+    PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); target.SetBrush(PBrush::zero); });
     target.SetDrawingMode(PDrawingMode::Copy);
     target.SetBackgroundBrush(m_BackgroundBrush);
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     target.EraseRect(PRect(geometry.Bounds.left, geometry.Bounds.top, geometry.Bounds.right, geometry.Panel.top) & updateRect);
     if (geometry.Panel.IsValid())
     {
-        const Ptr<const PBrush> brush = PGetSkinnedBrush(state.Frame, *m_TabViewSkin.Frame, geometry.Panel.Size());
+        const PBrush brush = PGetSkinnedBrush(state.Frame, m_TabViewSkin.Frame, geometry.Panel.Size());
         target.SetBrushOrigin(geometry.Panel.TopLeft());
         target.FillRect(geometry.Panel & updateRect, brush);
     }
@@ -116,14 +116,14 @@ void PViewRendererTabViewSkinned::PaintTabs(PView& target, const PView& tabView,
     const SkinnedTabViewGeometry geometry = GetSkinnedTabViewGeometry(tabView, data, context);
     const PRect bounds = target.GetBounds();
     const PDrawingMode previousMode = target.GetDrawingMode();
-    PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); target.SetBrush(nullptr); });
+    PScopeExit restoreMode([&target, previousMode] { target.SetDrawingMode(previousMode); target.SetBrush(PBrush::zero); });
     target.SetDrawingMode(PDrawingMode::Copy);
     target.SetBackgroundBrush(m_BackgroundBrush);
-    target.SetBrush(nullptr);
+    target.SetBrush(PBrush::zero);
     target.EraseRect(updateRect);
     if (geometry.Panel.IsValid())
     {
-        const Ptr<const PBrush> brush = PGetSkinnedBrush(state.Frame, *m_TabViewSkin.Frame, geometry.Panel.Size());
+        const PBrush brush = PGetSkinnedBrush(state.Frame, m_TabViewSkin.Frame, geometry.Panel.Size());
         target.SetBrushOrigin(geometry.Panel.TopLeft() - geometry.Frames.TabsFrame.TopLeft() - target.GetScrollOffset());
         target.FillRect(PRect(bounds.left, geometry.HeaderHeight, bounds.right, bounds.bottom) & updateRect, brush);
     }
@@ -393,10 +393,10 @@ void PViewRendererTabViewSkinned::PaintSkinnedTab(
     const std::array<PTabSkinAppearance, std::to_underlying(PTabSkinState::Count)>& appearances
         = selected ? m_TabViewSkin.SelectedStates : m_TabViewSkin.States;
     const size_t stateIndex = std::to_underlying(GetTabViewState(data, index));
-    const PTabSkinAppearance& appearance = (appearances[stateIndex].Image != nullptr) ? appearances[stateIndex] : appearances[0];
+    const PTabSkinAppearance& appearance = (appearances[stateIndex].Image.IsValid()) ? appearances[stateIndex] : appearances[0];
     const size_t cacheIndex = stateIndex + (selected ? std::to_underlying(PTabSkinState::Count) : 0);
     SkinnedTabViewTab& tab = state.Tabs[index];
-    const Ptr<const PBrush> brush = PGetSkinnedBrush(tab.Appearances[cacheIndex], *appearance.Image, frame.Size());
+    const PBrush brush = PGetSkinnedBrush(tab.Appearances[cacheIndex], appearance.Image, frame.Size());
     const PRect& padding = m_TabViewSkin.LabelPadding;
     const float labelHeight = state.FontHeight.ascender + state.FontHeight.descender;
     const PPoint baseline = (PPoint(

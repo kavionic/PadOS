@@ -17,6 +17,7 @@ target_sources(PadOS_ApplicationServer PRIVATE
 	ServerBitmap.cpp
 	ServerBitmapLoader.h
 	ServerBrush.cpp
+	ServerImage.cpp
 	ServerView.cpp
 	ServerView.h
 )

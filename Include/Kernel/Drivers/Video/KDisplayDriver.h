@@ -18,6 +18,7 @@
 #include <RPC/RPCDispatcher.h>
 #include <DeviceControl/Display.h>
 #include <Kernel/Drivers/Video/KDisplayBrush.h>
+#include <Kernel/Drivers/Video/KDisplayImageResource.h>
 #include <Kernel/Drivers/Video/KDisplayResources.h>
 
 #define RAS_OFFSET8( ptr, x, y, bpl) (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
@@ -196,8 +197,8 @@ private:
 
     PDriverResourceID HandleCreateBitmap(PDisplayBitmap bitmap, bool writable);
     void HandleDeleteBitmap(PDriverResourceID bitmap);
-    PDriverResourceID HandleCreateBrush(PDriverResourceID bitmap, const PBrushDescription& description);
-    void HandleDeleteBrush(PDriverResourceID brush);
+    PDriverResourceID HandleCreateImage(PDriverResourceID bitmap, const PImageDescription& description);
+    void HandleDeleteImage(PDriverResourceID image);
 
     void HandleWritePixel(PDriverResourceID bitmap, PIPoint position, PColor color);
     void HandleDrawLine(
@@ -286,12 +287,6 @@ private:
 
     void HandleSetBrush(std::span<const std::byte> payload, size_t layerCount);
     void HandleFillBrushRect(PDriverResourceID bitmap, PIRect bounds);
-    void HandleUpdateBrush(PDriverResourceID brush, PDriverResourceID bitmap, const PBrushDescription& description);
-    void HandleSetBrushColor(PDriverResourceID brush, PColor color);
-    Ptr<KDisplayBitmapResource> ResolveBrushBitmap_pl(PDriverResourceID bitmap, const PBrushDescription& description) const;
-    void RefreshSelectedBrushLayers_pl(const Ptr<KDisplayBrushResource>& brush);
-    void RefreshBrushLayer_pl(size_t index);
-
     void ExecuteCommands_pl(const void* buffer, size_t length);
 
     void FillTriangleUnion(PDisplayBitmap* bitmap, const PIRect& clipRect,
@@ -303,9 +298,9 @@ private:
     void FillBlit32(uint32_t* dst, int nMod, int W, int H, uint32_t nColor);
 
     KDisplayResourceTable<KDisplayBitmapResource> m_BitmapResources;
-    KDisplayResourceTable<KDisplayBrushResource> m_BrushResources;
-    std::vector<Ptr<KDisplayBrushResource>> m_SelectedBrushResources;
-    std::vector<PDisplayBrushLayer> m_BrushLayerBuffer;
+    KDisplayResourceTable<KDisplayImageResource> m_ImageResources;
+    std::vector<Ptr<KDisplayImageResource>> m_SelectedImageResources;
+    std::vector<KDisplayBrushLayer> m_BrushLayerBuffer;
     PDriverResourceID m_ScreenBitmapDriverResourceID = DRIVER_INVALID_RESOURCE_ID;
 
     PRPCDispatcher  m_DeviceControlDispatcher;

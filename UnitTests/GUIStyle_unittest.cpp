@@ -365,11 +365,11 @@ TEST(GUIStyleFactory, ConstructsEachVariantWithApplicationOwnedResources)
                 {
                     const PGUIColorID colorID = PGUIColorID(index);
                     EXPECT_EQ(style->GetColor(colorID).GetAlpha(), 255);
-                    const Ptr<const PBrush> brush = style->GetBrush(colorID);
-                    ASSERT_NE(brush, nullptr);
-                    EXPECT_EQ(brush->GetApplication(), &application);
-                    if (brush->GetType() == PBrushType::Solid) {
-                        EXPECT_EQ(brush->GetDescription().Color, style->GetColor(colorID));
+                    const PBrush brush = style->GetBrush(colorID);
+                    ASSERT_TRUE(brush.IsValid());
+                    EXPECT_EQ(brush.GetApplication(), &application);
+                    if (brush.GetType() == PBrushType::Solid) {
+                        EXPECT_EQ(brush.GetColor(), style->GetColor(colorID));
                     }
                     EXPECT_EQ(style->GetBrush(colorID), brush);
                 }
@@ -388,8 +388,8 @@ TEST(GUIStyle, PaletteBrushesRemainBoundToTheirOwningApplication)
     {
         Ptr<PApplication> application = ptr_new<PApplication>("palette_brush_owner");
         const PDefaultGUIStyle style(ptr_raw_pointer_cast(application));
-        EXPECT_EQ(style.GetBrush(PGUIColorID::Foreground)->GetApplication(), application);
-        EXPECT_EQ(style.GetBrush(PGUIColorID::Background)->GetApplication(), application);
+        EXPECT_EQ(style.GetBrush(PGUIColorID::Foreground).GetApplication(), application);
+        EXPECT_EQ(style.GetBrush(PGUIColorID::Background).GetApplication(), application);
         application.Reset();
         EXPECT_EQ(PApplication::GetCurrentApplication(), &currentApplication);
         EXPECT_THROW(style.GetBrush(PGUIColorID::Foreground), std::system_error);
@@ -407,14 +407,14 @@ TEST(GUIStyle, DefaultPaletteAndBackgroundAreIndependentOfLegacyColors)
         const PDefaultGUIStyle style(&application);
         EXPECT_EQ(style.GetColor(PGUIColorID::Foreground), PColor(0, 0, 0));
         EXPECT_EQ(style.GetColor(PGUIColorID::Background), PColor(169, 169, 169));
-        const Ptr<const PBrush> background = style.GetBrush(PGUIColorID::Background);
-        ASSERT_NE(background, nullptr);
-        EXPECT_EQ(background->GetApplication(), &application);
-        EXPECT_EQ(background->GetType(), PBrushType::Solid);
-        EXPECT_EQ(background->GetDescription().Color, style.GetColor(PGUIColorID::Background));
+        const PBrush background = style.GetBrush(PGUIColorID::Background);
+        ASSERT_TRUE(background.IsValid());
+        EXPECT_EQ(background.GetApplication(), &application);
+        EXPECT_EQ(background.GetType(), PBrushType::Solid);
+        EXPECT_EQ(background.GetColor(), style.GetColor(PGUIColorID::Background));
         pset_standard_color(PStandardColorID::DefaultBackground, PColor(65, 43, 21));
         EXPECT_EQ(style.GetBrush(PGUIColorID::Background), background);
-        EXPECT_EQ(background->GetDescription().Color, style.GetColor(PGUIColorID::Background));
+        EXPECT_EQ(background.GetColor(), style.GetColor(PGUIColorID::Background));
     });
 }
 

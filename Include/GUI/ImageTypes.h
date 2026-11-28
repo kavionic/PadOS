@@ -15,6 +15,9 @@
 #include <Math/Rect.h>
 #include <Utils/EnumBitmask.h>
 
+using PImageID = uint32_t;
+inline constexpr PImageID INVALID_IMAGE_ID = 0;
+
 // Unset bits stretch. Edge bits repeat along the edge's length; the center
 // repeats independently on each selected axis. Partial repeats are clipped.
 enum class PImageTilingFlag : uint8_t

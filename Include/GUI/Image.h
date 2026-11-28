@@ -7,34 +7,32 @@
 
 #pragma once
 
-#include <GUI/Bitmap.h>
-#include <GUI/ImageTypes.h>
-#include <Ptr/Ptr.h>
-#include <Signals/Signal.h>
+#include <GUI/ImageData.h>
 
-// Describes an image without allocating another raster. Source pixels must
-// remain unchanged while used by brushes. Hold the application's mutex when
-// changing an image referenced by brushes, as for brush and view operations.
-class PImage : public PtrTarget
+// Image values share their definition until modified. Brushes retain snapshots.
+// Source pixels must remain unchanged while referenced by images. Hold the
+// owning application's mutex when changing, publishing or releasing images.
+class PImage
 {
 public:
-    // The bitmap and source rectangle constructors default to a view-relative
-    // layout of (1, 1), filling the view that selects the image brush.
+    PImage() noexcept = default;
+    // Bitmap and source rectangle constructors fill the selecting view.
     explicit PImage(Ptr<const PBitmap> bitmap);
     PImage(Ptr<const PBitmap> bitmap, const PIRect& sourceRect);
     PImage(Ptr<const PBitmap> bitmap, const PImageDescription& description);
-    PImage(const PImage& source);
-    PImage& operator=(const PImage&) = delete;
 
-    PApplication* GetApplication() const noexcept { return m_Bitmap->GetApplication(); }
-    Ptr<const PBitmap> GetBitmap() const noexcept { return m_Bitmap; }
-    const PImageDescription& GetDescription() const noexcept { return m_Description; }
+    bool IsValid() const noexcept { return m_Data != nullptr; }
+    bool operator==(const PImage&) const noexcept = default;
+    PApplication* GetApplication() const noexcept { return IsValid() ? m_Data->GetBitmap()->GetApplication() : nullptr; }
+    Ptr<const PBitmap> GetBitmap() const noexcept { return IsValid() ? m_Data->GetBitmap() : nullptr; }
+    const PImageDescription& GetDescription() const noexcept;
+    PImageID GetImageID() const;
     // Absolute sizes are scaled with the brush. View-relative sizes specify
     // the final tile size; brush scale still controls borders and repeated texels.
-    PPoint GetLayoutSize() const noexcept { return m_Description.LayoutSize; }
-    PImageLayoutMode GetLayoutMode() const noexcept { return m_Description.LayoutMode; }
-    PRect GetSliceRect() const noexcept { return m_Description.SliceRect; }
-    PImageTiling GetTiling() const noexcept { return m_Description.Tiling; }
+    PPoint GetLayoutSize() const noexcept { return GetDescription().LayoutSize; }
+    PImageLayoutMode GetLayoutMode() const noexcept { return GetDescription().LayoutMode; }
+    PRect GetSliceRect() const noexcept { return GetDescription().SliceRect; }
+    PImageTiling GetTiling() const noexcept { return GetDescription().Tiling; }
 
     // The one-argument setter preserves the current mode. In ViewRelative
     // mode, (1, 1) fills the selecting view and (0.5, 0.5) repeats twice per axis.
@@ -43,15 +41,11 @@ public:
     void SetSliceRect(const PRect& rectangle);
     void SetTiling(PImageTiling tiling);
 
-    // Describe a bitmap without requiring an image object for bitmap brushes.
     static PImageDescription DescribeBitmap(const PBitmap& bitmap, const PIRect& sourceRect);
-
-    Signal<void> SignalChanged;
 
 private:
     static void ClassifyOpacity(const PBitmap& bitmap, PImageDescription& description);
-    void SetDescription(PImageDescription description);
+    void SetDescription(const PImageDescription& description);
 
-    Ptr<const PBitmap> m_Bitmap;
-    PImageDescription m_Description;
+    Ptr<PImageData> m_Data;
 };

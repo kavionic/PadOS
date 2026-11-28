@@ -478,7 +478,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
         PERROR_THROW_CODE(PErrorCode::NODEV);
     }
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
-    const Ptr<PServerBrush> rootBackground = ptr_new<PServerBrush>(*s_DisplayDriver, PBrushDescription(), nullptr);
+    const PServerBrush rootBackground{PBrushData()};
     m_TopView = ptr_new<PServerView>(
         ptr_raw_pointer_cast(s_ScreenBitmap),
         "::topview::",
